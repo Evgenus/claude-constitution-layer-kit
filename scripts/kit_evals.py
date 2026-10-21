@@ -49,7 +49,7 @@ EVALS = "evals"
 EVAL_IMAGE = (
     "scripts/eval-container/Dockerfile"  # the image every case runs in; a change to it stales every receipt
 )
-LEFT_OUT_FILES = ("MODULE.md", "README.md", "INSTALL.md")  # at the module's root
+LEFT_OUT_FILES = ("MODULE.md", "README.md", "plugin/INSTALL.md")  # at the module's root
 LEFT_OUT_FOLDERS = ("tests", "evals/results")
 MODEL = re.compile(r"[a-z0-9][a-z0-9.-]*")
 HASH = re.compile(r"sha256:[0-9a-f]{64}")

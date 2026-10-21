@@ -55,4 +55,4 @@ Or install it from the marketplace the kit's install guide names: `claude plugin
 sh <plugin root>/scripts/check-decision-record.sh --scan
 ```
 
-The full install procedure and every dial are in [INSTALL.md](INSTALL.md). The complete description of the module, with its rules, its messages and its limits, is [MODULE.md](MODULE.md).
+The full install procedure and every dial are in [INSTALL.md](plugin/INSTALL.md). The complete description of the module, with its rules, its messages and its limits, is [MODULE.md](MODULE.md).

@@ -1,5 +1,7 @@
 schema_version: "1.1"
 name: new-document
+plugins:
+  - ../../plugin
 description: a new note loads the new-document skill and is created through the plugin's command
 context:
   scaffold_script: scaffold.sh

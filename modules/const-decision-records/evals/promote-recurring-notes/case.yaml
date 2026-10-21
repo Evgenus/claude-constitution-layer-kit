@@ -1,5 +1,7 @@
 schema_version: "1.1"
 name: promote-recurring-notes
+plugins:
+  - ../../plugin
 description: a question about recurring commit notes loads the promotion skill before the history is read
 context:
   scaffold_script: scaffold.sh

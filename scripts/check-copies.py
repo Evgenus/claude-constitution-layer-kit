@@ -34,11 +34,11 @@ copy is read as one: the arguments of a call, `f(3, N)`. A file git sees as text
 BROKEN with the fix, never a crash and never a skip, and so is a file git lists that the working tree lacks.
 
 Each entry holds its clause in three places, which the Identity names a fourth time. An entry is a
-file `modules/<module>/scripts/<stem>.py` directly under the `scripts/` of a module folder, as
+file `modules/<module>/plugin/scripts/<stem>.py` directly under the `scripts/` of a module folder, as
 `kit_module_doc.module_folders` lists them, that has a line opening `FLOOR = (3, `; a `.py` with that
 line elsewhere, in `scripts/` of the kit or in a folder that is no module, is none. Its Identity is the
 `Identity(...)` call, bare or through a module, found by `ast` in a `.py` file under
-`modules/<module>/scripts/*_gate/` (at any depth), whose `gate=` keyword is the string `<stem>`, a call
+`modules/<module>/plugin/scripts/*_gate/` (at any depth), whose `gate=` keyword is the string `<stem>`, a call
 that gives its gate any other way being none: exactly one, else BROKEN with the fix. Its clause is the
 `until_installed=` keyword, a string literal, or, where the call has none, the default of the
 `until_installed` field of the `Identity` class in `shared/constitution_layer_kit/identity.py`, also read by
@@ -314,7 +314,7 @@ class Entry:
 
     @property
     def shell(self) -> str:
-        return f"modules/{self.module}/scripts/{self.stem}.sh"
+        return f"modules/{self.module}/plugin/scripts/{self.stem}.sh"
 
 
 @dataclass(frozen=True)
@@ -428,8 +428,8 @@ def identities_of(tree: ast.Module, stem: str) -> list[ast.Call]:
 
 def identity_clause(root: Path, tracked: list[str], entry: Entry, default: Clause) -> Clause:
     """The clause of the one Identity whose `gate=` is the entry's stem, in a `.py` under
-    `modules/<module>/scripts/*_gate/`, at any depth."""
-    folder = f"modules/{entry.module}/scripts/"
+    `modules/<module>/plugin/scripts/*_gate/`, at any depth."""
+    folder = f"modules/{entry.module}/plugin/scripts/"
     calls: list[tuple[str, ast.Call]] = []
     for path in tracked:
         parts = path.split("/")
@@ -657,7 +657,7 @@ class Spec:
 
     def file(self, text: str) -> str:
         """The file that holds one of its texts: `sh`, `too_old` or `no_shared`."""
-        return f"modules/{self.module}/scripts/{self.stem}.{'sh' if text == 'sh' else 'py'}"
+        return f"modules/{self.module}/plugin/scripts/{self.stem}.{'sh' if text == 'sh' else 'py'}"
 
 
 SPECS = (
@@ -722,7 +722,7 @@ def put_identity(root: Path, spec: Spec, clause: str | None, name: str = "start.
     until = "" if clause is None else f"    until_installed={clause!r},\n"
     put(
         root,
-        f"modules/{spec.module}/scripts/{spec.package}/{name}",
+        f"modules/{spec.module}/plugin/scripts/{spec.package}/{name}",
         "from constitution_layer_kit.identity import Identity\n\nGATE = Identity(\n"
         f"    namespace={spec.module!r},\n    gate={(gate or spec.stem)!r},\n"
         f"    plugin_root=None,\n{until})\n",
@@ -777,7 +777,7 @@ def fresh(root: Path, minor: int = BASE, floor: int | None = None) -> None:
             f"modules/{spec.module}/MODULE.md",
             f"A module: needs git, Python 3.{minor}. The floor (3.{minor}).\n",
         )
-        put(root, f"modules/{spec.module}/INSTALL.md", f"Install it. Python 3.{minor} or newer.\n")
+        put(root, f"modules/{spec.module}/plugin/INSTALL.md", f"Install it. Python 3.{minor} or newer.\n")
         put_entry(root, spec, minor)
         put_identity(root, spec, spec.identity)
     put(  # the forms that name one minor below the floor, where a runner fakes the interpreter
@@ -909,7 +909,7 @@ def self_test_reds(cases: Cases) -> None:
         fresh(root)
         write(
             root,
-            "modules/const-a/scripts/check-a.py",
+            "modules/const-a/plugin/scripts/check-a.py",
             entry_python("const-a", OLD, DEFAULT_CLAUSE, DEFAULT_CLAUSE, GATE_CLOSING),
         )
         code, lines = run_report(root)
@@ -917,7 +917,7 @@ def self_test_reds(cases: Cases) -> None:
             code == EXIT_RED
             and lines
             == [
-                f"RED: modules/const-a/scripts/check-a.py:5: '(3, {OLD})' names 3.{OLD},"
+                f"RED: modules/const-a/plugin/scripts/check-a.py:5: '(3, {OLD})' names 3.{OLD},"
                 f" the floor is 3.{BASE} (shared/constitution_layer_kit/preflight.py)",
                 why,
                 fix,
@@ -928,13 +928,14 @@ def self_test_reds(cases: Cases) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         fresh(root)
-        write(root, "modules/const-c/INSTALL.md", f"Install it. Python 3.{OVER} or newer.\n")
+        write(root, "modules/const-c/plugin/INSTALL.md", f"Install it. Python 3.{OVER} or newer.\n")
         code, lines = run_report(root)
         cases.check(
             code == EXIT_RED
             and lines
             == [
-                f"RED: modules/const-c/INSTALL.md:1: 'Python 3.{OVER}' names 3.{OVER}, the floor is 3.{BASE}"
+                f"RED: modules/const-c/plugin/INSTALL.md:1: 'Python 3.{OVER}' names 3.{OVER}, the floor is"
+                f" 3.{BASE}"
                 " (shared/constitution_layer_kit/preflight.py)",
                 why,
                 fix,
@@ -1356,8 +1357,8 @@ def self_test_clause_reports(cases: Cases) -> None:
     default_where = (
         f"the default of until_installed, shared/constitution_layer_kit/identity.py:{IDENTITY_LINE}"
     )
-    printer_where = f"modules/const-c/scripts/c_gate/start.py:{UNTIL_LINE}"
-    generator_where = f"modules/const-d/scripts/d_gate/start.py:{UNTIL_LINE}"
+    printer_where = f"modules/const-c/plugin/scripts/c_gate/start.py:{UNTIL_LINE}"
+    generator_where = f"modules/const-d/plugin/scripts/d_gate/start.py:{UNTIL_LINE}"
     for name, spec, text, clause, expected in (
         (
             "a gate on the default clause, C1 reworded",
@@ -1365,7 +1366,8 @@ def self_test_clause_reports(cases: Cases) -> None:
             "sh",
             CHANGED,
             [
-                f"RED: modules/const-a/scripts/check-a.sh:4: C1, the shell entry's line of check-a ends in"
+                "RED: modules/const-a/plugin/scripts/check-a.sh:4: C1, the shell entry's line of check-a"
+                " ends in"
                 f" '{CHANGED}', and its Identity names '{DEFAULT_CLAUSE}' ({default_where})",
                 why,
                 f"  fix: close the line with ' — {DEFAULT_CLAUSE}', or change the Identity's until_installed"
@@ -1379,7 +1381,8 @@ def self_test_clause_reports(cases: Cases) -> None:
             "too_old",
             None,
             [
-                "RED: modules/const-c/scripts/session-start.py:7: C14, TOO_OLD of session-start ends in no"
+                "RED: modules/const-c/plugin/scripts/session-start.py:7: C14, TOO_OLD of session-start ends"
+                " in no"
                 f" clause, and its Identity names '{PRINTER_CLAUSE}' ({printer_where})",
                 why,
                 f"  fix: close the line with ' — {PRINTER_CLAUSE}', or change the Identity's until_installed"
@@ -1393,7 +1396,8 @@ def self_test_clause_reports(cases: Cases) -> None:
             "no_shared",
             CHANGED,
             [
-                "RED: modules/const-d/scripts/make-thing.py:13: C15, NO_SHARED_CODE of make-thing ends in"
+                "RED: modules/const-d/plugin/scripts/make-thing.py:13: C15, NO_SHARED_CODE of make-thing ends"
+                " in"
                 f" the clause '{CHANGED}', and a generator's entry lines carry none: its Identity's clause,"
                 f" '{GENERATOR_CLAUSE}' ({generator_where}), closes C2 alone",
                 f"  why: the second line of its TOO_OLD, '{GENERATOR_CLOSING}', is neither C11 nor S1, so the"
@@ -1420,7 +1424,7 @@ def self_test_identities(cases: Cases) -> None:
             fresh(root)
             put_identity(root, spec, CHANGED)
             result = check_kit(root)
-        where = f"modules/{spec.module}/scripts/{spec.package}/start.py:{UNTIL_LINE}"
+        where = f"modules/{spec.module}/plugin/scripts/{spec.package}/start.py:{UNTIL_LINE}"
         cases.check(
             [(f.path, f.line) for f in result.findings]
             == [(spec.file("too_old"), 7), (spec.file("no_shared"), 13), (spec.file("sh"), 4)]
@@ -1461,32 +1465,36 @@ def self_test_identities(cases: Cases) -> None:
         (
             "an Identity of the same gate name outside a package ending in _gate",
             lambda r: put(
-                r, "modules/const-a/scripts/helpers/x.py", "Identity(gate='check-a', until_installed='x')\n"
+                r,
+                "modules/const-a/plugin/scripts/helpers/x.py",
+                "Identity(gate='check-a', until_installed='x')\n",
             ),
         ),
         (
             "an Identity of the same gate name in a package named _gates",
             lambda r: put(
-                r, "modules/const-a/scripts/a_gates/x.py", "Identity(gate='check-a', until_installed='x')\n"
+                r,
+                "modules/const-a/plugin/scripts/a_gates/x.py",
+                "Identity(gate='check-a', until_installed='x')\n",
             ),
         ),
         (
             "an Identity whose gate is no literal",
             lambda r: put(
-                r, "modules/const-a/scripts/a_gate/x.py", "Identity(gate=NAME, until_installed='x')\n"
+                r, "modules/const-a/plugin/scripts/a_gate/x.py", "Identity(gate=NAME, until_installed='x')\n"
             ),
         ),
         (
             "an Identity of the same gate name with its arguments in a mapping",
-            lambda r: put(r, "modules/const-a/scripts/a_gate/x.py", "Identity(**ARGS)\n"),
+            lambda r: put(r, "modules/const-a/plugin/scripts/a_gate/x.py", "Identity(**ARGS)\n"),
         ),
         (
             "an Identity of the same gate name in a file of the package that is no .py",
-            lambda r: put(r, "modules/const-a/scripts/a_gate/notes.md", "Identity(gate='check-a')\n"),
+            lambda r: put(r, "modules/const-a/plugin/scripts/a_gate/notes.md", "Identity(gate='check-a')\n"),
         ),
         (
             "an Identity of the same gate name in a symbolic link to the Identity file",
-            lambda r: link(r, "modules/const-a/scripts/a_gate/second.py", "start.py"),
+            lambda r: link(r, "modules/const-a/plugin/scripts/a_gate/second.py", "start.py"),
         ),
         (
             "a C1 echo behind a commented one and another echo: the first of the live echoes is read",
@@ -1517,10 +1525,10 @@ def self_test_identities(cases: Cases) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             fresh(root)
-            remove(root, "modules/const-a/scripts/a_gate/start.py")
+            remove(root, "modules/const-a/plugin/scripts/a_gate/start.py")
             put(
                 root,
-                f"modules/const-a/scripts/{place}",
+                f"modules/const-a/plugin/scripts/{place}",
                 f"GATE = {call}(namespace='const-a', gate='check-a')\n",
             )
             stage(root)
@@ -1566,7 +1574,7 @@ def self_test_which_clause(cases: Cases) -> None:
             other,
             lambda r: put(
                 r,
-                f"modules/{other.module}/scripts/{other.package}/start.py",
+                f"modules/{other.module}/plugin/scripts/{other.package}/start.py",
                 f"GATE = Identity(gate={other.stem!r}, until_fixed='until it is fixed',"
                 f" until_installed={OWN_CLAUSE!r})\n",
             ),
@@ -1619,7 +1627,7 @@ def remove_identity_of_named(root: Path) -> None:
 def self_test_clause_broken(cases: Cases) -> None:
     """Every tree the clauses cannot be read from, as the literal BROKEN line it teaches."""
     entry, shell = SPECS[0].file("too_old"), SPECS[0].file("sh")
-    folder = "modules/const-a/scripts/"
+    folder = "modules/const-a/plugin/scripts/"
     start = f"{folder}a_gate/start.py"
     closing = "BROKEN: the check could not run\\n"
     py_head = f"FLOOR = (3, {BASE})\n"
@@ -1763,10 +1771,10 @@ def self_test_clause_broken(cases: Cases) -> None:
             "an until_installed that is no literal",
             lambda r: put(
                 r,
-                "modules/const-b/scripts/b_gate/start.py",
+                "modules/const-b/plugin/scripts/b_gate/start.py",
                 "GATE = Identity(gate='check-b', until_installed=CLAUSE)\n",
             ),
-            "until_installed of the Identity at modules/const-b/scripts/b_gate/start.py:1 is no string"
+            "until_installed of the Identity at modules/const-b/plugin/scripts/b_gate/start.py:1 is no string"
             " literal"
             " — fix: write it as one, which this check reads by ast",
         ),
@@ -1810,7 +1818,7 @@ def self_test_clause_broken(cases: Cases) -> None:
         ),
         (
             "a module folder with no MODULE.md",
-            lambda r: put(r, "modules/const-x/INSTALL.md", "Install.\n"),
+            lambda r: put(r, "modules/const-x/plugin/INSTALL.md", "Install.\n"),
             "modules/const-x has no MODULE.md — fix: restore the module document",
         ),
     ):
@@ -1843,20 +1851,28 @@ def self_test_entry_scope(cases: Cases) -> None:
     for name, path, text in (
         ("a .py with the floor line in scripts/ of the kit", "scripts/check-z.py", shape),
         ("a .py with the floor line in a folder that is no module", "modules/_scratch/scripts/x.py", shape),
-        ("a .py with the floor line below scripts/ of a module", "modules/const-a/scripts/sub/x.py", shape),
+        (
+            "a .py with the floor line below scripts/ of a module",
+            "modules/const-a/plugin/scripts/sub/x.py",
+            shape,
+        ),
         ("a .py of a module outside its scripts/", "modules/const-a/tests/x.py", shape),
         (
             "a .py with an indented floor line",
-            "modules/const-a/scripts/x.py",
+            "modules/const-a/plugin/scripts/x.py",
             f"if True:\n    FLOOR = (3, {BASE})\n",
         ),
         (
             "a .py with a tool's FLOOR of three numbers",
-            "modules/const-a/scripts/x.py",
+            "modules/const-a/plugin/scripts/x.py",
             "FLOOR = (0, 24, 2)\n",
         ),
-        ("a .py with a prefixed floor name", "modules/const-a/scripts/x.py", "VALE_FLOOR = (3, 23, 0)\n"),
-        ("a .py with a floor of another major", "modules/const-a/scripts/x.py", "FLOOR = (4, 1)\n"),
+        (
+            "a .py with a prefixed floor name",
+            "modules/const-a/plugin/scripts/x.py",
+            "VALE_FLOOR = (3, 23, 0)\n",
+        ),
+        ("a .py with a floor of another major", "modules/const-a/plugin/scripts/x.py", "FLOOR = (4, 1)\n"),
     ):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()

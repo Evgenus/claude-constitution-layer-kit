@@ -209,31 +209,37 @@ def self_test() -> int:
             "Path(__file__).parent is a finding",
             "from pathlib import Path\nROOT = Path(__file__).parent\n",
             "",
-            ["modules/const-a/scripts/a_gate/start.py:2"],
+            ["modules/const-a/plugin/scripts/a_gate/start.py:2"],
         ),
         (
             "os.path.dirname(__file__) is a finding",
             "import os\nROOT = os.path.dirname(__file__)\n",
             "",
-            ["modules/const-a/scripts/a_gate/start.py:2"],
+            ["modules/const-a/plugin/scripts/a_gate/start.py:2"],
         ),
         (
             "Path(__file__).absolute() is a finding",
             "from pathlib import Path\nROOT = Path(__file__).absolute()\n",
             "",
-            ["modules/const-a/scripts/a_gate/start.py:2"],
+            ["modules/const-a/plugin/scripts/a_gate/start.py:2"],
         ),
         (
             "an unresolved Path(__file__) and a resolve never called are findings",
             "from pathlib import Path\nA = Path(__file__)\nB = Path(__file__).resolve\n",
             "",
-            ["modules/const-a/scripts/a_gate/start.py:2", "modules/const-a/scripts/a_gate/start.py:3"],
+            [
+                "modules/const-a/plugin/scripts/a_gate/start.py:2",
+                "modules/const-a/plugin/scripts/a_gate/start.py:3",
+            ],
         ),
         (
             "the bare name bound or passed on is a finding",
             "NAME = __file__\nprint(__file__)\n",
             "",
-            ["modules/const-a/scripts/a_gate/start.py:1", "modules/const-a/scripts/a_gate/start.py:2"],
+            [
+                "modules/const-a/plugin/scripts/a_gate/start.py:1",
+                "modules/const-a/plugin/scripts/a_gate/start.py:2",
+            ],
         ),
         (
             "an unresolved read in the shared package is a finding",
@@ -253,7 +259,8 @@ def self_test() -> int:
         if not ok:
             print(f"        got {got}")
     report_lines = [  # typed by hand: a message function cannot check itself
-        "RED: modules/const-a/scripts/a_gate/start.py:2: `__file__` read without Path(__file__).resolve()",
+        "RED: modules/const-a/plugin/scripts/a_gate/start.py:2: `__file__` read without"
+        " Path(__file__).resolve()",
         "  why: the fixture runner imports this package through a link in tests/, where `__file__` is the "
         "link's path and not the file's own",
         "  fix: write Path(__file__).resolve() and derive every path from it",
@@ -270,7 +277,10 @@ def self_test() -> int:
     if not ok:
         print(printed.getvalue())
     broken_cases = [
-        ("a file that does not parse", "modules/const-a/scripts/a_gate/start.py cannot be read or parsed"),
+        (
+            "a file that does not parse",
+            "modules/const-a/plugin/scripts/a_gate/start.py cannot be read or parsed",
+        ),
         ("a module folder without its document", "modules/const-b has no MODULE.md"),
     ]
     for name, said in broken_cases:

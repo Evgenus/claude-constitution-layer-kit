@@ -12,7 +12,8 @@ The run is `python3 -m coverage run -m pytest …`, never pytest-cov, with branc
 folder holding a `python3` that calls the one running the check goes first on the runner's PATH. A child
 started with an environment of its own, without coverage's variable, is not measured, and its lines count
 as missed. coverage.py measures Python alone: a module's `.sh` files are not in these numbers. The
-measured code is the module's own Python under modules/<module>/scripts and the shared constitution_layer_kit
+measured code is the module's own Python under modules/<module>/plugin/scripts and the shared
+constitution_layer_kit
 it links, read at shared/constitution_layer_kit; when the run left coverage data, a file there that no run
 imports counts with all its lines missed. Nothing else is measured: not the runner, not the module's tests/ or
 hooks/, not the shared test files.
@@ -77,7 +78,7 @@ def prepare(root: Path, module: str, work: Path) -> tuple[list[str], dict[str, s
             f" — fix: {fix_install()}, or unset {ENV}"
         )
     rc = work / "coveragerc"
-    sources = [root / "modules" / module / "scripts", root / "shared" / "constitution_layer_kit"]
+    sources = [root / "modules" / module / "plugin" / "scripts", root / "shared" / "constitution_layer_kit"]
     rc.write_text(
         "[run]\nbranch = true\nparallel = true\npatch = subprocess\n"
         f"data_file = {work / 'data'}\n"

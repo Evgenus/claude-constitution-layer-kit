@@ -1,5 +1,7 @@
 schema_version: "1.1"
 name: decision-shape
+plugins:
+  - ../../plugin
 description: a choice put to the user takes the lettered shape the start rule prints, without the skill
 execution:
   prompt: >-

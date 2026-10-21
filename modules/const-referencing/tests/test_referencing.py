@@ -34,7 +34,7 @@ from harness import Case, Edit, Harness, Result, Write, event_json, fake_program
 from referencing_gate import lychee, messages, start
 from test_shared_items import NO_ENVELOPE, PatternDial, Subject, git_patch, git_timeouts, no_clock
 
-SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
+SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
 # — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)

@@ -61,4 +61,4 @@ One departure from R4, a one-time act: the commit that made the anchors, before 
 2. R2 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r2), rule 2; [CLAUDE.md](../../CLAUDE.md#references), the reference rule, where a frozen comparison keeps its form.
 3. R3 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r6), rule 6; [`scripts/check-carry-lists.py`](../../scripts/check-carry-lists.py), `check_anchors`; [CLAUDE.md](../../CLAUDE.md), step 6 of "Developing a module".
 4. R4 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14), rule 14, kind (f).
-5. R5 — [requirement A5.5](../requirements.md#a5-5); [the skill `referencing`](../../modules/const-referencing/skills/referencing/SKILL.md), section 2.
+5. R5 — [requirement A5.5](../requirements.md#a5-5); [the skill `referencing`](../../modules/const-referencing/plugin/skills/referencing/SKILL.md), section 2.

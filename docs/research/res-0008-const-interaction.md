@@ -59,7 +59,7 @@ Mechanism class: a deterministic scan, gate-lite; maturity: trivial on the share
 
 ## 3. Escalation, stakes-triaged ([requirement A8.1](../requirements.md#a8-1), [requirement A8.2](../requirements.md#a8-2))
 
-Read from [ask-or-decide](../../modules/const-questions/skills/ask-or-decide/SKILL.md), [record-decision](../../modules/const-decision-records/skills/record-decision/SKILL.md) and [promote-recurring-notes](../../modules/const-decision-records/skills/promote-recurring-notes/SKILL.md):
+Read from [ask-or-decide](../../modules/const-questions/plugin/skills/ask-or-decide/SKILL.md), [record-decision](../../modules/const-decision-records/plugin/skills/record-decision/SKILL.md) and [promote-recurring-notes](../../modules/const-decision-records/plugin/skills/promote-recurring-notes/SKILL.md):
 
 - c1. **What `const-questions` carries.** The price of a question — ask at recorded stakes or at a genuine blocker, below that "make the reasonable call, do the work, and put one line in the commit message" — the pairs, the shape, the named blocker, and what an answer leaves behind. Its subject is a choice the session already sees.
 - c2. **What `const-decision-records` carries.** Pricing a decision by stakes, the decider, the record's shape, reversal, promotion of recurring notes. Its subject is a ruling being made.

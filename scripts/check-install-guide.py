@@ -1444,7 +1444,7 @@ def save(path, data):
 def state():
     return {"marketplaces": [], "plugins": []} | load(store)
 def cache_of(module):
-    manifest = clone / "modules" / module / ".claude-plugin" / "plugin.json"
+    manifest = clone / "modules" / module / "plugin" / ".claude-plugin" / "plugin.json"
     return copies / module / json.loads(manifest.read_text())["version"]
 def reply(variable):
     if variable in os.environ:
@@ -1732,9 +1732,9 @@ def toy_kit(root: Path, market: dict[str, object] | None = None) -> Path:
     (kit / "shared" / "gate").mkdir(parents=True)
     (kit / "shared" / "gate" / "code.py").write_text("x = 1\n", encoding="utf-8")
     for module in ("const-alpha", "const-beta"):
-        (kit / "modules" / module / "scripts").mkdir(parents=True)
-        (kit / "modules" / module / "scripts" / "gate").symlink_to("../../../shared/gate")
-        manifest = kit / "modules" / module / ".claude-plugin"
+        (kit / "modules" / module / "plugin" / "scripts").mkdir(parents=True)
+        (kit / "modules" / module / "plugin" / "scripts" / "gate").symlink_to("../../../shared/gate")
+        manifest = kit / "modules" / module / "plugin" / ".claude-plugin"
         manifest.mkdir(parents=True)
         (kit / "modules" / module / "MODULE.md").write_text("A module.\n", encoding="utf-8")
         (manifest / "plugin.json").write_text(
@@ -2381,8 +2381,8 @@ class SelfTestRun:
             root = listings.next_folder("tree")
             (root / "modules").mkdir(parents=True)
             for folder in folders:
-                (root / "modules" / folder / ".claude-plugin").mkdir(parents=True)
-                manifest = root / "modules" / folder / ".claude-plugin" / "plugin.json"
+                (root / "modules" / folder / "plugin" / ".claude-plugin").mkdir(parents=True)
+                manifest = root / "modules" / folder / "plugin" / ".claude-plugin" / "plugin.json"
                 manifest.write_text(json.dumps({"version": "1.0"}), encoding="utf-8")
                 if documents:
                     (root / "modules" / folder / "MODULE.md").write_text("A module.\n", encoding="utf-8")
@@ -2429,7 +2429,7 @@ class SelfTestRun:
             said,
         )
         versionless = tree("const-a")
-        (versionless / "modules" / "const-a" / ".claude-plugin" / "plugin.json").write_text(
+        (versionless / "modules" / "const-a" / "plugin" / ".claude-plugin" / "plugin.json").write_text(
             "{}", encoding="utf-8"
         )
         said = broken_said(versionless)
@@ -2445,7 +2445,7 @@ class SelfTestRun:
             ("null", "null", "NoneType"),
         ):
             odd = tree("const-a")
-            odd_manifest = odd / "modules" / "const-a" / ".claude-plugin" / "plugin.json"
+            odd_manifest = odd / "modules" / "const-a" / "plugin" / ".claude-plugin" / "plugin.json"
             odd_manifest.write_text(manifest_text, encoding="utf-8")
             said = broken_said(odd)
             self.case(
@@ -2461,7 +2461,7 @@ class SelfTestRun:
             ("true", '{"version": true}', "bool"),
         ):
             odd = tree("const-a")
-            odd_manifest = odd / "modules" / "const-a" / ".claude-plugin" / "plugin.json"
+            odd_manifest = odd / "modules" / "const-a" / "plugin" / ".claude-plugin" / "plugin.json"
             odd_manifest.write_text(manifest_text, encoding="utf-8")
             said = broken_said(odd)
             self.case(
@@ -2476,7 +2476,7 @@ class SelfTestRun:
             ("a float", '{"version": 1.5}', "1.5"),
         ):
             fine = tree("const-a")
-            (fine / "modules" / "const-a" / ".claude-plugin" / "plugin.json").write_text(
+            (fine / "modules" / "const-a" / "plugin" / ".claude-plugin" / "plugin.json").write_text(
                 manifest_text, encoding="utf-8"
             )
             read_back = modules_of(fine)
@@ -4264,25 +4264,25 @@ class SelfTestRun:
             (
                 "a list",
                 "[]",
-                "/modules/const-alpha/.claude-plugin/plugin.json is no JSON object, it holds a list"
+                "/modules/const-alpha/plugin/.claude-plugin/plugin.json is no JSON object, it holds a list"
                 " — fix: restore it as a JSON object",
             ),
             (
                 "a string",
                 '"const-alpha"',
-                "/modules/const-alpha/.claude-plugin/plugin.json is no JSON object, it holds a str"
+                "/modules/const-alpha/plugin/.claude-plugin/plugin.json is no JSON object, it holds a str"
                 " — fix: restore it as a JSON object",
             ),
             (
                 "an object with no version",
                 "{}",
-                "/modules/const-alpha/.claude-plugin/plugin.json gives no version ('version')"
+                "/modules/const-alpha/plugin/.claude-plugin/plugin.json gives no version ('version')"
                 " — fix: restore the module's manifest",
             ),
         ):
             odd_kit = toy_kit(toy.root / f"manifest-{shape.replace(' ', '-')}")
             (odd_kit / GUIDE).write_text(toy_guide(), encoding="utf-8")
-            (odd_kit / "modules" / "const-alpha" / ".claude-plugin" / "plugin.json").write_text(
+            (odd_kit / "modules" / "const-alpha" / "plugin" / ".claude-plugin" / "plugin.json").write_text(
                 manifest_text, encoding="utf-8"
             )
             run(["git", "add", "-A"], odd_kit, toy.git)

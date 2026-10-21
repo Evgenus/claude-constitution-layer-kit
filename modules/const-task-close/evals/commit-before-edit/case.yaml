@@ -1,5 +1,7 @@
 schema_version: "1.1"
 name: commit-before-edit
+plugins:
+  - ../../plugin
 description: a change of several files on a dirty tree loads the commit skill before its first edit
 context:
   scaffold_script: scaffold.sh

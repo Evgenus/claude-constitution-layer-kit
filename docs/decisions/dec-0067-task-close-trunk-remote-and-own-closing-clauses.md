@@ -202,8 +202,8 @@ The commits of this branch apply every item. The commits before the one that add
 
 1. R1 — history only: how this change was recorded.
 2. R2 — history only: how this change was landed.
-3. R3 — [`const-task-close`](../../modules/const-task-close/MODULE.md#t7), the row `trunk_remote` of section 7; [its section 6](../../modules/const-task-close/MODULE.md#t6), the C5 row; [its install note](../../modules/const-task-close/INSTALL.md), the dials example; the kit's own `const-task-close` block of `constitution.yaml`.
-4. R4 — [`const-task-close`](../../modules/const-task-close/MODULE.md#t7), the row `trunk` of section 7; [its close skill](../../modules/const-task-close/skills/close-task/SKILL.md), its first step. The reversal in part of R5 of dec-0036-task-close-module-rulings is history.
+3. R3 — [`const-task-close`](../../modules/const-task-close/MODULE.md#t7), the row `trunk_remote` of section 7; [its section 6](../../modules/const-task-close/MODULE.md#t6), the C5 row; [its install note](../../modules/const-task-close/plugin/INSTALL.md), the dials example; the kit's own `const-task-close` block of `constitution.yaml`.
+4. R4 — [`const-task-close`](../../modules/const-task-close/MODULE.md#t7), the row `trunk` of section 7; [its close skill](../../modules/const-task-close/plugin/skills/close-task/SKILL.md), its first step. The reversal in part of R5 of dec-0036-task-close-module-rulings is history.
 5. R5 — [`const-task-close`](../../modules/const-task-close/MODULE.md#t6), the C12 row and the paragraph on error messages of section 6.
 6. R6 — [`const-task-close`](../../modules/const-task-close/MODULE.md#t6), the C12 row of section 6; [its section 9](../../modules/const-task-close/MODULE.md#t9), limit 13.
 7. R7 — [`const-task-close`](../../modules/const-task-close/MODULE.md#t6), the row `C1, C2, C14, C15` and the two entry-file rows of section 6; [its section 9](../../modules/const-task-close/MODULE.md#t9), limit 12; [its section 10](../../modules/const-task-close/MODULE.md#t10), the row of item 40.

@@ -37,7 +37,7 @@ from task_close_gate import dials, messages, start
 from task_close_gate.model import BODY, Declaration, Pair
 from test_shared_items import PatternDial, Subject, git_patch
 
-SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
+SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 
 identity.declare(start.GATE)  # the messages not typed by hand are built by the functions the gate uses
 H = Harness(SCRIPTS, "check-task-close.sh", "check-task-close.py", start.GATE.namespace)

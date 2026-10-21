@@ -1,5 +1,7 @@
 schema_version: "1.1"
 name: new-kind
+plugins:
+  - ../../plugin
 description: a document of a kind no policy covers loads the new-kind skill first
 context:
   scaffold_script: scaffold.sh

@@ -160,98 +160,98 @@ const-task-close:                     # task close as one act: a change that tou
         - "shared/GATE.md"
     - name: const-meta-types
       code:
-        - "modules/const-meta-types/scripts/**"
-        - "modules/const-meta-types/hooks/**"
-        - "modules/const-meta-types/skills/**"
+        - "modules/const-meta-types/plugin/scripts/**"
+        - "modules/const-meta-types/plugin/hooks/**"
+        - "modules/const-meta-types/plugin/skills/**"
         - "modules/const-meta-types/tests/**"
         - "modules/const-meta-types/evals/**"
       docs:
         - "modules/const-meta-types/MODULE.md"
     - name: const-decision-records
       code:
-        - "modules/const-decision-records/scripts/**"
-        - "modules/const-decision-records/hooks/**"
-        - "modules/const-decision-records/skills/**"
+        - "modules/const-decision-records/plugin/scripts/**"
+        - "modules/const-decision-records/plugin/hooks/**"
+        - "modules/const-decision-records/plugin/skills/**"
         - "modules/const-decision-records/tests/**"
         - "modules/const-decision-records/evals/**"
       docs:
         - "modules/const-decision-records/MODULE.md"
     - name: const-catalogs
       code:
-        - "modules/const-catalogs/scripts/**"
-        - "modules/const-catalogs/hooks/**"
-        - "modules/const-catalogs/skills/**"
+        - "modules/const-catalogs/plugin/scripts/**"
+        - "modules/const-catalogs/plugin/hooks/**"
+        - "modules/const-catalogs/plugin/skills/**"
         - "modules/const-catalogs/tests/**"
         - "modules/const-catalogs/evals/**"
       docs:
         - "modules/const-catalogs/MODULE.md"
     - name: const-referencing
       code:
-        - "modules/const-referencing/scripts/**"
-        - "modules/const-referencing/hooks/**"
-        - "modules/const-referencing/skills/**"
+        - "modules/const-referencing/plugin/scripts/**"
+        - "modules/const-referencing/plugin/hooks/**"
+        - "modules/const-referencing/plugin/skills/**"
         - "modules/const-referencing/tests/**"
         - "modules/const-referencing/evals/**"
       docs:
         - "modules/const-referencing/MODULE.md"
     - name: const-locations
       code:
-        - "modules/const-locations/scripts/**"
-        - "modules/const-locations/skills/**"
+        - "modules/const-locations/plugin/scripts/**"
+        - "modules/const-locations/plugin/skills/**"
         - "modules/const-locations/tests/**"
         - "modules/const-locations/evals/**"
       docs:
         - "modules/const-locations/MODULE.md"
     - name: const-task-close
       code:
-        - "modules/const-task-close/scripts/**"
-        - "modules/const-task-close/hooks/**"
-        - "modules/const-task-close/skills/**"
+        - "modules/const-task-close/plugin/scripts/**"
+        - "modules/const-task-close/plugin/hooks/**"
+        - "modules/const-task-close/plugin/skills/**"
         - "modules/const-task-close/tests/**"
         - "modules/const-task-close/evals/**"
       docs:
         - "modules/const-task-close/MODULE.md"
     - name: const-questions
       code:
-        - "modules/const-questions/scripts/**"
-        - "modules/const-questions/hooks/**"
-        - "modules/const-questions/skills/**"
+        - "modules/const-questions/plugin/scripts/**"
+        - "modules/const-questions/plugin/hooks/**"
+        - "modules/const-questions/plugin/skills/**"
         - "modules/const-questions/tests/**"
         - "modules/const-questions/evals/**"
       docs:
         - "modules/const-questions/MODULE.md"
     - name: const-interaction
       code:
-        - "modules/const-interaction/scripts/**"
-        - "modules/const-interaction/hooks/**"
-        - "modules/const-interaction/skills/**"
+        - "modules/const-interaction/plugin/scripts/**"
+        - "modules/const-interaction/plugin/hooks/**"
+        - "modules/const-interaction/plugin/skills/**"
         - "modules/const-interaction/tests/**"
         - "modules/const-interaction/evals/**"
       docs:
         - "modules/const-interaction/MODULE.md"
     - name: const-styling
       code:
-        - "modules/const-styling/scripts/**"
-        - "modules/const-styling/hooks/**"
-        - "modules/const-styling/skills/**"
+        - "modules/const-styling/plugin/scripts/**"
+        - "modules/const-styling/plugin/hooks/**"
+        - "modules/const-styling/plugin/skills/**"
         - "modules/const-styling/tests/**"
         - "modules/const-styling/evals/**"
       docs:
         - "modules/const-styling/MODULE.md"
     - name: const-language
       code:
-        - "modules/const-language/scripts/**"
-        - "modules/const-language/hooks/**"
-        - "modules/const-language/skills/**"
+        - "modules/const-language/plugin/scripts/**"
+        - "modules/const-language/plugin/hooks/**"
+        - "modules/const-language/plugin/skills/**"
         - "modules/const-language/tests/**"
         - "modules/const-language/evals/**"
       docs:
         - "modules/const-language/MODULE.md"
     - name: const-doc-budgets
       code:
-        - "modules/const-doc-budgets/scripts/**"
-        - "modules/const-doc-budgets/hooks/**"
-        - "modules/const-doc-budgets/skills/**"
+        - "modules/const-doc-budgets/plugin/scripts/**"
+        - "modules/const-doc-budgets/plugin/hooks/**"
+        - "modules/const-doc-budgets/plugin/skills/**"
         - "modules/const-doc-budgets/tests/**"
         - "modules/const-doc-budgets/evals/**"
       docs:
@@ -816,7 +816,7 @@ const-doc-budgets:                    # a character ceiling per group of documen
         to: 2026-09-29
     - name: module-skills   # every file of a module's skills, SKILL.md and the files beside it
       paths:
-        - "modules/*/skills/**/*.md"
+        - "modules/*/plugin/skills/**/*.md"
       max: 11000
       level: warning
       window:
@@ -824,7 +824,7 @@ const-doc-budgets:                    # a character ceiling per group of documen
         to: 2026-09-29
     - name: install-notes
       paths:
-        - "modules/*/INSTALL.md"
+        - "modules/*/plugin/INSTALL.md"
       max: 9000
       level: warning
       window:

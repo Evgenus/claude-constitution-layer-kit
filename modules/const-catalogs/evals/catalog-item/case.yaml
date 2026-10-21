@@ -1,5 +1,7 @@
 schema_version: "1.1"
 name: catalog-item
+plugins:
+  - ../../plugin
 description: a new numbered record loads the numbering skill before the record is written
 context:
   scaffold_script: scaffold.sh

@@ -395,8 +395,10 @@ def beside_dangling_script(damage: Callable[[Path], None]) -> Callable[[Path], N
 def hidden_folders(link: Path) -> None:
     """Folders of modules/ that start with . or _ and hold a hook, with no link: no module."""
     for name in (".wip", "_draft"):
-        (root_of(link) / "modules" / name / "hooks").mkdir(parents=True)
-        (root_of(link) / "modules" / name / "hooks" / "hooks.json").write_text("{}", encoding="utf-8")
+        (root_of(link) / "modules" / name / "plugin" / "hooks").mkdir(parents=True)
+        (root_of(link) / "modules" / name / "plugin" / "hooks" / "hooks.json").write_text(
+            "{}", encoding="utf-8"
+        )
 
 
 def not_shared_files(link: Path) -> None:
@@ -427,7 +429,7 @@ def plain_file(link: Path) -> None:
 
 def skills_only_without_document(link: Path) -> None:
     """A folder of skills alone, owing no link, with no MODULE.md."""
-    (root_of(link) / "modules" / "const-skills" / "skills").mkdir(parents=True)
+    (root_of(link) / "modules" / "const-skills" / "plugin" / "skills").mkdir(parents=True)
 
 
 def modules_gone(link: Path) -> None:
@@ -805,12 +807,12 @@ def judge_order(tally: Tally) -> None:
         fresh_kit(root)
         shutil.rmtree(root / "modules" / "const-sample")
         for module in ("const-a", "const-b"):
-            (root / "modules" / module / "hooks").mkdir(parents=True)
-            (root / "modules" / module / "hooks" / "hooks.json").write_text("{}", encoding="utf-8")
+            (root / "modules" / module / "plugin" / "hooks").mkdir(parents=True)
+            (root / "modules" / module / "plugin" / "hooks" / "hooks.json").write_text("{}", encoding="utf-8")
             (root / "modules" / module / "MODULE.md").write_text("A module.\n", encoding="utf-8")
             for package in ("a_gate", "b_gate"):
-                (root / "modules" / module / "scripts" / package).mkdir(parents=True)
-                (root / "modules" / module / "scripts" / package / "__init__.py").write_text(
+                (root / "modules" / module / "plugin" / "scripts" / package).mkdir(parents=True)
+                (root / "modules" / module / "plugin" / "scripts" / package / "__init__.py").write_text(
                     "", encoding="utf-8"
                 )
         out = io.StringIO()

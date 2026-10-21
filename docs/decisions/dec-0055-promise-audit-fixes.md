@@ -66,10 +66,10 @@ F11 needs no edit: module [`const-catalogs`](../requirements.md#const-catalogs) 
 
 1. R1 — pending: [step 10 of the rollout plan](../rollout-plan.md#s10), the two kit checks and F8 settled in the grep's design; how this work is split is history.
 2. R2 — the reference bullet of [CLAUDE.md](../../CLAUDE.md#references).
-3. R3 — [module `const-task-close`](../../modules/const-task-close/MODULE.md#t5), rule T-b; [its close skill](../../modules/const-task-close/skills/close-task/SKILL.md), step 5.
+3. R3 — [module `const-task-close`](../../modules/const-task-close/MODULE.md#t5), rule T-b; [its close skill](../../modules/const-task-close/plugin/skills/close-task/SKILL.md), step 5.
 4. R4 — [module `const-referencing`](../../modules/const-referencing/MODULE.md#t3), its reading of the row.
-5. R5 — [the rules text](../../modules/const-interaction/scripts/rules.txt), rule e; [module `const-interaction`](../../modules/const-interaction/MODULE.md#t6), the size it states.
-6. R6 — [the skill of module `const-styling`](../../modules/const-styling/skills/style-defaults/SKILL.md); [its install note](../../modules/const-styling/INSTALL.md).
+5. R5 — [the rules text](../../modules/const-interaction/plugin/scripts/rules.txt), rule e; [module `const-interaction`](../../modules/const-interaction/MODULE.md#t6), the size it states.
+6. R6 — [the skill of module `const-styling`](../../modules/const-styling/plugin/skills/style-defaults/SKILL.md); [its install note](../../modules/const-styling/plugin/INSTALL.md).
 7. R7 — the bullet "Work starts on a branch" of [CLAUDE.md](../../CLAUDE.md), whose gate list holds "the scans of the modules"; the gate-list agent of `.claude/agents/` runs it as item 9.
 8. R8 — pending: [step 10 of the rollout plan](../rollout-plan.md#s10), the CI wiring.
 9. R9 — [requirement A9.4](../requirements.md#a9-4), its text.

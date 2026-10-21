@@ -25,7 +25,7 @@ document whose enforcement section has no end, `t10` gone while a later anchor s
 `t10`, the second to put the sections in the template's order. For each
 declared scan:
   - the gate list, the entries `sh scripts/gate-list.sh --names gate` prints, has one whose
-    commands (`--show <entry>`) run `modules/<module>/scripts/<entry>.sh --scan` or `….py --scan`;
+    commands (`--show <entry>`) run `modules/<module>/plugin/scripts/<entry>.sh --scan` or `….py --scan`;
   - one such entry stands in the module's own job, the entries `--names <module>` prints for a job
     `--json` names, never in `kit` or another module's job, where a red would name no module or the
     wrong one;
@@ -48,7 +48,7 @@ Each of those folders is also held against the three files that name a module, o
 why and fix for each copy that disagrees, listed by folder and then by file, the entries and keys that
 name no module folder by name:
   - its name matches `const-[a-z0-9]+(-[a-z0-9]+)*` in full, kernel §7;
-  - `modules/<m>/.claude-plugin/plugin.json` is a JSON object, and its `name` is the string `<m>`;
+  - `modules/<m>/plugin/.claude-plugin/plugin.json` is a JSON object, and its `name` is the string `<m>`;
   - `.claude-plugin/marketplace.json` is a JSON object with a `name`, a non-empty string, the
     marketplace's name, read there and typed nowhere in this check, and a list `plugins`: for each
     folder exactly one entry, an object, whose `name` is `<m>`, whose `source` is the string
@@ -97,7 +97,8 @@ namespace is its plugin name), one RED finding for each that does not, by key; a
 a kernel key or a policy's namespace, a key that is no string, and a key below the top level, are not
 judged. A dials file that is missing, is no YAML or is no mapping is BROKEN. The `types` entry of the
 list, `--show types`, puts on `MYPYPATH` exactly the module folders `scripts/check-schema-mirror.py` puts
-on its import path, each as `../modules/<m>/scripts`: the folders are the strings of the one `for module
+on its import path, each as `../modules/<m>/plugin/scripts`: the folders are the strings of the one `for
+module
 in (...)` over a non-empty tuple of strings, read from the syntax tree and never run; the entry's are the
 items of every `MYPYPATH=` setting on a code line of its commands, comments aside, an empty element from
 a stray colon an item like another; the two are compared as sets, and a difference is one RED finding
@@ -525,9 +526,9 @@ class Finding:
         """What, why and fix of a declared scan that the gate list, the CI list or the module's job lacks."""
         if self.where is Where.GATE:
             run = (
-                f"python3 modules/{self.module}/scripts/{self.entry} --scan"
+                f"python3 modules/{self.module}/plugin/scripts/{self.entry} --scan"
                 if self.entry.endswith(".py")
-                else f"sh modules/{self.module}/scripts/{self.entry}.sh --scan"
+                else f"sh modules/{self.module}/plugin/scripts/{self.entry}.sh --scan"
             )
             what = f"its scan `{self.entry} --scan` is not in the {self.where}"
             return what, WHY, f"add an entry to the gate group of {GATE_LIST} that runs `{run}`"
@@ -566,7 +567,7 @@ class Finding:
             )
             return what, WHY_GUIDE, fix
         # Where.TYPES_PATH: `module` holds the list's path, `said` the entry's MYPYPATH
-        folders = ":".join(f"../modules/{name}/scripts" for name in self.names)
+        folders = ":".join(f"../modules/{name}/plugin/scripts" for name in self.names)
         held = f"`{self.said}`" if self.said else "nothing"
         what = f"its `{TYPES_ENTRY}` entry puts {held} on MYPYPATH, but {MIRROR} imports from `{folders}`"
         fix = (
@@ -624,7 +625,7 @@ class Finding:
     @property
     def manifest_file(self) -> str:
         """The path of the manifest of the module folder `module`."""
-        return f"modules/{self.module}/.claude-plugin/plugin.json"
+        return f"modules/{self.module}/plugin/.claude-plugin/plugin.json"
 
     def stray_folder(self) -> str:
         """A stray's folder name: the entry's name, the key's before `@`."""
@@ -943,7 +944,7 @@ def check_scan(
     module: str, entry: str, gates: dict[str, str], jobs: dict[str, str], ci: bool
 ) -> list[Finding]:
     stem = re.escape(entry.removesuffix(".py"))
-    runs = re.compile(rf"modules/{re.escape(module)}/scripts/{stem}\.(?:sh|py) --scan\b")
+    runs = re.compile(rf"modules/{re.escape(module)}/plugin/scripts/{stem}\.(?:sh|py) --scan\b")
     runners = [name for name, commands in gates.items() if runs.search(commands)]
     findings: list[Finding] = []
     if not runners:
@@ -1076,7 +1077,7 @@ def manifest_findings(root: Path, modules: list[str]) -> tuple[list[Finding], di
     for module in modules:
         if not NAME.fullmatch(module):
             findings.append(Finding(module, Where.NAME))
-        manifest = manifests[module] = read_json(root, f"modules/{module}/.claude-plugin/plugin.json")
+        manifest = manifests[module] = read_json(root, f"modules/{module}/plugin/.claude-plugin/plugin.json")
         if manifest.get("name") != module:
             said = shown(manifest["name"]) if "name" in manifest else ""
             findings.append(Finding(module, Where.MANIFEST, said=said))
@@ -1223,7 +1224,8 @@ def mirror_folders(root: Path) -> tuple[str, ...]:
 
 def types_path(root: Path) -> list[Finding]:
     """The `types` entry of the gate list puts on MYPYPATH exactly the module folders the schema mirror
-    imports from, each as `../modules/<m>/scripts`: the items of every MYPYPATH setting on a code line of the
+    imports from, each as `../modules/<m>/plugin/scripts`: the items of every MYPYPATH setting on a code line
+    of the
     entry's commands, comments aside, against the mirror's folders, as sets."""
     items = [
         part
@@ -1232,7 +1234,7 @@ def types_path(root: Path) -> list[Finding]:
         for part in value.strip("\"'").split(":")
     ]
     folders = mirror_folders(root)
-    if set(items) == {f"../modules/{name}/scripts" for name in folders}:
+    if set(items) == {f"../modules/{name}/plugin/scripts" for name in folders}:
         return []
     return [Finding(GATE_LIST, Where.TYPES_PATH, said=":".join(items), names=folders)]
 
@@ -1457,7 +1459,7 @@ TEST_OWNER = (
 )
 MIRROR_FOLDERS = ("const-p", "const-q")  # the self-test's schema mirror folders, no tree's module folders
 TYPES_COMMAND = (  # the self-test's `types` entry, agreeing with MIRROR_FOLDERS
-    "cd scripts && MYPYPATH=../modules/const-p/scripts:../modules/const-q/scripts"
+    "cd scripts && MYPYPATH=../modules/const-p/plugin/scripts:../modules/const-q/plugin/scripts"
     " python3 -m mypy --strict *.py"
 )
 
@@ -1520,7 +1522,7 @@ def registry_tree(folders: tuple[str, ...], tag: str) -> dict[str, Any]:
     each and the coverage map, a pair for each, and a schema mirror whose folders agree with the `types`
     entry. Extra keys the platform allows stand in each, which the check never reads."""
     files: dict[str, Any] = {
-        f"modules/{m}/.claude-plugin/plugin.json": {
+        f"modules/{m}/plugin/.claude-plugin/plugin.json": {
             "name": m,
             "version": "0.0.1",
             "description": f"The module {m}.",
@@ -1913,7 +1915,7 @@ def form_probes() -> bool:
 
 
 REGISTRY_TAG = "kit-test"  # the marketplace name of the self-test's registry files, never the kit's own
-MANIFEST_X = "modules/const-x/.claude-plugin/plugin.json"
+MANIFEST_X = "modules/const-x/plugin/.claude-plugin/plugin.json"
 
 
 def registry_case(
@@ -1969,7 +1971,7 @@ def with_mirror(*folders: str) -> Callable[[dict[str, Any]], object]:
 
 def mypypath(*folders: str) -> str:
     """The folders as the items of a MYPYPATH setting."""
-    return ":".join(f"../modules/{name}/scripts" for name in folders)
+    return ":".join(f"../modules/{name}/plugin/scripts" for name in folders)
 
 
 def types_with(setting: str) -> str:
@@ -2306,8 +2308,8 @@ def messy_case(scan: str, reverse: bool) -> Case:
     market, settings, tag = MARKETPLACE_FILE, SETTINGS_FILE, REGISTRY_TAG
     folders = ("const-x", "glossary", "const-A", "const-m", "const-n", "const-s")
     files = registry_tree(folders, tag)
-    files["modules/const-m/.claude-plugin/plugin.json"]["name"] = "const-y"
-    files["modules/const-n/.claude-plugin/plugin.json"].pop("name")
+    files["modules/const-m/plugin/.claude-plugin/plugin.json"]["name"] = "const-y"
+    files["modules/const-n/plugin/.claude-plugin/plugin.json"].pop("name")
     plugins: list[dict[str, Any]] = files[market]["plugins"]
     plugins[:] = [entry for entry in plugins if entry["name"] != "const-m"]
     for entry in plugins:
@@ -2316,9 +2318,9 @@ def messy_case(scan: str, reverse: bool) -> Case:
         if entry["name"] == "const-s":
             plugins.append(dict(entry))
             break
-    files["modules/const-m/.claude-plugin/plugin.json"]["description"] = 5  # no entry: not judged
-    files["modules/const-s/.claude-plugin/plugin.json"].pop("description")  # two entries: not judged
-    files["modules/const-x/.claude-plugin/plugin.json"].pop("description")  # judged: the manifest's
+    files["modules/const-m/plugin/.claude-plugin/plugin.json"]["description"] = 5  # no entry: not judged
+    files["modules/const-s/plugin/.claude-plugin/plugin.json"].pop("description")  # two entries: not judged
+    files["modules/const-x/plugin/.claude-plugin/plugin.json"].pop("description")  # judged: the manifest's
     for entry in plugins:
         if entry["name"] == "const-n":
             entry["description"] = "The module const-n!"  # the first difference, at character 19
@@ -2365,7 +2367,7 @@ def guide_case(scan: str, module_text: str, guide: str | None) -> Case:
     the install guide is `guide`."""
     p_text = module_text.replace("check-x", "check-p").replace("`check-p --scan`", "`check-p.py --scan`")
     return Case(
-        {"x": scan, "p": "python3 modules/const-p/scripts/check-p.py --scan"},
+        {"x": scan, "p": "python3 modules/const-p/plugin/scripts/check-p.py --scan"},
         jobs={"p": "const-p"},
         folders=("const-x", "const-quiet", "const-p"),
         documents={"const-p": p_text},
@@ -2518,10 +2520,10 @@ def coverage_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
     all_folders = tuple(f"const-x/{name}" for name in COVERAGE_FOLDERS)
     outside_cases = {
         "a pattern of no module": "scripts/**",
-        "a pattern of another module": "modules/const-quiet/scripts/**",
-        "a pattern of a module whose name opens with the module's": "modules/const-xy/scripts/**",
+        "a pattern of another module": "modules/const-quiet/plugin/scripts/**",
+        "a pattern of a module whose name opens with the module's": "modules/const-xy/plugin/scripts/**",
         "a pattern that is the module's folder with no slash": "modules/const-x",
-        "a pattern anchored at the root": "/modules/const-x/scripts/**",
+        "a pattern anchored at the root": "/modules/const-x/plugin/scripts/**",
     }
 
     def case(*pairs: dict[str, Any], dirs: tuple[str, ...] = (), plain: tuple[str, ...] = ()) -> Case:
@@ -2632,7 +2634,7 @@ def coverage_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
             [outside, outside],
         ),
         "a pattern missing and a pattern outside, the folders existing: by kind": (
-            case(with_code("scripts/**", "modules/const-x/scripts/**"), quiet, dirs=all_folders),
+            case(with_code("scripts/**", "modules/const-x/plugin/scripts/**"), quiet, dirs=all_folders),
             [outside, *[folder] * (len(COVERAGE_FOLDERS) - 1)],
         ),
         "a wrong doc, a pattern outside and a folder without a pattern: in that order": (
@@ -2645,7 +2647,7 @@ def coverage_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
         ),
         "a folder present with a pattern that is not the whole folder": (
             case(
-                with_code("modules/const-x/hooks/*.json", *x["code"][:1], *x["code"][2:]),
+                with_code("modules/const-x/plugin/hooks/*.json", *x["code"][:1], *x["code"][2:]),
                 quiet,
                 dirs=all_folders,
             ),
@@ -2653,7 +2655,7 @@ def coverage_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
         ),
         "a folder present and its pattern one level too deep": (
             case(
-                with_code("modules/const-x/hooks/**/*", *x["code"][:1], *x["code"][2:]),
+                with_code("modules/const-x/plugin/hooks/**/*", *x["code"][:1], *x["code"][2:]),
                 quiet,
                 dirs=all_folders,
             ),
@@ -2735,7 +2737,7 @@ def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
     """The files the check cannot read, each a matching registry with one file or key spoilt: the first
     line of the BROKEN report, which names the file and how to fix it."""
     m, s, x = MARKETPLACE_FILE, SETTINGS_FILE, MANIFEST_X
-    quiet = "modules/const-quiet/.claude-plugin/plugin.json"
+    quiet = "modules/const-quiet/plugin/.claude-plugin/plugin.json"
     entry_fix = '{"name": …, "source": …}'
 
     def spoil(change: Callable[[dict[str, Any]], object]) -> Case:
@@ -3010,7 +3012,7 @@ QUIET_TEXT = (
     '<a id="t10"></a>\n'
 )
 
-SCAN = "sh modules/const-x/scripts/check-x.sh --scan"
+SCAN = "sh modules/const-x/plugin/scripts/check-x.sh --scan"
 
 
 def scans_of(text: str) -> list[str]:
@@ -3145,13 +3147,15 @@ MESSY_LINES = [
     NAME_WHY,
     "  fix: rename modules/const-A to a name `const-<aspect>`, lowercase letters and digits joined by"
     f" single hyphens, {RENAMED}",
-    'RED: const-m: its manifest modules/const-m/.claude-plugin/plugin.json is named "const-y", not "const-m"',
+    'RED: const-m: its manifest modules/const-m/plugin/.claude-plugin/plugin.json is named "const-y", not'
+    ' "const-m"',
     MANIFEST_WHY,
-    '  fix: set "name": "const-m" in modules/const-m/.claude-plugin/plugin.json',
-    "RED: const-n: its manifest modules/const-n/.claude-plugin/plugin.json has no name, where it must be"
+    '  fix: set "name": "const-m" in modules/const-m/plugin/.claude-plugin/plugin.json',
+    "RED: const-n: its manifest modules/const-n/plugin/.claude-plugin/plugin.json has no name, where it must"
+    " be"
     ' "const-n"',
     MANIFEST_WHY,
-    '  fix: set "name": "const-n" in modules/const-n/.claude-plugin/plugin.json',
+    '  fix: set "name": "const-n" in modules/const-n/plugin/.claude-plugin/plugin.json',
     "RED: glossary: a module folder's name is not const-<aspect>",
     NAME_WHY,
     f"  fix: rename modules/glossary to modules/const-glossary, {RENAMED}",
@@ -3165,16 +3169,17 @@ MESSY_LINES = [
     "RED: const-n: its marketplace entry's description differs from its manifest's, first at character"
     " 19 (counting from 1)",
     DESCRIPTION_WHY,
-    "  fix: copy `description` of modules/const-n/.claude-plugin/plugin.json, as written, into the entry"
+    "  fix: copy `description` of modules/const-n/plugin/.claude-plugin/plugin.json, as written, into the"
+    " entry"
     f' named "const-n" of plugins in {MARKET}',
     "RED: const-s: the marketplace has 2 entries for it",
     "  why: a plugin's name must lead to one source, and with two entries it is open which one an install"
     " reads",
     f'  fix: remove all but one entry named "const-s" from plugins in {MARKET}, the one whose source is'
     ' "./modules/const-s"',
-    "RED: const-x: its manifest modules/const-x/.claude-plugin/plugin.json has no description",
+    "RED: const-x: its manifest modules/const-x/plugin/.claude-plugin/plugin.json has no description",
     DESCRIPTION_WHY,
-    "  fix: set `description` in modules/const-x/.claude-plugin/plugin.json to a string, the words a"
+    "  fix: set `description` in modules/const-x/plugin/.claude-plugin/plugin.json to a string, the words a"
     ' module\'s README opens with, and copy it, as written, into the entry named "const-x" of plugins'
     f" in {MARKET}",
     "RED: glossary: its marketplace entry has a description that is 7, not a string",
@@ -3227,15 +3232,18 @@ ABSENT_LINES = [
     'RED: const-quiet: its marketplace entry has no source, not source "./modules/const-quiet"',
     SOURCE_WHY,
     f'  fix: set "source" to "./modules/const-quiet" in the entry named "const-quiet" of plugins in {MARKET}',
-    "RED: const-quiet: its manifest modules/const-quiet/.claude-plugin/plugin.json has a description that"
+    "RED: const-quiet: its manifest modules/const-quiet/plugin/.claude-plugin/plugin.json has a description"
+    " that"
     ' is ["a"], not a string',
     DESCRIPTION_WHY,
-    "  fix: set `description` in modules/const-quiet/.claude-plugin/plugin.json to a string, the words a"
+    "  fix: set `description` in modules/const-quiet/plugin/.claude-plugin/plugin.json to a string, the words"
+    " a"
     ' module\'s README opens with, and copy it, as written, into the entry named "const-quiet" of'
     f" plugins in {MARKET}",
     "RED: const-x: its marketplace entry has no description",
     DESCRIPTION_WHY,
-    "  fix: copy `description` of modules/const-x/.claude-plugin/plugin.json, as written, into the entry"
+    "  fix: copy `description` of modules/const-x/plugin/.claude-plugin/plugin.json, as written, into the"
+    " entry"
     f' named "const-x" of plugins in {MARKET}',
     "RED: const-quiet: the kit's settings do not enable it",
     ENABLED_WHY,
@@ -3368,7 +3376,10 @@ def cases_gate_list(tally: Tally) -> None:
             [Where.CHECK],
         ),
         "a module's script of that name is no run of the kit check": (
-            Case({"x": SCAN, "new": "python3 modules/const-x/scripts/check-new.py --scan"}, scripts=TRACKED),
+            Case(
+                {"x": SCAN, "new": "python3 modules/const-x/plugin/scripts/check-new.py --scan"},
+                scripts=TRACKED,
+            ),
             [Where.CHECK],
         ),
         "a library and a helper no entry runs are no kit checks": (
@@ -3564,7 +3575,7 @@ def cases_kit_check_names(tally: Tally) -> None:
         "scripts/helper.py": False,
         "scripts/sub/check-y.py": False,  # a script under a folder is none: only the top of scripts/ counts
         "scripts/check-sub/z.py": False,  # nor is one in a folder whose name opens `check-`
-        "modules/const-x/scripts/check-x.py": False,
+        "modules/const-x/plugin/scripts/check-x.py": False,
     }
     ok = True
     for path, is_check in names.items():
@@ -3695,7 +3706,7 @@ def cases_scan_readers(tally: Tally) -> None:
         ok = check_kit(root)[0] == []
     tally.judge(ok, "a scan declared as `<entry>.py --scan` is held by its python3 line")
     ok = scans_of(MODULE_TEXT) == ["check-x"] and scans_of(QUIET_TEXT) == []
-    ok = ok and "runs `python3 modules/const-y/scripts/check-y.py --scan`" in (
+    ok = ok and "runs `python3 modules/const-y/plugin/scripts/check-y.py --scan`" in (
         Finding("const-y", Where.GATE, "check-y.py").render()
     )
     ok = ok and scans_of(MODULE_TEXT.replace("`check-x --scan`", "`check-x.py --scan`")) == ["check-x.py"]
@@ -3842,9 +3853,10 @@ def reports_by_kind(tally: Tally) -> None:
         " modules/const-x/",
         coverage_why,
         "  fix: remove `scripts/**` from `code` of the pair named `const-x`",
-        f"RED: const-x: modules/const-x/hooks is a folder, but its pair in {cov} lists no pattern for it",
+        f"RED: const-x: modules/const-x/plugin/hooks is a folder, but its pair in {cov} lists no pattern for"
+        " it",
         coverage_why,
-        '  fix: add the line `- "modules/const-x/hooks/**"` to `code` of the pair named `const-x`',
+        '  fix: add the line `- "modules/const-x/plugin/hooks/**"` to `code` of the pair named `const-x`',
         "RED: 5 finding(s) — 3 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
     ]
     real_under = "the list under `coverage:` of the `const-task-close` namespace in constitution.yaml"
@@ -3854,7 +3866,7 @@ def reports_by_kind(tally: Tally) -> None:
         f"  fix: add this entry to {real_under}, in place of `[]` when it is empty:",
         "    - name: const-quiet",
         "      code:",
-        '        - "modules/const-quiet/hooks/**"',
+        '        - "modules/const-quiet/plugin/hooks/**"',
         '        - "modules/const-quiet/tests/**"',
         "      docs:",
         '        - "modules/const-quiet/MODULE.md"',
@@ -3875,7 +3887,7 @@ def reports_by_kind(tally: Tally) -> None:
                     {
                         **full_pair("const-x"),
                         "docs": ["modules/const-x/README.md"],
-                        "code": ["scripts/**", "modules/const-x/scripts/**"],
+                        "code": ["scripts/**", "modules/const-x/plugin/scripts/**"],
                     },
                     full_pair("const-p"),
                 ],
@@ -4024,11 +4036,11 @@ def reports_in_order(tally: Tally) -> None:
         "RED: const-x: its scan `check-x --scan` is not in the gate list",
         scan_why,
         "  fix: add an entry to the gate group of scripts/gate-list.sh that runs"
-        " `sh modules/const-x/scripts/check-x.sh --scan`",
+        " `sh modules/const-x/plugin/scripts/check-x.sh --scan`",
         "RED: const-y: its scan `check-w --scan` is not in the gate list",
         scan_why,
         "  fix: add an entry to the gate group of scripts/gate-list.sh that runs"
-        " `sh modules/const-y/scripts/check-w.sh --scan`",
+        " `sh modules/const-y/plugin/scripts/check-w.sh --scan`",
         *(
             line
             for m in ("x", "y", "z")
@@ -4073,7 +4085,7 @@ def reports_in_order(tally: Tally) -> None:
             " on the command that type-checks scripts/*.py",
         ]
 
-    pair_path = "../modules/const-p/scripts:../modules/const-q/scripts"
+    pair_path = "../modules/const-p/plugin/scripts:../modules/const-q/plugin/scripts"
     kinds_lines = [  # the list's modules, then the registry files, then the item filters, then the kit checks
         "RED: const-quiet: the list lacks its entries `install-const-quiet`, `fixtures-const-quiet`,"
         " `lint-const-quiet`, `types-const-quiet`",
@@ -4089,7 +4101,7 @@ def reports_in_order(tally: Tally) -> None:
         "  fix: add an entry to GATES in scripts/gate-list.sh and an arm in commands() that runs"
         f" `{RUN_NEW}`, with its `--self-test` where it has one",
         *namespace_lines("const-gone"),  # the dials file, then the types entry: after every earlier kind
-        *types_lines(f"`{pair_path}`", f"{pair_path}:../modules/const-r/scripts"),
+        *types_lines(f"`{pair_path}`", f"{pair_path}:../modules/const-r/plugin/scripts"),
         "RED: 6 finding(s) — 2 module document(s) examined, 1 declared scan(s), 1 kit check(s)",
     ]
     strays_lines = [  # typed by hand; a name that no folder can bear has the removal for its one fix
@@ -4183,12 +4195,14 @@ def reports_in_order(tally: Tally) -> None:
         "RED: const-quiet: its marketplace entry's description differs from its manifest's, first at"
         " character 11 (counting from 1)",
         DESCRIPTION_WHY,
-        "  fix: copy `description` of modules/const-quiet/.claude-plugin/plugin.json, as written, into the"
+        "  fix: copy `description` of modules/const-quiet/plugin/.claude-plugin/plugin.json, as written, into"
+        " the"
         f' entry named "const-quiet" of plugins in {MARKET}',
         "RED: const-x: its marketplace entry's description differs from its manifest's, first at character"
         " 20 (counting from 1)",
         DESCRIPTION_WHY,
-        "  fix: copy `description` of modules/const-x/.claude-plugin/plugin.json, as written, into the entry"
+        "  fix: copy `description` of modules/const-x/plugin/.claude-plugin/plugin.json, as written, into the"
+        " entry"
         f' named "const-x" of plugins in {MARKET}',
         "RED: 2 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
     ]
@@ -4265,7 +4279,7 @@ def reports_in_order(tally: Tally) -> None:
                     f[SETTINGS_FILE].pop("enabledPlugins"),
                     f[SETTINGS_FILE].update({"extraKnownMarketplaces": {"elsewhere": {}}}),
                     f[MARKETPLACE_FILE]["plugins"][1].pop("source"),
-                    f["modules/const-quiet/.claude-plugin/plugin.json"].update({"description": ["a"]}),
+                    f["modules/const-quiet/plugin/.claude-plugin/plugin.json"].update({"description": ["a"]}),
                     f[MARKETPLACE_FILE]["plugins"][0].pop("description"),
                 ),
             ),

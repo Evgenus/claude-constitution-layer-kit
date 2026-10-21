@@ -1,5 +1,7 @@
 schema_version: "1.1"
 name: set-ceilings
+plugins:
+  - ../../plugin
 description: setting a character ceiling loads the ceiling skill before the dials file is edited
 context:
   scaffold_script: scaffold.sh

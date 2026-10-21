@@ -7,57 +7,57 @@
   "plugins": [
     {
       "name": "const-catalogs",
-      "source": "./modules/const-catalogs",
+      "source": "./modules/const-catalogs/plugin",
       "description": "Numbered kinds: a catalogued document's file name and id are one name, <prefix>-<nnnn>-<slug>; a new item's number must be free, and no two items of a catalog share one. Catalogs are declared in this module's own dial. Plus a skill for taking a number, renumbering after a collision, listing and citing."
     },
     {
       "name": "const-decision-records",
-      "source": "./modules/const-decision-records",
+      "source": "./modules/const-decision-records/plugin",
       "description": "Write-time gate on decision records: a document governed by a record policy carries type task-record, stakes (process | product | architecture) and a decider. Plus skills for pricing and recording a decision, and for promoting recurring commit notes."
     },
     {
       "name": "const-doc-budgets",
-      "source": "./modules/const-doc-budgets",
+      "source": "./modules/const-doc-budgets/plugin",
       "description": "A character ceiling per group of documents, measured after every write and in a scan: each ceiling names its documents by path patterns, its number and the days of data it was set from, and warns until 30 days of data stand behind it; a history report over git gives those data; a document that must stand over its ceiling is declared as a departure in the dials file. Plus a skill for setting a ceiling and reading a finding."
     },
     {
       "name": "const-interaction",
-      "source": "./modules/const-interaction",
+      "source": "./modules/const-interaction/plugin",
       "description": "Answer in the shape the question has, the answer first; every assumption listed, every list item addressable; honesty over agreement; stop before a hard-to-reverse act and wait for a yes, with a gate on enumerated destructive commands."
     },
     {
       "name": "const-language",
-      "source": "./modules/const-language",
+      "source": "./modules/const-language/plugin",
       "description": "Plain prose in governed documents, checked by Vale after every write and in a scan: a Flesch–Kincaid grade ceiling, a words-per-sentence limit, idioms and formal phrases plain language avoids, formal words with a plain replacement, passive voice reported — every threshold and level a dial, a departure declared in the dials file and never marked in the document. Plus a skill that applies the rules while writing and reads a finding."
     },
     {
       "name": "const-locations",
-      "source": "./modules/const-locations",
+      "source": "./modules/const-locations/plugin",
       "description": "Documents born in their canonical home: a command derives the home from the policy's territory, proves it resolves to exactly that policy, and writes the document from the kind's template with a valid envelope; a skill for creating documents through it and one for introducing a new kind — policy first, then territory, then document."
     },
     {
       "name": "const-meta-types",
-      "source": "./modules/const-meta-types",
+      "source": "./modules/const-meta-types/plugin",
       "description": "Write-time guard of claimed territory: every Markdown document there carries the envelope (id, type, title, status) and resolves to exactly one governing policy. Plus a skill for choosing the meta-type."
     },
     {
       "name": "const-questions",
-      "source": "./modules/const-questions",
+      "source": "./modules/const-questions/plugin",
       "description": "Ask only at recorded stakes or a genuine blocker, else decide and note; one decision per message in a fixed shape — lettered options with pros and cons, one recommendation, the decider named — printed at every session start; questions derived from open slots, closed vocabularies as the options, defaults with override, vague input restated; no open question inside a deliverable, with a gate on open-question markers in delivered documents."
     },
     {
       "name": "const-referencing",
-      "source": "./modules/const-referencing",
+      "source": "./modules/const-referencing/plugin",
       "description": "References a machine can follow and a move can repair: one written form per kind of reference, anchors that do not depend on a heading's words, a check of the whole tree after every write and in the scan, and a mover that repairs the links a move breaks. Plus a skill for citing, anchoring and moving, and two always-on sentences about references in chat."
     },
     {
       "name": "const-styling",
-      "source": "./modules/const-styling",
+      "source": "./modules/const-styling/plugin",
       "description": "One style guide every governed document follows — diagrams, prose against lists and tables, list and table format, headings, code blocks, emphasis, callouts — with departures declared per territory or per document in the dials file with a reason; a scan reports the traces of the defaults that no departure allows. Plus a skill that applies the defaults before a diagram, a table, a formula or a template is written."
     },
     {
       "name": "const-task-close",
-      "source": "./modules/const-task-close",
+      "source": "./modules/const-task-close/plugin",
       "description": "Task close as a single act: a change that touches code covered by current-state documents updates them or declares no impact; a close procedure that merges deltas, deletes working files and sets the record inactive; and a dirty tree at turn end warned or blocked."
     }
   ]

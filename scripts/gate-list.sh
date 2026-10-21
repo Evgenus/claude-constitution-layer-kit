@@ -78,15 +78,15 @@ members() {
 
 commands() {
     case "$1" in
-        references) echo "sh modules/const-referencing/scripts/check-references.sh --scan" ;;
-        meta-types) echo "python3 modules/const-meta-types/scripts/check-governed-document.py --scan" ;;
-        catalogs) echo "python3 modules/const-catalogs/scripts/check-catalog-item.py --scan" ;;
-        decision-records) echo "python3 modules/const-decision-records/scripts/check-decision-record.py --scan" ;;
-        open-questions) echo "sh modules/const-questions/scripts/check-open-questions.sh --scan" ;;
-        style) echo "sh modules/const-styling/scripts/check-style.sh --scan" ;;
-        language) echo "sh modules/const-language/scripts/check-language.sh --scan" ;;
-        budgets) echo "sh modules/const-doc-budgets/scripts/check-budgets.sh --scan" ;;
-        list-handles) echo "sh modules/const-interaction/scripts/check-list-handles.sh --scan" ;;
+        references) echo "sh modules/const-referencing/plugin/scripts/check-references.sh --scan" ;;
+        meta-types) echo "python3 modules/const-meta-types/plugin/scripts/check-governed-document.py --scan" ;;
+        catalogs) echo "python3 modules/const-catalogs/plugin/scripts/check-catalog-item.py --scan" ;;
+        decision-records) echo "python3 modules/const-decision-records/plugin/scripts/check-decision-record.py --scan" ;;
+        open-questions) echo "sh modules/const-questions/plugin/scripts/check-open-questions.sh --scan" ;;
+        style) echo "sh modules/const-styling/plugin/scripts/check-style.sh --scan" ;;
+        language) echo "sh modules/const-language/plugin/scripts/check-language.sh --scan" ;;
+        budgets) echo "sh modules/const-doc-budgets/plugin/scripts/check-budgets.sh --scan" ;;
+        list-handles) echo "sh modules/const-interaction/plugin/scripts/check-list-handles.sh --scan" ;;
         carry-lists | shared-links | yaml-style | module-links | handle-forms | aspects | portability | gate-lists | copies | schema-mirror | dials-schema | resolved-paths | eval-receipts)
             echo "python3 scripts/check-$1.py"
             echo "python3 scripts/check-$1.py --self-test" ;;
@@ -112,15 +112,15 @@ commands() {
                         # neither . nor _ (the glob skips . already), save constitution_layer_kit
                         for p in modules/"$m"/scripts/*; do
                             case "${p##*/}" in _* | constitution_layer_kit) continue ;; esac
-                            [ -d "$p" ] && [ ! -L "$p" ] && [ -f "$p/__init__.py" ] && echo "cd modules/$m/scripts && python3 -m mypy --strict ${p##*/}"
+                            [ -d "$p" ] && [ ! -L "$p" ] && [ -f "$p/__init__.py" ] && echo "cd modules/$m/plugin/scripts && python3 -m mypy --strict ${p##*/}"
                         done
-                        echo "cd modules/$m/scripts && python3 -m mypy --strict *.py"
+                        echo "cd modules/$m/plugin/scripts && python3 -m mypy --strict *.py"
                         echo "cd modules/$m/tests && python3 -m mypy --strict *.py" ;;
                 esac
                 return 0
             done
             return 1 ;;
-        task-close) echo "sh modules/const-task-close/scripts/check-task-close.sh --scan" ;;
+        task-close) echo "sh modules/const-task-close/plugin/scripts/check-task-close.sh --scan" ;;
         branch-gate) echo "sh scripts/git-hooks/tests/run.sh" ;;
         setup-claude) echo "sh scripts/tests/setup-claude.sh" ;;
         lint)
@@ -128,7 +128,7 @@ commands() {
             echo "python3 -m ruff check scripts shared" ;;
         types)
             echo "cd shared && python3 -m mypy --strict constitution_layer_kit"
-            echo "cd scripts && MYPYPATH=../modules/const-meta-types/scripts:../modules/const-decision-records/scripts python3 -m mypy --strict *.py" ;;
+            echo "cd scripts && MYPYPATH=../modules/const-meta-types/plugin/scripts:../modules/const-decision-records/plugin/scripts python3 -m mypy --strict *.py" ;;
         *) return 1 ;;
     esac
 }

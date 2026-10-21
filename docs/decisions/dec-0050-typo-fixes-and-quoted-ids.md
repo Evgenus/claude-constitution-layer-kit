@@ -87,5 +87,5 @@ The commit that creates this record states R1 in rule 7 of [plc-0004-decision-re
 
 1. R1 — [rule 7 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r7).
 2. R2 — [rule 7 of plc-0005-research](../policies/plc-0005-research.md#r7), with the definition in [rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14).
-3. R3 — [kernel §5](../../kernel/CONVENTIONS.md#k5); [rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14); boundary example 9 in section 8 of [the module document of `const-decision-records`](../../modules/const-decision-records/MODULE.md#t8); section 4 of [the record-decision skill](../../modules/const-decision-records/skills/record-decision/SKILL.md).
+3. R3 — [kernel §5](../../kernel/CONVENTIONS.md#k5); [rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14); boundary example 9 in section 8 of [the module document of `const-decision-records`](../../modules/const-decision-records/MODULE.md#t8); section 4 of [the record-decision skill](../../modules/const-decision-records/plugin/skills/record-decision/SKILL.md).
 4. R4 — history only: the narrowing of an earlier ruling, which R1 carries ([rule 13 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r13)).

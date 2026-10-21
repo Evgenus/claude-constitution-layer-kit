@@ -455,8 +455,8 @@ def fresh(root: Path, dials: str | bytes | None = KIT_DIALS) -> None:
     except (OSError, subprocess.CalledProcessError) as failed:
         raise Broken(f"git init failed in {root} — fix: install git, then run the self-test") from failed
     write(root, "modules/const-x/MODULE.md", "A module.\n")
-    write(root, "modules/const-x/skills/s/SKILL.md", "A skill.\n")
-    write(root, "modules/const-x/INSTALL.md", "Install.\n")
+    write(root, "modules/const-x/plugin/skills/s/SKILL.md", "A skill.\n")
+    write(root, "modules/const-x/plugin/INSTALL.md", "Install.\n")
     write(root, f"{SHARED}/model.py", "Y = 2\n")
     if dials is not None:
         write(root, DIALS, dials)
@@ -609,7 +609,7 @@ def self_test() -> int:
         "the second segment alone": ("INSTALL.md", "Put them in decisions or research.\n"),
     }
     report_lines = [  # the report of the tilde case, typed by hand: a message function cannot check itself
-        "RED: modules/const-x/INSTALL.md:1: a path under `~/`, '~/'",
+        "RED: modules/const-x/plugin/INSTALL.md:1: a path under `~/`, '~/'",
         "  why: a module installs into any project, so it names no place in one (law 2 of CLAUDE.md)",
         "  fix: name the place in words, or read it from the dials file",
         "RED: 1 finding(s) — 3 installed file(s) of 1 module(s) and the shared code examined",
@@ -689,10 +689,10 @@ def self_test() -> int:
         fresh(root)
         for module in ("const-b", "const-a"):
             write(root, f"modules/{module}/MODULE.md", "A module.\n")
-            write(root, f"modules/{module}/INSTALL.md", "Clone into ~/kit.\n")
+            write(root, f"modules/{module}/plugin/INSTALL.md", "Clone into ~/kit.\n")
         with listed_in_reverse():  # modules/ is listed reversed, whatever the filesystem lists
             found = [f.path for f in check_kit(root)[0]]
-    ok = found == ["modules/const-a/INSTALL.md", "modules/const-b/INSTALL.md"]
+    ok = found == ["modules/const-a/plugin/INSTALL.md", "modules/const-b/plugin/INSTALL.md"]
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] the modules are read sorted by name, whatever order the folder lists")
     with tempfile.TemporaryDirectory() as tmp:
@@ -710,12 +710,14 @@ def self_test() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         fresh(root)
-        (root / "modules/const-x/INSTALL.md").write_bytes(b"caf\xe9\n")
+        (root / "modules/const-x/plugin/INSTALL.md").write_bytes(b"caf\xe9\n")
         try:
             check_kit(root)
             ok = False
         except Broken as broken:
-            ok = str(broken).startswith("modules/const-x/INSTALL.md is not UTF-8") and "fix:" in str(broken)
+            ok = str(broken).startswith("modules/const-x/plugin/INSTALL.md is not UTF-8") and "fix:" in str(
+                broken
+            )
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] a file that is not UTF-8 is a teaching BROKEN line, never a traceback")
     named, named_failed = self_test_names()
@@ -1001,11 +1003,11 @@ def run_names_by_module(c: Cases) -> None:
         fresh(root)
         for module in ("const-b", "const-a"):
             write(root, f"modules/{module}/MODULE.md", "A module.\n")
-            write(root, f"modules/{module}/INSTALL.md", "See dec-0049.\n")
+            write(root, f"modules/{module}/plugin/INSTALL.md", "See dec-0049.\n")
         with listed_in_reverse():
             paths = [f.path for f in check_kit(root)[0]]
     c.case(
-        paths == ["modules/const-a/INSTALL.md", "modules/const-b/INSTALL.md"],
+        paths == ["modules/const-a/plugin/INSTALL.md", "modules/const-b/plugin/INSTALL.md"],
         "a name in two modules is reported by module name, whatever order the folder lists",
     )
 
@@ -1089,10 +1091,10 @@ def run_name_reports(c: Cases) -> None:
         " none of them (law 2 of CLAUDE.md)"
     )
     literal = [
-        "RED: modules/const-x/INSTALL.md:1: a file name of the kit, 'MODULE.md'",
+        "RED: modules/const-x/plugin/INSTALL.md:1: a file name of the kit, 'MODULE.md'",
         why,
         "  fix: say in words what the document holds, or drop the mention",
-        "RED: modules/const-x/INSTALL.md:1: an id of a catalog the kit declares, 'dec-0049'",
+        "RED: modules/const-x/plugin/INSTALL.md:1: an id of a catalog the kit declares, 'dec-0049'",
         why,
         "  fix: say in words what the item holds, or drop the mention; an example of a project's own id takes"
         " a prefix that const-catalogs.catalogs in the kit's constitution.yaml does not declare",
@@ -1112,7 +1114,7 @@ def run_name_reports(c: Cases) -> None:
         with contextlib.redirect_stdout(printed):
             code = report(*check_kit(root))
     folder_report = [
-        "RED: modules/const-x/INSTALL.md:1: a document folder of the kit, 'docs/decisions'",
+        "RED: modules/const-x/plugin/INSTALL.md:1: a document folder of the kit, 'docs/decisions'",
         "  why: a module that names the kit's own folders carries the kit's layout into a project, where they"
         " do not exist (law 2 of CLAUDE.md)",
         "  fix: name the place through the dials file, or, in a Markdown file, show it as an example in a"

@@ -134,7 +134,7 @@ The commits of this branch apply every item. The message of each commit names wh
 3. R3 — history only: the condition was put to the decider in section 3 and answered there.
 4. R4 — [the module template](../../module-template/MODULE.md#t6), the hook row of section 6; the hook rows of section 6 of the six modules of R2.
 5. R5 — [CLAUDE.md](../../CLAUDE.md), the opening paragraph of "Session conduct"; the implementer's own file applies it.
-6. R6 — [the module template](../../module-template/MODULE.md#t6), the skill row of section 6, and [its example skill](../../module-template/skills/example-procedure/SKILL.md), the description.
+6. R6 — [the module template](../../module-template/MODULE.md#t6), the skill row of section 6, and [its example skill](../../module-template/plugin/skills/example-procedure/SKILL.md), the description.
 7. R7 — the always-on content of section 6 of the six modules of R2, which keeps their pointer lines beside the reworded descriptions; [the module template](../../module-template/MODULE.md#t6), the skill row of section 6, where a skill is named by the module's other parts as well as by its description.
 8. R8 — [`const-styling`](../../modules/const-styling/MODULE.md#t6), the hook row and the always-on content of section 6, and [its section 7](../../modules/const-styling/MODULE.md#t7), the opening line, which keeps the scan without a `severity` dial; that it replaces two items of dec-0044 is history only.
 9. R9 — [the module template](../../module-template/MODULE.md#t6), the skill row of section 6, which binds every skill's description.

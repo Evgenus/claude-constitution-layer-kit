@@ -25,7 +25,7 @@ CI runs the same entries grouped by job, one job per module, one `install-guide`
 job's entries and `--run <job>` runs them all, when the message asks for a job by name.
 The entry `task-close` runs the range check with a bare `--scan`: on a work branch it examines the
 branch, on the trunk the last landed change; when the message names a landed merge, run
-`sh modules/const-task-close/scripts/check-task-close.sh --scan --change <merge>` instead.
+`sh modules/const-task-close/plugin/scripts/check-task-close.sh --scan --change <merge>` instead.
 `language` needs `vale` 3.23.0 or newer on PATH, `references` `lychee` 0.24.2 or newer, and the
 install and session entries and `guide` the `claude` that `scripts/claude-code.version` pins. When `sh scripts/setup-claude.sh`
 has run in the clone, the list puts the clone's `.claude-code-pinned/` copy first on PATH for those entries alone; when it

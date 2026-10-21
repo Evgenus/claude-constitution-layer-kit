@@ -849,7 +849,7 @@ def counted(source: Path) -> str:
 
 def check_module(module: str, source: str, note: Note) -> tuple[list[Finding], str]:
     """The findings, and what was examined: the hooks, scans and links of the source compared."""
-    if not file_at(KIT / "modules" / module / ".claude-plugin" / "plugin.json"):
+    if not file_at(KIT / "modules" / module / "plugin" / ".claude-plugin" / "plugin.json"):
         raise Broken(f"no module {module} in the kit — fix: name a folder under modules/ that holds a plugin")
     marketplace = kit_marketplace(KIT)
     with tempfile.TemporaryDirectory() as tmp:
@@ -2336,8 +2336,8 @@ def shut_folder_cases(tally: Tally) -> None:
         document = closed / "deep" / "plugin"
         document.mkdir(parents=True)
         (document / "MODULE.md").write_text('<a id="t9"></a>\n<a id="t10"></a>\n', encoding="utf-8")
-        (closed / "kit" / "modules" / "m" / ".claude-plugin").mkdir(parents=True)
-        (closed / "kit" / "modules" / "m" / ".claude-plugin" / "plugin.json").write_text(
+        (closed / "kit" / "modules" / "m" / "plugin" / ".claude-plugin").mkdir(parents=True)
+        (closed / "kit" / "modules" / "m" / "plugin" / ".claude-plugin" / "plugin.json").write_text(
             "{}", encoding="utf-8"
         )
         (closed / "src").mkdir()
@@ -2397,7 +2397,9 @@ def shut_folder_cases(tally: Tally) -> None:
                 tally,
                 "lookups: a module's plugin.json under such a folder is the same line",
                 got_shut
-                == cannot_search(closed / "kit" / "modules" / "m" / ".claude-plugin" / "plugin.json", closed),
+                == cannot_search(
+                    closed / "kit" / "modules" / "m" / "plugin" / ".claude-plugin" / "plugin.json", closed
+                ),
                 got_shut,
             )
             with patched_globals({"run": lambda *args, **kwargs: (0, listing_json, "")}):

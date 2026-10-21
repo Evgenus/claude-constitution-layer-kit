@@ -31,8 +31,9 @@ from decision_records_gate.model import Stakes
 from harness import Case, Edit, Harness, Result, Write, event_json, red_lines
 from test_shared_items import NO_ENVELOPE, Subject, git_patch, git_timeouts, hook_budget
 
-SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
-MODULE_ROOT = SCRIPTS.parent
+SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
+PLUGIN_ROOT = SCRIPTS.parent
+MODULE_ROOT = PLUGIN_ROOT.parent
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
 # — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
@@ -837,7 +838,7 @@ def test_session_start_absence_paths() -> None:
 def test_hooks_file_shape() -> None:
     """A SessionStart handler with no matcher and a PreToolUse handler on Write|Edit, exec form, the
     placeholder in args, timeouts."""
-    hooks = json.loads((MODULE_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
+    hooks = json.loads((PLUGIN_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
     start_hook = hooks["SessionStart"][0]
     write_hook = hooks["PreToolUse"][0]
     ok = (

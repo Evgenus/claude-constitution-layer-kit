@@ -1,5 +1,7 @@
 schema_version: "1.1"
 name: style-defaults
+plugins:
+  - ../../plugin
 description: writing a table in a document loads the style skill before the edit
 context:
   scaffold_script: scaffold.sh
