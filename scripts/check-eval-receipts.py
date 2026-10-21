@@ -184,7 +184,7 @@ def make_kit(tmp: Path) -> Path:
         (root / name).parent.mkdir(parents=True, exist_ok=True)
         (root / name).write_text(text, encoding="utf-8")
     (root / "modules/const-x/plugin/scripts/constitution_layer_kit").symlink_to(
-        "../../../shared/constitution_layer_kit"
+        "../../../../shared/constitution_layer_kit"
     )
     (root / "modules/const-x/evals/results").mkdir(parents=True)
     (root / "modules/const-x/evals/results/r.json").write_text("{}\n", encoding="utf-8")

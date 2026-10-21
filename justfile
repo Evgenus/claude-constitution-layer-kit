@@ -26,7 +26,7 @@ test module="" *args:
     worst=0
     for m in $modules; do
         work=$(mktemp -d)
-        printf '[run]\nbranch = true\nparallel = true\npatch = subprocess\ndata_file = %s/data\nsource =\n    %s/modules/%s/scripts\n    %s/shared/constitution_layer_kit\n' "$work" "$root" "$m" "$root" > "$work/rc"
+        printf '[run]\nbranch = true\nparallel = true\npatch = subprocess\ndata_file = %s/data\nsource =\n    %s/modules/%s/plugin/scripts\n    %s/shared/constitution_layer_kit\n' "$work" "$root" "$m" "$root" > "$work/rc"
         echo "== $m"
         (cd "$root" && python3 -m coverage run --rcfile "$work/rc" -m pytest "modules/$m/tests" -p no:cacheprovider -W error -v {{args}})
         code=$?

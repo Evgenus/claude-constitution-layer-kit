@@ -1,15 +1,17 @@
 """Kit tooling, never shipped in a module: the module evals and their receipts (decision
 dec-0093-module-evals-with-local-receipts).
 
-A module ships its eval cases in `evals/` at its root, which `claude plugin eval` runs. The kit keeps one
+A module ships its eval cases in `evals/` at the top of its folder, beside the `plugin/` folder that installs;
+each case names that plugin, and `claude plugin eval` runs them on the module's folder. The kit keeps one
 receipt per module in `scripts/eval-receipts.json`, written by `scripts/run-evals.py` and held by
 `scripts/check-eval-receipts.py`. This file is what both read the same way:
 
   `eval_model`   the model the runs use: the text of `scripts/eval-model`, with at most one final line break
                  removed, one model id of lowercase letters, digits, `.` and `-`.
   `eval_files`   what a session of the module loads, and its cases: every file git tracks under
-                 `modules/<module>/`, links followed, save `MODULE.md`, `README.md` and `INSTALL.md` at the
-                 module's root and the folders `tests/` and `evals/results/`. A link to a folder stands for
+                 `modules/<module>/`, links followed, save `MODULE.md` and `README.md` at the top of the
+                 module's folder, the plugin's `plugin/INSTALL.md`, and the folders `tests/` and
+                 `evals/results/`. A link to a folder stands for
                  every file git tracks under the folder it leads to, each named through the link; a link to a
                  file, for that file. A link that leads outside the kit, or to nothing, is an `EvalError`.
   `eval_hash`    `sha256:` and the hex digest over those files in name order, and last over the kit's
@@ -49,7 +51,7 @@ EVALS = "evals"
 EVAL_IMAGE = (
     "scripts/eval-container/Dockerfile"  # the image every case runs in; a change to it stales every receipt
 )
-LEFT_OUT_FILES = ("MODULE.md", "README.md", "plugin/INSTALL.md")  # at the module's root
+LEFT_OUT_FILES = ("MODULE.md", "README.md", "plugin/INSTALL.md")  # paths from the module's folder
 LEFT_OUT_FOLDERS = ("tests", "evals/results")
 MODEL = re.compile(r"[a-z0-9][a-z0-9.-]*")
 HASH = re.compile(r"sha256:[0-9a-f]{64}")

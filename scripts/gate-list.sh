@@ -108,9 +108,9 @@ commands() {
                         echo "python3 -m ruff check modules/$m" ;;
                     types-*)
                         # the module's own packages, as own_packages of scripts/kit_module_doc.py derives them: each folder at
-                        # the top of scripts/, itself no link, that holds an __init__.py, whose name starts with
-                        # neither . nor _ (the glob skips . already), save constitution_layer_kit
-                        for p in modules/"$m"/scripts/*; do
+                        # the top of the plugin's scripts/, itself no link, that holds an __init__.py, whose name starts
+                        # with neither . nor _ (the glob skips . already), save constitution_layer_kit
+                        for p in modules/"$m"/plugin/scripts/*; do
                             case "${p##*/}" in _* | constitution_layer_kit) continue ;; esac
                             [ -d "$p" ] && [ ! -L "$p" ] && [ -f "$p/__init__.py" ] && echo "cd modules/$m/plugin/scripts && python3 -m mypy --strict ${p##*/}"
                         done
