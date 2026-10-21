@@ -1872,6 +1872,16 @@ def self_test_entry_scope(cases: Cases) -> None:
             "modules/const-a/plugin/scripts/sub/x.py",
             shape,
         ),
+        (
+            "a .py with the floor line in a scripts/ below a module's folder other than plugin/",
+            "modules/const-a/hooks/scripts/x.py",
+            shape,
+        ),
+        (
+            "a .py with the floor line in a folder of plugin/ other than its scripts/",
+            "modules/const-a/plugin/hooks/x.py",
+            shape,
+        ),
         ("a .py of a module outside its plugin/scripts/", "modules/const-a/tests/x.py", shape),
         (
             "a .py with an indented floor line",
