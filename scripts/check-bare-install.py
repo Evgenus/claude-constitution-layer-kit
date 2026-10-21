@@ -51,10 +51,9 @@ For the module named, in throwaway folders that the check removes:
      `kit_module_doc.marketplace_name` and typed nowhere in this check; a file that gives none is a
      configuration failure. The install source is --from, else the environment's
      CONSTITUTION_KIT_INSTALL_FROM, else the kit's working folder. The kit's CI names the change's GitHub
-     repository and branch,
-     `<owner>/<repo>#<branch>` — a pull request's head repository and branch, or the kit's main on
-     a push to it — the copy a consumer's install writes; a fork the job's token cannot read fails; git
-     clones it with the machine's own credentials, which a private remote needs. The working
+     repository and branch, `<owner>/<repo>#<branch>` — a pull request's head repository and branch, or the
+     kit's main on a push to it — the copy a consumer's install writes; a fork the job's token cannot read
+     fails; git clones it with the machine's own credentials, which a private remote needs. The working
      folder, a local-directory marketplace, gives a copy no session runs (shared/GATE.md, limit 3).
      The install's result is the last non-empty line of its standard output, one JSON object: an
      `outcome` of "failed" is a refusal, which carries the result's `failureCode` and `message`; "ok" with
