@@ -2022,7 +2022,7 @@ def test_t33() -> None:
     no_yaml = SESSION.run_gate(session_json(root), env={"PYTHONPATH": str(shadow)})
     c2 = (
         "BROKEN: const-interaction needs PyYAML — fix: run: python3 -m pip install -r"
-        f" '{MODULE_ROOT / 'requirements.txt'}' — until then the gate's state is not said at session start"
+        f" '{PLUGIN_ROOT / 'requirements.txt'}' — until then the gate's state is not said at session start"
     )
     broken_first_line(no_yaml, c2)
     yaml_ok = messages.z1_could_not_run() in no_yaml.stderr and no_yaml.stdout == RULES
@@ -2130,7 +2130,7 @@ def test_t42() -> None:
             "C2",
             harness.run_gate(stdin, args, env={"PYTHONPATH": str(shadow)}),
             "BROKEN: const-interaction needs PyYAML — fix: run: python3 -m pip install -r"
-            f" '{MODULE_ROOT / 'requirements.txt'}' — {clause}",
+            f" '{PLUGIN_ROOT / 'requirements.txt'}' — {clause}",
         )
         line_of(
             "C14",

@@ -931,7 +931,7 @@ def test_t20() -> None:
         "C2",
         H.run_gate("", args, env={"PYTHONPATH": str(shadow)}),
         "BROKEN: const-styling needs PyYAML — fix: run: python3 -m pip install -r"
-        f" '{MODULE_ROOT / 'requirements.txt'}' — {CLOSING}",
+        f" '{PLUGIN_ROOT / 'requirements.txt'}' — {CLOSING}",
     )
     lowered = (  # the entry file run as an interpreter of 3.11 would run it
         "import sys; sys.version_info = (3, 11, 0); path = sys.argv[1]; "

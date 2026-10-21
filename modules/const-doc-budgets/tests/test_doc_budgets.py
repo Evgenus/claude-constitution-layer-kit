@@ -1206,7 +1206,7 @@ def test_t20() -> None:
     broken_first_line(
         no_yaml,
         "BROKEN: const-doc-budgets needs PyYAML — fix: run: python3 -m pip install -r"
-        f" '{MODULE_ROOT / 'requirements.txt'}' — until then the gate's state is not said at session start",
+        f" '{PLUGIN_ROOT / 'requirements.txt'}' — until then the gate's state is not said at session start",
     )
     bin_dir = H.scratch_dir()
     (bin_dir / "sh").symlink_to(H.sh)

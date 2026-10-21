@@ -963,7 +963,7 @@ def test_skill_pointer_printed() -> None:
         pytest.fail(f"the subagent form is {nested.stdout!r}")
     size = len(POINTER)
     stated = re.search(
-        r"pointer line, (\d+) characters", (SCRIPTS.parent / "MODULE.md").read_text(encoding="utf-8")
+        r"pointer line, (\d+) characters", (SCRIPTS.parent.parent / "MODULE.md").read_text(encoding="utf-8")
     )
     if not stated or int(stated.group(1)) != size:
         pytest.fail(f"the module document states another size than {size}")

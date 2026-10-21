@@ -1687,7 +1687,7 @@ def test_skill_pointer_printed() -> None:
         pytest.fail(f"the subagent object is {parsed!r}")
     size = len(SKILL_POINTER)
     stated = re.search(
-        r"pointer line, (\d+) characters", (SCRIPTS.parent / "MODULE.md").read_text(encoding="utf-8")
+        r"pointer line, (\d+) characters", (SCRIPTS.parent.parent / "MODULE.md").read_text(encoding="utf-8")
     )
     if not stated or int(stated.group(1)) != size:
         pytest.fail(f"the module document states another size than {size}")
@@ -1713,7 +1713,7 @@ def test_skills_and_install_note() -> None:
             pytest.fail(f"{name}: the description carries no 'Use when ' trigger or no 'Advisory:' line")
         sizes[name] = len(front["description"])
     stated = re.search(
-        r"skill listing, (\d+) and (\d+) characters", (root / "MODULE.md").read_text(encoding="utf-8")
+        r"skill listing, (\d+) and (\d+) characters", (root.parent / "MODULE.md").read_text(encoding="utf-8")
     )
     if not stated or (int(stated.group(1)), int(stated.group(2))) != tuple(sizes.values()):
         pytest.fail(f"the module document states other sizes than {sizes}")

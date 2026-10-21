@@ -1541,7 +1541,7 @@ def test_skill_pointer() -> None:
     if answer != wanted or sub.stdout.count("\n") != 1:
         pytest.fail(f"the subagent's answer is {answer!r}")
     size = len(POINTER) - 1
-    stated = re.search(r"pointer line, ([\d,]+) characters", (PLUGIN / "MODULE.md").read_text())
+    stated = re.search(r"pointer line, ([\d,]+) characters", (PLUGIN.parent / "MODULE.md").read_text())
     if not stated or int(stated.group(1).replace(",", "")) != size:
         pytest.fail(f"MODULE.md states another size than {size}")
     named = re.search(r"load the skill (const-referencing):([a-z-]+)\.", POINTER)
@@ -1571,7 +1571,7 @@ def test_skill_description_fits() -> None:
     front = yaml.safe_load(text.split("---\n")[1])
     description = str(front["description"])
     size = len(description)
-    found = re.search(r"skill listing, ([\d,]+) characters", (PLUGIN / "MODULE.md").read_text())
+    found = re.search(r"skill listing, ([\d,]+) characters", (PLUGIN.parent / "MODULE.md").read_text())
     stated = int(found.group(1).replace(",", "")) if found else None
     problems = [
         *([] if front["name"] == "referencing" else [f"name {front['name']!r}"]),
