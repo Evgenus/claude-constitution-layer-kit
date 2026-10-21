@@ -142,6 +142,7 @@ const-<aspect-name>/
 │   ├── .claude-plugin/
 │   │   └── plugin.json      # manifest — the ONLY file inside .claude-plugin/; version 0.0.x while draft
 │   ├── INSTALL.md           # install/uninstall notes; the one CLAUDE.md pointer line if any
+│   ├── requirements.txt     # optional; the libraries a gate needs, installed by one command
 │   ├── skills/
 │   │   └── <name>/SKILL.md  # optional
 │   ├── commands/<name>.md   # optional
