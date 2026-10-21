@@ -69,12 +69,14 @@ For the module named, in throwaway folders that the check removes:
      folder is compared with that folder and reads no record;
   3. what the kit's source of the module declares, held in that copy; the source is the module's `plugin/`
      folder, the folder the marketplace entry names and the install copies, and every read of its parts
-     goes through it: no link of the source
-     leads inside the module, save the fixture runner's link tests/<package> -> ../scripts/<package>
-     to a package of the module's own (as own_packages of kit_module_doc derives them: a folder of
+     goes through it: no link of the source leads inside the plugin folder, the source, save a fixture
+     runner's link tests/<package> -> ../scripts/<package> inside it to a package of the module's own
+     (as own_packages of kit_module_doc derives them: a folder of
      scripts/, itself no link, holding an __init__.py, its name starting with neither `.` nor `_`,
      save constitution_layer_kit), which arrives as a link leading to that
-     package in the copy — the platform keeps a link that stays inside the plugin; every
+     package in the copy — the platform keeps a link that stays inside the plugin; no module's plugin
+     folder holds such a link today, since a module's runner's links stand in its `tests/`, beside
+     `plugin/`; every
      other link arrives as a real file, or a real directory, with the
      same files byte for byte; the copy holds no link the source lacks; the copy holds
      the source's hooks file; every hook of the source's hooks/hooks.json, which is a `command` hook
@@ -624,8 +626,8 @@ def runner_link(source: Path, link: Path) -> bool:
 
 
 def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
-    """No link of the source leads inside the module, save the runner's link to a package of the
-    module's own, which arrives as a link leading to that package in the copy; every other link
+    """No link of the source leads inside the plugin folder, the source, save the runner's link to a
+    package of the module's own, which arrives as a link leading to that package in the copy; every other link
     arrives as a real file, or a real directory, with the same files byte for byte; the copy holds no
     link the source lacks."""
     findings: list[Finding] = []
@@ -650,7 +652,7 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
             continue
         inside = target.is_relative_to(source.resolve())
         fix = (
-            "replace the link inside the module with the file it points at"
+            "replace the link inside the plugin with the file it points at"
             if inside
             else "the install must carry what it runs — fire the fallback of limit 3 of"
             " shared/GATE.md §4, links replaced by copies"
@@ -659,7 +661,7 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
             state = "left a link" if link_at(place) else "missing"
             findings.append(Finding(module, f"the link {where} is {state} in the installed copy", fix))
         elif inside:
-            findings.append(Finding(module, f"the link {where} leads inside the module", fix))
+            findings.append(Finding(module, f"the link {where} leads inside the plugin", fix))
         elif file_at(target) and folder_at(place):
             findings.append(Finding(module, f"the link {where} to a file arrived as a folder", fix))
         elif folder_at(target) and not folder_at(place):
@@ -1107,13 +1109,13 @@ LINK_CASES = {
     "a copy whose hook and scans pass, its outside link a real directory, is green": ("", ""),
     "a link left a link in the copy is a finding": ("link-left", "is left a link"),
     "a link missing from the copy is a finding": ("link-missing", "is missing"),
-    "a link inside the module left a link is a finding, fixed by the file it points at": (
+    "a link inside the plugin left a link is a finding, fixed by the file it points at": (
         "inner-link",
         "again",
     ),
-    "a link inside the module that arrived as a real directory is a finding": (
+    "a link inside the plugin that arrived as a real directory is a finding": (
         "inner-link-copied",
-        "leads inside the module",
+        "leads inside the plugin",
     ),
     "the runner's link to a package of the module's own, kept a link to it, is green": (
         "runner-link",
@@ -1135,7 +1137,7 @@ LINK_CASES = {
         "runner-link-missing",
         "the runner's link tests/own_gate did not arrive as a link to its package",
     ),
-    "a link to a package of the module's own from outside tests/ leads inside the module": (
+    "a link to a package of the module's own from outside tests/ leads inside the plugin": (
         "runner-link-outside-tests",
         "the link skills/own_gate is left a link",
     ),
@@ -1143,15 +1145,15 @@ LINK_CASES = {
         "runner-link-to-a-link",
         "the link tests/own_gate is left a link",
     ),
-    "a link of tests/ to a real folder scripts/constitution_layer_kit leads inside the module": (
+    "a link of tests/ to a real folder scripts/constitution_layer_kit leads inside the plugin": (
         "runner-link-constitution-layer-kit",
         "the link tests/constitution_layer_kit is left a link",
     ),
-    "a link of tests/ to a package named with a leading _ leads inside the module": (
+    "a link of tests/ to a package named with a leading _ leads inside the plugin": (
         "runner-link-underscore",
         "the link tests/_own_gate is left a link",
     ),
-    "a link of tests/ to a folder of scripts/ with no __init__.py leads inside the module": (
+    "a link of tests/ to a folder of scripts/ with no __init__.py leads inside the plugin": (
         "runner-link-no-package",
         "the link tests/data is left a link",
     ),
@@ -1226,7 +1228,7 @@ def link_cases(tally: Tally) -> None:
             ok = ok and len(got) == 1  # the file is missing; the hook the source names still runs in the copy
         if change == "inner-link":
             fixes = [f.fix for f in fixture_findings(change)]
-            ok = ok and fixes[:1] == ["replace the link inside the module with the file it points at"]
+            ok = ok and fixes[:1] == ["replace the link inside the plugin with the file it points at"]
         tally.failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {name}")
         if not ok:
@@ -3890,7 +3892,7 @@ def step_report_cases(tally: Tally, step: StepTwo) -> None:
     link_lines = [  # typed by hand: a module's link its copy lacks, a finding that is no refusal
         "RED: const-x: the link linked is missing in the installed copy{}",
         f"  why: {WHY}",
-        "  fix: replace the link inside the module with the file it points at",
+        "  fix: replace the link inside the plugin with the file it points at",
         f"RED: 1 finding(s) — 0 hook(s), 0 scan(s), 1 link(s), from {linked}{{}}",
     ]
     reports: list[tuple[str, Scene, str, bool, int, list[str]]] = [
@@ -4100,7 +4102,7 @@ def source_at_commit_case(tally: Tally) -> None:
 
 def self_test() -> int:
     """Red→green on throwaway source and copy folders, no install: a green copy is green; each branch
-    of the link check — a link inside the module, the runner's link to its own package arrived as a
+    of the link check — a link inside the plugin, the runner's link to its own package arrived as a
     directory, leading elsewhere, dangling or missing, a link left a link, missing, with files lost, added or
     changed, a file link with other bytes or arrived as a folder, a link the source lacks — each branch of
     the hooks-file, hook and scan checks, and a red scan the source declares where the copy holds no
