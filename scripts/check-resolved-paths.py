@@ -9,15 +9,15 @@ of a module imported so to the path through the link, never to the file's own pl
 that derives a path from `__file__` without resolving it finds one thing under its fixtures and
 another in a hook run. Resolving it first gives the file's own place in both.
 
-The files read: every `.py` file, at any depth, of each module's own packages, as `own_packages` of
-`kit_module_doc` derives them, of `shared/constitution_layer_kit/`, and at the top of `shared/tests/` whose
-name starts with neither `.` nor `_`, as for the links of item 7 of kit-shared-gate-code §2; a `__pycache__`
-is never read, nor a folder that is a link. Each use of the name `__file__` must stand as the one argument of
-a call of `Path` — the name, or `pathlib.Path` — whose result is at once resolved, `.resolve()`; any other use
-is a finding: `Path(__file__).parent`, `os.path.dirname(__file__)`, `Path(__file__).absolute()`, the name
-passed on or bound to another name. The entry files at the top of a module's `scripts/`, run by path, and the
-module's own test files in `tests/`, which pytest imports from where they stand, are never reached through a
-link, and are not read.
+The files read: every `.py` file, at any depth, of each module's own packages, in the module's
+`plugin/scripts/`, as `own_packages` of `kit_module_doc` derives them, of `shared/constitution_layer_kit/`,
+and at the top of `shared/tests/` whose name starts with neither `.` nor `_`, as for the links of item 7 of
+kit-shared-gate-code §2; a `__pycache__` is never read, nor a folder that is a link. Each use of the name
+`__file__` must stand as the one argument of a call of `Path` — the name, or `pathlib.Path` — whose result
+is at once resolved, `.resolve()`; any other use is a finding: `Path(__file__).parent`,
+`os.path.dirname(__file__)`, `Path(__file__).absolute()`, the name passed on or bound to another name. The
+entry files at the top of a module's `plugin/scripts/`, run by path, and the module's own test files in
+`tests/`, which pytest imports from where they stand, are never reached through a link, and are not read.
 
 Modes:  no arguments   check the kit;
         --self-test    prove the check on throwaway kits: a resolved read green in a module's package,
@@ -75,7 +75,7 @@ def files_of(kit: Path) -> tuple[list[Path], int]:
         modules = module_folders(kit)
     except DocumentError as bad:
         raise Broken(str(bad)) from None
-    roots = [package for module in modules for package in own_packages(module)]
+    roots = [package for module in modules for package in own_packages(module / "plugin")]
     roots.append(kit / "shared" / "constitution_layer_kit")
     files: list[Path] = []
     for root in roots:
@@ -160,37 +160,39 @@ def report(findings: list[Finding], files: int, packages: int) -> int:
 
 
 def toy_kit(root: Path, start: str, shared: str = "") -> None:
-    """One module const-a with its package a_gate, its entry file, a non-package folder, a `_` folder,
-    and links to an outside package from scripts/, from inside a_gate and from shared/tests/; the
-    shared package, one shared test file and a `_` file beside it. Every file the check must not read
-    holds an unresolved read, so reading one turns a green case red."""
+    """One module const-a with its document at the module folder's top and, in its `plugin/` folder, its
+    package a_gate, its entry file, a non-package folder, a `_` folder, and links to an outside package
+    from plugin/scripts/, from inside a_gate and from shared/tests/; the shared package, one shared test
+    file and a `_` file beside it. Every file the check must not read holds an unresolved read, so
+    reading one turns a green case red."""
     module = root / "modules" / "const-a"
-    (module / "scripts" / "a_gate").mkdir(parents=True)
+    scripts = module / "plugin" / "scripts"
+    (scripts / "a_gate").mkdir(parents=True)
     (module / "MODULE.md").write_text("# const-a\n", encoding="utf-8")
-    (module / "scripts" / "a_gate" / "__init__.py").write_text("", encoding="utf-8")
-    (module / "scripts" / "a_gate" / "start.py").write_text(start, encoding="utf-8")
+    (scripts / "a_gate" / "__init__.py").write_text("", encoding="utf-8")
+    (scripts / "a_gate" / "start.py").write_text(start, encoding="utf-8")
     unread = "from pathlib import Path\nHERE = Path(__file__).parent\n"
-    (module / "scripts" / "check-a.py").write_text(unread, encoding="utf-8")
+    (scripts / "check-a.py").write_text(unread, encoding="utf-8")
     for folder, marker in (("data", False), ("_private", True)):
-        (module / "scripts" / folder).mkdir()
+        (scripts / folder).mkdir()
         if marker:
-            (module / "scripts" / folder / "__init__.py").write_text("", encoding="utf-8")
-        (module / "scripts" / folder / "x.py").write_text(unread, encoding="utf-8")
+            (scripts / folder / "__init__.py").write_text("", encoding="utf-8")
+        (scripts / folder / "x.py").write_text(unread, encoding="utf-8")
     (root / "shared" / "constitution_layer_kit").mkdir(parents=True)
     (root / "shared" / "tests").mkdir()
     (root / "shared" / "constitution_layer_kit" / "__init__.py").write_text("", encoding="utf-8")
     (root / "shared" / "constitution_layer_kit" / "where.py").write_text(shared, encoding="utf-8")
     (root / "shared" / "tests" / "harness.py").write_text("", encoding="utf-8")
-    (module / "scripts" / "constitution_layer_kit").symlink_to(
-        Path("..", "..", "..", "shared", "constitution_layer_kit")
+    (scripts / "constitution_layer_kit").symlink_to(
+        Path("..", "..", "..", "..", "shared", "constitution_layer_kit")
     )
     (root / "shared" / "tests" / "_private.py").write_text(unread, encoding="utf-8")
     outside = root / "elsewhere" / "pkg"
     outside.mkdir(parents=True)
     (outside / "__init__.py").write_text("", encoding="utf-8")
     (outside / "x.py").write_text(unread, encoding="utf-8")
-    (module / "scripts" / "linked").symlink_to(Path("..", "..", "..", "elsewhere", "pkg"))
-    (module / "scripts" / "a_gate" / "inner").symlink_to(Path("..", "..", "..", "..", "elsewhere", "pkg"))
+    (scripts / "linked").symlink_to(Path("..", "..", "..", "..", "elsewhere", "pkg"))
+    (scripts / "a_gate" / "inner").symlink_to(Path("..", "..", "..", "..", "..", "elsewhere", "pkg"))
     (root / "shared" / "tests" / "linked.py").symlink_to(Path("..", "..", "elsewhere", "pkg", "x.py"))
 
 
