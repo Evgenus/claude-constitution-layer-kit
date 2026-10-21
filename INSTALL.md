@@ -16,7 +16,7 @@ Every module is a draft at manifest version `0.0.x` until Phase D of the [rollou
 
 1. Claude Code installed and authenticated (`claude --version`).
 2. Read access to the kit's GitHub repository, `Evgenus/claude-constitution-layer-kit`, from which the modules are installed: git clones it with your own credentials while the repository is private. And a local clone of it, for example at `~/dev/claude-constitution-layer-kit`: the commands below take the module names, the kernel, the scans and the fixtures from it.
-3. git, and Python 3.12 or newer as `python3` with PyYAML, for every gate. pytest is needed only to run a module's fixtures, which is optional:
+3. git, and Python 3.12 or newer as `python3` with PyYAML, for every gate. pytest is needed only to run a module's fixtures, which is optional; no module's `requirements.txt` names pytest or pytest-xdist, since no gate needs them:
    ```bash check=none
    python3 -m pip install 'PyYAML>=6.0'
    python3 -m pip install pytest   # optional, for the fixtures
@@ -112,7 +112,7 @@ Each module is one plugin named `const-<aspect>`; it works with its defaults alo
      ```
 2. **Calibrate.** Add the module's namespace, which equals the plugin's name, to `constitution.yaml`; the module reads nothing else, and its defaults apply while the namespace is absent. Three dials switch a check on: `record_policies` of [`const-decision-records`](docs/requirements.md#const-decision-records), `catalogs` of [`const-catalogs`](docs/requirements.md#const-catalogs), and `coverage` for the range check of [`const-task-close`](docs/requirements.md#const-task-close); each gate says so on every run until its dial is written. The module's `INSTALL.md` lists its dials.
 3. **The `CLAUDE.md` pointer.** Only if the module's `MODULE.md` declares one: the single line its `INSTALL.md` gives, never more than one line per module.
-4. **Verify.** `/plugin list` shows the module enabled, its skills appear as `/const-<aspect>:<skill>` under `/help`, and its scan, as its `INSTALL.md` names it, exits 0 from the project's root. Optionally, its fixtures are green when run from your clone at the commit the install records: `python3 -m pytest ~/dev/claude-constitution-layer-kit/modules/const-<aspect>/tests -p no:cacheprovider`.
+4. **Verify.** `/plugin list` shows the module enabled, its skills appear as `/const-<aspect>:<skill>` under `/help`, and its scan, as its `INSTALL.md` names it, exits 0 from the project's root. Optionally, its fixtures are green when run from your clone, at the commit the install records or, for a module loaded from the clone, as it is: `python3 -m pytest ~/dev/claude-constitution-layer-kit/modules/const-<aspect>/tests -p no:cacheprovider`.
 5. **Commit** `constitution.yaml`, `.claude/settings.json` and any `CLAUDE.md` line, the install noted in the message: routine, no record. With [`const-task-close`](docs/requirements.md#const-task-close) loaded, a turn that ends with uncommitted changes is reported once and the model is asked to commit; a change that touches code named in `coverage` updates the paired document or carries a `No-Doc-Impact: <pair> — <reason>` trailer on one of its commits.
 
 <a id="s4"></a>
@@ -142,4 +142,4 @@ for m in ~/dev/claude-constitution-layer-kit/modules/const-*; do claude plugin u
 <a id="s6"></a>
 ## What the kit does not install
 
-The kit's own tooling ships in no module: the branch-first commit hook, the agents under `.claude/agents/`, the carry audit and the checks under `scripts/` serve the kit's own development. A project gets only what the plugins carry, each module's `plugin/` folder: never its tests, eval cases, `MODULE.md` or `README.md`. A module carries its license in its manifest alone: `LICENSE` and `NOTICE` stand at the kit's root, and whoever passes a module's `plugin/` folder on alone takes both from there. `profiles/`, prewritten dials files to copy instead of writing dials by hand, are planned for [step 10 of the rollout plan](docs/rollout-plan.md#s10).
+The kit's own tooling ships in no module: the branch-first commit hook, the agents under `.claude/agents/`, the carry audit and the checks under `scripts/` serve the kit's own development. A project gets only what the plugins carry, each module's `plugin/` folder: never its tests, eval cases, `MODULE.md` or `README.md`. A module carries its license in its manifest alone: `LICENSE` and `NOTICE` stand at the kit's root, and whoever passes a module's folder, or its `plugin/` folder, on alone takes both from there. `profiles/`, prewritten dials files to copy instead of writing dials by hand, are planned for [step 10 of the rollout plan](docs/rollout-plan.md#s10).

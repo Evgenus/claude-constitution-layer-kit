@@ -145,7 +145,7 @@ The twelve signatures, the closed vocabulary of `allow`, each the mechanical hal
 <a id="t8"></a>
 ## 8. Boundary examples
 
-Each pair reads *violates / complies*; the pairs of the ten defaults are the guide's own, in `skills/style-defaults/style-guide.md`, entries d1 to d10, and are not repeated here. The boundaries this document adds are the module's own judgment lines:
+Each pair reads *violates / complies*; the pairs of the ten defaults are the guide's own, in `plugin/skills/style-defaults/style-guide.md`, entries d1 to d10, and are not repeated here. The boundaries this document adds are the module's own judgment lines:
 
 **A trivial drawing** ([A9.2](../../docs/requirements.md#a9-2)):
 
