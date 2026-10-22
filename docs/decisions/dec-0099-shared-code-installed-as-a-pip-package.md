@@ -123,7 +123,7 @@ The session recommended A, since B's misreading would be a silent pass. The deci
   - **Pros:** no address in code; a rename touches only documents.
   - **Cons:** not the exact fix that [law 6 of CLAUDE.md](../../CLAUDE.md#law-6) asks for; the person opens a file to find the command, and a hook shows one line.
 
-The session recommended A, for the exact fix. The decider chose B in chat on 2026-10-22. The session kept the pointer as concrete as the code allows: the path of the module's own install note.
+The session recommended A, for the exact fix. The decider chose B in chat on 2026-10-22.
 
 <a id="r14"></a>**R14.** `C15`, which the entry file prints when the package cannot be imported, and `C16` and `C17` of R5 name the package, the version the module requires, the version found where there is one, and the path of the module's own `INSTALL.md`, and close with the module's clause. A generator's three carry no clause, as its `C14` does. The texts stand in [§3 of kit-shared-gate-code](../../shared/GATE.md#g3).
 
@@ -160,7 +160,7 @@ The session first put A with a build in each check. Asked why that needed the ne
 
 <a id="r17"></a>**R17.** The steps that the install and session checks share, in `scripts/kit_install.py`, and the install guide's check make a throwaway virtual environment from the `python3` they run under, with its system packages, whose `.pth` file names the change's own `shared/`. They put its `bin` first on `PATH` for every session and gate they start. Nothing is built, and nothing needs the network.
 
-<a id="r18"></a>**R18.** The eval runner puts the change's `shared/` into each case's container and makes it importable the same way for every `python3` a case starts; a run in which a command could not import it fails. The receipt's hash covers `shared/constitution_layer_kit/` beside the module's own files, since a session loads it.
+<a id="r18"></a>**R18.** The eval runner puts the change's `shared/` into each case's container and makes it importable the same way for every `python3` a case starts. A case whose trace holds C15, C16 or C17 fails, narrowing R3 of [dec-0093-module-evals-with-local-receipts](dec-0093-module-evals-with-local-receipts.md#r3). The receipt's hash covers `shared/constitution_layer_kit/` beside the module's own files, since a session loads it.
 
 <a id="r19"></a>**R19.** `scripts/check-shared-package.py`, an entry of the gate group with `--self-test` as its fixture, builds the distribution from `shared/`, installs it into a fresh virtual environment and imports it there. It holds the installed version equal to `__version__`, and PyYAML installed with it. It is the one check that needs the package index.
 
