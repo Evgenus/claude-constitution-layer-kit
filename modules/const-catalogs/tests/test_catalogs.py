@@ -351,7 +351,9 @@ def test_not_an_item() -> None:
     expect(long_result, 0, line, "stdout")
 
 
-NO_POLICIES = yaml.safe_dump(catalogs(entry()), sort_keys=False)  # a dials file with no root_policy at all
+NO_POLICIES = yaml.safe_dump(  # a dials file with no root_policy at all
+    {"module_prefix": "const-", **catalogs(entry())}, sort_keys=False
+)
 
 
 @acceptance_item(17, "no policies at all, red half: the dial alone numbers a project's documents")
@@ -387,7 +389,7 @@ def test_inside_a_policys_territory() -> None:
 def test_territory_by_alias() -> None:
     """One territory written once and used twice, by YAML's own alias: the policy's and the catalog's."""
     raw = (
-        f"root_policy: {ROOT_POLICY}\n"
+        f"module_prefix: const-\nroot_policy: {ROOT_POLICY}\n"
         "root-policy: {territory: ['docs/policies/**']}\n"
         "notes-policy:\n  territory: &notes ['docs/notes/**']\n"
         f"{NAMESPACE}:\n  catalogs:\n    - {{prefix: note, territory: *notes}}\n"

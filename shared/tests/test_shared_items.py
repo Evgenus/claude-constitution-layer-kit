@@ -1594,7 +1594,8 @@ def test_no_dials_file(subject: Subject) -> None:
 @item(129, "a dials file with no root_policy: a visible skip")
 def test_no_root_policy(subject: Subject) -> None:
     it = shared(subject, "no_root_policy")
-    result, _ = it.s.gate_on(it.s.red, raw_dials="notes-policy:\n  territory: ['docs/notes/**']\n")
+    raw = "module_prefix: const-\nnotes-policy:\n  territory: ['docs/notes/**']\n"
+    result, _ = it.s.gate_on(it.s.red, raw_dials=raw)
     reason = "constitution.yaml has no root_policy: nothing is claimed"  # typed by hand
     expect(result, 0, messages.g1_green_skip(reason), "stdout")
 
@@ -2694,7 +2695,8 @@ def test_dials_file_undeclared(subject: Subject) -> None:
     problems = []
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
-        (root / "constitution.yaml").write_text(json.dumps({"root_policy": "docs/p.md"}), encoding="utf-8")
+        valid = {"module_prefix": "const-", "root_policy": "docs/p.md"}
+        (root / "constitution.yaml").write_text(json.dumps(valid), encoding="utf-8")
         reads: dict[str, Callable[[], object]] = {
             "identity.dials_file": identity.dials_file,
             "dials.load_dials": lambda: load_dials(root),
@@ -2797,7 +2799,7 @@ def test_dials_file_declared_twice_alike(subject: Subject) -> None:
 
 @item(177, "every shared message that names the dials file names the declared one, and the reader opens it")
 def test_dials_file_name_is_the_declared_one(subject: Subject) -> None:
-    """With `team.yaml` declared, each of the nineteen shared texts that name the file says `team.yaml`
+    """With `team.yaml` declared, each of the twenty-one shared texts that name the file says `team.yaml`
     and none says `constitution.yaml`, each text typed by hand; `load_dials` opens `team.yaml` and
     never `constitution.yaml`, reads no file where only `constitution.yaml` lies, and its failure on a
     team.yaml that is no YAML names `team.yaml`."""
@@ -2821,6 +2823,8 @@ def test_dials_file_name_is_the_declared_one(subject: Subject) -> None:
             "C5.8": messages.c5_severity().render(),
             "C5.9": messages.c5_log_dir().render(),
             "C5.10": messages.c5_unknown_dial("zz", ["a", "b"]).render(),
+            "C5.11": messages.c5_prefix_invalid().render(),
+            "C5.12": messages.c5_namespace_outside_prefix("other-").render(),
             "C6": messages.c6_root_missing("docs/p.md").render(),
             "C8": messages.c8_root_claims_nothing("pol").render(),
             "C12.3": messages.c12_check_ignore("boom").render(),
@@ -2856,6 +2860,12 @@ def test_dials_file_name_is_the_declared_one(subject: Subject) -> None:
         f" {ns}, set log_dir: <a git-ignored directory>, or remove that line",
         "C5.10": f"BROKEN: team.yaml: {ns}.zz is no dial of this module — fix: a misspelt dial would be"
         " ignored in silence, so none is: write one of a, b",
+        "C5.11": "BROKEN: team.yaml: module_prefix is missing, or is not a kebab-case word that ends in '-'"
+        " — fix: a gate tells a module's namespace from a policy's by this prefix, so write module_prefix:"
+        " const- as a top-level key, or correct its value to a kebab-case word that ends in '-'",
+        "C5.12": f"BROKEN: team.yaml: module_prefix 'other-' is not the start of this module's namespace"
+        f" '{ns}' — fix: a gate reads the file of its own modules only, so set module_prefix: const- if"
+        " this file is for this module, or check it with a module whose namespace starts with 'other-'",
         "C6": "BROKEN: team.yaml names root_policy 'docs/p.md' but no such file exists — fix: create it, or"
         " point root_policy at the policy for policies",
         "C8": "BROKEN: root policy 'pol' claims no territory in team.yaml — fix: write pol: {territory:"
@@ -2884,10 +2894,12 @@ def test_dials_file_name_is_the_declared_one(subject: Subject) -> None:
         seen: list[str] = []
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "constitution.yaml").write_text(json.dumps({"root_policy": "kit.md"}), encoding="utf-8")
+            prefixed = {"module_prefix": "const-"}
+            kit = json.dumps({**prefixed, "root_policy": "kit.md"})
+            (root / "constitution.yaml").write_text(kit, encoding="utf-8")
             alone = load_dials(root)  # only constitution.yaml lies here: this reader opens team.yaml
             seen.append("no file, nothing claimed" if alone is None else f"read {alone.root_policy!r}")
-            (root / OTHER_FILE).write_text(json.dumps({"root_policy": "docs/p.md"}), encoding="utf-8")
+            (root / OTHER_FILE).write_text(json.dumps({**prefixed, "root_policy": "docs/p.md"}), "utf-8")
             both = load_dials(root)  # JSON is YAML: the file the entry point declared wins
             seen.append("nothing" if both is None else f"read {both.root_policy!r}")
             (root / OTHER_FILE).write_text("[unbalanced", encoding="utf-8")
@@ -2962,3 +2974,303 @@ def test_module_messages_name_the_declared_file(subject: Subject) -> None:
         and "constitution.yaml" in node.value
     ]
     assert not problems, "; ".join(problems)
+
+
+# The kernel-owned key `module_prefix`: required in every dials file a gate reads, a kebab-case word that
+# ends in '-', and the start of the namespace of the module that reads the file. Every module of this kit
+# is named const-<aspect>, so the line its fix gives is `module_prefix: const-`; the lines are typed by hand.
+NO_PREFIX = (
+    "BROKEN: constitution.yaml: module_prefix is missing, or is not a kebab-case word that ends in '-'"
+    " — fix: a gate tells a module's namespace from a policy's by this prefix, so write module_prefix:"
+    " const- as a top-level key, or correct its value to a kebab-case word that ends in '-'"
+)
+
+
+def outside_prefix(prefix: str, ns: str) -> str:
+    """The line `C5.12` is for the module `ns` reading a file whose `module_prefix` is `prefix`, typed by
+    hand; the part of the namespace up to its first '-' is `const-` for every module of this kit."""
+    return (
+        f"BROKEN: constitution.yaml: module_prefix '{prefix}' is not the start of this module's namespace"
+        f" '{ns}' — fix: a gate reads the file of its own modules only, so set module_prefix: const- if"
+        f" this file is for this module, or check it with a module whose namespace starts with '{prefix}'"
+    )
+
+
+@item(179, "C5.11: a dials file that names no module_prefix is a configuration failure, whatever it holds")
+def test_dials_prefix_absent(subject: Subject) -> None:
+    """The key is required, as the kernel's schema requires it: a file with other keys, an empty file, a
+    file of one comment and a file of `{}` each fail the gate under `C5.11`, the exact line to write in
+    the fix, and no gate runs on the file until it is added."""
+    it = shared(subject, "dials_prefix_absent")
+    files = {
+        "other keys": "root_policy: docs/policies/root-policy.md\nroot-policy:\n  territory: ['x/**']\n",
+        "an empty file": "",
+        "one comment": "# nothing here yet\n",
+        "an empty mapping": "{}\n",
+        "the prefix only in a comment": "# module_prefix: const-\nroot_policy: docs/policies/root.md\n",
+        "the prefix as a namespace's key": f"{it.ns}:\n  module_prefix: const-\n",
+    }
+    failed: list[str] = []
+    for what, raw in files.items():
+        try:  # gathered: one file's red hides no other
+            it.broken_as_typed(it.s.gate_on(it.s.valid, raw_dials=raw)[0], NO_PREFIX)
+        except AssertionError as error:
+            failed.append(f"{what}: {error}")
+    assert not failed, "; ".join(failed)
+
+
+@item(180, "C5.11: a module_prefix that is no kebab-case word ending in '-' is the same failure")
+def test_dials_prefix_malformed(subject: Subject) -> None:
+    """The kernel schema's pattern `^[a-z][a-z0-9]*(-[a-z0-9]+)*-$` held whole: no trailing '-', an
+    upper-case letter, a first digit, an underscore, a space, a doubled or a leading '-', a '-' alone,
+    a line break after the '-', an empty string, a number, a boolean, a list, a mapping and a null each
+    fail under `C5.11`, the line typed by hand, whatever the module's namespace."""
+    it = shared(subject, "dials_prefix_malformed")
+    values: dict[str, object] = {
+        "no trailing '-'": "const",
+        "a namespace without its '-'": it.ns,
+        "an upper-case letter": "Const-",
+        "all upper case": "CONST-",
+        "a first digit": "1const-",
+        "an underscore": "const_x-",
+        "a space inside": "const -",
+        "a space after": "const- ",
+        "a space before": " const-",
+        "a doubled '-'": "const--",
+        "a leading '-'": "-const-",
+        "'-' alone": "-",
+        "a line break after the '-'": "const-\n",
+        "an empty string": "",
+        "a number": 5,
+        "a boolean": True,
+        "a list": ["const-"],
+        "a mapping": {"const-": 1},
+        "a null": None,
+    }
+    failed: list[str] = []
+    for what, value in values.items():
+        try:  # gathered: one value's red hides no other
+            it.broken_as_typed(it.s.gate_on(it.s.valid, dials_patch={"module_prefix": value})[0], NO_PREFIX)
+        except AssertionError as error:
+            failed.append(f"{what}: {error}")
+    assert not failed, "; ".join(failed)
+
+
+@item(181, "C5.12: a file whose module_prefix the reading module's namespace does not start with is refused")
+def test_dials_prefix_outside(subject: Subject) -> None:
+    """A well-formed prefix that is not the start of the namespace of the module that reads the file — the
+    file of another layer, a longer word than the namespace's own first part, a shorter word that is no
+    start of it — fails the gate under `C5.12`, the line typed by hand with the prefix as the file gives
+    it; a module reads the file of its own modules only."""
+    it = shared(subject, "dials_prefix_outside")
+    prefixes = ["other-", "know-", f"{it.ns}-", "c-", "const-zz-", "cons-", "a1-b2-"]
+    failed: list[str] = []
+    for prefix in prefixes:
+        try:  # gathered: one prefix's red hides no other
+            result = it.s.gate_on(it.s.valid, dials_patch={"module_prefix": prefix})[0]
+            it.broken_as_typed(result, outside_prefix(prefix, it.ns))
+        except AssertionError as error:
+            failed.append(f"{prefix}: {error}")
+    assert not failed, "; ".join(failed)
+
+
+# A kit of another layer reads its own file: one process of a gate named `know-check` or `know-sub-check`
+# that declares the file `layer.yaml`, in a process of its own since the identity is declared once. The
+# program prints, as one JSON object, what the dials reader gave or the configuration failure it raised.
+LAYER_PROGRAM = (
+    "import json, sys\n"
+    "from pathlib import Path\n"
+    "sys.path.insert(0, sys.argv[1])\n"
+    "from constitution_layer_kit import identity\n"
+    "from constitution_layer_kit.dials import load_dials\n"
+    "from constitution_layer_kit.errors import ConfigurationFailure\n"
+    "namespace, text, folder = sys.argv[2:5]\n"
+    "identity.declare(identity.Identity(namespace, 'check', Path('.')))\n"
+    "identity.declare_dials_file('layer.yaml')\n"
+    "Path(folder, 'layer.yaml').write_text(text, encoding='utf-8')\n"
+    "try:\n"
+    "    dials = load_dials(Path(folder))\n"
+    "except ConfigurationFailure as failure:\n"
+    "    print(json.dumps({'broken': failure.broken.render()}))\n"
+    "else:\n"
+    "    print(json.dumps({'prefix': dials.module_prefix, 'own': dict(dials.own),\n"
+    "                      'namespaces': {k: list(v.territory) for k, v in dials.namespaces.items()}}))\n"
+)
+LAYER_FILE = """\
+module_prefix: know-
+root_policy: docs/policies/root-policy.md
+know-check:
+  severity: warn
+know-odd: 5
+know-loose:
+  territory: not a list
+know-kept:
+  territory: ["a/**"]
+notes-policy:
+  territory: ["docs/**"]
+"""
+
+
+@item(182, "the prefix is the file's own: the reader names none, and reads a namespace by the one declared")
+def test_dials_prefix_is_the_files(subject: Subject) -> None:
+    """A gate of another kit, named `know-check`, reads `layer.yaml` with `module_prefix: know-`: the
+    prefix is read as the file gives it, a key that starts with it and holds a mapping is a module's, its
+    territory kept when well formed and empty otherwise, a key that starts with it and holds no mapping is
+    ignored, and a key that starts with `const-` is nothing special there — it must be a mapping, as a
+    policy's namespace must. A longer prefix, `know-sub-`, serves a gate named `know-sub-check`. The
+    fix of `C5.11` and the line of `C5.12` take the prefix from the reading module's namespace, and the
+    source of the shared package says `const-` nowhere, so that no prefix of this kit is built in."""
+    it = shared(subject, "dials_prefix_is_the_files")
+
+    def read(namespace: str, text: str) -> object:
+        folder = it.h.scratch_dir()
+        done = subprocess.run(
+            [sys.executable, "-c", LAYER_PROGRAM, str(it.h.scripts), namespace, text, str(folder)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return json.loads(done.stdout) if done.returncode == 0 else done.stderr.strip()[-300:]
+
+    def no_prefix(fix_word: str) -> dict[str, str]:
+        """`C5.11` for the file `layer.yaml`, the line to write being `module_prefix: {fix_word}`."""
+        return {
+            "broken": "BROKEN: layer.yaml: module_prefix is missing, or is not a kebab-case word that ends in"
+            " '-' — fix: a gate tells a module's namespace from a policy's by this prefix, so write"
+            f" module_prefix: {fix_word} as a top-level key, or correct its value to a kebab-case word that"
+            " ends in '-'"
+        }
+
+    sub_file = (
+        "module_prefix: know-sub-\nknow-sub-check:\n  severity: block\nknow-sub-a: 7\n"
+        "know-sub-b:\n  territory: [1]\n"
+    )
+    cases: dict[str, tuple[object, object]] = {
+        "know- file, know-check": (
+            read("know-check", LAYER_FILE),
+            {
+                "prefix": "know-",
+                "own": {"severity": "warn"},
+                "namespaces": {
+                    "know-check": [],
+                    "know-loose": [],
+                    "know-kept": ["a/**"],
+                    "notes-policy": ["docs/**"],
+                },
+            },
+        ),
+        "const- is nothing special there": (
+            read("know-check", LAYER_FILE + "const-x: 5\n"),
+            {
+                "broken": "BROKEN: layer.yaml: namespace 'const-x' must be a mapping — fix: write it as"
+                " const-x: {territory: [...]}"
+            },
+        ),
+        "a policy's territory is held strictly": (
+            read("know-check", LAYER_FILE + "plain-policy:\n  territory: 7\n"),
+            {
+                "broken": "BROKEN: layer.yaml: plain-policy.territory must be a list of non-empty strings"
+                ' — fix: write it as plain-policy: {territory: ["<pattern>", ...]}'
+            },
+        ),
+        "a longer prefix": (
+            read("know-sub-check", sub_file),
+            {
+                "prefix": "know-sub-",
+                "own": {"severity": "block"},
+                "namespaces": {"know-sub-check": [], "know-sub-b": []},
+            },
+        ),
+        "a longer prefix leaves know-x to the policies": (
+            read("know-sub-check", sub_file + "know-x: 7\n"),
+            {
+                "broken": "BROKEN: layer.yaml: namespace 'know-x' must be a mapping — fix: write it as"
+                " know-x: {territory: [...]}"
+            },
+        ),
+        "C5.11 names the reader's own prefix": (
+            read("know-check", "root_policy: docs/p.md\n"),
+            no_prefix("know-"),
+        ),
+        "C5.11 names the part up to the first '-'": (
+            read("know-sub-check", "module_prefix: Know-\n"),
+            no_prefix("know-"),
+        ),
+        "C5.12 for another layer's file": (
+            read("know-check", "module_prefix: const-\n"),
+            {
+                "broken": "BROKEN: layer.yaml: module_prefix 'const-' is not the start of this module's"
+                " namespace 'know-check' — fix: a gate reads the file of its own modules only, so set"
+                " module_prefix: know- if this file is for this module, or check it with a module whose"
+                " namespace starts with 'const-'"
+            },
+        ),
+        "C5.12 for a prefix longer than the namespace's start": (
+            read("know-check", "module_prefix: know-sub-\n"),
+            {
+                "broken": "BROKEN: layer.yaml: module_prefix 'know-sub-' is not the start of this module's"
+                " namespace 'know-check' — fix: a gate reads the file of its own modules only, so set"
+                " module_prefix: know- if this file is for this module, or check it with a module whose"
+                " namespace starts with 'know-sub-'"
+            },
+        ),
+    }
+    problems = [
+        f"{what}: wanted {wanted!r}, got {got!r}" for what, (got, wanted) in cases.items() if got != wanted
+    ]
+    source = Path(inspect.getsourcefile(identity) or "").resolve().parent
+    files = sorted(source.glob("*.py"))
+    if not files:
+        problems.append(f"no source of the shared package found beside {source}")
+    problems += [
+        f"{path.name} names const-" for path in files if "const-" in path.read_text(encoding="utf-8")
+    ]
+    assert not problems, "; ".join(problems)
+
+
+@item(
+    183, "under the prefix the file declares, a namespace with no mapping is ignored; any other is a policy's"
+)
+def test_dials_prefix_namespaces(subject: Subject) -> None:
+    """With `module_prefix: const-`, as before this key was read from the file: a key that starts with it
+    and holds no mapping, or a mapping with a territory of the wrong shape, is another module's business
+    and changes no verdict; a key that does not start with it must be a mapping with a territory of
+    non-empty strings, as a policy's namespace must, and fails under `C5.4` or `C5.6`, each line typed
+    by hand."""
+    it = shared(subject, "dials_prefix_namespaces")
+    plain = it.s.gate_on(it.s.valid)[0]
+    failed: list[str] = []
+    lenient: dict[str, dict[str, object]] = {
+        "no mapping": {"const-zz": 5},
+        "a null": {"const-zz": None},
+        "a territory that is no list": {"const-zz": {"territory": "not a list"}},
+        "a territory of a number": {"const-zz": {"territory": [1]}},
+        "the prefix alone": {"const-": 5},
+    }
+    for what, patch in lenient.items():
+        got = it.s.gate_on(it.s.valid, dials_patch=patch)[0]
+        if (got.code, "BROKEN" in got.stderr) != (plain.code, "BROKEN" in plain.stderr):
+            failed.append(f"{what}: exit {got.code}, the plain run exit {plain.code}: {got.stderr[:200]}")
+    strict: dict[str, tuple[dict[str, object], str]] = {
+        "a key outside the prefix that holds no mapping": (
+            {"know-zz": 5},
+            "BROKEN: constitution.yaml: namespace 'know-zz' must be a mapping — fix: write it as know-zz:"
+            " {territory: [...]}",
+        ),
+        "a key outside the prefix with a territory that is no list": (
+            {"know-zz": {"territory": "x"}},
+            "BROKEN: constitution.yaml: know-zz.territory must be a list of non-empty strings — fix: write"
+            ' it as know-zz: {territory: ["<pattern>", ...]}',
+        ),
+        "a key that only contains the prefix": (
+            {"zz-const-": 5},
+            "BROKEN: constitution.yaml: namespace 'zz-const-' must be a mapping — fix: write it as"
+            " zz-const-: {territory: [...]}",
+        ),
+    }
+    for what, (patch, line) in strict.items():
+        try:  # gathered: one key's red hides no other
+            it.broken_as_typed(it.s.gate_on(it.s.valid, dials_patch=patch)[0], line)
+        except AssertionError as error:
+            failed.append(f"{what}: {error}")
+    assert not failed, "; ".join(failed)

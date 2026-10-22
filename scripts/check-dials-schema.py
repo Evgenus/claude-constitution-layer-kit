@@ -9,10 +9,10 @@ draft first. The file is read with PyYAML's safe loader, anchors and aliases res
 
 Modes:  no arguments   check the kit's constitution.yaml;
         --self-test    prove the check on throwaway files: a valid file green; an empty
-                       root_policy, a territory that is not a list and a namespace that is not a
-                       mapping each a finding; the report of one finding as literal lines with
-                       exit 2; a file that is not YAML, an absent file and a schema that breaks
-                       its draft each a BROKEN line.
+                       root_policy, a module_prefix that is absent or ends in no '-', a territory that
+                       is not a list and a namespace that is not a mapping each a finding; the
+                       report of one finding as literal lines with exit 2; a file that is not YAML,
+                       an absent file and a schema that breaks its draft each a BROKEN line.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -105,16 +105,26 @@ def report(findings: list[Finding], keys: int) -> int:
 
 def self_test() -> int:
     """Red→green on throwaway files against the kit's own schema: a valid file is green; an empty
-    root_policy, a territory that is not a list and a namespace that is not a mapping are one finding
-    each; the report of one finding is its literal text, exit 2; a file that is not YAML, an absent
-    file and a schema that breaks its draft are each a teaching BROKEN line."""
+    root_policy, a module_prefix that is absent or ends in no '-', a territory that is not a list and a
+    namespace that is not a mapping are one finding each; the report of one finding is its literal text,
+    exit 2; a file that is not YAML, an absent file and a schema that breaks its draft are each a teaching
+    BROKEN line."""
     schema = KIT / SCHEMA
     valid = (
-        "root_policy: docs/policies/root.md\nroot:\n  territory:\n    - docs/policies/**\nconst-x:\n  a: 1\n"
+        "root_policy: docs/policies/root.md\nmodule_prefix: const-\nroot:\n  territory:\n"
+        "    - docs/policies/**\nconst-x:\n  a: 1\n"
     )
     cases = {
         "a valid file is green": (valid, []),
         "an empty root_policy is a finding": (valid.replace("docs/policies/root.md", "''"), ["root_policy"]),
+        "an absent module_prefix is a finding": (
+            valid.replace("module_prefix: const-\n", ""),
+            ["the file"],
+        ),
+        "a module_prefix that ends in no '-' is a finding": (
+            valid.replace("module_prefix: const-", "module_prefix: const"),
+            ["module_prefix"],
+        ),
         "a territory that is not a list is a finding": (
             valid.replace("  territory:\n    - docs/policies/**\n", "  territory: docs/policies/**\n"),
             ["root/territory"],
@@ -139,7 +149,7 @@ def self_test() -> int:
         "RED: constitution.yaml: root_policy: '' should be non-empty",
         f"  why: {WHY}",
         f"  fix: change root_policy to what {SCHEMA} {ALIGN}",
-        f"RED: 1 finding(s) — 3 top-level key(s) examined against {SCHEMA}",
+        f"RED: 1 finding(s) — 4 top-level key(s) examined against {SCHEMA}",
     ]
     with tempfile.TemporaryDirectory() as tmp:
         dials = Path(tmp) / DIALS

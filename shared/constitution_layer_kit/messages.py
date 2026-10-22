@@ -15,7 +15,7 @@ import shlex
 from collections.abc import Sequence
 
 from . import identity
-from .model import DIALECT, DIALECT_KEY, ROOT_POLICY_KEY, Broken, FileTool, SharedKey
+from .model import DIALECT, DIALECT_KEY, PREFIX_KEY, ROOT_POLICY_KEY, Broken, FileTool, SharedKey
 
 
 def _ns() -> str:
@@ -286,6 +286,32 @@ def c5_log_dir() -> Broken:
         SharedKey.C5,
         f"{_file()}: {_ns()}.log_dir must be a repository-relative directory",
         f"under {_ns()}, set log_dir: <a git-ignored directory>, or remove that line",
+    )
+
+
+def _own_prefix() -> str:
+    """The part of this module's namespace up to and including its first '-': the prefix the module's
+    own layer writes, which the fixes of C5.11 and C5.12 name as the exact line to write."""
+    head, dash, _ = _ns().partition("-")
+    return head + dash
+
+
+def c5_prefix_invalid() -> Broken:
+    return Broken(
+        SharedKey.C5,
+        f"{_file()}: {PREFIX_KEY} is missing, or is not a kebab-case word that ends in '-'",
+        f"a gate tells a module's namespace from a policy's by this prefix, so write {PREFIX_KEY}:"
+        f" {_own_prefix()} as a top-level key, or correct its value to a kebab-case word that ends in '-'",
+    )
+
+
+def c5_namespace_outside_prefix(prefix: str) -> Broken:
+    """`prefix` is the file's, already held to the kebab form: it stays as written."""
+    return Broken(
+        SharedKey.C5,
+        f"{_file()}: {PREFIX_KEY} '{prefix}' is not the start of this module's namespace '{_ns()}'",
+        f"a gate reads the file of its own modules only, so set {PREFIX_KEY}: {_own_prefix()} if this"
+        f" file is for this module, or check it with a module whose namespace starts with '{prefix}'",
     )
 
 

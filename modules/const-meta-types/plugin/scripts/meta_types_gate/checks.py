@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from constitution_layer_kit.dials import MODULE_PREFIX
 from constitution_layer_kit.envelope import ID_RE, declared_policy, document_id, parse_envelope, string_field
 from constitution_layer_kit.index import Index
 from constitution_layer_kit.model import (
@@ -92,7 +91,7 @@ def void_claims(index: Index, dials: Dials, matcher: Matcher) -> dict[str, dict[
     return {
         name: matcher.match(namespace.territory, index.paths)
         for name, namespace in dials.namespaces.items()
-        if name not in index.policies and not name.startswith(MODULE_PREFIX) and namespace.territory
+        if name not in index.policies and not name.startswith(dials.module_prefix) and namespace.territory
     }
 
 

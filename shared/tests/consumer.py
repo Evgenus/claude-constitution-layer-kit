@@ -30,6 +30,7 @@ class Consumer:
     dials: dict[str, object] = field(
         default_factory=lambda: {
             "root_policy": ROOT_POLICY,
+            "module_prefix": "const-",
             "root-policy": {"territory": ["docs/policies/**"]},
             "notes-policy": {"territory": ["docs/notes/**"]},
             "shared-policy": {"territory": ["docs/notes/shared/**"]},  # overlaps notes-policy

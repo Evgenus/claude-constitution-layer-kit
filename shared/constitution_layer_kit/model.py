@@ -9,9 +9,10 @@ from enum import StrEnum
 
 DECLARATION = "policy"  # the envelope field of the secondary binding
 DIALECT = "gitignore"
-ROOT_POLICY_KEY = "root_policy"  # the two kernel-owned top-level keys of the dials file
+ROOT_POLICY_KEY = "root_policy"  # the kernel-owned top-level keys of the dials file
 DIALECT_KEY = "territory_dialect"
-KERNEL_KEYS = (ROOT_POLICY_KEY, DIALECT_KEY)
+PREFIX_KEY = "module_prefix"
+KERNEL_KEYS = (ROOT_POLICY_KEY, DIALECT_KEY, PREFIX_KEY)
 
 
 class MetaType(StrEnum):
@@ -172,9 +173,11 @@ class Namespace:
 class Dials:
     """The keys of the dials file every gate reads, validated, and the module's own
     namespace as YAML read it — untyped on purpose: the module parses its own dials at its
-    own edge, once, into its own dataclass."""
+    own edge, once, into its own dataclass. `module_prefix` is the file's key of that name, as
+    read: every module's namespace in the file starts with it."""
 
     root_policy: str | None
+    module_prefix: str
     severity: Severity
     log_dir: str | None
     namespaces: dict[str, Namespace]

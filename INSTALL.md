@@ -54,6 +54,7 @@ The modules are loaded first, so that no governed document is ever written witho
    ```yaml check=dials
    # constitution.yaml
    root_policy: docs/policies/root-policy.md
+   module_prefix: const-
    root-policy:
      territory: ["docs/policies/**"]
    kernel-policy:

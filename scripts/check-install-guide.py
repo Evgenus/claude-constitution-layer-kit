@@ -1679,7 +1679,8 @@ else:
 TOY_MP = "toy-mp"  # the toy kit's marketplace name, which its marketplace.json gives and the fake follows
 TOY_PIN = "2.1.282"  # the toy kit's pin of the Claude Code version, which the fake answers `--version` with
 TOY_DIALS = (
-    'root_policy: docs/policies/root-policy.md\nroot-policy:\n  territory: ["docs/policies/**"]\n'
+    "root_policy: docs/policies/root-policy.md\nmodule_prefix: const-\n"
+    'root-policy:\n  territory: ["docs/policies/**"]\n'
     'records:\n  territory: ["docs/records/**"]\n'
     'const-catalogs:\n  catalogs:\n    - prefix: rec\n      width: 4\n      territory: ["docs/records/**"]\n'
 )

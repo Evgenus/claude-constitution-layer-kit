@@ -914,7 +914,7 @@ def test_a_tree_taken_out() -> None:
 def test_governed_only_without_root() -> None:
     """governed_only with no root policy is a configuration failure in every mode — as the mover
     refuses — never a skip that lets a write through with nothing examined; by default none is needed."""
-    rootless = yaml.safe_dump({NAMESPACE: {"governed_only": True}})
+    rootless = yaml.safe_dump({"module_prefix": "const-", NAMESPACE: {"governed_only": True}})
     failure = (  # typed by hand
         "BROKEN: constitution.yaml: const-referencing.governed_only is set and no root_policy is named, so"
         " nobody can say which documents a policy governs — fix: name the root policy, or remove"
@@ -926,7 +926,7 @@ def test_governed_only_without_root() -> None:
     consumer.write(VALID.target, VALID.text)
     after = H.run_gate(event_json(consumer.root, VALID, event=AFTER))
     scan = H.run_gate("", args=["--scan", str(root)])
-    default, _ = gate_on(VALID, raw_dials="{}\n")
+    default, _ = gate_on(VALID, raw_dials="module_prefix: const-\n")
     broken(before, failure)
     broken(after, failure)
     broken(scan, failure)
@@ -1631,7 +1631,9 @@ def test_mover_asks_before_it_moves() -> None:
         Result(done.returncode, done.stdout, done.stderr), messages.x1_no_lychee("0.24.2").render()
     )
     rootless = H.fresh_consumer((Write(OLD, ONE), Write("docs/notes/two.md", TWO)))
-    rootless.write("constitution.yaml", yaml.safe_dump({NAMESPACE: {"governed_only": True}}))
+    rootless.write(
+        "constitution.yaml", yaml.safe_dump({"module_prefix": "const-", NAMESPACE: {"governed_only": True}})
+    )
     rootless.commit()
     state = porcelain(rootless)
     refused = mover(rootless, OLD, NEW)

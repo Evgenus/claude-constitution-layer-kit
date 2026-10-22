@@ -788,7 +788,10 @@ def test_repository_refusals() -> None:
     consumer = prepared()
     (consumer.root / "constitution.yaml").unlink()
     no_dials = run(consumer, *NOTE_ARGS)
-    no_root = run(prepared(raw_dials="notes-policy:\n  territory: ['docs/notes/**']\n"), *NOTE_ARGS)
+    no_root = run(
+        prepared(raw_dials="module_prefix: const-\nnotes-policy:\n  territory: ['docs/notes/**']\n"),
+        *NOTE_ARGS,
+    )
     outside = H.scratch_dir()
     loose = H.run_gate("", args=NOTE_ARGS, cwd=outside, env={"GIT_CEILING_DIRECTORIES": str(outside.parent)})
     # the directory the run stands in and the repository root are paths: whole, a break and a backslash shown

@@ -3,11 +3,17 @@
   "$id": "constitution-kernel/constitution",
   "title": "Dials file — constitution.yaml (kernel CONVENTIONS.md section 6)",
   "type": "object",
+  "required": ["module_prefix"],
   "properties": {
     "root_policy": {
       "type": "string",
       "minLength": 1,
       "description": "Repository-relative path of the root policy (section 3). Absent: no territory is claimed and the constitution is silent."
+    },
+    "module_prefix": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*-$",
+      "description": "The prefix every module's namespace in this file starts with: a kebab-case word that ends in '-'. Required."
     },
     "territory_dialect": {
       "type": "string",
