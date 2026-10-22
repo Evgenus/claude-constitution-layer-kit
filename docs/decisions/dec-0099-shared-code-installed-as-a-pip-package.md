@@ -2,7 +2,7 @@
 id: dec-0099-shared-code-installed-as-a-pip-package
 type: task-record
 title: Every module imports the shared code as the pip package constitution-layer-kit, pinned by a git tag and checked by version, and the tests keep their links
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
@@ -17,7 +17,7 @@ The decider plans such a reader: a separate kit with modules of its own, built o
 
 Facts read on 2026-10-21 and 2026-10-22 with pip 24.0 and Python 3.12.4, in scratch folders. A copy of `shared/` beside a 12-line `pyproject.toml` installed from a `git+file:` URL pinned to a tag with `#subdirectory=shared`, from a wheel that `--find-links` found, and from a local path. An install from source fetches the build tool, `setuptools`, from the package index: with `--no-index` it failed, and the developer's Python had no `setuptools` of its own. A folder named by a `.pth` file in a virtual environment was imported with no build and no network. pip's parser accepts the line `constitution-layer-kit @ git+https://…@<tag>#subdirectory=shared` and refuses the same form with a `git+file:` URL. The kit's repository stays private until [step 10 of the rollout plan](../rollout-plan.md#s10).
 
-The session put the questions to the decider one per message, in chat on 2026-10-21 and 2026-10-22. Sections 1 to 8 hold them in order.
+The session put the questions to the decider one per message, in chat on 2026-10-21 and 2026-10-22. Sections 1 to 8 hold them in order, and section 9 holds one that the change's documents raised.
 
 ## 1. The channel
 
@@ -64,7 +64,7 @@ The session recommended A: one command names the exact version, the kit needs no
 
 The session first recommended B, as the cheaper path. The decider answered that local development needs one test of a change's impact on modules and shared code together, that the package is for other projects that use the constitution kit and not for the kit itself, and that the kit's own sessions may rely on the previous stable release. The session read that as A, put both readings, and recommended A. The decider chose A in chat on 2026-10-22.
 
-<a id="r7"></a>**R7.** A module's plugin holds no shared code: nothing stands at `plugin/scripts/constitution_layer_kit`, no link, no copy and no file. Its entry files import the package that pip installed for `python3`, in every project, the kit's own sessions included. This replaces item 2 of the Ruling of [dec-0025-shared-gate-code-linked](dec-0025-shared-gate-code-linked.md) for the plugin, with its principle that what the platform installs carries everything it runs, and the plugin's link in R1 of [dec-0096-shared-package-named-constitution-layer-kit](dec-0096-shared-package-named-constitution-layer-kit.md#r1) and in item 11 of R4 of [dec-0098-modules-install-from-a-plugin-subfolder](dec-0098-modules-install-from-a-plugin-subfolder.md#r4). Item 7 of the Ruling of dec-0025, the fallback to copies, has no object now.
+<a id="r7"></a>**R7.** A module's plugin holds no shared code: nothing stands at `plugin/scripts/constitution_layer_kit`, no link, no copy and no file. Its entry files import the package that pip installed for `python3`, in every project, the kit's own sessions included. This replaces item 2 of the Ruling of [dec-0025-shared-gate-code-linked](dec-0025-shared-gate-code-linked.md) for the plugin, with its principle that what the platform installs carries everything it runs, and the plugin's link in R1 of [dec-0096-shared-package-named-constitution-layer-kit](dec-0096-shared-package-named-constitution-layer-kit.md#r1) and in item 11 of R4 of [dec-0098-modules-install-from-a-plugin-subfolder](dec-0098-modules-install-from-a-plugin-subfolder.md#r4). Item 7 of the Ruling of dec-0025, the fallback to copies, and its widening by R4 of [dec-0059-bare-repo-install-in-ci](dec-0059-bare-repo-install-in-ci.md#r4) to the link in an installed copy, have no object now.
 
 <a id="r8"></a>**R8.** A module's tests keep their links to the shared package, to the shared test files and to the module's own packages. The harness puts the folder that holds the shared package on the `PYTHONPATH` of every gate it runs, after any folder a test puts there, so that a gate under test imports the shared code of its own commit and never an installed release. `scripts/check-shared-links.py` holds the links in `tests/` and is red for anything at `plugin/scripts/constitution_layer_kit`.
 
@@ -174,10 +174,48 @@ The session first put A with a build in each check. Asked why that needed the ne
 
 <a id="r23"></a>**R23.** The first release: once this change is merged, the decider tags `constitution-layer-kit-v1.0.0` on its merge commit and installs that release for the `python3` of the kit's own sessions.
 
+## 9. A module's version after a change to the shared code
+
+Writing the documents, the session found that rule 7 of [plc-0009-shared-code](../policies/plc-0009-shared-code.md#r7), step 4 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md) and rule 3 of [plc-0002-kernel](../policies/plc-0002-kernel.md#r3) said that a change to the shared code bumps the version of every published module that links it. No plugin links the code now, and nothing above ruled what takes the clause's place.
+
+- **A. A module's version moves only with its own files.** The package's `__version__` records the shared change, and a module that starts to need a later release raises its `REQUIRES`, which edits its entry files and so bumps it.
+  - **Pros:** a module's version says what its plugin holds; no version moves when nothing installed changed; the package's version and the version check carry the shared change to a project.
+  - **Cons:** a project that reads only module versions does not see a shared fix; the texts of [rule 3 of plc-0002-kernel](../policies/plc-0002-kernel.md#r3) and of R1 of [dec-0053-drafts-keep-their-versions](dec-0053-drafts-keep-their-versions.md#r1) no longer agree with the rule.
+- **B. Every published module that requires the package bumps on every shared change.**
+  - **Pros:** module versions keep tracking every change to what a gate runs; the texts barely change.
+  - **Cons:** a version moves while none of the module's files changed; every shared fix means a release of every module beside the package's tag.
+
+The session recommended A. The decider answered in chat on 2026-10-22 that a module's version is bumped when the module loses its consistency with the earlier shared code, as an explicit act for that case and never an automatic one. The session reads that as A.
+
+<a id="r24"></a>**R24.** A change to the shared code bumps no module's version by itself. A module's version is bumped, as an explicit act of the change, when the module stops being consistent with the earlier shared code and raises the version it requires (R6). This replaces, for the shared code, the clause of R1 of [dec-0053-drafts-keep-their-versions](dec-0053-drafts-keep-their-versions.md#r1) that a change to the shared code bumps the version of every published module that links it; a draft still need not be bumped.
+
 ## Applied
 
-The record is born `active`: its questions were decided one per message, and the change grows while it is applied. Each piece of the change lands in a commit of its own on the branch, and the last commit sets the record `inactive`.
+The record was born `active`: its questions were decided one per message, and the change grew while it was applied, one commit per piece on the branch — the package's files, the version check, the dials file's name, the module prefix, the checks' environment, the plugins without their link, the documents, and four rounds of fixes of what each piece's verifier found. The commit that adds section 9 states R24 in its documents and sets the record `inactive`: every item has its home.
 
 ## Carry list
 
-1. R1 — history only: filled by the last commit of the branch.
+1. R1 — [the install guide](../../INSTALL.md#s1), prerequisite 3; [kit-shared-gate-code §1](../../shared/GATE.md#g1), the paragraph on delivery; [plc-0009-shared-code](../policies/plc-0009-shared-code.md#r11), rule 11; [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module".
+2. R2 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the paragraph on delivery; [the distribution's description](../../shared/pyproject.toml); [check-copies](../../scripts/check-copies.py), its docstring.
+3. R3 — [plc-0009-shared-code](../policies/plc-0009-shared-code.md#r11), rule 11.
+4. R4 — [plc-0009-shared-code](../policies/plc-0009-shared-code.md#r11), rules 11, [7](../policies/plc-0009-shared-code.md#r7) and [9](../policies/plc-0009-shared-code.md#r9).
+5. R5 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the row of `cli`, [§2](../../shared/GATE.md#g2) item 6 and [§3](../../shared/GATE.md#g3), the rows `C16` and `C17`; [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module"; [the template](../../module-template/MODULE.md#t6), rule 1; [cli](../../shared/constitution_layer_kit/cli.py), `version_failure`.
+6. R6 — [kit-shared-gate-code §2](../../shared/GATE.md#g2), item 6; [plc-0009-shared-code](../policies/plc-0009-shared-code.md#r11), rules 11 and [9](../policies/plc-0009-shared-code.md#r9); [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module"; [check-copies](../../scripts/check-copies.py), its docstring.
+7. R7 — [kit-shared-gate-code](../../shared/GATE.md), its opening note, [§2](../../shared/GATE.md#g2) item 7 and [§4](../../shared/GATE.md#g4) limit 3; [law 3 of CLAUDE.md](../../CLAUDE.md#law-3), and step 4 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md); [the intent page](../../INTENT.md#i3), its architecture; [the template](../../module-template/MODULE.md#t6), rule 1; [requirement A12.1](../requirements.md#a12-1); [check-shared-links](../../scripts/check-shared-links.py), its docstring. That it replaces item 2 of the Ruling of dec-0025-shared-gate-code-linked for the plugin and the plugin's link in R1 of dec-0096-shared-package-named-constitution-layer-kit and in item 11 of R4 of dec-0098-modules-install-from-a-plugin-subfolder, and that the fallback of item 7 of dec-0025-shared-gate-code-linked and its widening by R4 of dec-0059-bare-repo-install-in-ci have no object, is history.
+8. R8 — [kit-shared-gate-code](../../shared/GATE.md), its opening note, [§2](../../shared/GATE.md#g2) items 7 and 8 and [§5](../../shared/GATE.md#g5), the row K1; [law 3 of CLAUDE.md](../../CLAUDE.md#law-3), and step 4 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md); [the harness](../../shared/tests/harness.py); [check-shared-links](../../scripts/check-shared-links.py), its docstring.
+9. R9 — [CLAUDE.md](../../CLAUDE.md), the opening paragraph of "Session conduct"; [kit-shared-gate-code §4](../../shared/GATE.md#g4), limit 3; [the install guide](../../INSTALL.md#s1), prerequisite 3, and [its §4](../../INSTALL.md#s4).
+10. R10 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the row of `identity`, [§2](../../shared/GATE.md#g2) items 1 and 5 and [§3](../../shared/GATE.md#g3), its opening; [identity](../../shared/constitution_layer_kit/identity.py), `declare_dials_file` and `dials_file`.
+11. R11 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the deferred parts.
+12. R12 — [kernel §6](../../kernel/CONVENTIONS.md#k6); [the dials schema](../../kernel/schemas/constitution.schema.json); [kit-shared-gate-code §1](../../shared/GATE.md#g1), the row of `dials`; [model](../../shared/constitution_layer_kit/model.py), `KERNEL_KEYS`; [the kit's dials file](../../constitution.yaml); [the install guide](../../INSTALL.md#s2), step 6.
+13. R13 — [kernel §6](../../kernel/CONVENTIONS.md#k6); [kit-shared-gate-code §1](../../shared/GATE.md#g1), the row of `dials`, and [§3](../../shared/GATE.md#g3), the rows `C5.11` and `C5.12`; [dials](../../shared/constitution_layer_kit/dials.py).
+14. R14 — [kit-shared-gate-code §3](../../shared/GATE.md#g3), its opening and the rows `C15` to `C17`, and [§2](../../shared/GATE.md#g2) item 6.
+15. R15 — [the install guide](../../INSTALL.md#s1), prerequisite 3; [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module"; [kit-shared-gate-code §2](../../shared/GATE.md#g2), item 6; [the template](../../module-template/MODULE.md#t6), the row of the install note, and [the template's install note](../../module-template/plugin/INSTALL.md); each module's `plugin/INSTALL.md`; [check-copies](../../scripts/check-copies.py), its docstring.
+16. R16 — [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module", its sentences on the script runtime; [kit-shared-gate-code §2](../../shared/GATE.md#g2), item 6; [the template](../../module-template/MODULE.md#t6), rule 7.
+17. R17 — [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI"; [kit-shared-gate-code §4](../../shared/GATE.md#g4), limit 3; [requirement A12.1](../requirements.md#a12-1); [kit_install](../../scripts/kit_install.py), its docstring.
+18. R18 — [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI"; [run-evals](../../scripts/run-evals.py) and [kit_evals](../../scripts/kit_evals.py), their docstrings; [the eval image](../../scripts/eval-container/Dockerfile), its opening comment.
+19. R19 — [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI"; [kit-shared-gate-code §1](../../shared/GATE.md#g1), the paragraph on delivery; [plc-0009-shared-code](../policies/plc-0009-shared-code.md#r9), rule 9; [check-shared-package](../../scripts/check-shared-package.py), its docstring.
+20. R20 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the deferred parts.
+21. R21 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the deferred parts.
+22. R22 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the deferred parts; [plc-0009-shared-code](../policies/plc-0009-shared-code.md#r9), rule 9.
+23. R23 — pending: [the rollout plan](../rollout-plan.md#s10a), step 10a.
+24. R24 — [plc-0009-shared-code](../policies/plc-0009-shared-code.md#r7), rule 7; [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module"; [plc-0002-kernel](../policies/plc-0002-kernel.md#r3), rule 3. That it replaces a clause of R1 of dec-0053-drafts-keep-their-versions is history.
