@@ -12,6 +12,7 @@ exit 1 — never 0 — and flushes the log however the run ended.
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 import traceback
 from collections.abc import Callable, Mapping, Sequence
@@ -19,13 +20,52 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import NoReturn, TextIO
 
-from . import identity, messages, preflight
+from . import __version__, identity, messages, preflight
 from .errors import ConfigurationFailure
 from .identity import Identity
 from .model import EXIT_BROKEN, Mode
 from .output import Output
 
 SCAN_FLAG = "--scan"
+
+# A version is major.minor.patch, three decimal integers written without a leading zero, and nothing else:
+# no prefix, no suffix, no space, no digit of another script (`[0-9]`, where `\d` takes them all).
+VERSION_SHAPE = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
+
+
+def _version(text: str, whose: str) -> tuple[int, int, int]:
+    found = VERSION_SHAPE.fullmatch(text)
+    if found is None:
+        raise ValueError(
+            f"{whose} {text!r} is not major.minor.patch: three decimal integers without a leading zero,"
+            " and nothing else"
+        )
+    return int(found[1]), int(found[2]), int(found[3])
+
+
+def version_failure(namespace: str, required: str, guide: str, until: str) -> str | None:
+    """Whether the installed constitution-layer-kit serves a module that requires `required`. None when it
+    does: the installed `__version__` is at or above `required` and of the same major. Otherwise the one
+    rendered BROKEN line the module's entry file prints, with its closing line, before it exits 1: `C16`
+    when the installed version is below `required` — the shared code is too old, a required major above the
+    installed one included — and `C17` when the required major is below the installed major — the module is
+    too old for that major. `guide` is the path of the module's install note and `until` its closing clause,
+    empty for a generator's, which closes with none.
+
+    Both versions are strict major.minor.patch. A malformed `required` raises ValueError: a defect of the
+    module, which its fixtures catch. This reads no identity, since none is declared when it runs.
+
+    The signature of this function never changes from the first release on, and no parameter changes its
+    meaning. Every module's entry file calls it right after it imports `cli`, before it builds anything,
+    on whatever release is installed, one older or newer than the module was written for. A changed
+    signature would end that call in an error of its own, and the module would print neither line."""
+    needed = _version(required, "the required version")
+    installed = _version(__version__, "the installed version")
+    if installed < needed:  # a required major above the installed one is below it too
+        return messages.c16_shared_too_old(namespace, required, __version__, guide, until).render()
+    if needed[0] < installed[0]:
+        return messages.c17_module_too_old(namespace, required, __version__, guide, until).render()
+    return None
 
 
 @dataclass(frozen=True, slots=True)

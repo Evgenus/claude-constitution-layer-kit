@@ -93,6 +93,8 @@ class SharedKey(StrEnum):
     C9 = "C9"
     C12 = "C12"
     C13 = "C13"
+    C16 = "C16"
+    C17 = "C17"
 
 
 @dataclass(frozen=True, slots=True)

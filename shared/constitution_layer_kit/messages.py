@@ -492,3 +492,39 @@ def c13_log_dir_not_ignored(log_dir: str) -> Broken:
 
 def c11_broken_count() -> str:
     return "BROKEN: the check could not run — 0 documents examined"
+
+
+# ---------------------------------------------------------------- the release of the shared code (C16, C17)
+# A module's entry file asks for these before it declares its identity, so they take the namespace and the
+# closing clause as parameters and read no identity. The versions are strict major.minor.patch, checked by
+# the caller; the namespace is the module's literal; the guide, a path, is escaped.
+
+
+def _major(version: str) -> str:
+    return version.partition(".")[0]
+
+
+def _clause(until: str) -> str:
+    """The module's closing clause behind a fix; a generator's is empty and closes with nothing."""
+    return f" — {until}" if until else ""
+
+
+def c16_shared_too_old(namespace: str, required: str, found: str, guide: str, until: str) -> Broken:
+    """The installed release is below the one the module requires: the shared code is too old. A required
+    major above the installed one is this too."""
+    return Broken(
+        SharedKey.C16,
+        f"{namespace} needs constitution-layer-kit {required} or a later {_major(required)}.x release,"
+        f" found {found}",
+        f"install one for python3 as {escaped(guide)} says" + _clause(until),
+    )
+
+
+def c17_module_too_old(namespace: str, required: str, found: str, guide: str, until: str) -> Broken:
+    """The module requires a major below the installed one: the module is too old for that major."""
+    return Broken(
+        SharedKey.C17,
+        f"{namespace} was written for constitution-layer-kit {_major(required)}.x, found {found}",
+        f"update the plugin to a release written for {_major(found)}.x, or install a {_major(required)}.x"
+        f" release of constitution-layer-kit for python3 as {escaped(guide)} says" + _clause(until),
+    )

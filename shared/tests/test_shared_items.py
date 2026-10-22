@@ -11,6 +11,7 @@ the module's Subject leaves out is skipped, the reason naming the flag, and its 
 from __future__ import annotations
 
 import ast
+import inspect
 import json
 import os
 import re
@@ -27,8 +28,9 @@ from typing import Protocol
 
 import pytest
 from acceptance import broken_first_line, expect, item
+from constitution_layer_kit import __version__ as package_version
+from constitution_layer_kit import cli, identity, messages, pipeline, preflight, repository
 from constitution_layer_kit import envelope as envelope_reader
-from constitution_layer_kit import identity, messages, pipeline, preflight, repository
 from constitution_layer_kit.envelope import ID_RE, declared_policy, document_id, parse_envelope
 from constitution_layer_kit.model import DECLARATION, DIALECT, Broken, EnvelopeState, Finding, SharedKey
 from constitution_layer_kit.output import ROTATE_AT, log_name
@@ -2366,3 +2368,282 @@ def test_hook_has_one_deadline(subject: Subject) -> None:
     failed = [evidence for ok, evidence in results if not ok]
     if failed:
         pytest.fail(f"{len(failed)} of {len(results)} checks red: " + " | ".join(failed))
+
+
+# The version check of a module's entry file, `cli.version_failure`: a module of namespace `const-x`, its
+# install note at VERSION_GUIDE, its closing clause VERSION_UNTIL. The installed version is set by pytest's
+# `monkeypatch` on the `__version__` that `cli` reads, so that every case names it by hand.
+VERSION_GUIDE = "/p/plugin/INSTALL.md"
+VERSION_UNTIL = "until then Markdown writes pass unchecked"
+# The end both lines share, typed by hand: the module's install note and its closing clause.
+GUIDE_SAYS = "for python3 as /p/plugin/INSTALL.md says — until then Markdown writes pass unchecked"
+
+
+def version_asked(
+    monkeypatch: pytest.MonkeyPatch,
+    installed: str,
+    required: str,
+    guide: str = VERSION_GUIDE,
+    until: str = VERSION_UNTIL,
+) -> str | None:
+    """What the check says to a module of namespace `const-x` that requires `required`, when the
+    installed package is `installed`."""
+    monkeypatch.setattr(cli, "__version__", installed)
+    return cli.version_failure("const-x", required, guide, until)
+
+
+@item(
+    168,
+    "version_failure: an installed version at or above the required one, of the same major, gives no line",
+)
+def test_version_serves(subject: Subject, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The check returns None for the same version, a later minor, a later patch, a later minor with an
+    earlier patch, and for numbers read as numbers (10 is above 9), in major 0 and in a later major too."""
+    shared(subject, "version_serves")
+    cases = [  # (installed, required, why it serves)
+        ("1.0.0", "1.0.0", "the same version"),
+        ("1.1.0", "1.0.0", "a later minor"),
+        ("1.0.1", "1.0.0", "a later patch"),
+        ("1.3.0", "1.2.9", "a later minor with an earlier patch"),
+        ("1.10.0", "1.9.0", "a minor of 10 is above one of 9"),
+        ("1.0.10", "1.0.9", "a patch of 10 is above one of 9"),
+        ("12.0.0", "12.0.0", "the same version in major 12"),
+        ("2.5.7", "2.5.6", "a later patch in major 2"),
+        ("0.4.3", "0.4.2", "a later patch in major 0"),
+        ("0.0.0", "0.0.0", "the smallest version, as the largest requirement"),
+    ]
+    failed = [
+        f"installed {installed} for a module that requires {required} ({why}): {said!r}"
+        for installed, required, why in cases
+        if (said := version_asked(monkeypatch, installed, required)) is not None
+    ]
+    assert not failed, "; ".join(failed)
+
+
+@item(169, "C16: an installed version below the required one, a required major above it included, is a line")
+def test_version_shared_too_old(subject: Subject, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The shared code is too old for the module: below it by a patch, by a minor, by numbers read as
+    numbers (9 is below 10), by a major — the line then names the later major — each line typed by hand."""
+    shared(subject, "version_shared_too_old")
+    cases = [  # (installed, required, the line's headline)
+        (
+            "1.0.0",
+            "1.0.1",
+            "const-x needs constitution-layer-kit 1.0.1 or a later 1.x release, found 1.0.0",
+        ),
+        (
+            "1.2.9",
+            "1.3.0",
+            "const-x needs constitution-layer-kit 1.3.0 or a later 1.x release, found 1.2.9",
+        ),
+        (
+            "1.9.0",
+            "1.10.0",
+            "const-x needs constitution-layer-kit 1.10.0 or a later 1.x release, found 1.9.0",
+        ),
+        (
+            "1.0.9",
+            "1.0.10",
+            "const-x needs constitution-layer-kit 1.0.10 or a later 1.x release, found 1.0.9",
+        ),
+        (
+            "1.9.9",
+            "2.0.0",
+            "const-x needs constitution-layer-kit 2.0.0 or a later 2.x release, found 1.9.9",
+        ),
+        (
+            "2.0.0",
+            "3.1.4",
+            "const-x needs constitution-layer-kit 3.1.4 or a later 3.x release, found 2.0.0",
+        ),
+        (
+            "0.9.0",
+            "1.0.0",
+            "const-x needs constitution-layer-kit 1.0.0 or a later 1.x release, found 0.9.0",
+        ),
+        (
+            "9.9.9",
+            "10.0.0",
+            "const-x needs constitution-layer-kit 10.0.0 or a later 10.x release, found 9.9.9",
+        ),
+    ]
+    failed = []
+    for installed, required, headline in cases:
+        line = f"BROKEN: {headline} — fix: install one {GUIDE_SAYS}"
+        said = version_asked(monkeypatch, installed, required)
+        if said != line:
+            failed.append(f"installed {installed}, required {required}: wanted {line!r}, got {said!r}")
+    assert not failed, "; ".join(failed)
+
+
+@item(170, "C17: a required major below the installed one is a line naming both majors")
+def test_version_module_too_old(subject: Subject, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The module is too old for the installed major, whatever its minor and patch (a required 1.9.9 is
+    below an installed 2.0.0), the majors read as numbers (9 is below 10); the line names the major the
+    module was written for, the major found, and both ways out, each line typed by hand."""
+    shared(subject, "version_module_too_old")
+    written = "const-x was written for constitution-layer-kit"
+    cases = [  # (installed, required, headline, the major to update the plugin to, the one to install)
+        ("2.0.0", "1.4.2", f"{written} 1.x, found 2.0.0", "2.x", "1.x"),
+        ("2.0.0", "1.9.9", f"{written} 1.x, found 2.0.0", "2.x", "1.x"),
+        ("3.1.4", "1.0.0", f"{written} 1.x, found 3.1.4", "3.x", "1.x"),
+        ("1.0.0", "0.9.9", f"{written} 0.x, found 1.0.0", "1.x", "0.x"),
+        ("10.2.3", "9.9.9", f"{written} 9.x, found 10.2.3", "10.x", "9.x"),
+    ]
+    failed = []
+    for installed, required, headline, update_to, install in cases:
+        line = (
+            f"BROKEN: {headline} — fix: update the plugin to a release written for {update_to}, or install a"
+            f" {install} release of constitution-layer-kit {GUIDE_SAYS}"
+        )
+        said = version_asked(monkeypatch, installed, required)
+        if said != line:
+            failed.append(f"installed {installed}, required {required}: wanted {line!r}, got {said!r}")
+    assert not failed, "; ".join(failed)
+
+
+@item(171, "C16, C17: a generator's empty clause closes the line with none, and a guide path is escaped")
+def test_version_clause_and_guide(subject: Subject, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An empty closing clause, a generator's, leaves no dash and no text after `says`, in both lines. A
+    guide path with a line break, a carriage return and a backslash is shown escaped, never cut, so each
+    line stays one line; each line typed by hand."""
+    shared(subject, "version_clause_and_guide")
+    bare_16 = (  # installed 1.0.0, required 1.0.1, no clause
+        "BROKEN: const-x needs constitution-layer-kit 1.0.1 or a later 1.x release, found 1.0.0"
+        " — fix: install one for python3 as /p/plugin/INSTALL.md says"
+    )
+    bare_17 = (  # installed 2.0.0, required 1.4.2, no clause
+        "BROKEN: const-x was written for constitution-layer-kit 1.x, found 2.0.0 — fix: update the plugin"
+        " to a release written for 2.x, or install a 1.x release of constitution-layer-kit for python3 as"
+        " /p/plugin/INSTALL.md says"
+    )
+    odd = "/p/a\nb\rc\\d/INSTALL.md"  # a line feed, a carriage return and a backslash
+    escaped_16 = (
+        "BROKEN: const-x needs constitution-layer-kit 1.0.1 or a later 1.x release, found 1.0.0"
+        " — fix: install one for python3 as /p/a\\nb\\rc\\\\d/INSTALL.md says"
+        " — until then Markdown writes pass unchecked"
+    )
+    escaped_17 = (
+        "BROKEN: const-x was written for constitution-layer-kit 1.x, found 2.0.0 — fix: update the plugin"
+        " to a release written for 2.x, or install a 1.x release of constitution-layer-kit for python3 as"
+        " /p/a\\nb\\rc\\\\d/INSTALL.md says — until then Markdown writes pass unchecked"
+    )
+    checks = [  # (installed, required, guide, clause, the line)
+        ("1.0.0", "1.0.1", VERSION_GUIDE, "", bare_16),
+        ("2.0.0", "1.4.2", VERSION_GUIDE, "", bare_17),
+        ("1.0.0", "1.0.1", odd, VERSION_UNTIL, escaped_16),
+        ("2.0.0", "1.4.2", odd, VERSION_UNTIL, escaped_17),
+    ]
+    failed = []
+    for installed, required, guide, until, line in checks:
+        said = version_asked(monkeypatch, installed, required, guide, until)
+        if said != line:
+            failed.append(f"installed {installed}, required {required}: wanted {line!r}, got {said!r}")
+        elif said is not None and len(said.splitlines()) != 1:
+            failed.append(f"installed {installed}, required {required}: the line is not one line: {said!r}")
+    assert not failed, "; ".join(failed)
+
+
+@item(172, "version_failure: a required version that is not major.minor.patch of integers raises ValueError")
+def test_version_malformed(subject: Subject, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A malformed required version is a defect of the module, not a line: it raises ValueError, whatever
+    is installed — fewer or more parts, a leading zero, a prefix, a suffix, a space or line break around
+    it, a sign, a digit of another script. The edges of the shape stay accepted. The installed version, if
+    it were malformed, would raise too, never serve in silence."""
+    shared(subject, "version_malformed")
+    malformed = [
+        "",
+        "1",
+        "1.0",
+        "1.0.0.0",
+        "01.0.0",
+        "1.00.0",
+        "1.0.00",
+        "v1.0.0",
+        "1.0.0-rc1",
+        "1.0.0+build",
+        "1.0.0a1",
+        "1.0.x",
+        "1..0",
+        "1,0,0",
+        " 1.0.0",
+        "1.0.0 ",
+        "1.0.0\n",
+        "-1.0.0",
+        "+1.0.0",
+        "1.-1.0",
+        "١.٠.٠",  # Arabic-Indic digits, which int() reads and the shape does not
+        "１.０.０",  # full-width digits
+        "1٠.0.0",  # an ASCII digit first, an Arabic-Indic one after it: ten, to int()
+        "1.1٠.0",
+        "1.0.1١",
+        "1.0.0.",
+        "constitution-layer-kit-v1.0.0",
+    ]
+    not_raised = []
+    for required in malformed:
+        try:
+            said = version_asked(monkeypatch, "5.0.0", required)
+        except ValueError:
+            continue
+        not_raised.append(f"{required!r} gave {said!r}")
+    edges = [("0.0.0", "0.0.0"), ("10.20.30", "10.20.30"), ("100.0.1", "99.99.99")]
+    refused = []
+    for installed, required in edges:
+        try:
+            version_asked(monkeypatch, installed, required)
+        except ValueError as error:
+            refused.append(f"{required!r} with {installed} installed: {error}")
+    try:
+        said = version_asked(monkeypatch, "1.0", "1.0.0")
+    except ValueError:
+        said = "ValueError"
+    problems = [
+        *([f"no ValueError for {len(not_raised)} of them: {'; '.join(not_raised)}"] if not_raised else []),
+        *([f"a well-formed version refused: {'; '.join(refused)}"] if refused else []),
+        *([f"a malformed installed version gave {said!r}, not ValueError"] if said != "ValueError" else []),
+    ]
+    assert not problems, " | ".join(problems)
+
+
+@item(173, "version_failure reads the package's own __version__ and keeps its signature")
+def test_version_reads_the_package(subject: Subject) -> None:
+    """Unpatched, the check reads the `__version__` of the package: that version serves a module that
+    requires it, a patch above it is `C16` naming it, a major below it is `C17` naming it. The parameters
+    are `namespace`, `required`, `guide` and `until`, in that order, each a string with no default, and the
+    result is a string or None: the signature every module's entry file calls from the first release on."""
+    shared(subject, "version_reads_the_package")
+    major, minor, patch = (int(part) for part in package_version.split("."))
+    above = f"{major}.{minor}.{patch + 1}"
+    problems = []
+    if cli.__version__ != package_version:
+        problems.append(f"cli reads {cli.__version__!r}, the package says {package_version!r}")
+    served = cli.version_failure("const-x", package_version, VERSION_GUIDE, VERSION_UNTIL)
+    if served is not None:
+        problems.append(f"the installed version does not serve a module that requires it: {served!r}")
+    shared_old = cli.version_failure("const-x", above, VERSION_GUIDE, VERSION_UNTIL)
+    wanted = (
+        f"BROKEN: const-x needs constitution-layer-kit {above} or a later {major}.x release,"
+        f" found {package_version} — fix: install one {GUIDE_SAYS}"
+    )
+    if shared_old != wanted:
+        problems.append(f"required {above}: wanted {wanted!r}, got {shared_old!r}")
+    if major >= 1:
+        module_old = cli.version_failure("const-x", f"{major - 1}.0.0", VERSION_GUIDE, VERSION_UNTIL)
+        wanted = (
+            f"BROKEN: const-x was written for constitution-layer-kit {major - 1}.x, found {package_version}"
+            f" — fix: update the plugin to a release written for {major}.x, or install a {major - 1}.x"
+            f" release of constitution-layer-kit {GUIDE_SAYS}"
+        )
+        if module_old != wanted:
+            problems.append(f"required {major - 1}.0.0: wanted {wanted!r}, got {module_old!r}")
+    parameters = inspect.signature(cli.version_failure, eval_str=True)
+    names = list(parameters.parameters)
+    typed = [parameters.parameters[name].annotation for name in names]
+    plain = [parameters.parameters[name].kind is inspect.Parameter.POSITIONAL_OR_KEYWORD for name in names]
+    bare = [parameters.parameters[name].default is inspect.Parameter.empty for name in names]
+    if names != ["namespace", "required", "guide", "until"] or typed != [str] * 4 or not all(plain + bare):
+        problems.append(f"the signature changed: {parameters}")
+    if parameters.return_annotation != (str | None):
+        problems.append(f"the result is no longer a string or None: {parameters.return_annotation!r}")
+    assert not problems, " | ".join(problems)
