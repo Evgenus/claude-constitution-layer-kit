@@ -29,8 +29,11 @@ When the check itself runs under a virtual environment, whose packages a new env
 the `.pth` file names that environment's site-packages after `shared/`, so that PyYAML stays visible there
 too. The step then asks the new environment's `python3` to import `constitution_layer_kit` and `yaml`, and
 holds that the package comes from the kit's `shared/`. Each failure is a `Broken` with the fix: a kit with
-no `shared/constitution_layer_kit/`; `python3 -m venv` that fails; a `.pth` file that cannot be written; an
-import that fails or finds another copy of the package first, such as one a `PYTHONPATH` names.
+no `shared/constitution_layer_kit/`; `python3 -m venv` that fails; a new environment that does not say where
+its packages go; a `.pth` file that cannot be written; an import that fails; an import that finds another
+copy of the package first, such as one a `PYTHONPATH` names or a `sitecustomize` or `usercustomize` module
+puts first; and, from `run` and the path lookups, a command that cannot be started or a path that cannot be
+searched.
 """
 
 from __future__ import annotations
@@ -389,8 +392,9 @@ def shared_path(root: Path, shared: Path | None = None, path: str | None = None)
     if found != package.resolve():
         raise Broken(
             f"the new environment imports {SHARED_PACKAGE} from {found}, not from {package} — fix: take the"
-            " other copy off the way for this run: unset PYTHONPATH, which puts a folder first, then run the"
-            " check again"
+            " other copy off the way for this run: unset PYTHONPATH, which puts a folder first, and take out"
+            " of a sitecustomize or usercustomize module any line that does the same, then run the check"
+            " again"
         )
     folder = str(home / "bin")
     return os.pathsep.join(p for p in (folder, os.environ.get("PATH", "") if path is None else path) if p)

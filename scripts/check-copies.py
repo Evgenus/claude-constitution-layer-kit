@@ -181,7 +181,7 @@ PROJECT = "shared/pyproject.toml"  # the shared distribution; its requires-pytho
 REQUIRES = re.compile(r"^>=3\.(\d+)$")  # the one form of requires-python this check reads
 # Where the key stands, for the line of a finding: the key written bare or quoted, a table header `[name]` or
 # `[[name]]` on a line of its own (a name holds no bracket, comma or equal sign, so the line of an array of
-# two or more elements is none; `requires_line` states the limit of a one-element array).
+# two or more elements is none; `requires_line` states the limit of an array of fewer than two).
 KEY_NAME = r"""(?:requires-python|"requires-python"|'requires-python')"""
 TABLE_HEADER = re.compile(r"^\s*\[\[?\s*([^\[\],=]*?)\s*\]\]?\s*(?:#.*)?$")
 REQUIRES_KEY = re.compile(rf"^\s*{KEY_NAME}\s*=")
@@ -403,8 +403,9 @@ def requires_line(text: str) -> int:
     """The line of the `requires-python` key that belongs to the table `[project]`, bare or quoted, or
     written as a dotted key `project.requires-python` before the first table; line 1 where none is found. A
     key of the same name under another table is not it. A line reader that is no parser has two limits.
-    A line inside a multi-line string that reads like a header or a key is not told apart. A nested
-    one-element array alone on a line, such as `  ["b"]` with no comma after it, reads as a table header.
+    A line inside a multi-line string that reads like a header or a key is not told apart. A nested array of
+    fewer than two elements alone on a line, such as `  ["b"]` with no comma after it or an empty `  []`,
+    reads as a table header.
     A file that tomllib has parsed, with its key under [project], is the premise."""
     in_project = False
     in_root = True

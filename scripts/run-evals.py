@@ -38,7 +38,9 @@ asks docker for the image. For each module, in turn:
      python3, with its system packages (the image's PyYAML) and no pip, writes into its site-packages a
      `.pth` file that names /shared, and puts its `bin` first on PATH, so that the python3 the case's hooks
      and scans start imports the mounted package; a python3 that does not import `constitution_layer_kit`
-     from /shared and `yaml` ends the container with exit 5 and a line that says so, the case not run. The
+     from /shared and `yaml`, whether the folder lacks the package or another copy stands ahead of it, ends
+     the container with exit 5 and a line that says so with its one fix, the case not run; the runner's
+     BROKEN for that run is that line, with no fix of its own after it. The
      image is unchanged for this: its Debian python3 makes the environment with no package of its own, and
      a virtual environment's `.pth` entries come before the system's folders on `sys.path`. Then it runs
      `claude plugin eval` on the copy, `--case
@@ -71,10 +73,13 @@ seccomp filter and the /proc mask lifted, the shared code mounted read-only besi
 guard, run under sh against a fake claude (the billing variables unset, the pinned version and a subscription
 login required, in that order); its command after the guard, run under sh (the shared code made importable:
 the python3 a fake claude starts imports a toy package from the mounted folder, the environment's `bin`
-first on its PATH, and a mounted folder without the package ends the container with exit 5, the case not run;
-the eval's exit code kept, each run's trace copied whatever its folder, and mapped to the path the eval's
-result names); the shared code copied from a toy kit's tracked files alone, and a kit that tracks none a
-Broken with the fix; the environment of the docker commands; the image's tag following the pin
+first on its PATH, and a mounted folder without the package, or a second copy of it ahead on the python3's
+path, ends the container with exit 5, the case not run; the eval's exit code kept, each run's trace copied
+whatever its folder, and mapped to the path the eval's result names); the shared code copied from a toy
+kit's tracked files alone, and a kit that tracks none a Broken with the fix; `run_module` against a fake
+docker: the folder mounted at /shared holds the copy when the container starts, a container that exits 5
+ends the run with its own line and one fix, and another exit keeps the run's fix; the environment of the
+docker commands; the image's tag following the pin
 and the Dockerfile's text, and the image inspected and built under that tag, against a fake docker; a token
 file judged before docker is asked for an image; the Dockerfile's refusal of an architecture reaching the
 person with its own fix, from BuildKit's log and from the legacy builder's coloured output, and a failed
@@ -106,6 +111,7 @@ import sys
 import tempfile
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -145,12 +151,14 @@ CONTAINER_PLUGIN = "/plugin"  # where the module's copy is mounted, read-only
 CONTAINER_SHARED = "/shared"  # where the change's shared code is mounted, read-only, beside the module's copy
 CONTAINER_OUT = "/out"  # where the results folder is mounted, writable
 SHARED_ENV_EXIT = 5  # the exit of a container that could not make the shared code importable
-SHARED_ENV_SAID = (
-    "the shared code cannot be made importable in the container: a virtual environment of the image's"
-    " python3, with its system packages and a .pth file that names the mounted shared folder, did not give a"
-    " python3 that imports constitution_layer_kit from that folder and yaml — fix: run docker image rm on the"
-    " eval image and run again, which rebuilds it; if it repeats, run `python3 -m venv"
-    " --system-site-packages --without-pip <folder>` in the image by hand and read why it fails"
+SHARED_ENV_SAID = (  # one line with one fix, which `run_case` prints whole: it fits every cause of the exit
+    "the shared code cannot be made importable in the container, where a case must run the change's own"
+    " shared code and no release: a virtual environment of the image's python3, with its system packages and"
+    " a .pth file that names the mounted shared folder, did not give a python3 that imports"
+    " constitution_layer_kit from that folder and yaml — fix: from the kit's folder run"
+    f' `docker run --rm -it -v "$PWD/shared:{CONTAINER_SHARED}:ro" <an image that docker image ls {IMAGE}'
+    " lists> sh`, make the environment there with the commands of `shared_environment` in"
+    " scripts/run-evals.py, and read which step fails"
 )
 SHARED_PTH_WRITE = (  # run by the environment's python3: its .pth file, naming the mounted shared folder
     "import pathlib, sys, sysconfig; "
@@ -376,7 +384,7 @@ def run_case(
     tools = granted([case / "case.yaml"])
     plugin = f"{CONTAINER_HOME}/{copy.name}"
     argv = in_box(
-        box, copy, out, eval_argv(plugin, case.name, model, CONTAINER_OUT, tools), case.name, tmp / "shared"
+        box, copy, out, eval_argv(plugin, case.name, model, CONTAINER_OUT, tools), case.name, shared_copy(tmp)
     )
     timeout = RUNS * TURN_SECONDS + 300
     if verbose:
@@ -399,6 +407,8 @@ def run_case(
     result = out / f"{case.name}.json"
     if not result.is_file():
         said = (done.stderr or done.stdout).strip().splitlines()
+        if done.returncode == SHARED_ENV_EXIT and said:  # the container's line carries its own fix
+            raise Broken(f"the eval of case {case.name} exited {done.returncode} with no result ({said[-1]})")
         raise Broken(
             f"the eval of case {case.name} exited {done.returncode} with no result"
             f" ({said[-1] if said else 'no output'})"
@@ -488,6 +498,12 @@ def token_file(given: str) -> Path:
     return path
 
 
+def shared_copy(tmp: Path) -> Path:
+    """Where a run's copy of the change's shared code stands under the run's temporary folder `tmp`: the
+    folder `run_module` fills with `copy_shared` and `run_case` mounts in each container, named once."""
+    return tmp / "shared"
+
+
 def copy_shared(kit: Path, into: Path) -> None:
     """The files git tracks in the kit's shared package (`kit_evals.shared_files`) copied under `into`, as
     `into/constitution_layer_kit/...`: the folder a container mounts as the change's shared code, holding
@@ -522,7 +538,7 @@ def run_module(module: str, model: str, env: dict[str, str], box: Box, verbose: 
         for name, path in eval_files(KIT, module):
             (copy / name).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(path, copy / name)
-        copy_shared(KIT, Path(tmp) / "shared")
+        copy_shared(KIT, shared_copy(Path(tmp)))
         outcomes = [run_case(case, copy, model, env, Path(tmp), box, verbose) for case in cases]
     total = sum(o.cases for o in outcomes)
     score = sum(o.score * o.cases for o in outcomes) / total if total else 0.0
@@ -697,6 +713,103 @@ def shared_copy_said(kit: Path, scratch: Path, env: dict[str, str]) -> tuple[lis
     except Broken as nothing:
         return sorted(str(f.relative_to(copied)) for f in copied.rglob("*") if f.is_file()), str(nothing)
     return [], "no Broken"
+
+
+def toy_eval_kit(folder: Path, env: dict[str, str]) -> Path:
+    """For the self-test: a git repository at `folder` that tracks a module const-x with one eval case,
+    `load`, and a shared package of one file, `core.py`; its path."""
+    files = {
+        "modules/const-x/plugin/skills/s/SKILL.md": "skill\n",
+        "modules/const-x/evals/load/case.yaml": "execution:\n  allowed_tools: [Read]\n",
+        "shared/constitution_layer_kit/core.py": "x = 1\n",
+    }
+    for name, text in files.items():
+        (folder / name).parent.mkdir(parents=True, exist_ok=True)
+        (folder / name).write_text(text, encoding="utf-8")
+    for git_args in (
+        ["init", "-q"],
+        ["add", "-A"],
+        ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "x"],
+    ):
+        subprocess.run(["git", *git_args], cwd=folder, env=env, capture_output=True, check=True)
+    return folder
+
+
+def fake_run_docker(folder: Path, log: Path, said: Path) -> dict[str, str]:
+    """For the self-test: a `docker` in `folder` that runs no container. It appends to `log` what the folder
+    mounted at /shared holds (the tracked file `core.py`, else a line saying it is missing) and then answers
+    as the container would: a result for the case `load` in the folder mounted at /out; with
+    FAKE_DOCKER_EXIT=5 the line in `said` on its standard error and exit 5; with 3 a login refusal. The
+    environment that puts it first on PATH."""
+    folder.mkdir()
+    result = json.dumps(
+        {"aggregates": {"casesTotal": 1, "casesPassed": 1, "overallScore": 1.0},
+         "cases": [{"name": "load", "aggregates": {"score": 1.0}}]}
+    )  # fmt: skip
+    (folder / "docker").write_text(
+        "#!/bin/sh\n"
+        "shared=; out=; prev=\n"
+        'for a in "$@"; do\n'
+        '  if [ "$prev" = -v ]; then\n'
+        '    case "$a" in *:/shared:ro) shared=${a%:/shared:ro} ;; *:/out) out=${a%:/out} ;; esac\n'
+        "  fi\n"
+        "  prev=$a\n"
+        "done\n"
+        'core="$shared/constitution_layer_kit/core.py"\n'
+        f"exec 3>> '{log}'\n"
+        'if [ -f "$core" ]; then cat "$core" >&3; else echo "no core.py at $shared" >&3; fi\n'
+        'case "$FAKE_DOCKER_EXIT" in\n'
+        f"  5) cat '{said}' >&2; exit 5 ;;\n"
+        "  3) echo 'not a subscription login: none' >&2; exit 3 ;;\n"
+        "esac\n"
+        f"printf '%s' '{result}' > \"$out/load.json\"\n",
+        encoding="utf-8",
+    )
+    (folder / "docker").chmod(0o755)
+    return {"PATH": f"{folder}{os.pathsep}{os.environ['PATH']}"}
+
+
+def run_module_cases(case: Callable[[str, bool], None], box: Box, tmp: Path, quiet: dict[str, str]) -> None:
+    """For the self-test: `run_module` over a toy kit against a docker that runs no container, which notes
+    what the folder mounted at /shared holds. The cases: the change's shared code is there when the
+    container starts and the case's result counts; a container that exits 5 ends the run with its own
+    line and that line's one fix; a container that exits otherwise keeps the run's fix."""
+    eval_kit = toy_eval_kit(tmp / "eval-kit", quiet)
+    said_file, run_log = tmp / "shared-env-said.txt", tmp / "run-docker.log"
+    said_file.write_text(SHARED_ENV_SAID + "\n", encoding="utf-8")
+    run_env_of = fake_run_docker(tmp / "run-bin", run_log, said_file)
+    exits: dict[str, str] = {}
+    with mock.patch.dict(globals(), {"KIT": eval_kit}):
+        ran = run_module("const-x", "m", run_env_of, box)
+        for exit_code in ("5", "3"):
+            try:
+                run_module("const-x", "m", run_env_of | {"FAKE_DOCKER_EXIT": exit_code}, box)
+                exits[exit_code] = "no Broken"
+            except Broken as stopped:
+                exits[exit_code] = str(stopped)
+    case(
+        "a run gives each container the change's shared code: the folder mounted at /shared holds the"
+        " tracked files of the shared package, copied before the case runs, and the case's result counts",
+        run_log.read_text(encoding="utf-8").splitlines()[:1] == ["x = 1"]
+        and (ran.cases, ran.passed) == (1, 1),
+    )
+    case(
+        "a container that exits 5, the shared code not importable, ends the run with its own line and that"
+        " line's one fix, and no other 'fix:' after it",
+        SHARED_ENV_SAID.count("fix:") == 1
+        and "\n" not in SHARED_ENV_SAID
+        and exits["5"]
+        == f"the eval of case load exited {SHARED_ENV_EXIT} with no result ({SHARED_ENV_SAID})",
+    )
+    case(
+        "a container that exits otherwise with no result keeps the fix of the run: the line in brackets, the"
+        " image to remove and the login",
+        exits["3"].startswith(
+            "the eval of case load exited 3 with no result (not a subscription login: none)"
+        )
+        and exits["3"].count("fix:") == 1
+        and "run docker image rm img and run again" in exits["3"],
+    )
 
 
 def recording_holds() -> bool:
@@ -999,6 +1112,25 @@ def self_test() -> int:
             and not seen_file.exists()
             and not (box_root / "out" / "none-traces.txt").exists(),
         )
+        (box_root / "second" / "constitution_layer_kit").mkdir(parents=True)
+        (box_root / "second" / "constitution_layer_kit" / "__init__.py").write_text("", encoding="utf-8")
+        crowded = subprocess.run(
+            ["sh", "-c", then_for(
+                Path("const-x"), "crowded", ["claude", "plugin", "eval"], tmp=str(box_root / "tmp"),
+                out=str(box_root / "out"), plugin=str(box_root / "plugin"), home=str(box_root / "home-3"),
+                shared=str(box_root / "shared"),
+            )],
+            env=box_env | {"PYTHONPATH": str(box_root / "second")},
+            capture_output=True, text=True, check=False,
+        )  # fmt: skip
+        case(
+            "a second copy of the package ahead of the mounted folder on the python3's path ends the"
+            " container with exit 5 and a line that says why, the case not run",
+            crowded.returncode == SHARED_ENV_EXIT
+            and "the shared code cannot be made importable in the container" in crowded.stderr
+            and not seen_file.exists()
+            and not (box_root / "out" / "crowded-traces.txt").exists(),
+        )
         copied = sorted(p.name for p in (box_root / "out").glob("load-trace*.jsonl"))
         case(
             "the container keeps the eval's exit code and copies each run's trace, whatever its folder",
@@ -1075,6 +1207,7 @@ def self_test() -> int:
             "git tracks no file under shared/constitution_layer_kit/" in nothing
             and "fix: run the command from a clone of the kit" in nothing,
         )
+        run_module_cases(case, box, Path(tmp), quiet)
         (kit / "shared/constitution_layer_kit/untracked.py").unlink()
         skill = kit / "modules/const-x/plugin/skills/s"
         (skill / "SKILL.md").rename(skill / "OTHER.md")  # a rename in the working tree, ` R` in porcelain

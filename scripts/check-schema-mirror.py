@@ -242,6 +242,11 @@ DIALS_CORPUS: list[tuple[str, object]] = [
 # schema is the Python `re` of the validator: it takes a trailing line feed after the '-', which the
 # pattern's `$` allows there; the mirror, which holds the whole value, is stricter on that one.
 READER_SUFFIX = "x"
+# The case that the self-test's loose-pattern mirror must fail on: a value that the kit's own namespace does
+# not start with. A reader left at the kit's own namespace, `const-…`, would pass the value `const` on the
+# strength of that namespace whatever the pattern says, so a case on `const` cannot show the reader is the
+# case's own.
+UPPER_CASE_PREFIX = "prefix with an upper-case letter"
 PREFIX_SHAPES: list[tuple[str, object]] = [
     ("prefix of one word", "const-"),
     ("prefix of two words", "const-meta-"),
@@ -253,7 +258,7 @@ PREFIX_SHAPES: list[tuple[str, object]] = [
     ("prefix with a doubled dash", "const--"),
     ("prefix with a leading dash", "-const-"),
     ("prefix of a dash alone", "-"),
-    ("prefix with an upper-case letter", "Const-"),
+    (UPPER_CASE_PREFIX, "Const-"),
     ("prefix in upper case", "CONST-"),
     ("prefix with a first digit", "1const-"),
     ("prefix with an underscore", "const_x-"),
@@ -657,7 +662,7 @@ def self_test() -> int:
             "a mirror that holds the prefix's pattern loosely is red",
             (envelope, record, dials, real),
             EXIT_RED,
-            ("RED: dials 'prefix without a trailing dash': the schema rejects it but the mirror accepts it",),
+            (f"RED: dials '{UPPER_CASE_PREFIX}': the schema rejects it but the mirror accepts it",),
         ),
         (
             "the untouched inputs are green",

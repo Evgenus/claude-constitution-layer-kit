@@ -22,7 +22,9 @@ Modes:  no arguments   check the kit;
         --self-test    prove the check on throwaway kits: a current receipt green; an edit of a skill, of a
                        script, of a case, of the eval image's Dockerfile and of a file of the shared package
                        each a finding, and so is a new tracked file there; a receipt made with a plugin's
-                       link to the shared package green once the link is gone; the hash, over a toy kit, the
+                       link to the shared package green once the link is gone; a plugin's links to a file and
+                       a folder of the kit outside the shared package followed, each edit of what they lead
+                       to and a new tracked file in the folder a finding; the hash, over a toy kit, the
                        digest of the module's files, the shared package's files once and the Dockerfile, in
                        that order, typed by hand; an edit of MODULE.md, README.md, INSTALL.md, a test, a
                        tracked result, a file of shared/ outside the package and an untracked file of the
@@ -232,6 +234,27 @@ def drop_link(root: Path) -> None:
     git_quiet(root, "add", "-A")
 
 
+def link_kit_files(then: Act) -> Act:
+    """Link from the plugin a file and a folder of the kit outside the shared package, make the receipt anew
+    for the files as they are, then do `then`: the hash follows a link to what it leads to."""
+
+    def act(root: Path) -> None:
+        (root / "docs/d").mkdir(parents=True)
+        (root / "docs/f.txt").write_text("f\n", encoding="utf-8")
+        (root / "docs/d/a.txt").write_text("a\n", encoding="utf-8")
+        scripts = root / "modules/const-x/plugin/scripts"
+        (scripts / "linked-file").symlink_to("../../../../docs/f.txt")
+        (scripts / "linked-folder").symlink_to("../../../../docs/d")
+        git_quiet(root, "add", "-A")
+        passing = Attempt("2026-10-16T00:00:00Z", 1, 1, 1.0)
+        write_receipts(
+            root, {"const-x": Receipt(eval_hash(root, "const-x"), "2.1.282", "claude-opus-5-5", (passing,))}
+        )
+        then(root)
+
+    return act
+
+
 def with_receipt(
     *, claude: str | None = None, model: str | None = None, attempts: tuple[Attempt, ...] | None = None
 ) -> Act:
@@ -284,6 +307,20 @@ def self_test() -> int:
         "a receipt made with a plugin's link to the shared package is green once the link is gone": (
             drop_link,
             [],
+        ),
+        "a receipt made with a plugin's links to a file and a folder of the kit, outside the shared package,"
+        " is green": (link_kit_files(lambda root: None), []),
+        "an edit of the file a plugin's link leads to is a finding": (
+            link_kit_files(edit("docs/f.txt")),
+            ["const-x"],
+        ),
+        "an edit of a file in the folder a plugin's link leads to is a finding": (
+            link_kit_files(edit("docs/d/a.txt")),
+            ["const-x"],
+        ),
+        "a new tracked file in the folder a plugin's link leads to is a finding": (
+            link_kit_files(add("docs/d/b.txt")),
+            ["const-x"],
         ),
         "an untracked file of the shared package is left out, green": (
             edit("shared/constitution_layer_kit/untracked.py"),

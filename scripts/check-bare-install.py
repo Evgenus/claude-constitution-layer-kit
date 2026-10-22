@@ -3513,6 +3513,7 @@ class StepTwo:
 
 
 TOY_MARK = "toy-shared"  # what a toy kit's shared package says, so that no other copy passes for it
+RIVAL_MARK = "release"  # what a release of the package, installed where the check runs, says
 
 
 def toy_shared(kit: Path, body: str = f'MARK = "{TOY_MARK}"\n') -> Path:
@@ -4407,17 +4408,20 @@ def shared_failed_cases(tally: Tally, base: Path, shared: Path) -> None:
     version_case(
         tally,
         "the shared step: another copy of the package first on sys.path, a PYTHONPATH's, is BROKEN, the copy"
-        " found and the shared/ expected named, the fix to unset PYTHONPATH",
+        " found and the shared/ expected named, the fix to unset PYTHONPATH and to clear a sitecustomize or"
+        " usercustomize line that does the same",
         got
         == f"BROKEN: the new environment imports constitution_layer_kit from {other}/constitution_layer_kit,"
         f" not from {shared}/constitution_layer_kit — fix: take the other copy off the way for this run:"
-        " unset PYTHONPATH, which puts a folder first, then run the check again",
+        " unset PYTHONPATH, which puts a folder first, and take out of a sitecustomize or usercustomize"
+        " module any line that does the same, then run the check again",
         got,
     )
 
 
 def shared_outer_case(tally: Tally, base: Path, shared: Path) -> None:
-    """A check that runs under a virtual environment: the new environment sees that one's packages."""
+    """A check that runs under a virtual environment: the new environment sees that one's packages, and the
+    kit's shared package before a release of its own that stands in them."""
     outer = base / "outer"
     done = subprocess.run(
         [sys.executable, "-m", "venv", "--system-site-packages", "--without-pip", str(outer)],
@@ -4427,6 +4431,9 @@ def shared_outer_case(tally: Tally, base: Path, shared: Path) -> None:
     )
     site_packages = next((outer / "lib").glob("python3*/site-packages"), outer)
     (site_packages / "outer_only.py").write_text("WHERE = 'outer'\n", encoding="utf-8")
+    rival = site_packages / "constitution_layer_kit"  # a release installed in the venv the check runs under
+    rival.mkdir()
+    (rival / "__init__.py").write_text(f'MARK = "{RIVAL_MARK}"\n', encoding="utf-8")
     root = base / "work" / "under-venv"
     root.mkdir()
     code = (
@@ -4438,19 +4445,25 @@ def shared_outer_case(tally: Tally, base: Path, shared: Path) -> None:
         [str(outer / "bin" / "python3"), "-c", code], cwd=base, capture_output=True, text=True, check=False
     )
     made = ran.stdout.strip()
+    mark = "import constitution_layer_kit as c; print(c.MARK)"
     seen = subprocess.run(
-        [str(Path(made) / "python3"), "-c", "import outer_only, constitution_layer_kit as c; print(c.MARK)"],
+        [str(Path(made) / "python3"), "-c", f"import outer_only; {mark}"],
         cwd=base,
         capture_output=True,
         text=True,
         check=False,
     )
+    own = subprocess.run(
+        [str(outer / "bin" / "python3"), "-c", mark], cwd=base, capture_output=True, text=True, check=False
+    )
     version_case(
         tally,
         "the shared step under a virtual environment: the new environment imports a package of that one,"
-        " where a plain venv would not, and the kit's shared package as before",
-        done.returncode == 0 and seen.stdout.strip() == TOY_MARK,
-        f"{done.stderr.strip()} {ran.stderr.strip()} {made} {seen.stderr.strip()}",
+        " where a plain venv would not, and the kit's shared package, not the release that one holds, which"
+        " that one's own python3 imports",
+        done.returncode == 0 and seen.stdout.strip() == TOY_MARK and own.stdout.strip() == RIVAL_MARK,
+        f"{done.stderr.strip()} {ran.stderr.strip()} {made} {seen.stdout.strip()} {seen.stderr.strip()}"
+        f" {own.stdout.strip()} {own.stderr.strip()}",
     )
 
 

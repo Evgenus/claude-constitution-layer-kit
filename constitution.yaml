@@ -18,7 +18,7 @@
 # --- kernel-owned keys (kernel §6) -------------------------------------------------
 
 root_policy: docs/policies/plc-0001-root-policy.md   # where the root policy is; absent: no territory is claimed
-module_prefix: const-                           # required: the prefix every module's namespace below starts with
+module_prefix: const-                                # required: the prefix every module's namespace below starts with
 territory_dialect: gitignore                    # values: gitignore — the only dialect the readers support; default gitignore
 
 # --- policy namespaces (kernel §3): one per document kind, keyed by the policy's id ---
