@@ -24,7 +24,7 @@
   },
   "additionalProperties": {
     "type": "object",
-    "description": "A namespace. A policy's when a document with this id lies in the root policy's territory; otherwise a module's, keyed by its plugin name, whose keys are that module's own.",
+    "description": "A namespace. A policy's when a document with this id lies in the root policy's territory; otherwise a module's when the key starts with module_prefix, keyed by its plugin name, whose keys are that module's own.",
     "properties": {
       "territory": {
         "type": "array",
