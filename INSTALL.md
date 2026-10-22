@@ -16,9 +16,9 @@ Every module is a draft at manifest version `0.0.x` until Phase D of the [rollou
 
 1. Claude Code installed and authenticated (`claude --version`).
 2. Read access to the kit's GitHub repository, `Evgenus/claude-constitution-layer-kit`, from which the modules are installed: git clones it with your own credentials while the repository is private. And a local clone of it, for example at `~/dev/claude-constitution-layer-kit`: the commands below take the module names, the kernel, the scans and the fixtures from it.
-3. git, and Python 3.12 or newer as `python3` with PyYAML, for every gate. pytest is needed only to run a module's fixtures, which is optional; no module's `requirements.txt` names pytest or pytest-xdist, since no gate needs them:
+3. git, and Python 3.12 or newer as `python3` with the shared package `constitution-layer-kit`, for every gate. No plugin carries that package: each gate imports it from the `python3` your hooks run, so install it there once. It brings PyYAML with it. pip clones the kit's repository with git and your own credentials and builds the package at the release tag. A module that needs a later release says so on its first line and points at its own `INSTALL.md`: install that tag then. pytest is needed only to run a module's fixtures, which is optional; no module's `requirements.txt` names pytest or pytest-xdist, since no gate needs them:
    ```bash check=none
-   python3 -m pip install 'PyYAML>=6.0'
+   python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
    python3 -m pip install pytest   # optional, for the fixtures
    ```
 4. Vale 3.23.0 or newer for [`const-language`](docs/requirements.md#const-language), and lychee 0.24.2 or newer for [`const-referencing`](docs/requirements.md#const-referencing):
@@ -130,6 +130,8 @@ A draft keeps its version across changes (decision [dec-0053-drafts-keep-their-v
 ```bash check=reinstall
 for m in ~/dev/claude-constitution-layer-kit/modules/const-*; do claude plugin uninstall "$(basename "$m")@claude-constitution-layer-kit" --scope project && claude plugin install "$(basename "$m")@claude-constitution-layer-kit" --scope project; done
 ```
+
+The shared package updates apart from the plugins. A plugin that needs a later release than the one installed stops its gates with a line that names the release and the plugin's own `INSTALL.md`: run the command of [prerequisite 3](#s1) at that tag.
 
 <a id="s5"></a>
 ## Uninstall
