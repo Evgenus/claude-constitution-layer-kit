@@ -41,7 +41,7 @@
 MODULES="const-catalogs const-decision-records const-doc-budgets const-interaction const-language
 const-locations const-meta-types const-questions const-referencing const-styling const-task-close"
 GATES="references meta-types catalogs decision-records open-questions style language budgets
-list-handles carry-lists shared-links yaml-style module-links handle-forms aspects portability gate-lists
+list-handles carry-lists shared-links shared-package yaml-style module-links handle-forms aspects portability gate-lists
 schema-mirror copies dials-schema resolved-paths eval-receipts run-evals bare-install session-load guide $(for m in $MODULES; do printf 'install-%s session-%s ' "$m" "$m"; done)task-close"
 EXTRAS="branch-gate setup-claude $(for m in $MODULES; do printf 'fixtures-%s lint-%s types-%s ' "$m" "$m" "$m"; done)lint types"
 
@@ -87,7 +87,7 @@ commands() {
         language) echo "sh modules/const-language/plugin/scripts/check-language.sh --scan" ;;
         budgets) echo "sh modules/const-doc-budgets/plugin/scripts/check-budgets.sh --scan" ;;
         list-handles) echo "sh modules/const-interaction/plugin/scripts/check-list-handles.sh --scan" ;;
-        carry-lists | shared-links | yaml-style | module-links | handle-forms | aspects | portability | gate-lists | copies | schema-mirror | dials-schema | resolved-paths | eval-receipts)
+        carry-lists | shared-links | shared-package | yaml-style | module-links | handle-forms | aspects | portability | gate-lists | copies | schema-mirror | dials-schema | resolved-paths | eval-receipts)
             echo "python3 scripts/check-$1.py"
             echo "python3 scripts/check-$1.py --self-test" ;;
         bare-install) echo "python3 scripts/check-bare-install.py --self-test" ;;

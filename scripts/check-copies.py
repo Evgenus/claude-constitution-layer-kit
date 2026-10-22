@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Kit check: every copy of the Python floor names the floor's one minor, and each entry's three
-first lines close with its Identity's clause.
+"""Kit check: every copy of the Python floor names the floor's one minor, the `requires-python` of the
+shared distribution is that floor, and each entry's three first lines close with its Identity's clause.
 
 The floor's one source is `FLOOR` in `shared/constitution_layer_kit/preflight.py`, read here by `ast` and
 never imported: a module-level assignment, the last one, plain or annotated, of a tuple of two integer
@@ -24,6 +24,15 @@ version under which a fixture runs an entry to see its refusal, and each must na
 minus one: `found 3.N` and `an interpreter of 3.N`, not followed by a digit nor by `.<digit>`, and
 `version_info = (3, N, 0`. A mention that names another minor is RED, with its path and line, the value
 found, the source, why a floor copied apart drifts and the fix.
+
+The distribution `constitution-layer-kit` holds a floor of its own that no form above can tell, since
+pip reads it, not a person: `requires-python` under `[project]` in `shared/pyproject.toml`, read here by
+`tomllib` and never matched as text. It must be the string `>=3.<minor>` with the source's minor, and no
+other form: a `requires-python` of any other minor is RED, with its path and the line of the key, the value
+found, the source, why and the fix. A file that is missing, unreadable, no TOML or not UTF-8, one with no
+`requires-python` under `[project]`, one whose value is no string, and a string of another form, such as
+a range `>=3.<minor>,<4`, a patch `>=3.<minor>.1`, `>3.<minor>` or `~=3.<minor>`, are BROKEN with the fix:
+a floor in a form this check does not read could move unseen.
 
 Not read: a symbolic link, mode 120000, whatever it points at, a dangling one too, since its target is
 read through its own listing, once; a submodule, mode 160000; `docs/decisions/` and `docs/research/` at
@@ -72,17 +81,22 @@ Modes:  no arguments   check the kit;
                        UTF-8, git
                        missing and no repository, each a literal BROKEN line; the source moved with
                        every copy left, red on each of them; the order of the findings under an
-                       adversarial listing; the misinvocation. The clauses, over the four kinds of entry,
-                       a gate on the default clause, a gate with its own, a session-start printer and a
-                       generator: each of the three texts of each kind changed alone red, the whole set
-                       in one loop, with literal reports; an Identity's clause changed alone red three
-                       times, a generator's green; the default of `identity.py` changed red for the
-                       gates on it alone, the keyword and the default read wherever each stands among
-                       others; the first echo that needs python3 read as C1, a tab after `echo` too, and
-                       a line whose fix dash has no space before it no fix part; the shell files executable,
-                       as the kit's are; two Identities, none, no `.sh`, a text missing, no string
-                       constant, one line, no fix part and the other BROKEN cases as literal lines;
-                       entries outside any module's plugin/scripts/ not read.
+                       adversarial listing; the misinvocation. The `requires-python` of the shared
+                       distribution, in a baseline of its own: right green with its line in the report,
+                       one minor above and one below red with literal lines, at the line of its key, the
+                       source moved up with it left red, a comment naming another minor not read, and each
+                       file or value that cannot be read as the form `>=3.<minor>` a literal BROKEN
+                       line. The clauses, over the four kinds of entry, a gate on the default clause, a
+                       gate with its own, a session-start printer and a generator: each of the three
+                       texts of each kind changed alone red, the whole set in one loop, with literal
+                       reports; an Identity's clause changed alone red three times, a generator's green;
+                       the default of `identity.py` changed red for the gates on it alone, the keyword
+                       and the default read wherever each stands among others; the first echo that
+                       needs python3 read as C1, a tab after `echo` too, and a line whose fix dash has
+                       no space before it no fix part; the shell files executable, as the kit's are;
+                       two Identities, none, no `.sh`, a text missing, no string constant, one line, no
+                       fix part and the other BROKEN cases as literal lines; entries outside any
+                       module's plugin/scripts/ not read.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -97,6 +111,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import tomllib
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -106,6 +121,9 @@ from kit_module_doc import DocumentError, module_folders
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 SOURCE = "shared/constitution_layer_kit/preflight.py"
+PROJECT = "shared/pyproject.toml"  # the shared distribution; its requires-python holds a floor
+REQUIRES = re.compile(r"^>=3\.(\d+)$")  # the one form of requires-python this check reads
+REQUIRES_KEY = re.compile(r"^requires-python\s*=", re.MULTILINE)  # where the key stands, for the line
 NOT_READ = ("docs/decisions/", "docs/research/")  # records and frozen comparisons keep their words
 REGULAR = ("100644", "100755")  # a symbolic link (120000) and a submodule (160000) are never read
 GIT_BINARY = 8000  # git's own test: a NUL byte among the first 8000 bytes
@@ -257,6 +275,43 @@ def floor_of(root: Path) -> int:
             f" those of Python 3 — fix: {shape}"
         )
     return numbers[1]
+
+
+def requires_floor(root: Path) -> tuple[int, int, str]:
+    """The minor, the line of the key and the value of `requires-python` under `[project]` in the shared
+    distribution's pyproject.toml, which must read `>=3.<minor>`, else BROKEN with the fix."""
+    shape = 'write it as `requires-python = ">=3.<minor>"` under [project]'
+    try:
+        text = (root / PROJECT).read_text(encoding="utf-8")
+        data = tomllib.loads(text)
+    except FileNotFoundError as missing:
+        raise Broken(
+            f"{PROJECT} is missing — fix: restore the shared distribution's description, whose"
+            " requires-python holds a copy of the floor"
+        ) from missing
+    except OSError as bad:
+        raise Broken(f"{PROJECT} cannot be read ({bad.strerror}) — fix: make it readable") from bad
+    except (tomllib.TOMLDecodeError, UnicodeDecodeError) as bad:
+        raise Broken(f"{PROJECT} cannot be read as TOML ({bad}) — fix: repair the file") from bad
+    project = data.get("project")
+    value = project.get("requires-python") if isinstance(project, dict) else None
+    key = REQUIRES_KEY.search(text)
+    line = 1 if key is None else text.count("\n", 0, key.start()) + 1
+    if not isinstance(value, str):
+        raise Broken(f"{PROJECT} has no requires-python under [project] as a string — fix: {shape}")
+    found = REQUIRES.match(value)
+    if found is None:
+        raise Broken(
+            f"requires-python in {PROJECT}:{line} is '{value}', and this check reads the form >=3.<minor>"
+            f" alone — fix: {shape}"
+        )
+    return int(found[1]), line, value
+
+
+def requires_finding(found: int, line: int, value: str, minor: int) -> Finding:
+    what = f"requires-python = '{value}' names 3.{found}, the floor is 3.{minor} ({SOURCE})"
+    fix = f"write >=3.{minor}, or move the floor in {SOURCE} and every copy together"
+    return Finding(PROJECT, line, 1, what, WHY, fix)
 
 
 def mentions(text: str) -> list[Mention]:
@@ -569,6 +624,9 @@ def check_kit(root: Path, listing: Lister = listed) -> Result:
         total += len(found)
         holding += 1 if found else 0
         findings.extend(finding(path, m, minor) for m in found if m.found != minor - m.below)
+    required, key_line, required_text = requires_floor(root)
+    if required != minor:
+        findings.append(requires_finding(required, key_line, required_text, minor))
     tracked = sorted(path for mode, path in files if mode in REGULAR)
     entries = entries_of(root, tracked)
     default = default_clause(root)
@@ -589,8 +647,9 @@ def report(result: Result) -> int:
         )
         return EXIT_RED
     print(
-        f"GREEN: every copy of the Python floor names 3.{result.minor} ({SOURCE}) — {counts}, and each of"
-        f" {result.entries} entries' C1, C14 and C15 closes with its Identity's clause"
+        f"GREEN: every copy of the Python floor names 3.{result.minor} ({SOURCE}) — {counts}, requires-python"
+        f" of {PROJECT} is >=3.{result.minor}, and each of {result.entries} entries' C1, C14 and C15 closes"
+        " with its Identity's clause"
     )
     return EXIT_GREEN
 
@@ -753,17 +812,28 @@ def remove(root: Path, path: str) -> None:
     subprocess.run(["git", "rm", "-q", "-f", path], cwd=root, check=True, capture_output=True)
 
 
+REQUIRES_LINE = 6  # the line of requires-python in the fixture's shared pyproject.toml
+
+
+def requires_toml(value: str) -> str:
+    """The shared distribution's pyproject.toml of the fixture, its requires-python at REQUIRES_LINE."""
+    return (
+        f'[build-system]\nrequires = ["setuptools"]\n\n[project]\nname = "x"\nrequires-python = "{value}"\n'
+    )
+
+
 def fresh(root: Path, minor: int = BASE, floor: int | None = None) -> None:
     """A throwaway kit whose every copy of the floor names `minor`, the source `floor` (default the
     same): four modules, each with its document, install note, entry pair and Identity, and the shared
-    identity; the root install note, the tool configuration, the workflow, a record and a comparison
-    that name another minor."""
+    identity and distribution, whose requires-python is `>=3.<minor>`; the root install note, the tool
+    configuration, the workflow, a record and a comparison that name another minor."""
     try:
         subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
     except (OSError, subprocess.CalledProcessError) as failed:
         raise Broken(f"git init failed in {root} — fix: install git, then run the self-test") from failed
     put(root, SOURCE, f'"""The preflight."""\n\nFLOOR = (3, {minor if floor is None else floor})\n')
     put(root, IDENTITY, identity_source(DEFAULT_CLAUSE))
+    put(root, PROJECT, requires_toml(f">=3.{minor}"))
     put(root, "INSTALL.md", f"# Install\n\nNeeds Python 3.{minor} or newer.\n")
     put(
         root,
@@ -874,8 +944,9 @@ def self_test() -> int:
             == [
                 f"GREEN: every copy of the Python floor names 3.{BASE}"
                 " (shared/constitution_layer_kit/preflight.py)"
-                f" — {BASE_MENTIONS} mention(s) in {BASE_FILES} file(s) examined, and each of"
-                f" {BASE_ENTRIES} entries' C1, C14 and C15 closes with its Identity's clause"
+                f" — {BASE_MENTIONS} mention(s) in {BASE_FILES} file(s) examined, requires-python of"
+                f" shared/pyproject.toml is >=3.{BASE}, and each of {BASE_ENTRIES} entries' C1, C14 and C15"
+                " closes with its Identity's clause"
             ],
             "the baseline is green, with its literal line",
         )
@@ -884,6 +955,7 @@ def self_test() -> int:
     self_test_guards(cases)
     self_test_not_read(cases)
     self_test_broken(cases)
+    self_test_requires(cases)
     self_test_clauses(cases)
     self_test_clause_reports(cases)
     self_test_identities(cases)
@@ -964,12 +1036,13 @@ def self_test_reds(cases: Cases) -> None:
         result = check_kit(root)
         paths = {f.path for f in result.findings}
         cases.check(
-            len(result.findings) == BASE_MENTIONS - 1  # the source's own literal names the new floor
+            len(result.findings) == BASE_MENTIONS - 1 + 1  # the source's own literal names the new floor
             and result.minor == OVER
             and SOURCE not in paths
-            and len(paths) == BASE_FILES - 1,
+            and PROJECT in paths
+            and len(paths) == BASE_FILES - 1 + 1,
             f"the source moved up with every copy left: red on each of the other {BASE_MENTIONS - 1}"
-            f" mentions, in each of their {BASE_FILES - 1} files",
+            f" mentions, in each of their {BASE_FILES - 1} files, and on requires-python of {PROJECT}",
         )
 
 
@@ -1240,6 +1313,138 @@ def self_test_broken(cases: Cases) -> None:
         ],
         "a misinvocation is its literal BROKEN lines, exit 1",
     )
+
+
+def with_project(text: str) -> Build:
+    """A change to a fresh tree that gives the shared pyproject.toml this text."""
+    return lambda root: put(root, PROJECT, text)
+
+
+def self_test_requires(cases: Cases) -> None:
+    """The `requires-python` of the shared distribution, held to the source's floor."""
+    why = (
+        "  why: a floor copied apart drifts, and the entry file that drifts prints a traceback where its"
+        " designed teaching line should stand (law 6 of CLAUDE.md)"
+    )
+    counts = (
+        f"{BASE_MENTIONS} mention(s) in {BASE_FILES} file(s) examined and {BASE_ENTRIES} entries read,"
+        f" the floor 3.{BASE} (shared/constitution_layer_kit/preflight.py)"
+    )
+    move = "or move the floor in shared/constitution_layer_kit/preflight.py and every copy together"
+    for word, found in (("above", OVER), ("below", OLD), ("far above, a longer minor", int(f"{BASE}0"))):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            write(root, PROJECT, requires_toml(f">=3.{found}"))
+            code, lines = run_report(root)
+        cases.check(
+            code == EXIT_RED
+            and lines
+            == [
+                f"RED: shared/pyproject.toml:{REQUIRES_LINE}: requires-python = '>=3.{found}' names"
+                f" 3.{found}, the floor is 3.{BASE} (shared/constitution_layer_kit/preflight.py)",
+                why,
+                f"  fix: write >=3.{BASE}, {move}",
+                f"RED: 1 finding(s) — {counts}",
+            ],
+            f"a requires-python {word} the floor is red, with its literal lines",
+        )
+    right = f">=3.{BASE}"
+    for name, text, line in (
+        (
+            "a comment that names another minor, above the key: the key is the one at its own line",
+            f'# was ">=3.{OLD}"\n[project]\nname = "x"\nrequires-python = ">=3.{OVER}"\n',
+            4,
+        ),
+        (
+            "the key among others, in single quotes and with no space before the equal sign",
+            f"[project]\nname = 'x'\ndependencies = []\nrequires-python='>=3.{OVER}'\n",
+            4,
+        ),
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            write(root, PROJECT, text)
+            result = check_kit(root)
+        cases.check(
+            [(f.path, f.line, f.column) for f in result.findings] == [(PROJECT, line, 1)],
+            f"{name}: red once, at line {line}",
+        )
+    for name, text in (
+        (
+            "a comment that names another minor, below the right key",
+            f'# was ">=3.{OLD}"\n' + requires_toml(right),
+        ),
+        ("the right value in single quotes", f"[project]\nrequires-python = '{right}'\n"),
+        (
+            "the right key after other tables and keys",
+            f'[tool.x]\nrequires-python = ">=3.{OLD}"\n\n[project]\nrequires-python = "{right}"\n',
+        ),
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            write(root, PROJECT, text)
+            result = check_kit(root)
+        cases.check(result.findings == [] and result.mentions == BASE_MENTIONS, f"{name} is green")
+    shape = 'write it as `requires-python = ">=3.<minor>"` under [project]'
+    no_key = f"{PROJECT} has no requires-python under [project] as a string — fix: {shape}"
+    for name, text, expected in (
+        ("a table with no [project]", '[build-system]\nrequires = ["setuptools"]\n', no_key),
+        ("a [project] with no requires-python", '[project]\nname = "x"\n', no_key),
+        ("a requires-python under another table", f'[tool.x]\nrequires-python = "{right}"\n', no_key),
+        ("a requires-python that is a list", f'[project]\nrequires-python = ["{right}"]\n', no_key),
+        ("a requires-python that is a number", f"[project]\nrequires-python = {BASE}\n", no_key),
+        (
+            "an empty file",
+            "",
+            no_key,
+        ),
+    ):
+        cases.check(
+            broken_with(with_project(text)) == expected,
+            f"{name} is its literal BROKEN line",
+        )
+    for form in (
+        f">=3.{BASE},<4",
+        f">=3.{BASE}.1",
+        f">3.{BASE}",
+        f"~=3.{BASE}",
+        f"<=3.{BASE}",
+        f"== 3.{BASE}",
+        f">= 3.{BASE}",
+        ">=3",
+        "",
+    ):
+        cases.check(
+            broken_with(with_project(requires_toml(form))) == f"requires-python in {PROJECT}:"
+            f"{REQUIRES_LINE} is '{form}', and this check reads the form >=3.<minor> alone — fix: {shape}",
+            f"a requires-python of the form '{form}' is its literal BROKEN line",
+        )
+    said = broken_with(lambda r: put(r, PROJECT, "requires-python = \n"))
+    cases.check(
+        said.startswith(f"{PROJECT} cannot be read as TOML (") and said.endswith(") — fix: repair the file"),
+        "a shared pyproject.toml that is no TOML is a teaching BROKEN line",
+    )
+    cases.check(
+        broken_with(lambda r: remove(r, PROJECT))
+        == f"{PROJECT} is missing — fix: restore the shared distribution's description, whose requires-python"
+        " holds a copy of the floor",
+        "a missing shared pyproject.toml is its literal BROKEN line",
+    )
+    with tempfile.TemporaryDirectory() as tmp:  # the file git does not list, so the loop never reads it
+        root = Path(tmp).resolve()
+        fresh(root)
+        subprocess.run(["git", "rm", "--cached", "-q", PROJECT], cwd=root, check=True, capture_output=True)
+        put(root, PROJECT, b"\xff\xfe")
+        said = broken_line(root)
+        cases.check(
+            said.startswith(f"{PROJECT} cannot be read as TOML (")
+            and "invalid start byte" in said
+            and said.endswith(") — fix: repair the file"),
+            "a shared pyproject.toml that git does not list and that is no UTF-8 is a teaching BROKEN line",
+        )
 
 
 def write_plain(path: Path, text: str) -> None:
@@ -1941,9 +2146,10 @@ def self_test_order(cases: Cases) -> None:
         }
     expected = sorted(orders["as git lists them"])
     cases.check(
-        len(set(expected)) == len(expected) == BASE_MENTIONS - 1 + 3
+        len(set(expected)) == len(expected) == BASE_MENTIONS - 1 + 3 + 1  # the last 1: requires-python
         and expected[0][0] == ".github/workflows/gates.yml"
-        and expected[-1][0] == "pyproject.toml"
+        and expected[-2][0] == "pyproject.toml"
+        and expected[-1] == ("shared/pyproject.toml", REQUIRES_LINE, 1)
         and [o for o in expected if o[0] == "docs/two.md"]
         == [("docs/two.md", 1, 7), ("docs/two.md", 2, 1), ("docs/two.md", 2, 17)],
         "the findings are sorted by path, line and column, with the first and last typed by hand",

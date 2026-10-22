@@ -1,0 +1,26 @@
+# The distribution of the code every gate shares (decision dec-0099-shared-code-installed-as-a-pip-package).
+# It holds the package alone: no tool configuration, which stays in the pyproject.toml at the kit root, and
+# no tests, which a module's tests reach through their links. The version's one source is `__version__` in
+# constitution_layer_kit/__init__.py; the floor of `requires-python` is held to `FLOOR` in
+# constitution_layer_kit/preflight.py by scripts/check-copies.py, and the build, the install and the import by
+# scripts/check-shared-package.py.
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "constitution-layer-kit"
+dynamic = ["version"]
+description = "The code every gate of a constitution kit shares: the hook event, the repository, the dials file, territories, policies, the output log, the command line and the texts of every shared message."
+requires-python = ">=3.12"
+dependencies = ["PyYAML>=6.0"]
+license = "Apache-2.0"
+
+[tool.setuptools]
+packages = ["constitution_layer_kit"]
+
+[tool.setuptools.dynamic]
+version = {attr = "constitution_layer_kit.__version__"}
+
+[tool.setuptools.package-data]
+constitution_layer_kit = ["py.typed"]

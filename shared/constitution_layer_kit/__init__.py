@@ -12,3 +12,8 @@ Modules, in reading order: ``identity``, ``model`` (enums and dataclasses), ``me
 payload), ``index`` (policies and claims), ``resolution``, ``pipeline`` (event to target,
 findings to verdict), ``cli`` (argparse and the single guard).
 """
+
+# The package's version, major.minor.patch, and the one source of it: the distribution's metadata reads
+# it from here when the package is built. A release keeps every module written for an earlier release
+# of its major working.
+__version__ = "1.0.0"
