@@ -8,7 +8,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from constitution_layer_kit import cli
-from constitution_layer_kit.identity import HOOK_SECONDS, Identity, declare_dials_file
+from constitution_layer_kit.identity import HOOK_SECONDS, Identity
 from constitution_layer_kit.model import Mode
 
 from . import session
@@ -20,6 +20,7 @@ GATE = Identity(
     namespace=NAMESPACE,
     gate="check-catalog-item",
     plugin_root=PLUGIN_ROOT,
+    dials_file="constitution.yaml",
     hook_seconds=HOOK_SECONDS,
     skills={Mode.HOOK: "catalog-item", Mode.SCAN: "catalog-item"},  # the skill a red names (F10)
 )
@@ -27,6 +28,7 @@ SESSION = Identity(
     namespace=NAMESPACE,
     gate="session-start",
     plugin_root=PLUGIN_ROOT,
+    dials_file="constitution.yaml",
     hook_seconds=HOOK_SECONDS,
     until_installed="until then the gate's state is not said at session start",
 )
@@ -41,10 +43,8 @@ def load_modes() -> cli.Modes:
 
 
 def main(argv: Sequence[str]) -> int:
-    declare_dials_file("constitution.yaml")
     return cli.run(argv, GATE, load_modes)
 
 
 def main_session(argv: Sequence[str]) -> int:
-    declare_dials_file("constitution.yaml")
     return session.run(argv, SESSION)

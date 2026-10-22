@@ -27,7 +27,6 @@ from pathlib import Path
 import pytest
 import yaml
 from acceptance import broken_first_line, check_case, expect, failure_of, item
-from constitution_layer_kit import identity
 from consumer import BASE_MARKDOWN, Consumer
 from harness import Case, Harness, Result, Write, bash_json, red_lines
 from styling_gate import messages, start
@@ -38,8 +37,7 @@ SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 PLUGIN_ROOT = SCRIPTS.parent
 MODULE_ROOT = PLUGIN_ROOT.parent
 
-identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
-identity.declare_dials_file("constitution.yaml")  # the expected messages name the file the gate reads
+IDENTITY = start.GATE  # declared for the whole session by conftest; the expected messages read it
 # — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
 H = Harness(SCRIPTS, "check-style.sh", "check-style.py", start.GATE.namespace, scan_only=True)
 NAMESPACE = start.GATE.namespace

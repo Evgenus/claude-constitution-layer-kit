@@ -41,7 +41,7 @@ _PREFIX_SHAPE = re.compile(r"[a-z][a-z0-9]*(-[a-z0-9]+)*-")
 
 
 def load_dials(root: Path) -> Dials | None:
-    """None when the file the entry point declared is absent (nothing is claimed); ConfigurationFailure
+    """None when the file the declared identity names is absent (nothing is claimed); ConfigurationFailure
     when malformed."""
     path = root / identity.dials_file()
     if not path.is_file():

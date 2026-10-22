@@ -25,7 +25,7 @@ import sys
 import tempfile
 from collections.abc import Callable, Sequence
 from contextlib import nullcontext
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Protocol
 
@@ -37,7 +37,7 @@ from constitution_layer_kit import envelope as envelope_reader
 from constitution_layer_kit.dials import load_dials
 from constitution_layer_kit.envelope import ID_RE, declared_policy, document_id, parse_envelope
 from constitution_layer_kit.errors import ConfigurationFailure
-from constitution_layer_kit.model import DECLARATION, DIALECT, Broken, EnvelopeState, Finding, SharedKey
+from constitution_layer_kit.model import DECLARATION, DIALECT, Broken, EnvelopeState, Finding, Mode, SharedKey
 from constitution_layer_kit.output import ROTATE_AT, log_name
 from constitution_layer_kit.repository import list_markdown
 from consumer import ROOT_POLICY
@@ -65,9 +65,9 @@ PACKAGE = "constitution_layer_kit"  # the shared package, a folder of the kit's 
 # deadline's clock stands still: a fake git the case has just written takes seconds to start the first time
 # on a loaded machine (0.2 to 3.1 s measured on macOS on 2026-10-16, 0.02 s each time after), so the real
 # budget of 3 s could cut a call the case never meant to cut.
-# It also logs the `hook_seconds` of each declaration the process makes, and where the environment names
-# a lower hook budget it declares the gate with that many seconds in place of its own: the one deadline of
-# a hook run, lowered for the case that spends it.
+# It also logs the `hook_seconds` of each scope the process opens (`identity.declared`), and where the
+# environment names a lower hook budget it opens the scope with that many seconds in place of the gate's
+# own: the one deadline of a hook run, lowered for the case that spends it.
 GIT_PATCH = """\
 import dataclasses
 import os
@@ -82,7 +82,7 @@ trigger = os.environ.get("GIT_PATCH_TRIGGER")
 hook_lowered = os.environ.get("GIT_PATCH_HOOK_SECONDS")
 late = os.environ.get("GIT_PATCH_LATE")
 unclocked = os.environ.get("GIT_PATCH_UNCLOCKED")
-log, run, declare = os.environ["GIT_PATCH_LOG"], subprocess.run, identity.declare
+log, run, declared = os.environ["GIT_PATCH_LOG"], subprocess.run, identity.declared
 if late or unclocked:  # the deadline's clock stands still but for the lateness of git's answers
     clock = [0.0]
     identity.time = types.SimpleNamespace(monotonic=lambda: clock[0])
@@ -110,11 +110,11 @@ def declaring(gate, mode=None):
         gate = dataclasses.replace(gate, hook_seconds=float(hook_lowered))
     with open(log + "-hook-seconds", "a") as out:
         out.write(repr(gate.hook_seconds) + "\\n")
-    declare(gate, mode)
+    return declared(gate, mode)
 
 
 subprocess.run = spy
-identity.declare = declaring
+identity.declared = declaring
 """
 HANG_SECONDS = 0.5  # the budget of the one call a hang case lowers it for: the case waits well under a second
 # What a hang case allows the whole run, the gate's start-up included. It only stops an endless wait, so it is
@@ -131,9 +131,9 @@ def git_patch(
     unclocked: bool = False,
 ) -> tuple[dict[str, str], Path]:
     """The environment that makes a gate's process log the `timeout=` of each git call it makes and the
-    `hook_seconds` it is declared with, and, with `seconds` and a `trigger`, give the call whose arguments
-    hold the trigger that many seconds, and, with `hook_seconds`, declare the gate with that hook budget
-    in place of its own; with the log it writes. With `late`, the deadline reads a clock of the patch's
+    `hook_seconds` its scope is opened with, and, with `seconds` and a `trigger`, give the call whose
+    arguments hold the trigger that many seconds, and, with `hook_seconds`, declare the gate with that hook
+    budget in place of its own; with the log it writes. With `late`, the deadline reads a clock of the patch's
     own, which starts at 0 and moves only when git answers: by `late` seconds for each call given more,
     and by the whole of what a call was given when `late` is as much or more, that call then cut as the
     timeout cuts it, with no git started. So which call the deadline meets follows from the numbers
@@ -637,7 +637,7 @@ class SharedItems:
 
     def budget_by_mode(self) -> None:
         """The rule at its one decision point, in a process of its own for each mode: a hook gives git
-        `GIT_SECONDS`; a scan, an act and a process declared with no mode give it no clock."""
+        `GIT_SECONDS`; a scan, an act and a scope opened with no mode give it no clock."""
         program = (
             "import json, sys\n"
             "from pathlib import Path\n"
@@ -645,8 +645,8 @@ class SharedItems:
             "from constitution_layer_kit import identity, repository\n"
             "from constitution_layer_kit.model import Mode\n"
             "mode = {'hook': Mode.HOOK, 'scan': Mode.SCAN, 'act': Mode.ACT, 'none': None}[sys.argv[2]]\n"
-            "identity.declare(identity.Identity('x', 'y', Path('.')), mode)\n"
-            "print(json.dumps(repository.budget()))\n"
+            "with identity.declared(identity.Identity('x', 'y', Path('.'), 'x.yaml'), mode):\n"
+            "    print(json.dumps(repository.budget()))\n"
         )
         seen: dict[str, object] = {}
         for mode in ("hook", "scan", "act", "none"):
@@ -681,34 +681,46 @@ class SharedItems:
         ok = got == subcommands and all(real == typed for real, typed in words)
         assert ok, f"subcommands {got}; the call as typed {[real for real, _ in words]}"
 
-    def declaration_is_one(self) -> None:
-        """A process is one gate in one mode: the same identity twice with different modes is a defect,
-        the same identity and mode twice is not."""
+    def scopes_shadow(self) -> None:
+        """A scope opened inside another shadows the outer declaration until it closes, and the outer one
+        holds again after it, whether the inner one is the same identity in the same mode or not. Read in a
+        process of its own as the gate's name, the dials file's name and the git budget the mode gives:
+        a hook gives git a clock, a scan and an act none."""
         program = (
-            "import sys\n"
+            "import json, sys\n"
             "from pathlib import Path\n"
             "sys.path.insert(0, sys.argv[1])\n"
-            "from constitution_layer_kit import identity\n"
+            "from constitution_layer_kit import identity, repository\n"
             "from constitution_layer_kit.model import Mode\n"
-            "who = identity.Identity('x', 'y', Path('.'))\n"
-            "identity.declare(who, Mode.HOOK)\n"
-            "identity.declare(who, Mode.HOOK)\n"
-            "print('same twice: fine')\n"
-            "try:\n"
-            "    identity.declare(who, Mode.SCAN)\n"
-            "except RuntimeError as failure:\n"
-            "    print('other mode: RuntimeError', failure)\n"
+            "who = identity.Identity('x', 'y', Path('.'), 'x.yaml')\n"
+            "other = identity.Identity('x', 'z', Path('.'), 'z.yaml')\n"
+            "seen = []\n"
+            "def read():\n"
+            "    clocked = repository.budget() is not None\n"
+            "    seen.append([identity.current().gate, identity.dials_file(), clocked])\n"
+            "with identity.declared(who, Mode.HOOK):\n"
+            "    read()\n"
+            "    with identity.declared(who, Mode.HOOK):\n"
+            "        read()\n"
+            "    with identity.declared(who, Mode.SCAN):\n"
+            "        read()\n"
+            "    with identity.declared(other, Mode.ACT):\n"
+            "        read()\n"
+            "    read()\n"
+            "print(json.dumps(seen))\n"
         )
         done = subprocess.run(
             [sys.executable, "-c", program, str(SHARED)], capture_output=True, text=True, check=False
         )
-        lines = done.stdout.splitlines()
-        ok = (
-            done.returncode == 0
-            and lines[:1] == ["same twice: fine"]
-            and (len(lines) == 2 and lines[1].startswith("other mode: RuntimeError"))
-        )
-        assert ok, f"exit {done.returncode}: {lines or done.stderr.strip()[-200:]}"
+        wanted = [  # typed by hand: the gate, the file, whether git has a clock
+            ["y", "x.yaml", True],  # the outer scope
+            ["y", "x.yaml", True],  # the same identity and mode again
+            ["y", "x.yaml", False],  # the same identity in a scan
+            ["z", "z.yaml", False],  # another identity, its file and mode
+            ["y", "x.yaml", True],  # the outer one holds again
+        ]
+        seen = json.loads(done.stdout) if done.returncode == 0 else done.stderr.strip()[-200:]
+        assert seen == wanted, f"exit {done.returncode}: wanted {wanted}, got {seen}"
 
     def is_file(self, word: str) -> bool:
         """A word that is an existing file; one the filesystem will not answer for counts as one, since
@@ -986,7 +998,7 @@ class SharedItems:
         """The rule at its decision point, in a process of its own for each mode, the gate declared with a
         hook budget of 2 s: a hook run has a deadline, so a wait takes the smaller of its cap and what is
         left (a cap of 10 s gets under 2 s, a cap of 0.5 s gets 0.5 s) and a git call gets under 2 s, never
-        the 3 s of its own cap; a scan, an act and a process declared with no mode have none, so a wait takes
+        the 3 s of its own cap; a scan, an act and a scope opened with no mode have none, so a wait takes
         its cap and git no clock. An identity declared without a hook budget has the shared 25 s."""
         program = (
             "import json, sys\n"
@@ -995,8 +1007,9 @@ class SharedItems:
             "from constitution_layer_kit import identity, repository\n"
             "from constitution_layer_kit.model import Mode\n"
             "mode = {'hook': Mode.HOOK, 'scan': Mode.SCAN, 'act': Mode.ACT, 'none': None}[sys.argv[2]]\n"
-            "identity.declare(identity.Identity('x', 'y', Path('.'), hook_seconds=2), mode)\n"
-            "asked = [identity.remaining(10, 'x'), identity.remaining(0.5, 'x'), repository.budget()]\n"
+            "who = identity.Identity('x', 'y', Path('.'), 'x.yaml', hook_seconds=2)\n"
+            "with identity.declared(who, mode):\n"
+            "    asked = [identity.remaining(10, 'x'), identity.remaining(0.5, 'x'), repository.budget()]\n"
             "print(json.dumps(asked))\n"
         )
         seen: dict[str, object] = {}
@@ -1017,15 +1030,15 @@ class SharedItems:
             and 0 < hook[2] <= 2
         )
         without = all(seen[mode] == [10, 0.5, None] for mode in ("scan", "act", "none"))
-        default = identity.Identity("x", "y", Path(".")).hook_seconds == 25
+        default = identity.Identity("x", "y", Path("."), "x.yaml").hook_seconds == 25
         assert in_a_hook and without and default, (
             f"a wait of cap 10 s, of cap 0.5 s, and a git call, by mode: {seen}; the default budget"
-            f" {identity.Identity('x', 'y', Path('.')).hook_seconds:g} s"
+            f" {identity.Identity('x', 'y', Path('.'), 'x.yaml').hook_seconds:g} s"
         )
 
     def spent_deadline(self) -> None:
         """A wait asked after the deadline is the shared failure C12.14, typed by hand, before the wait
-        begins: in a hook process whose clock is moved 100 s on after its declaration (budget 2 s),
+        begins: in a hook scope whose clock is moved 100 s on after its opening (budget 2 s),
         `identity.remaining` and a shared git call both end in it, and no git process was started."""
         program = (
             "import subprocess, sys, time\n"
@@ -1034,19 +1047,20 @@ class SharedItems:
             "from constitution_layer_kit import identity, repository\n"
             "from constitution_layer_kit.errors import ConfigurationFailure\n"
             "from constitution_layer_kit.model import Mode\n"
-            "identity.declare(identity.Identity('x', 'y', Path('.'), hook_seconds=2), Mode.HOOK)\n"
+            "who = identity.Identity('x', 'y', Path('.'), 'x.yaml', hook_seconds=2)\n"
             "real, started = time.monotonic, []\n"
-            "time.monotonic = lambda: real() + 100\n"
-            "subprocess.run = lambda *args, **kwargs: started.append(args)\n"
             "asks = [\n"
             "    lambda: identity.remaining(10, 'the prose linter finished'),\n"
             "    lambda: repository.git(['ls-files', '-z'], Path('.')),\n"
             "]\n"
-            "for ask in asks:\n"
-            "    try:\n"
-            "        ask()\n"
-            "    except ConfigurationFailure as failure:\n"
-            "        print(failure.broken.render())\n"
+            "with identity.declared(who, Mode.HOOK):\n"
+            "    time.monotonic = lambda: real() + 100\n"
+            "    subprocess.run = lambda *args, **kwargs: started.append(args)\n"
+            "    for ask in asks:\n"
+            "        try:\n"
+            "            ask()\n"
+            "        except ConfigurationFailure as failure:\n"
+            "            print(failure.broken.render())\n"
             "print(len(started))\n"
         )
         done = subprocess.run(
@@ -1061,6 +1075,45 @@ class SharedItems:
         assert done.returncode == 0 and lines == wanted, (
             f"exit {done.returncode}: {lines or done.stderr.strip()[-300:]}"
         )
+
+    def deadline_starts_at_the_opening(self) -> None:
+        """In hook mode the opening of the scope starts the run's deadline, `hook_seconds` from that moment
+        on a clock the program moves by hand: a wait asked 4 s after the opening of a 10 s scope gets 6 s;
+        a hook scope opened inside it starts a deadline of its own, 10 s, which ends with it, and the outer
+        deadline holds again; a scan scope opened inside has none, a cap unchanged; a hook scope opened
+        7 s later, past the outer deadline, gets its own 10 s; outside every scope a wait gets its cap."""
+        program = (
+            "import json, sys, time\n"
+            "from pathlib import Path\n"
+            "sys.path.insert(0, sys.argv[1])\n"
+            "from constitution_layer_kit import identity\n"
+            "from constitution_layer_kit.model import Mode\n"
+            "clock = [1000.0]\n"
+            "time.monotonic = lambda: clock[0]\n"
+            "who = identity.Identity('x', 'y', Path('.'), 'x.yaml', hook_seconds=10)\n"
+            "asked = []\n"
+            "def ask():\n"
+            "    asked.append(identity.remaining(100, 'x'))\n"
+            "with identity.declared(who, Mode.HOOK):\n"
+            "    clock[0] = 1004.0\n"
+            "    ask()\n"
+            "    with identity.declared(who, Mode.HOOK):\n"
+            "        ask()\n"
+            "    with identity.declared(who, Mode.SCAN):\n"
+            "        ask()\n"
+            "    ask()\n"
+            "    clock[0] = 1011.0\n"
+            "    with identity.declared(who, Mode.HOOK):\n"
+            "        ask()\n"
+            "ask()\n"
+            "print(json.dumps(asked))\n"
+        )
+        done = subprocess.run(
+            [sys.executable, "-c", program, str(SHARED)], capture_output=True, text=True, check=False
+        )
+        wanted = [6, 10, 100, 6, 10, 100]  # typed by hand, in the order the program asks
+        asked = json.loads(done.stdout) if done.returncode == 0 else done.stderr.strip()[-300:]
+        assert asked == wanted, f"exit {done.returncode}: the waits' seconds, wanted {wanted}, got {asked}"
 
     def git_call_log(self, log: Path) -> list[tuple[float, list[str]]]:
         """Each git call the log holds: the `timeout=` it was given and its arguments."""
@@ -2386,7 +2439,7 @@ def test_git_has_a_budget_in_a_hook(subject: Subject) -> None:
         it.attempted(check)
         for check in (
             it.budget_by_mode,
-            it.declaration_is_one,
+            it.scopes_shadow,
             it.git_words,
             it.the_tie_catches_a_short_handler,
         )
@@ -2478,19 +2531,21 @@ def test_skill_named_after_red(subject: Subject) -> None:
 
 @item(
     167,
-    "C12.14: a hook run has one deadline, every wait takes the smaller of its cap and what is left,"
-    " and a run that spends it ends in a shared line; a scan and an act have none",
+    "C12.14: a hook run has one deadline from the opening of its scope, every wait takes the smaller of its"
+    " cap and what is left, and a run that spends it ends in a shared line; a scan and an act have none",
 )
 def test_hook_has_one_deadline(subject: Subject) -> None:
-    """N52: a hook run has one deadline, from its declaration, and every wait takes the smaller of its
-    own cap and what is left of it; past it the gate says so in the shared line C12.14, non-blocking like
-    every configuration failure, the count line after it. A scan, an act and a process declared with no
+    """N52: a hook run has one deadline, from the opening of its scope, and every wait takes the smaller of
+    its own cap and what is left of it; past it the gate says so in the shared line C12.14, non-blocking
+    like every configuration failure, the count line after it. A scan, an act and a scope opened with no
     mode have no deadline. Read at the decision point, in a process for each mode, in a process whose
-    clock is moved past the deadline, and through the gate with a git that answers late on a clock of the
-    test's own, which only git's answers move."""
+    clock is moved past the deadline, in a process whose clock shows that the opening starts it, and
+    through the gate with a git that answers late on a clock of the test's own, which only git's answers
+    move."""
     it = shared(subject, "hook_has_one_deadline")
     results: list[tuple[bool, str]] = [
-        it.attempted(check) for check in (it.deadline_by_mode, it.spent_deadline)
+        it.attempted(check)
+        for check in (it.deadline_by_mode, it.spent_deadline, it.deadline_starts_at_the_opening)
     ]
     if it.s.event_driven and not it.s.scan_only:  # a gate with a hook run
         results += [
@@ -2781,14 +2836,22 @@ def test_version_reads_the_package(subject: Subject) -> None:
     assert not problems, " | ".join(problems)
 
 
-# The name of the dials file, a context variable of the shared package with no default. The module's own
-# test file declares `constitution.yaml` at its top, in this process's context; an item that needs the
-# name undeclared, or declared otherwise, runs in a context of its own, `contextvars.Context().run`, which
-# starts empty and keeps whatever it declares to itself. The three defects' texts are typed by hand.
-UNDECLARED = "the entry point did not declare which dials file it reads"
-DIFFERENT = "a process reads one dials file: a second, different declaration is a defect"
+# The declaration of a gate — its identity, the name of its dials file included, and the mode of the run — is
+# held in a context variable of the shared package with no default, and exists only inside a scope of
+# `identity.declared`. The module's conftest opens one scope for the test session, with the identity its test
+# file names; an item that needs another declaration opens its own scope inside it, and an item that needs
+# none runs in a context of its own, `contextvars.Context().run`, which starts empty and keeps whatever it
+# declares to itself. The defects' texts are typed by hand.
+UNDECLARED = "the entry point did not declare which gate it is"
 EMPTY = "a process reads one dials file: an empty name is no file, a defect of the entry point"
 OTHER_FILE = "team.yaml"  # a name no kit of this repository uses
+BLANK_FILES = ("", "   ", " \t\n")  # names of no file: empty, and empty once stripped of whitespace
+
+
+def named(dials_file: str, gate: str = "y", hook_seconds: float = identity.HOOK_SECONDS) -> identity.Identity:
+    """An identity for the items that open a scope of their own: namespace `x`, the gate `gate`, the dials
+    file `dials_file`."""
+    return identity.Identity("x", gate, Path("."), dials_file, hook_seconds=hook_seconds)
 
 
 def refused_with(text: str, body: Callable[[], object]) -> str | None:
@@ -2803,14 +2866,17 @@ def refused_with(text: str, body: Callable[[], object]) -> str | None:
 
 @item(
     174,
-    "the dials file's name has no default: a read before the declaration is a defect, in code and in text",
+    "outside every scope nothing is declared: a read of the identity or of the dials file's name is a defect,"
+    " in code and in text, the mode reads as none and no wait has a deadline",
 )
 def test_dials_file_undeclared(subject: Subject) -> None:
-    """Where nothing was declared, the name, the dials reader and five of the shared messages that name
-    the file (`G1.4`, `G1.5`, `C4b`, `C5.8`, `C13`) raise `RuntimeError` and never read or print a file of
-    some kit's — the reader even where a file named `constitution.yaml` lies in the repository. And the
-    shared code holds no name of the file at all: its source says `constitution.yaml` nowhere, so that no
-    module-level name can hold it."""
+    """In a context of its own, where no scope is open, the identity, the dials file's name, the dials
+    reader and five of the shared messages that name the file (`G1.4`, `G1.5`, `C4b`, `C5.8`, `C13`)
+    raise `RuntimeError` and never read or print a file of some kit's — the reader even where a file named
+    `constitution.yaml` lies in the repository. The mode reads as none, and a wait takes its cap, a wait no
+    verdict depends on its cap, and a wait that ran out is its own failure's line, as they did with no
+    declaration. And the shared code holds no name of the file at all: its source says `constitution.yaml`
+    nowhere, so that no module-level name can hold it."""
     shared(subject, "dials_file_undeclared")
     problems = []
     with tempfile.TemporaryDirectory() as tmp:
@@ -2818,6 +2884,7 @@ def test_dials_file_undeclared(subject: Subject) -> None:
         valid = {"module_prefix": "const-", "root_policy": "docs/p.md"}
         (root / "constitution.yaml").write_text(json.dumps(valid), encoding="utf-8")
         reads: dict[str, Callable[[], object]] = {
+            "identity.current": identity.current,
             "identity.dials_file": identity.dials_file,
             "dials.load_dials": lambda: load_dials(root),
             "G1.4": lambda: messages.g1_skip_no_dials("/r"),
@@ -2828,7 +2895,15 @@ def test_dials_file_undeclared(subject: Subject) -> None:
         }
         for label, read in reads.items():
             if (refused := refused_with(UNDECLARED, read)) is not None:
-                problems.append(f"{label} before any declaration: {refused}")
+                problems.append(f"{label} outside every scope: {refused}")
+    own = Broken(SharedKey.C2, "a wait of its own ran out", "wait less")
+
+    def without_a_scope() -> list[object]:
+        failure = identity.ran_out(1, 10, "x", own)
+        return [identity.declared_mode(), identity.remaining(10, "x"), identity.left_of(10), failure.broken]
+
+    if (got := contextvars.Context().run(without_a_scope)) != [None, 10, 10, own]:
+        problems.append(f"the mode, the waits and the failure of a wait outside every scope: {got}")
     source = Path(inspect.getsourcefile(identity) or "").resolve().parent
     files = sorted(source.glob("*.py"))
     if not files:
@@ -2843,94 +2918,147 @@ def test_dials_file_undeclared(subject: Subject) -> None:
 
 @item(
     175,
-    "a declaration of the dials file's name that is empty, or second and different, is a defect, and the"
-    " first stands",
+    "an identity whose dials file is empty, or empty once stripped of whitespace, is a defect of the entry"
+    " point as its scope opens, and declares nothing",
 )
-def test_dials_file_declared_twice_differently(subject: Subject) -> None:
-    """A process reads one dials file. A second declaration with another name raises `RuntimeError`,
-    whichever the names — a name and the same name in another case, a name and a path to it — and what
-    the process reads afterwards is still the first name. An empty name is no file, and so is one of
-    only whitespace, which is empty once stripped: declared first or second, it raises `RuntimeError` of
-    its own text, a first one leaves nothing declared — a read is still the defect of S174 and a real
-    name declared after it stands — and a second one leaves the first name."""
-    shared(subject, "dials_file_declared_twice_differently")
+def test_dials_file_empty(subject: Subject) -> None:
+    """An empty name is no file, and so is one of only whitespace, which is empty once stripped. Opening a
+    scope with such an identity raises `RuntimeError` of its own text, in a context where nothing is
+    declared — a read there is still the defect of S174, and a real scope opened after it stands — and
+    inside an open scope, which the failed opening leaves as it was."""
+    shared(subject, "dials_file_empty")
 
-    def declares_two(first: str, second: str, text: str) -> str:
-        identity.declare_dials_file(first)
+    def opens_empty_first(empty: str) -> str:
         try:
-            identity.declare_dials_file(second)
-        except RuntimeError as defect:
-            return identity.dials_file() if str(defect) == text else f"RuntimeError({str(defect)!r})"
-        return "no error"
-
-    def declares_empty_first(empty: str) -> str:
-        try:
-            identity.declare_dials_file(empty)
+            with identity.declared(named(empty)):
+                return "no error"
         except RuntimeError as defect:
             if str(defect) != EMPTY:
                 return f"RuntimeError({str(defect)!r})"
-        else:
-            return "no error"
         try:
             read = identity.dials_file()
         except RuntimeError as defect:
             if str(defect) != UNDECLARED:
-                return f"after the empty declaration, a read raised RuntimeError({str(defect)!r})"
+                return f"after the failed opening, a read raised RuntimeError({str(defect)!r})"
         else:
-            return f"after the empty declaration, a read gave {read!r}"
-        identity.declare_dials_file(OTHER_FILE)
-        return identity.dials_file()
+            return f"after the failed opening, a read gave {read!r}"
+        with identity.declared(named(OTHER_FILE)):
+            return identity.dials_file()
+
+    def opens_empty_inside(empty: str) -> str:
+        with identity.declared(named(OTHER_FILE, "outer")):
+            try:
+                with identity.declared(named(empty, "inner")):
+                    return "no error"
+            except RuntimeError as defect:
+                if str(defect) != EMPTY:
+                    return f"RuntimeError({str(defect)!r})"
+            return f"{identity.current().gate} {identity.dials_file()}"
 
     problems = []
-    for first, second, text in [
-        (OTHER_FILE, "constitution.yaml", DIFFERENT),
-        ("constitution.yaml", OTHER_FILE, DIFFERENT),
-        (OTHER_FILE, "Team.yaml", DIFFERENT),
-        (OTHER_FILE, "./team.yaml", DIFFERENT),
-        (OTHER_FILE, "", EMPTY),
-        (OTHER_FILE, "   ", EMPTY),
-        (OTHER_FILE, " \t\n", EMPTY),
-    ]:
-        read = contextvars.Context().run(declares_two, first, second, text)
-        if read != first:
-            problems.append(f"declared {first!r}, then {second!r}: {read!r}, wanted the first, {first!r}")
-    for empty in ("", "   ", " \t\n"):
-        if (read := contextvars.Context().run(declares_empty_first, empty)) != OTHER_FILE:
-            problems.append(f"declared {empty!r} first, then {OTHER_FILE!r}: {read!r}, wanted {OTHER_FILE!r}")
+    for empty in BLANK_FILES:
+        if (read := contextvars.Context().run(opens_empty_first, empty)) != OTHER_FILE:
+            problems.append(f"{empty!r} first, then {OTHER_FILE!r}: {read!r}, wanted {OTHER_FILE!r}")
+        if (read := contextvars.Context().run(opens_empty_inside, empty)) != f"outer {OTHER_FILE}":
+            problems.append(f"{empty!r} inside {OTHER_FILE!r}: {read!r}, wanted the outer scope's")
     assert not problems, "; ".join(problems)
 
 
-@item(176, "the same declaration of the dials file's name three times is harmless")
-def test_dials_file_declared_twice_alike(subject: Subject) -> None:
-    """A second declaration of the name already declared is no defect, however often it is made — the
-    entry point and a test's top may both declare it — and the name read is the declared one. Another
-    context starts empty: a declaration there leaves this process's own untouched."""
-    shared(subject, "dials_file_declared_twice_alike")
+@item(
+    176,
+    "a scope declares the gate until it closes, normally or by an exception; one opened inside another"
+    " shadows it and the outer one holds again; one made in a context of its own leaves the session's alone",
+)
+def test_scopes(subject: Subject) -> None:
+    """The declaration exists from the opening of a scope to its closing and is reset at the closing,
+    whether the body ends or raises — and a body's own exception passes through. A scope opened inside
+    another shadows the outer declaration, the gate, the dials file's name and the mode, until it closes,
+    and the outer one holds again after it: the same identity and mode twice, another mode, another
+    identity and another name of the file are all no defect, and an inner scope that ends by an exception
+    leaves the outer one as it was. A scope opened in a context of its own leaves the session's
+    declaration as it was."""
+    shared(subject, "scopes")
+    first, second = named("a.yaml", "first"), named("b.yaml", "second", hook_seconds=7)
 
-    def declares_alike() -> list[str]:
-        identity.declare_dials_file(OTHER_FILE)
-        identity.declare_dials_file(OTHER_FILE)
-        identity.declare_dials_file(OTHER_FILE)
-        return [identity.dials_file()]
+    def reads() -> tuple[str, str, Mode | None]:
+        return identity.current().gate, identity.dials_file(), identity.declared_mode()
 
-    read = contextvars.Context().run(declares_alike)
-    assert read == [OTHER_FILE], f"after the same declaration three times the name is {read}"
-    assert identity.dials_file() == "constitution.yaml", (
-        f"a declaration in a context of its own changed this process's name to {identity.dials_file()!r}"
-    )
+    def lifecycle() -> list[object]:
+        seen: list[object] = [refused_with(UNDECLARED, reads)]
+        with identity.declared(first, Mode.HOOK):
+            seen.append(reads())
+        seen.append(refused_with(UNDECLARED, reads))
+        try:
+            with identity.declared(first):
+                seen.append(reads())
+                raise KeyError("raised in the body")
+        except KeyError as passed:
+            seen.append(str(passed))
+        seen.append(refused_with(UNDECLARED, reads))
+        return seen
+
+    def nested() -> list[object]:
+        seen: list[object] = []
+        with identity.declared(first, Mode.HOOK):
+            with identity.declared(first, Mode.HOOK):
+                seen.append(reads())
+            seen.append(reads())
+            with identity.declared(first, Mode.SCAN):
+                seen.append(reads())
+            with identity.declared(second):
+                seen.append(reads())
+                try:
+                    with identity.declared(first, Mode.ACT):
+                        seen.append(reads())
+                        raise KeyError("raised in the inner body")
+                except KeyError:
+                    seen.append(reads())
+            seen.append(reads())
+        seen.append(refused_with(UNDECLARED, reads))
+        return seen
+
+    wanted_lifecycle: list[object] = [
+        None,  # before the scope: a read is the defect
+        ("first", "a.yaml", Mode.HOOK),
+        None,  # after it: the defect again
+        ("first", "a.yaml", None),
+        "'raised in the body'",
+        None,  # after a body that raised: the defect again
+    ]
+    wanted_nested: list[object] = [
+        ("first", "a.yaml", Mode.HOOK),  # the same identity and mode again
+        ("first", "a.yaml", Mode.HOOK),  # the outer scope holds again
+        ("first", "a.yaml", Mode.SCAN),  # the same identity in another mode
+        ("second", "b.yaml", None),  # another identity, its file and no mode
+        ("first", "a.yaml", Mode.ACT),  # a scope inside that one
+        ("second", "b.yaml", None),  # which an exception closed: the one around it holds
+        ("first", "a.yaml", Mode.HOOK),  # the outermost holds again
+        None,  # and after it: the defect
+    ]
+    problems = []
+    for what, run, wanted in (("lifecycle", lifecycle, wanted_lifecycle), ("nesting", nested, wanted_nested)):
+        if (got := contextvars.Context().run(run)) != wanted:
+            problems.append(f"{what}: wanted {wanted}, got {got}")
+    session = (identity.current(), identity.dials_file(), identity.declared_mode())
+    contextvars.Context().run(lifecycle)
+    contextvars.Context().run(nested)
+    if (after := (identity.current(), identity.dials_file(), identity.declared_mode())) != session:
+        problems.append(f"scopes made in contexts of their own changed the session's declaration: {after}")
+    assert not problems, "; ".join(problems)
 
 
 @item(177, "every shared message that names the dials file names the declared one, and the reader opens it")
 def test_dials_file_name_is_the_declared_one(subject: Subject) -> None:
-    """With `team.yaml` declared, each of the twenty-one shared texts that name the file says `team.yaml`
-    and none says `constitution.yaml`, each text typed by hand; `load_dials` opens `team.yaml` and
-    never `constitution.yaml`, reads no file where only `constitution.yaml` lies, and its failure on a
-    team.yaml that is no YAML names `team.yaml`."""
+    """With a scope of the module's own identity, its dials file `team.yaml`, open inside the session's,
+    each of the twenty-one shared texts that name the file says `team.yaml` and none says
+    `constitution.yaml`, each text typed by hand; `load_dials` opens `team.yaml` and never
+    `constitution.yaml`, reads no file where only `constitution.yaml` lies, and its failure on a team.yaml
+    that is no YAML names `team.yaml`."""
     it = shared(subject, "dials_file_name_is_the_declared_one")
     ns = it.ns
+    team = replace(identity.current(), dials_file=OTHER_FILE)
 
     def built() -> dict[str, str]:
-        identity.declare_dials_file(OTHER_FILE)
         return {
             "G1.4": messages.g1_skip_no_dials("/r"),
             "G1.5": messages.g1_skip_no_root(),
@@ -2955,7 +3083,8 @@ def test_dials_file_name_is_the_declared_one(subject: Subject) -> None:
             "C13": messages.c13_log_dir_not_ignored("logs").render(),
         }
 
-    said = contextvars.Context().run(built)
+    with identity.declared(team):
+        said = built()
     wanted = {  # typed by hand
         "G1.4": "no team.yaml in /r: nothing is claimed",
         "G1.5": "team.yaml has no root_policy: nothing is claimed",
@@ -3014,7 +3143,6 @@ def test_dials_file_name_is_the_declared_one(subject: Subject) -> None:
     problems += [f"a text is missing: {key}" for key in said if key not in wanted]
 
     def reads() -> list[str]:
-        identity.declare_dials_file(OTHER_FILE)
         seen: list[str] = []
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -3038,7 +3166,9 @@ def test_dials_file_name_is_the_declared_one(subject: Subject) -> None:
         "read 'docs/p.md'",
         "BROKEN: team.yaml is not valid YAML",
     ]
-    if (got := contextvars.Context().run(reads)) != wanted_reads:
+    with identity.declared(team):
+        got = reads()
+    if got != wanted_reads:
         problems.append(f"the reader: wanted {wanted_reads}, got {got}")
     assert not problems, "; ".join(problems)
 
@@ -3049,10 +3179,11 @@ def test_dials_file_name_is_the_declared_one(subject: Subject) -> None:
 )
 def test_module_messages_name_the_declared_file(subject: Subject) -> None:
     """The module's own `messages.py` asks the package for the dials file's name when it builds a message,
-    as the shared texts do: with `team.yaml` declared in a context of its own, its `_file()` gives
-    `team.yaml`; and no string constant of that file, a docstring aside, contains `constitution.yaml`, so
-    that no message of the module can name the file without asking. The module's messages are found in
-    the one package beside its entry files that holds a `messages.py`, and imported as its tests do."""
+    as the shared texts do: with a scope whose identity names `team.yaml` open inside the session's, its
+    `_file()` gives `team.yaml`; and no string constant of that file, a docstring aside, contains
+    `constitution.yaml`, so that no message of the module can name the file without asking. The module's
+    messages are found in the one package beside its entry files that holds a `messages.py`, and imported as
+    its tests do."""
     it = shared(subject, "module_messages_name_the_declared_file")
     packages = sorted(
         folder
@@ -3072,12 +3203,9 @@ def test_module_messages_name_the_declared_file(subject: Subject) -> None:
     if not callable(file_of):
         problems.append(f"{folder.name}.messages has no function _file")
     else:
-
-        def declared() -> object:
-            identity.declare_dials_file(OTHER_FILE)
-            return file_of()
-
-        if (read := contextvars.Context().run(declared)) != OTHER_FILE:
+        with identity.declared(replace(identity.current(), dials_file=OTHER_FILE)):
+            read = file_of()
+        if read != OTHER_FILE:
             problems.append(f"_file() gave {read!r} with {OTHER_FILE!r} declared")
     tree = ast.parse((folder / "messages.py").read_text(encoding="utf-8"))
     docstrings = {
@@ -3199,8 +3327,8 @@ def test_dials_prefix_outside(subject: Subject) -> None:
 
 
 # A kit of another layer reads its own file: one process of a gate named `know-check` or `know-sub-check`
-# that declares the file `layer.yaml`, in a process of its own since the identity is declared once. The
-# program prints, as one JSON object, what the dials reader gave or the configuration failure it raised.
+# whose identity names the file `layer.yaml`, in a process of its own as a gate runs. The program prints, as
+# one JSON object, what the dials reader gave or the configuration failure it raised.
 LAYER_PROGRAM = (
     "import json, sys\n"
     "from pathlib import Path\n"
@@ -3209,16 +3337,16 @@ LAYER_PROGRAM = (
     "from constitution_layer_kit.dials import load_dials\n"
     "from constitution_layer_kit.errors import ConfigurationFailure\n"
     "namespace, text, folder = sys.argv[2:5]\n"
-    "identity.declare(identity.Identity(namespace, 'check', Path('.')))\n"
-    "identity.declare_dials_file('layer.yaml')\n"
+    "who = identity.Identity(namespace, 'check', Path('.'), 'layer.yaml')\n"
     "Path(folder, 'layer.yaml').write_text(text, encoding='utf-8')\n"
-    "try:\n"
-    "    dials = load_dials(Path(folder))\n"
-    "except ConfigurationFailure as failure:\n"
-    "    print(json.dumps({'broken': failure.broken.render()}))\n"
-    "else:\n"
-    "    print(json.dumps({'prefix': dials.module_prefix, 'own': dict(dials.own),\n"
-    "                      'namespaces': {k: list(v.territory) for k, v in dials.namespaces.items()}}))\n"
+    "with identity.declared(who):\n"
+    "    try:\n"
+    "        dials = load_dials(Path(folder))\n"
+    "    except ConfigurationFailure as failure:\n"
+    "        print(json.dumps({'broken': failure.broken.render()}))\n"
+    "    else:\n"
+    "        print(json.dumps({'prefix': dials.module_prefix, 'own': dict(dials.own),\n"
+    "                          'namespaces': {k: list(v.territory) for k, v in dials.namespaces.items()}}))\n"
 )
 LAYER_FILE = """\
 module_prefix: know-

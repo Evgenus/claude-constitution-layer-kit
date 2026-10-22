@@ -6,7 +6,8 @@ feedback" having produced no verdict. The parser here raises a configuration fai
 instead, and carries no built-in help action: argparse's help prints and exits on its
 own, past the guard and the log. The usage is one line, in the misinvocation message.
 The guard turns every configuration failure, and every unexpected exception, into
-exit 1 — never 0 — and flushes the log however the run ended.
+exit 1 — never 0 — and flushes the log however the run ended. It declares the gate for the length of the
+run, in one scope that closes before it returns.
 
 `version_failure` is the check every module's entry file calls right after it imports this module:
 whether the installed release serves the module, else the one line to print before it exits 1.
@@ -163,21 +164,24 @@ def guarded(
     mode, with no arguments to parse and a closing line saying the gate's state is not said.
     `could_not_run` is the line that closes a
     failure: a gate's says that nothing was examined, a generator's that nothing was changed. The
-    mode is declared with the gate: a hook starts the run's one deadline, `gate.hook_seconds` from this
-    declaration, and every wait of the run takes what is left of it, each git call also within its own
+    gate and the mode are declared for the length of the run, in one scope of `identity.declared` that the
+    guard opens around everything it does — the output, the body, the failure lines and the flush — and
+    closes before it returns the exit code: a hook starts the run's one deadline, `gate.hook_seconds` from the
+    opening, and every wait of the run takes what is left of it, each git call also within its own
     `GIT_SECONDS`; a scan and an act have no deadline and no budget."""
-    identity.declare(gate, mode)  # first: every text, the log, the git calls and the deadline ask who and how
-    output = Output(mode)
-    try:
-        return body(output)
-    except ConfigurationFailure as failure:
-        output.err(failure.broken.render())
-        output.err(could_not_run())
-    except Exception as exc:  # not fail-open: an unexpected failure exits 1, never 0
-        # the BROKEN line first: in hook mode only the first stderr line reaches the user
-        output.err(messages.c12_unexpected(f"{type(exc).__name__}: {exc}").render())
-        output.err(could_not_run())
-        output.err(traceback.format_exc().rstrip())
-    finally:
-        output.flush()
-    return EXIT_BROKEN
+    # first: every text, the log, the git calls and the deadline ask who and how
+    with identity.declared(gate, mode):
+        output = Output(mode)
+        try:
+            return body(output)
+        except ConfigurationFailure as failure:
+            output.err(failure.broken.render())
+            output.err(could_not_run())
+        except Exception as exc:  # not fail-open: an unexpected failure exits 1, never 0
+            # the BROKEN line first: in hook mode only the first stderr line reaches the user
+            output.err(messages.c12_unexpected(f"{type(exc).__name__}: {exc}").render())
+            output.err(could_not_run())
+            output.err(traceback.format_exc().rstrip())
+        finally:
+            output.flush()
+        return EXIT_BROKEN

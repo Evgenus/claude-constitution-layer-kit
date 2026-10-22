@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from constitution_layer_kit import cli
-from constitution_layer_kit.identity import HOOK_SECONDS, Identity, declare_dials_file
+from constitution_layer_kit.identity import HOOK_SECONDS, Identity
 
 from . import session
 from .model import COMMAND_FLAG
@@ -21,6 +21,7 @@ GATE = Identity(
     namespace=NAMESPACE,
     gate="check-destructive",
     plugin_root=PLUGIN_ROOT,
+    dials_file="constitution.yaml",
     hook_seconds=HOOK_SECONDS,
     until_installed="until then shell commands pass unchecked",
 )
@@ -28,12 +29,14 @@ LISTS = Identity(
     namespace=NAMESPACE,
     gate="check-list-handles",
     plugin_root=PLUGIN_ROOT,
+    dials_file="constitution.yaml",
     until_installed="until then no list is scanned",
 )
 SESSION = Identity(
     namespace=NAMESPACE,
     gate="session-start",
     plugin_root=PLUGIN_ROOT,
+    dials_file="constitution.yaml",
     hook_seconds=HOOK_SECONDS,
     until_installed="until then the gate's state is not said at session start",
 )
@@ -56,15 +59,12 @@ def load_list_modes() -> cli.Modes:
 
 
 def main(argv: Sequence[str]) -> int:
-    declare_dials_file("constitution.yaml")
     return cli.run(argv, GATE, load_modes, ARGUMENTS)
 
 
 def main_lists(argv: Sequence[str]) -> int:
-    declare_dials_file("constitution.yaml")
     return cli.run(argv, LISTS, load_list_modes)
 
 
 def main_session(argv: Sequence[str]) -> int:
-    declare_dials_file("constitution.yaml")
     return session.run(argv, SESSION)

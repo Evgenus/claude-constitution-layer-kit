@@ -8,13 +8,14 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from constitution_layer_kit import cli
-from constitution_layer_kit.identity import HOOK_SECONDS, Identity, declare_dials_file
+from constitution_layer_kit.identity import HOOK_SECONDS, Identity
 from constitution_layer_kit.model import Mode
 
 GATE = Identity(
     namespace="const-task-close",
     gate="check-task-close",
     plugin_root=Path(__file__).resolve().parents[2],
+    dials_file="constitution.yaml",
     hook_seconds=HOOK_SECONDS,
     # what a failure to install leaves unchecked: the turn-end tree and a change's documents, not a write
     until_installed="until then neither the tree at turn end nor a change's documents are checked",
@@ -38,5 +39,4 @@ def load_modes() -> cli.Modes:
 
 
 def main(argv: Sequence[str]) -> int:
-    declare_dials_file("constitution.yaml")
     return cli.run(argv, GATE, load_modes, ARGUMENTS)

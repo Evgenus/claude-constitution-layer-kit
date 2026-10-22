@@ -27,7 +27,6 @@ from pathlib import Path
 import pytest
 import yaml
 from acceptance import broken_first_line, expect, failure_of, item
-from constitution_layer_kit import identity
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.errors import ConfigurationFailure
 from constitution_layer_kit.model import Finding
@@ -39,8 +38,7 @@ from test_shared_items import PatternDial, Subject, git_patch
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 
-identity.declare(start.GATE)  # the messages not typed by hand are built by the functions the gate uses
-identity.declare_dials_file("constitution.yaml")  # the expected messages name the file the gate reads
+IDENTITY = start.GATE  # declared for the whole session by conftest; the expected messages read it
 H = Harness(SCRIPTS, "check-task-close.sh", "check-task-close.py", start.GATE.namespace)
 NS = start.GATE.namespace
 KEY = "No-Doc-Impact"

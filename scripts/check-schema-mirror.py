@@ -313,13 +313,12 @@ def dials_cases() -> list[tuple[str, object, str | None]]:
 
 @contextlib.contextmanager
 def reading_as(namespace: str | None) -> Iterator[None]:
-    """The shared reader asks which module reads the file. The identity is declared once per process, so for
-    the span of the block it is declared afresh under another namespace, and the first is restored after."""
+    """The shared reader asks which module reads the file. For the span of the block a scope declares the
+    gate afresh under another namespace; it shadows the run's own declaration until it closes."""
     if namespace is None:
         yield
         return
-    with mock.patch.object(identity, "_declared", None):
-        identity.declare(replace(start.GATE, namespace=namespace))
+    with identity.declared(replace(start.GATE, namespace=namespace)):
         yield
 
 
@@ -706,14 +705,13 @@ def main(argv: list[str]) -> int:
         print("BROKEN: misinvocation — fix: run with no arguments, or with --self-test")
         print(COULD_NOT_RUN)
         return EXIT_BROKEN
-    identity.declare(start.GATE)  # the shared reader asks which gate it serves
-    identity.declare_dials_file("constitution.yaml")  # ... and which file it opens
-    try:
-        if args.self_test:
-            return self_test()
-        code, lines = outcome(*load_schemas(), mirror_values())
-    except Broken as broken:
-        code, lines = broken_lines(broken)
+    with identity.declared(start.GATE):  # the shared reader asks which gate it serves and which file it opens
+        try:
+            if args.self_test:
+                return self_test()
+            code, lines = outcome(*load_schemas(), mirror_values())
+        except Broken as broken:
+            code, lines = broken_lines(broken)
     print("\n".join(lines))
     return code
 

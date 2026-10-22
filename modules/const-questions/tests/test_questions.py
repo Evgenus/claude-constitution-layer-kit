@@ -20,7 +20,6 @@ from pathlib import Path
 import pytest
 import yaml
 from acceptance import broken_first_line, check_case, expect, item
-from constitution_layer_kit import identity
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.model import Broken, Finding
 from consumer import Consumer, document
@@ -38,8 +37,7 @@ from test_shared_items import PatternDial, Subject
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 
-identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
-identity.declare_dials_file("constitution.yaml")  # the expected messages name the file the gate reads
+IDENTITY = start.GATE  # declared for the whole session by conftest; the expected messages read it
 # — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
 H = Harness(SCRIPTS, "check-open-questions.sh", "check-open-questions.py", start.GATE.namespace)
 

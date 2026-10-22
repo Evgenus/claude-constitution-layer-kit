@@ -6,7 +6,7 @@ The package has one source, and no plugin carries a copy or a link of it: pip in
 the distribution ``constitution-layer-kit``, and each entry file of a plugin imports ``cli`` from it and
 asks ``cli.version_failure`` whether the installed release serves the plugin, before it imports anything
 of its own. The tests of a module reach the source through links in their own folder. Nothing here knows
-which plugin it serves until the entry point declares it (``identity``).
+which plugin it serves until the guard of the entry point opens a scope that declares it (``identity``).
 
 Modules, in reading order: ``identity``, ``model`` (enums and dataclasses), ``messages``,
 ``errors``, ``preflight``, ``output`` (screen plus log), ``repository`` (git and files),

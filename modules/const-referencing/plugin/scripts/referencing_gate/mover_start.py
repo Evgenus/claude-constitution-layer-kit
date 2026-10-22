@@ -10,7 +10,7 @@ from typing import NoReturn
 
 from constitution_layer_kit import cli, preflight
 from constitution_layer_kit.errors import ConfigurationFailure
-from constitution_layer_kit.identity import Identity, declare_dials_file
+from constitution_layer_kit.identity import Identity
 from constitution_layer_kit.model import Mode
 from constitution_layer_kit.output import Output
 
@@ -21,6 +21,7 @@ MOVER = Identity(
     namespace="const-referencing",
     gate="move-document",
     plugin_root=Path(__file__).resolve().parents[2],
+    dials_file="constitution.yaml",
     until_installed="until then nothing is moved",  # a generator: no write passes, none is made
     until_fixed="until it is fixed do not move documents with it",  # true before and after a move
 )
@@ -54,6 +55,5 @@ def _body(argv: Sequence[str], output: Output, closing: Closing) -> int:
 
 
 def main(argv: Sequence[str]) -> int:
-    declare_dials_file("constitution.yaml")
     closing = Closing()  # knows, when a failure is closed, whether anything had been changed by then
     return cli.guarded(MOVER, Mode.ACT, lambda output: _body(argv, output, closing), closing)

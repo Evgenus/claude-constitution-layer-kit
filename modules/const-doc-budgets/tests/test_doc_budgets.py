@@ -32,7 +32,6 @@ import yaml
 from acceptance import broken_first_line, check_case, item
 from budgets_gate import messages, start
 from budgets_gate.model import Key, characters, rule_of_thumb
-from constitution_layer_kit import identity
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.model import Finding
 from consumer import Consumer
@@ -43,8 +42,7 @@ SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 PLUGIN_ROOT = SCRIPTS.parent
 MODULE_ROOT = PLUGIN_ROOT.parent
 
-identity.declare(start.GATE)  # the shared texts the items compare are built for this gate's name
-identity.declare_dials_file("constitution.yaml")  # the expected messages name the file the gate reads
+IDENTITY = start.GATE  # declared for the whole session by conftest; the expected messages read it
 H = Harness(SCRIPTS, "check-budgets.sh", "check-budgets.py", start.GATE.namespace)
 SESSION = Harness(SCRIPTS, "session-start.sh", "session-start.py", start.GATE.namespace)
 NAMESPACE = start.GATE.namespace
