@@ -92,12 +92,12 @@ Body shape, when a real choice existed: the options considered, pros/cons per op
 <a id="k6"></a>
 ## 6. Dials file
 
-Per-project calibration lives in **one** file at the repository root: `constitution.yaml`. Each module reads its own namespace (its plugin name) and ships defaults that apply when the file or namespace is absent — install-and-run must work with zero configuration. The kernel-owned key `module_prefix` is required: it names the prefix that every module's namespace in the file starts with, a kebab-case word that ends in `-`. To resolve territory a module also reads the kernel-owned keys `root_policy` and `territory_dialect`, and the policy namespaces (§3); it reads no other module's namespace.
+Per-project calibration lives in **one** file at the repository root: `constitution.yaml`. Each module reads its own namespace (its plugin name) and ships defaults that apply when the file or namespace is absent — install-and-run must work with zero configuration. The required kernel-owned key `module_prefix` names the prefix every module's namespace starts with: a kebab-case word ending in `-`. To resolve territory a module also reads the kernel-owned keys `root_policy` and `territory_dialect`, and the policy namespaces (§3); it reads no other module's namespace.
 
 ```yaml
 # constitution.yaml
 root_policy: docs/policies/root-policy.md   # kernel-owned: where the root policy is
-module_prefix: const-                       # kernel-owned, required: every module's namespace starts with it
+module_prefix: const-                       # kernel-owned, required: starts every module's namespace
 # territory_dialect: gitignore              # kernel-owned, optional: the pattern dialect of every territory; default gitignore
 root-policy:                                # a policy's namespace is its id
   territory: ["docs/policies/**"]           # where policies live; the root lies inside

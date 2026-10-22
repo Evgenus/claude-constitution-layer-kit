@@ -104,9 +104,10 @@ def current() -> Identity:
 
 def declare_dials_file(name: str) -> None:
     """Declares the name of the dials file the gate reads, once. The same name again is harmless; another
-    is a defect, as a second, different identity is, and so is an empty name, which names no file: a
-    defect of the entry point, declared first or second, that leaves the process as it was."""
-    if not name:
+    is a defect, as a second, different identity is, and so is an empty name, or one that is empty once
+    stripped of whitespace, which names no file: a defect of the entry point, declared first or second,
+    that leaves the process as it was."""
+    if not name.strip():
         raise RuntimeError(
             "a process reads one dials file: an empty name is no file, a defect of the entry point"
         )

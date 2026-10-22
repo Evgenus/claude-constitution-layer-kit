@@ -200,8 +200,8 @@ def c4b_dials_not_mapping() -> Broken:
     return Broken(
         SharedKey.C4B,
         f"{_file()} is not a mapping",
-        f"the file holds top-level keys: {ROOT_POLICY_KEY}, and {DIALECT_KEY} when the dialect is not"
-        f" {DIALECT}, then one namespace per policy or module",
+        f"the file holds top-level keys: {PREFIX_KEY}, {ROOT_POLICY_KEY}, and {DIALECT_KEY} when the dialect"
+        f" is not {DIALECT}, then one namespace per policy or module",
     )
 
 

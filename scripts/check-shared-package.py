@@ -931,9 +931,29 @@ def self_test_toys(cases: Cases, root: Path, build_python: Path) -> None:
         and lines[2] == lines[5],
         "a submodule that does not import, one of them in a subpackage, is a finding each, in name order",
     )
+    code, lines = printed(
+        check_source(
+            toy(
+                root / "bad-init",
+                packages=f'["{PACKAGE}", "{SUBPACKAGE}", "{PACKAGE}.bad"]',
+                modules=RIGHT_MODULES | {"bad/__init__.py": 'raise RuntimeError("the init fails")\n'},
+            ),
+            build_python,
+            parent=parent,
+        )
+    )
+    cases.check(
+        code == EXIT_RED
+        and lines[0]
+        == "RED: the installed submodule constitution_layer_kit.bad does not import in the new environment"
+        " (RuntimeError: the init fails)"
+        and lines[-1] == summary
+        and len(lines) == 4,
+        "a subpackage whose __init__ fails at import is one finding naming it, not a BROKEN run",
+    )
     cases.check(
         sorted(parent.iterdir()) == [],
-        "every folder of a green and of four red runs is removed",
+        "every folder of a green and of six red runs is removed",
     )
 
 

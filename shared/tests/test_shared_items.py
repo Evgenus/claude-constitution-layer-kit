@@ -1297,10 +1297,10 @@ def test_malformed_dials(subject: Subject) -> None:
 def test_dials_not_mapping(subject: Subject) -> None:
     it = shared(subject, "dials_not_mapping")
     result, _ = it.s.gate_on(it.s.valid, raw_dials="- a\n- b\n")
-    line = (  # typed by hand: both kernel keys, the second said to be needed only off the default
-        "BROKEN: constitution.yaml is not a mapping — fix: the file holds top-level keys: root_policy,"
-        " and territory_dialect when the dialect is not gitignore, then one namespace per policy or"
-        " module"
+    line = (  # typed by hand: the three kernel keys, the dialect said to be needed only off the default
+        "BROKEN: constitution.yaml is not a mapping — fix: the file holds top-level keys: module_prefix,"
+        " root_policy, and territory_dialect when the dialect is not gitignore, then one namespace per"
+        " policy or module"
     )
     it.broken_as_typed(result, line)
 
@@ -2729,10 +2729,10 @@ def test_dials_file_undeclared(subject: Subject) -> None:
 def test_dials_file_declared_twice_differently(subject: Subject) -> None:
     """A process reads one dials file. A second declaration with another name raises `RuntimeError`,
     whichever the names — a name and the same name in another case, a name and a path to it — and what
-    the process reads afterwards is still the first name. An empty name is no file: declared first or
-    second, it raises `RuntimeError` of its own text, a first one leaves nothing declared — a read is
-    still the defect of S174 and a real name declared after it stands — and a second one leaves the first
-    name."""
+    the process reads afterwards is still the first name. An empty name is no file, and so is one of
+    only whitespace, which is empty once stripped: declared first or second, it raises `RuntimeError` of
+    its own text, a first one leaves nothing declared — a read is still the defect of S174 and a real
+    name declared after it stands — and a second one leaves the first name."""
     shared(subject, "dials_file_declared_twice_differently")
 
     def declares_two(first: str, second: str, text: str) -> str:
@@ -2743,9 +2743,9 @@ def test_dials_file_declared_twice_differently(subject: Subject) -> None:
             return identity.dials_file() if str(defect) == text else f"RuntimeError({str(defect)!r})"
         return "no error"
 
-    def declares_empty_first() -> str:
+    def declares_empty_first(empty: str) -> str:
         try:
-            identity.declare_dials_file("")
+            identity.declare_dials_file(empty)
         except RuntimeError as defect:
             if str(defect) != EMPTY:
                 return f"RuntimeError({str(defect)!r})"
@@ -2768,12 +2768,15 @@ def test_dials_file_declared_twice_differently(subject: Subject) -> None:
         (OTHER_FILE, "Team.yaml", DIFFERENT),
         (OTHER_FILE, "./team.yaml", DIFFERENT),
         (OTHER_FILE, "", EMPTY),
+        (OTHER_FILE, "   ", EMPTY),
+        (OTHER_FILE, " \t\n", EMPTY),
     ]:
         read = contextvars.Context().run(declares_two, first, second, text)
         if read != first:
             problems.append(f"declared {first!r}, then {second!r}: {read!r}, wanted the first, {first!r}")
-    if (read := contextvars.Context().run(declares_empty_first)) != OTHER_FILE:
-        problems.append(f"declared '' first, then {OTHER_FILE!r}: {read!r}, wanted {OTHER_FILE!r}")
+    for empty in ("", "   ", " \t\n"):
+        if (read := contextvars.Context().run(declares_empty_first, empty)) != OTHER_FILE:
+            problems.append(f"declared {empty!r} first, then {OTHER_FILE!r}: {read!r}, wanted {OTHER_FILE!r}")
     assert not problems, "; ".join(problems)
 
 
@@ -2838,8 +2841,9 @@ def test_dials_file_name_is_the_declared_one(subject: Subject) -> None:
         "G1.5": "team.yaml has no root_policy: nothing is claimed",
         "C4": "BROKEN: team.yaml is not valid YAML (at line 2) — fix: repair the YAML at the place the"
         " message names; nothing is checked until the file parses",
-        "C4b": "BROKEN: team.yaml is not a mapping — fix: the file holds top-level keys: root_policy, and"
-        " territory_dialect when the dialect is not gitignore, then one namespace per policy or module",
+        "C4b": "BROKEN: team.yaml is not a mapping — fix: the file holds top-level keys: module_prefix,"
+        " root_policy, and territory_dialect when the dialect is not gitignore, then one namespace per"
+        " policy or module",
         "C5.1": "BROKEN: team.yaml: root_policy must be a repository-relative path — fix: root_policy:"
         " <path of the root policy, relative to the repository root>",
         "C5.2": "BROKEN: team.yaml: territory_dialect must be a non-empty string — fix: remove the key, or"
