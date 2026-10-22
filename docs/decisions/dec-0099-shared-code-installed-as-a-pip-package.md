@@ -39,7 +39,7 @@ How a project's `python3` gets the package.
   - **Pros:** the standard path; pip resolves ranges; no credentials and no clone.
   - **Cons:** it makes the code public while the repository is private, ahead of the decision step 10 keeps for that; each release is an outward act with an index account and a token; a published version can be withdrawn but never replaced.
 
-The session recommended A: one command names the exact version, the kit needs no release machinery, and moving to E later changes only the command. The decider chose A in chat on 2026-10-21, and added three requirements: PyYAML becomes a dependency of the package; each module checks a minimal version; the shared code stays backward compatible from its first release, or the session proposes a reasonable behaviour. The session proposed the behaviour of R3 and the tag's form of R1. On 2026-10-22 the decider put the version check into the shared code, as one function that every module calls right after it imports `cli` and that checks both boundaries. The rest of the proposal stood.
+The session recommended A: one command names the exact version, the kit needs no release machinery, and moving to E later changes only the command. The decider chose A in chat on 2026-10-21, and added three requirements: PyYAML becomes a dependency of the package; each module checks a minimal version; the shared code stays backward compatible from its first release, or the session proposes a reasonable behaviour. The session proposed the behaviour of R3 and the tag's form of R1. On 2026-10-22 the decider put the version check into the shared code, as one function that every module calls right after it imports `cli` and that checks both boundaries.
 
 <a id="r1"></a>**R1.** A project's `python3` gets the shared code as the Python distribution `constitution-layer-kit`, which pip installs from the kit's GitHub repository by a git URL pinned to a release tag: `python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v<version>#subdirectory=shared"`. The tag's form is `constitution-layer-kit-v<version>`, so that it never clashes with a module's version.
 
@@ -140,7 +140,7 @@ Writing this record, the session found that section 6's choice departs from a ru
   - **Pros:** the rule holds whole; the exact fix; the address in a data file.
   - **Cons:** the command installs exactly the module's tag, so it can replace a newer release that another module needs; eleven files carry the address; the shared item S137 must learn the line.
 
-The session recommended A, for the replacement risk in one shared environment. The decider chose A in chat on 2026-10-22.
+The session recommended A, for the replacement risk. The decider chose A in chat on 2026-10-22.
 
 <a id="r16"></a>**R16.** The shared package is the one library whose failure points at its install note and not at a command. Every other missing library still exits 1 with its install command in its message, and a missing interpreter with where to get one.
 
@@ -160,7 +160,7 @@ The session first put A with a build in each check. Asked why that needed the ne
 
 <a id="r17"></a>**R17.** The steps that the install and session checks share, in `scripts/kit_install.py`, and the install guide's check make a throwaway virtual environment from the `python3` they run under, with its system packages, whose `.pth` file names the change's own `shared/`. They put its `bin` first on `PATH` for every session and gate they start. Nothing is built, and nothing needs the network.
 
-<a id="r18"></a>**R18.** The eval runner puts the change's `shared/` into each case's container and makes it importable the same way. The receipt's hash covers `shared/constitution_layer_kit/` beside the module's own files, since a session loads it.
+<a id="r18"></a>**R18.** The eval runner puts the change's `shared/` into each case's container and makes it importable the same way for every `python3` a case starts; a run in which a command could not import it fails. The receipt's hash covers `shared/constitution_layer_kit/` beside the module's own files, since a session loads it.
 
 <a id="r19"></a>**R19.** `scripts/check-shared-package.py`, an entry of the gate group with `--self-test` as its fixture, builds the distribution from `shared/`, installs it into a fresh virtual environment and imports it there. It holds the installed version equal to `__version__`, and PyYAML installed with it. It is the one check that needs the package index.
 
@@ -204,7 +204,7 @@ The record was born `active`: its questions were decided one per message, and th
 7. R7 — [kit-shared-gate-code](../../shared/GATE.md), its opening note, [§2](../../shared/GATE.md#g2) item 7 and [§4](../../shared/GATE.md#g4) limit 3; [law 3 of CLAUDE.md](../../CLAUDE.md#law-3), and step 4 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md); [the intent page](../../INTENT.md#i3), its architecture; [the template](../../module-template/MODULE.md#t6), rule 1; [requirement A12.1](../requirements.md#a12-1); [check-shared-links](../../scripts/check-shared-links.py), its docstring. What it replaces, and what has no object now, is history.
 8. R8 — [kit-shared-gate-code](../../shared/GATE.md), its opening note, [§2](../../shared/GATE.md#g2) items 7 and 8 and [§5](../../shared/GATE.md#g5), the row K1; [law 3 of CLAUDE.md](../../CLAUDE.md#law-3), and step 4 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md); [the harness](../../shared/tests/harness.py); [check-shared-links](../../scripts/check-shared-links.py), its docstring.
 9. R9 — [CLAUDE.md](../../CLAUDE.md), the opening paragraph of "Session conduct"; [kit-shared-gate-code §4](../../shared/GATE.md#g4), limit 3; [the install guide](../../INSTALL.md#s1), prerequisite 3, and [its §4](../../INSTALL.md#s4). What it narrows or replaces is history.
-10. R10 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the row of `identity`, [§2](../../shared/GATE.md#g2) items 1 and 5 and [§3](../../shared/GATE.md#g3), its opening; [identity](../../shared/constitution_layer_kit/identity.py), `Identity` and `dials_file`.
+10. R10 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the rows of `identity` and `dials`, [§2](../../shared/GATE.md#g2) items 1 and 5 and [§3](../../shared/GATE.md#g3), its opening; [identity](../../shared/constitution_layer_kit/identity.py), `Identity` and `dials_file`.
 11. R11 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the deferred parts.
 12. R12 — [kernel §6](../../kernel/CONVENTIONS.md#k6); [the dials schema](../../kernel/schemas/constitution.schema.json); [kit-shared-gate-code §1](../../shared/GATE.md#g1), the row of `dials`; [model](../../shared/constitution_layer_kit/model.py), `KERNEL_KEYS`; [the kit's dials file](../../constitution.yaml); [the install guide](../../INSTALL.md#s2), step 6. What it replaces is history.
 13. R13 — [kernel §6](../../kernel/CONVENTIONS.md#k6); [kit-shared-gate-code §1](../../shared/GATE.md#g1), the row of `dials`, and [§3](../../shared/GATE.md#g3), the rows `C5.11` and `C5.12`; [dials](../../shared/constitution_layer_kit/dials.py).

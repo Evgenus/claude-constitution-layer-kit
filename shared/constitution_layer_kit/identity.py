@@ -7,10 +7,13 @@ dials file, and outside every scope they ask in vain. The guard opens the scope 
 with the mode of the run beside the identity, in the same declaration, for the code that behaves
 differently in a hook than in a scan or an act: the git calls' budget and the hook's one deadline.
 
-The declaration is held in one context variable of this package, with no default, and nothing else holds it:
-no module-level name, and nothing patches one. A read outside every scope is a defect of the caller, a
-`RuntimeError` and never a repository's failure; so is an identity whose dials file is empty, or empty once
-stripped of whitespace, which names no file. The mode then reads as none and no wait has a deadline. A scope
+The declaration is held in one context variable of this package, with no default. The variable is the one
+module-level name involved, and it holds no declaration of its own: only a scope sets it, and no code
+assigns or patches the declaration otherwise. A read of the identity or of the dials file's name outside
+every scope is a defect of the caller, a `RuntimeError` and never a repository's failure; there the mode
+reads as none and no wait has a deadline. An identity whose dials file is empty, or empty once stripped of
+whitespace, names no file: opening a scope with it is the same defect, and the name is otherwise read as
+written. A scope
 opened inside another shadows the outer declaration until it closes, and the outer one holds again after it:
 a second declaration is no defect, whether it differs or not. A gate of another kit names its own dials
 file in its identity, and the package reads nothing else.
@@ -125,7 +128,7 @@ def declared_mode() -> Mode | None:
 
 def remaining(cap: float, before: str) -> float:
     """The seconds a wait of a hook run may take: the smaller of its own `cap` and what is left of the
-    run's deadline. Where the run has no deadline — a scan, an act, a process declared with no mode —
+    run's deadline. Where the run has no deadline — a scan, an act, a scope opened with no mode, or no scope —
     the cap, unchanged. Where nothing is left, a configuration failure that names the wait it ended
     before (`before`, e.g. "git ls-files answered"): the hook's budget is spent, and the gate says so
     ahead of the platform's cut, which says nothing. The caller asks at the moment it begins to wait."""

@@ -186,7 +186,7 @@ def entry_requires(entry: Path) -> str:
 
 
 def hook_budget(calls: list[str]) -> None:
-    """Every git call of a process declared a hook carried the hook's budget, and there was one."""
+    """Every git call of a run whose scope opened in hook mode carried the hook's budget; there was one."""
     assert bool(calls) and set(calls) == {repr(repository.GIT_SECONDS)}, f"the git calls' timeouts: {calls}"
 
 

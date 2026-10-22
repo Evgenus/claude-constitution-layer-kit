@@ -2,7 +2,7 @@
 id: dec-0100-gate-declaration-scoped-to-one-guarded-run
 type: task-record
 title: A gate declares itself, its dials file included, in a context variable for one guarded run
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
@@ -55,7 +55,7 @@ The session proposed the scope. One context manager of the shared package sets t
   - **Pros:** the simplest code; any nesting works.
   - **Cons:** a run inside an outer scope acts under its own declaration with no defect raised; the check that one process is one gate is gone.
 
-The session recommended A: a second, identical declaration was tolerated only because test files and entry points declared in one process, which the scope removes. The decider took the proposal and chose C in chat on 2026-10-23, with no reason given. The session keeps no objection: only the guard and the tests open a scope, the guard once per run.
+The session recommended A: a second, identical declaration was tolerated only because test files and entry points declared in one process, which the scope removes. The decider took the proposal and chose C in chat on 2026-10-23, with no reason given. The session keeps no objection: only the guard, the tests and the kit's own tooling open a scope, the guard once per run.
 
 <a id="r3"></a>**R3.** The declaration exists only inside a scope. A context manager of the shared package, `identity.declared(identity, mode)`, sets the variable when the scope opens and resets it when the scope closes, normally or by an exception. In hook mode the opening starts the run's deadline, as R2 of [dec-0084-one-deadline-per-hook-run](dec-0084-one-deadline-per-hook-run.md#r2) says of the declaration. Outside every scope, a read of the identity or of the dials file's name is a defect of the caller, a `RuntimeError`; the mode reads as none, and no wait has a deadline.
 
@@ -67,7 +67,7 @@ The session recommended A: a second, identical declaration was tolerated only be
 
 ## Applied
 
-The record is born `active`: its questions were decided one per message, and its rulings are applied in the commits of the same change that follow it.
+The record was born `active`: its questions were decided one per message, and its rulings were applied in the commits of the same change that followed it. Once every ruling had its home, the commit that fixes what the carry audit found sets it `inactive`.
 
 ## Carry list
 

@@ -8,8 +8,9 @@ asserts, a warning that `-W error` makes fatal. `collected` stops the run before
 carries no `item(<number>, <title>)` or when two tests carry one number, one line per fault, the
 numbers in order; and it hands each test's number to pytest's JUnit report as the property `item`.
 One module's folder is one run: its conftest imports the module's test file inside a scope of the module's
-gate and opens that gate's scope for the test session, and the shared items carry the same numbers in every
-module.
+gate and opens that gate's scope for the test session. A second module's folder stops the run at
+collection, since the shared items carry the same numbers in every module and `collected` refuses a number
+two tests carry.
 
 The checks assert: `check_case` both halves of a red→green case, through the harness's two-half check,
 `expect` an exit and a text, `broken_first_line` a configuration failure. `failure_of` turns a check that
