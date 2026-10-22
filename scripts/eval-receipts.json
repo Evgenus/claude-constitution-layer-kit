@@ -2,40 +2,40 @@
   "const-catalogs": {
     "attempts": [
       {
-        "at": "2026-10-22T20:45:32Z",
+        "at": "2026-10-22T22:01:30Z",
         "cases": 1,
         "passed": 1,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:abd286cac37790fcefacd24d151171a131992337ba8cb921cd03691f3591391e",
+    "hash": "sha256:923ff30be259d98fa8d9a1045585d0e5e3b1024f9a0a439fb2f59a347db2c9ef",
     "model": "claude-opus-5-5"
   },
   "const-decision-records": {
     "attempts": [
       {
-        "at": "2026-10-22T20:48:11Z",
+        "at": "2026-10-22T22:03:59Z",
         "cases": 2,
         "passed": 2,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:a8fe11df7cca738d81533e923f5dfc3707d5fc9843154a1ed257d647138918f9",
+    "hash": "sha256:0162a95834cf0cb40b5c3d2b997455f08acd696ddd950a7abe1d33973d177166",
     "model": "claude-opus-5-5"
   },
   "const-doc-budgets": {
     "attempts": [
       {
-        "at": "2026-10-22T20:49:32Z",
+        "at": "2026-10-22T22:05:08Z",
         "cases": 1,
         "passed": 1,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:e0ab91d6b857189cb729f0148856a575a069e9e1e6c4b1a3cefe559d978f5083",
+    "hash": "sha256:8dd61f750bb0968032f3de798fbacf4c2c2f627d89fe4f6fe45d8a3ddd39e619",
     "model": "claude-opus-5-5"
   },
   "const-interaction": {
