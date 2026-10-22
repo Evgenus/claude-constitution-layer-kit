@@ -29,7 +29,6 @@ from pathlib import Path
 import pytest
 import yaml
 from acceptance import broken_first_line, check_case, expect, failure_of, item
-from constitution_layer_kit import identity
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.model import Finding
 from constitution_layer_kit.repository import list_markdown
@@ -44,7 +43,7 @@ SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 PLUGIN_ROOT = SCRIPTS.parent
 MODULE_ROOT = PLUGIN_ROOT.parent
 
-identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
+IDENTITY = start.GATE  # declared for the whole session by conftest; the expected messages read it
 # — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
 H = Harness(SCRIPTS, "check-language.sh", "check-language.py", start.GATE.namespace)
 NAMESPACE = start.GATE.namespace

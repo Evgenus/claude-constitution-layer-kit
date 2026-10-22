@@ -27,7 +27,6 @@ from pathlib import Path
 import pytest
 import yaml
 from acceptance import broken_first_line, expect, failure_of, item
-from constitution_layer_kit import identity
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.errors import ConfigurationFailure
 from constitution_layer_kit.model import Finding
@@ -39,7 +38,7 @@ from test_shared_items import PatternDial, Subject, git_patch
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 
-identity.declare(start.GATE)  # the messages not typed by hand are built by the functions the gate uses
+IDENTITY = start.GATE  # declared for the whole session by conftest; the expected messages read it
 H = Harness(SCRIPTS, "check-task-close.sh", "check-task-close.py", start.GATE.namespace)
 NS = start.GATE.namespace
 KEY = "No-Doc-Impact"
@@ -1845,16 +1844,17 @@ CLOSING = "until then neither the tree at turn end nor a change's documents are 
 @item(
     40,
     "the install-failure lines, C1, C2, C14 and C15, close with this gate's own clause, never the write"
-    " gates', C12.11 keeps the default; the entry files hold it three times",
+    " gates', C12.11 keeps the default; the entry files hold it four times",
 )
 def test_closing_is_the_gates_own() -> None:
     """Every install-failure line closes with this gate's own clause, never the write gates' "until then
     Markdown writes pass unchecked": C1 (no python3, the POSIX entry), C2 (PyYAML missing, in the scan
     and in the hook), C14 (an interpreter below the floor, run by a version it is told it has) and C15
-    (a copy without the shared code), each line typed whole; C12.11 (a library that raises otherwise, in
-    the scan and in the hook) keeps the shared default "until it is fixed this check does not run"; and
-    the entry files' source holds the clause exactly three times, once per entry text (C1, C14, C15), and
-    "Markdown writes" nowhere."""
+    (the shared package missing for python3), each line typed whole; C12.11 (a library that raises
+    otherwise, in the scan and in the hook) keeps the shared default "until it is fixed this check does not
+    run"; and the entry files' source holds the clause exactly four times, once per entry text (C1, C14,
+    C15) and once as the clause the Python entry file hands to the version check of the shared package
+    (C16, C17), and "Markdown writes" nowhere."""
     r = repo(with_map())
     problems: list[str] = []
 
@@ -1911,26 +1911,25 @@ def test_closing_is_the_gates_own() -> None:
         "BROKEN: const-task-close needs Python 3.12 or newer, found 3.11 — fix: install a current Python 3"
         f" (https://www.python.org/downloads/) and put it first on PATH — {CLOSING}",
     )
-    plugin = H.scratch_dir() / "plugin"  # an install that dropped the link to the shared code
-    shutil.copytree(
-        SCRIPTS, plugin / "scripts", symlinks=True, ignore=shutil.ignore_patterns("constitution_layer_kit")
-    )
     line_of(
         "C15",
-        H.run_gate(stop_json(r.root), command=[H.sh, str(plugin / "scripts" / "check-task-close.sh")]),
-        "BROKEN: const-task-close is installed without its shared code (scripts/constitution_layer_kit is"
-        " missing or is"
-        " not a directory) — fix: install the plugin from its marketplace, or load it from a full checkout"
-        " of the repository it comes from; a copy of the plugin's folder must be made with links followed"
-        f" (cp -RL) — {CLOSING}",
+        H.run_gate(  # the harness's shared folder left out, and no site-packages
+            stop_json(r.root),
+            env={"PYTHONPATH": ""},
+            command=[sys.executable, "-S", str(entry)],
+            shared=False,
+        ),
+        "BROKEN: const-task-close needs the Python package constitution-layer-kit 1.0.0 or a later 1.x"
+        " release, and python3 cannot import it — fix: install it for python3 as"
+        f" {SCRIPTS.parent / 'INSTALL.md'} says — {CLOSING}",
     )
     sources = "".join(
         (SCRIPTS / name).read_text(encoding="utf-8")
         for name in ("check-task-close.sh", "check-task-close.py")
     )
-    if sources.count(CLOSING) != 3 or "Markdown writes" in sources:
+    if sources.count(CLOSING) != 4 or "Markdown writes" in sources:
         problems.append(
-            f"entry files: the clause {sources.count(CLOSING)} times, wanted 3; or Markdown writes"
+            f"entry files: the clause {sources.count(CLOSING)} times, wanted 4; or Markdown writes"
         )
     assert not problems, "; ".join(problems)
 

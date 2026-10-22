@@ -14,6 +14,7 @@ GATE = Identity(
     namespace="const-questions",
     gate="check-open-questions",
     plugin_root=Path(__file__).resolve().parents[2],
+    dials_file="constitution.yaml",
     hook_seconds=HOOK_SECONDS,
     skills={Mode.HOOK: "ask-or-decide", Mode.SCAN: "ask-or-decide"},  # the skill a red names (F10)
 )

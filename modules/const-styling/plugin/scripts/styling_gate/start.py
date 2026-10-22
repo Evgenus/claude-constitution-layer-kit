@@ -17,6 +17,7 @@ GATE = Identity(
     namespace=NAMESPACE,
     gate="check-style",
     plugin_root=PLUGIN_ROOT,
+    dials_file="constitution.yaml",
     hook_seconds=HOOK_SECONDS,
     until_installed="until then no document is scanned for style",
     skills={Mode.SCAN: "style-defaults"},  # the skill a red names (F10); a scan-only gate

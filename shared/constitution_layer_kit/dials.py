@@ -1,15 +1,18 @@
 """The dials file: read once, validated against the kernel's rules for the keys every gate
-reads — the two kernel-owned keys, `territory` of every namespace that could be a policy's,
+reads — the three kernel-owned keys, `territory` of every namespace that could be a policy's,
 and the two dials every gate has, `severity` and `log_dir`. The rest of the module's own
 namespace is handed over as read, for the module to parse.
 
-A namespace named like a module (const-*) is a policy's only when a policy document carries
-that id, so its `territory` is read leniently: a well-formed one is kept for that case,
-anything else is another module's business."""
+The file names the prefix of its modules' namespaces itself, in the required key `module_prefix`:
+no prefix is built into this code. A namespace that starts with it and holds a mapping is a
+policy's only when a policy document carries that id, so its `territory` is read leniently: a
+well-formed one is kept for that case, anything else is another module's business. The namespace
+of the module that reads the file starts with the prefix, or the file is another layer's."""
 
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
@@ -18,18 +21,29 @@ import yaml
 from . import identity, messages
 from .envelope import yaml_error_line
 from .errors import ConfigurationFailure
-from .model import DIALECT, DIALECT_KEY, DIALS_FILE, KERNEL_KEYS, ROOT_POLICY_KEY, Dials, Namespace, Severity
+from .model import (
+    DIALECT,
+    DIALECT_KEY,
+    KERNEL_KEYS,
+    PREFIX_KEY,
+    ROOT_POLICY_KEY,
+    Dials,
+    Namespace,
+    Severity,
+)
 
 SEVERITY_KEY = "severity"
 LOG_DIR_KEY = "log_dir"
 GATE_KEYS = (SEVERITY_KEY, LOG_DIR_KEY)  # the two dials every gate has, read here; a module whose gate
 # blocks nothing has no severity, and lists LOG_DIR_KEY alone
-MODULE_PREFIX = "const-"
+# The kernel schema's pattern of `module_prefix`, held whole: a kebab-case word that ends in '-'.
+_PREFIX_SHAPE = re.compile(r"[a-z][a-z0-9]*(-[a-z0-9]+)*-")
 
 
 def load_dials(root: Path) -> Dials | None:
-    """None when the file is absent (nothing is claimed); ConfigurationFailure when malformed."""
-    path = root / DIALS_FILE
+    """None when the file the declared identity names is absent (nothing is claimed); ConfigurationFailure
+    when malformed."""
+    path = root / identity.dials_file()
     if not path.is_file():
         return None
     try:
@@ -53,13 +67,14 @@ def load_dials(root: Path) -> Dials | None:
 
 
 def _parse(raw: dict[object, object]) -> Dials:
+    prefix = _module_prefix(raw.get(PREFIX_KEY))
     _check_dialect(raw.get(DIALECT_KEY, DIALECT))
     namespaces: dict[str, Namespace] = {}
     for key, value in raw.items():
         name = str(key)
         if name in KERNEL_KEYS:
             continue
-        if name.startswith(MODULE_PREFIX):
+        if name.startswith(prefix):
             if isinstance(value, dict):
                 namespaces[name] = Namespace(name, _territory(name, value.get("territory"), lenient=True))
             continue
@@ -73,11 +88,22 @@ def _parse(raw: dict[object, object]) -> Dials:
         raise ConfigurationFailure(messages.c5_own_namespace_not_mapping())
     return Dials(
         root_policy=_root_policy(raw.get(ROOT_POLICY_KEY)),
+        module_prefix=prefix,
         severity=_severity(own.get(SEVERITY_KEY)),
         log_dir=_relative_dir(own.get(LOG_DIR_KEY)),
         own={str(key): value for key, value in own.items()},
         namespaces=namespaces,
     )
+
+
+def _module_prefix(value: object) -> str:
+    """The file's `module_prefix`: required, a kebab-case word that ends in '-', and the start of the
+    namespace of the module that reads the file — a file of another layer is not read by this one."""
+    if not isinstance(value, str) or not _PREFIX_SHAPE.fullmatch(value):
+        raise ConfigurationFailure(messages.c5_prefix_invalid())
+    if not identity.current().namespace.startswith(value):
+        raise ConfigurationFailure(messages.c5_namespace_outside_prefix(value))
+    return value
 
 
 def _check_dialect(value: object) -> None:

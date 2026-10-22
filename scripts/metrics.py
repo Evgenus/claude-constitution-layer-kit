@@ -26,7 +26,9 @@ these keys, the JSON keys as written:
   skills,           the files plugin/skills/*/SKILL.md, and their characters;
   skill_chars
   always_on_chars   the characters every SessionStart command of plugin/hooks/hooks.json writes to stdout,
-                    run from the kit root with CLAUDE_PLUGIN_ROOT set to the module's plugin/ folder and,
+                    run from the kit root with CLAUDE_PLUGIN_ROOT set to the module's plugin/ folder, the
+                    kit's shared/ first on PYTHONPATH (a plugin holds no shared code: its hook imports the
+                    package that python3 finds, and the report measures what the working tree prints) and,
                     on stdin, the least event a session's start sends (`EVENT`; an empty stdin makes a
                     hook print its BROKEN line for input that is no JSON, not what a session sees), plus
                     the `description` of each skill's front matter: what reaches the model at every
@@ -35,8 +37,8 @@ these keys, the JSON keys as written:
   code_lines,       the non-blank lines that are no comment and, in Python, no docstring, of the `.py` and
   test_lines        `.sh` files git tracks under plugin/scripts/ and plugin/hooks/ (code) and tests/
                     (tests), a symbolic link never read;
-  functions,        the functions of the module's own Python under plugin/scripts/ (links, and so the
-  cc_max,           shared constitution_layer_kit, never read) and their cyclomatic complexity, counted
+  functions,        the functions of the module's own Python under plugin/scripts/ (a link is never
+  cc_max,           read, and a plugin holds no shared code) and their cyclomatic complexity, counted
   cc_over_10        by this script from the syntax tree, not by ruff's C901: 1, plus 1 per if, for, while,
                     except, conditional expression, comprehension, assert and match case, plus n-1 per
                     boolean operation of n operands; a nested function is its own function and adds
@@ -328,7 +330,12 @@ def session_start(module: Path) -> tuple[int, list[Handler]]:
 def printed(module: Path, handler: Handler, notes: list[str]) -> int:
     """The characters a SessionStart handler writes to stdout, run from the kit root; a note when it
     exits other than 0 or times out."""
-    env = os.environ | {"CLAUDE_PLUGIN_ROOT": str(module / "plugin"), "CLAUDE_PROJECT_DIR": str(KIT)}
+    path = os.pathsep.join(filter(None, [str(KIT / "shared"), os.environ.get("PYTHONPATH")]))
+    env = os.environ | {
+        "CLAUDE_PLUGIN_ROOT": str(module / "plugin"),
+        "CLAUDE_PROJECT_DIR": str(KIT),
+        "PYTHONPATH": path,
+    }
     shown = " ".join(handler.argv).replace(str(KIT) + "/", "")
     try:
         done = subprocess.run(
@@ -512,8 +519,8 @@ def defined(
 
 
 def own_python(module: Path) -> list[Path]:
-    """The module's own tracked Python under plugin/scripts/: links, and so the shared
-    constitution_layer_kit, left out."""
+    """The module's own tracked Python under plugin/scripts/; a path through a constitution_layer_kit
+    folder is left out, though no plugin holds one now."""
     return [
         path
         for path in tracked(module / "plugin", ("scripts",))

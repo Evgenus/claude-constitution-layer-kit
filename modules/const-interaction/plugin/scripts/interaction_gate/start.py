@@ -21,6 +21,7 @@ GATE = Identity(
     namespace=NAMESPACE,
     gate="check-destructive",
     plugin_root=PLUGIN_ROOT,
+    dials_file="constitution.yaml",
     hook_seconds=HOOK_SECONDS,
     until_installed="until then shell commands pass unchecked",
 )
@@ -28,12 +29,14 @@ LISTS = Identity(
     namespace=NAMESPACE,
     gate="check-list-handles",
     plugin_root=PLUGIN_ROOT,
+    dials_file="constitution.yaml",
     until_installed="until then no list is scanned",
 )
 SESSION = Identity(
     namespace=NAMESPACE,
     gate="session-start",
     plugin_root=PLUGIN_ROOT,
+    dials_file="constitution.yaml",
     hook_seconds=HOOK_SECONDS,
     until_installed="until then the gate's state is not said at session start",
 )

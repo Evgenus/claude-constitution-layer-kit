@@ -19,6 +19,7 @@ printf '%s\n' \
 mkdir -p .
 cat > constitution.yaml <<'END_OF_FILE'
 root_policy: docs/policies/root-policy.md
+module_prefix: const-
 root-policy:
   territory:
     - docs/policies/**

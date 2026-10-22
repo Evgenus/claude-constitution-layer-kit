@@ -8,8 +8,9 @@ the files git lists under the module's `plugin/` folder, the folder that install
 `scripts/`, `commands/`, `agents/`, the install note `INSTALL.md` and `.claude-plugin/`, never the module
 document `MODULE.md`, never a module's `README.md`, which is reader prose like `MODULE.md` and held by
 review, nor `tests/` or `evals/`, which stand beside `plugin/` and install nowhere —
-and the shared gate code under `shared/constitution_layer_kit/`, which every module installs as its
-`scripts/constitution_layer_kit`. A symbolic link is read at its source, once. A module is every folder under
+and the shared gate code under `shared/constitution_layer_kit/`, which pip delivers to every project that
+installs a module, as the Python package `constitution-layer-kit`, so that no plugin carries it. A symbolic
+link is read at its source, once. A module is every folder under
 `modules/` whose name opens with neither a dot nor an underscore, as `kit_module_doc.module_folders`
 lists them for every kit check: a plain file there is none, a name without `const-` is one, and a
 module folder without its `MODULE.md` is no tree the check can read (BROKEN), nor is a tree with no
@@ -54,8 +55,8 @@ finding, with its why and its fix:
 It is read in every line, a fenced block and a code span too, since the forms of A12.1 read every
 installed text; a public URL is no exception either. The kit's own `MODULE.md` is no installed
 component and is not read, and neither are a module's `README.md`, `tests/` or `shared/GATE.md` —
-of `shared/`, only `shared/constitution_layer_kit/`, which each module installs as its
-`scripts/constitution_layer_kit`, is read. A prefix is looked for only where the dials declare it: a
+of `shared/`, only `shared/constitution_layer_kit/`, which pip delivers to every project that installs a
+module, is read. A prefix is looked for only where the dials declare it: a
 `constitution.yaml` that is missing, is no YAML, lacks a `const-catalogs` mapping or its `catalogs` list, or
 holds an entry that the catalog module would refuse for a prefix (a lowercase word of letters and digits,
 listed once) or a width, is BROKEN, never a pass — stricter than the catalog module, which reads a namespace

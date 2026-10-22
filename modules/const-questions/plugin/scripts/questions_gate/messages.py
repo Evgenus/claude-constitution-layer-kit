@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from constitution_layer_kit import identity
 from constitution_layer_kit.messages import echoed, escaped
-from constitution_layer_kit.model import DIALS_FILE, Broken, Finding, SharedKey
+from constitution_layer_kit.model import Broken, Finding, SharedKey
 
 from .model import DEFAULT_MARKERS, Key
 
@@ -21,6 +21,10 @@ _DEFAULT_MARKERS = ", ".join(f"'{marker}'" for marker in DEFAULT_MARKERS)
 
 def _ns() -> str:
     return identity.current().namespace
+
+
+def _file() -> str:
+    return identity.dials_file()
 
 
 # ---------------------------------------------------------------- the finding
@@ -38,7 +42,7 @@ def q1_marker(rel: str, line: int, marker: str, text: str) -> Finding:
         _WHY,
         "resolve the question in the text; if the decider is absent, replace the marker by a named blocker"
         " — 'blocked: <who> must decide <what>' — and halt that part; a draft whose own convention keeps"
-        f" markers until delivery is taken out of {_ns()}.territories by a negated pattern in {DIALS_FILE}",
+        f" markers until delivery is taken out of {_ns()}.territories by a negated pattern in {_file()}",
     )
 
 
@@ -62,7 +66,7 @@ def f9_scan_tail(documents: int, markers: int, scanned: int) -> str:
 
 
 def _c5(detail: str, fix: str) -> Broken:
-    return Broken(SharedKey.C5, f"{DIALS_FILE}: {detail}", fix)
+    return Broken(SharedKey.C5, f"{_file()}: {detail}", fix)
 
 
 def c5_territories() -> Broken:

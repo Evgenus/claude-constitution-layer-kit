@@ -17,6 +17,7 @@ GATE = Identity(
     namespace=NAMESPACE,
     gate="check-language",
     plugin_root=PLUGIN_ROOT,
+    dials_file="constitution.yaml",
     hook_seconds=HOOK_SECONDS,
     skills={Mode.HOOK: "plain-language", Mode.SCAN: "plain-language"},  # the skill a red names (F10)
 )

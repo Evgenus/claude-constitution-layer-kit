@@ -16,13 +16,17 @@ from collections.abc import Sequence
 
 from constitution_layer_kit import identity
 from constitution_layer_kit.messages import echoed, escaped
-from constitution_layer_kit.model import DIALS_FILE, Broken, Finding, SharedKey
+from constitution_layer_kit.model import Broken, Finding, SharedKey
 
 from .model import MARGIN_PERCENT, ROUND_TO, WINDOW_DAYS, Ceiling, Departure, Key, Level
 
 
 def _ns() -> str:
     return identity.current().namespace
+
+
+def _file() -> str:
+    return identity.dials_file()
 
 
 def _over(rel: str, length: int, ceiling: Ceiling) -> str:
@@ -43,7 +47,7 @@ def b1_over(rel: str, length: int, ceiling: Ceiling) -> Finding:
         " loads it, pay for text the kind did not need",
         f"shorten it by {length - ceiling.max:,} characters or more, or split it into documents that"
         f" each stay at or under {ceiling.max:,}; the ceiling for this repository is the entry"
-        f" '{ceiling.name}' of {_ns()}.ceilings in {DIALS_FILE}; for a document that must stand as"
+        f" '{ceiling.name}' of {_ns()}.ceilings in {_file()}; for a document that must stand as"
         f" written, declare the departure with its reason: add to {_ns()}.departures an entry"
         f" {{paths: [<the file, or a pattern of the documents that stand>], allow: [{ceiling.name}],"
         " reason: <why they stand, in one line>}",
@@ -165,12 +169,12 @@ def b2_no_commit(since: datetime.date) -> str:
 
 
 def z1_empty() -> str:
-    return f"{_ns()}: no document is measured — {_ns()}.ceilings is empty or absent in {DIALS_FILE}"
+    return f"{_ns()}: no document is measured — {_ns()}.ceilings is empty or absent in {_file()}"
 
 
 def z1_no_dials(root: str) -> str:
     return (
-        f"{_ns()}: no {DIALS_FILE} in {escaped(root)} — the length gate measures nothing there until the file"
+        f"{_ns()}: no {_file()} in {escaped(root)} — the length gate measures nothing there until the file"
         f" sets a ceiling in {_ns()}.ceilings"
     )
 
@@ -227,7 +231,7 @@ def c12_git_history(detail: str) -> Broken:
 
 
 def _c5(detail: str, fix: str) -> Broken:
-    return Broken(SharedKey.C5, f"{DIALS_FILE}: {detail}", fix)
+    return Broken(SharedKey.C5, f"{_file()}: {detail}", fix)
 
 
 def c5_ceilings() -> Broken:

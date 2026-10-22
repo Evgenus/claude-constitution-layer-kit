@@ -18,6 +18,7 @@
 # --- kernel-owned keys (kernel §6) -------------------------------------------------
 
 root_policy: docs/policies/plc-0001-root-policy.md   # where the root policy is; absent: no territory is claimed
+module_prefix: const-                                # required: the prefix every module's namespace below starts with
 territory_dialect: gitignore                    # values: gitignore — the only dialect the readers support; default gitignore
 
 # --- policy namespaces (kernel §3): one per document kind, keyed by the policy's id ---
@@ -870,7 +871,7 @@ const-doc-budgets:                    # a character ceiling per group of documen
       window:
         from: 2026-09-14
         to: 2026-09-29
-  departures: []                      # none: every ceiling sits above the frozen documents it holds
+  departures: []                      # none declared yet: dec-0093-module-evals-with-local-receipts, a frozen record, stands over the records ceiling, a work item at step 9 of docs/rollout-plan.md
 
 const-locations:                      # creates documents; blocks nothing, so no severity (MODULE.md §7)
   log_dir: local/gate-logs

@@ -11,6 +11,29 @@ of the install is a `Refused`, a finding against the module; any other failure i
 says what failed and the fix. `run` starts one command and turns a failure to start it into a `Broken`; the
 path lookups `file_at`, `folder_at`, `there` and `link_at` do the same for a path that cannot be looked up.
 What each reads of Claude Code, and why, is the docstring of `scripts/check-bare-install.py`.
+
+`shared_path` is the step that gives a check the change's own shared code (decision
+dec-0099-shared-code-installed-as-a-pip-package, R17): a module's plugin holds no copy of
+`shared/constitution_layer_kit/`, its entry files import the package that `python3` finds, and a check that
+runs a session, a hook, a scan or a gate must run the working folder's shared code and never a release a
+developer installed. The step makes a throwaway virtual environment under the check's own throwaway folder,
+`<root>/shared-env`, from the `python3` the check runs under (`sys.executable`), with
+`--system-site-packages`, so that PyYAML stays visible, and `--without-pip`, so that nothing is fetched;
+writes into its site-packages a `.pth` file that names the absolute path of the kit's `shared/` folder, the
+working folder's, which comes on `sys.path` before the folders of the system's python3 and a user's
+site-packages; and returns the PATH with the environment's `bin` first. A check gives that PATH to every
+`claude` command and every scan, hook or gate it starts: `scripts/check-bare-install.py` and
+`scripts/check-session-load.py` do, and `scripts/check-install-guide.py` gives it to the run of the guide's
+blocks. Nothing is built and nothing needs the network.
+When the check itself runs under a virtual environment, whose packages a new environment does not inherit,
+the `.pth` file names that environment's site-packages after `shared/`, so that PyYAML stays visible there
+too. The step then asks the new environment's `python3` to import `constitution_layer_kit` and `yaml`, and
+holds that the package comes from the kit's `shared/`. Each failure is a `Broken` with the fix: a kit with
+no `shared/constitution_layer_kit/`; `python3 -m venv` that fails; a new environment that does not say where
+its packages go; a `.pth` file that cannot be written; an import that fails; an import that finds another
+copy of the package first, such as one a `PYTHONPATH` names or a `sitecustomize` or `usercustomize` module
+puts first; and, from `run` and the path lookups, a command that cannot be started or a path that cannot be
+searched.
 """
 
 from __future__ import annotations
@@ -23,6 +46,8 @@ import shlex
 import shutil
 import stat
 import subprocess
+import sys
+import sysconfig
 from pathlib import Path
 
 from kit_module_doc import DocumentError, Note, claude_env, command_fix, marketplace_name, platform_fix
@@ -37,6 +62,12 @@ LIST_WHERE = (
 RUN_FIX = (
     "give it a command that exists and can run, with no NUL byte in it or its arguments: a program on"
     " PATH, or a file with the execute permission (`chmod u+x` it), then run the check again"
+)
+SHARED_ENV = "shared-env"  # the folder of the shared code's virtual environment, under the check's own folder
+SHARED_PTH = "constitution-kit-shared.pth"  # the file in its site-packages that names the kit's shared/
+SHARED_PACKAGE = "constitution_layer_kit"  # the shared package, a folder of the kit's shared/
+SHARED_PROBE = (
+    f"import {SHARED_PACKAGE}, yaml; print({SHARED_PACKAGE}.__file__)"  # what the environment must do
 )
 
 
@@ -301,6 +332,74 @@ def listed_install(key: str, scope: str, repo: Path, env: dict[str, str], note: 
     return Path(path)
 
 
+def outer_site_packages() -> list[str]:
+    """The site-packages folders of the python3 this check runs under when that is a virtual environment, in
+    the order `sysconfig` gives them with a repeat dropped, else none: a new environment inherits the
+    packages of the base python3 and not those of the one it was made from."""
+    if sys.prefix == sys.base_prefix:
+        return []
+    paths = sysconfig.get_paths()
+    return list(dict.fromkeys([paths["purelib"], paths["platlib"]]))
+
+
+def shared_path(root: Path, shared: Path | None = None, path: str | None = None) -> str:
+    """The PATH with the bin of a new virtual environment first, whose python3 imports the shared package from
+    `shared`, the kit's `shared/` folder (the working folder's by default), and PyYAML as the python3 this
+    check runs under does (decision dec-0099-shared-code-installed-as-a-pip-package, R17). The environment is
+    made at `root/shared-env`, so it goes with the check's throwaway folder `root`; `path` is the PATH it is
+    put before, else the person's. The steps and each failure are in the docstring of this file."""
+    package = (KIT / "shared" if shared is None else shared) / SHARED_PACKAGE
+    if not folder_at(package):
+        raise Broken(
+            f"the shared code is not at {package} — fix: run the check from a clone of the kit, which holds"
+            f" shared/{SHARED_PACKAGE}/"
+        )
+    home, env = root / SHARED_ENV, dict(os.environ)
+    made = [sys.executable, "-m", "venv", "--system-site-packages", "--without-pip", str(home)]
+    code, out, err = run(made, root, env)
+    if code != 0:
+        raise Broken(
+            f"{shlex.join(made)} exited {code} ({last_line(out, err)}) — fix: run that command by hand and"
+            " read why it fails, then run the check again"
+        )
+    python = home / "bin" / "python3"
+    code, out, err = run(
+        [str(python), "-c", "import sysconfig; print(sysconfig.get_path('purelib'))"], root, env
+    )
+    if code != 0 or not out:
+        raise Broken(
+            f"the new environment {home} does not say where its packages go ({last_line(out, err)}) — fix:"
+            f" run {shlex.quote(str(python))} by hand and read why, then run the check again"
+        )
+    pth = Path(out.splitlines()[-1]) / SHARED_PTH
+    folders = [str(package.parent.resolve()), *outer_site_packages()]
+    try:
+        pth.write_text("".join(f"{folder}\n" for folder in folders), encoding="utf-8")
+    except OSError as bad:
+        raise Broken(
+            f"{pth} could not be written ({bad.strerror or bad}) — fix: make the folder {root} writable,"
+            " then run the check again"
+        ) from bad
+    code, out, err = run([str(python), "-c", SHARED_PROBE], root, env)
+    if code != 0:
+        raise Broken(
+            f"the new environment cannot import the shared code and PyYAML ({last_line(out, err)}) — fix:"
+            " PyYAML must be installed for the python3 that runs the check (`python3 -m pip install PyYAML`);"
+            f" for another cause run {shlex.quote(str(python))} -c {shlex.quote(SHARED_PROBE)} by hand and"
+            " read why, then run the check again"
+        )
+    found = Path(out.splitlines()[-1]).resolve().parent
+    if found != package.resolve():
+        raise Broken(
+            f"the new environment imports {SHARED_PACKAGE} from {found}, not from {package} — fix: take the"
+            " other copy off the way for this run: unset PYTHONPATH, which puts a folder first, and take out"
+            " of a sitecustomize or usercustomize module any line that does the same, then run the check"
+            " again"
+        )
+    folder = str(home / "bin")
+    return os.pathsep.join(p for p in (folder, os.environ.get("PATH", "") if path is None else path) if p)
+
+
 def install(
     module: str,
     root: Path,
@@ -309,12 +408,13 @@ def install(
     marketplace: str,
     note: Note,
     timeout: float = INSTALL_TIMEOUT,
+    path: str | None = None,
 ) -> Path:
     """Add the marketplace and install the module at the default scope, in the bare repository and an
     empty configuration folder `root/config`, every `claude` command in the person's environment less the
     four variables of `claude_env` that steer where Claude Code finds, keeps or loads plugins, so that the
-    platform's plugins root is that folder's `plugins`; the installed copy's folder, as `listed_install`
-    finds it."""
+    platform's plugins root is that folder's `plugins`, and with `path`, when given, as its PATH (the one
+    `shared_path` makes); the installed copy's folder, as `listed_install` finds it."""
     if source.startswith("#"):
         raise Broken(
             f"the source {source} names a branch of no repository — the pull request's head repository is"
@@ -322,7 +422,9 @@ def install(
         )
     config = root / "config"
     config.mkdir()
-    env = claude_env(os.environ) | {"CLAUDE_CONFIG_DIR": str(config)}
+    env = (
+        claude_env(os.environ) | ({} if path is None else {"PATH": path}) | {"CLAUDE_CONFIG_DIR": str(config)}
+    )
     code, out, err = run(["claude", "plugin", "marketplace", "add", source], repo, env)
     if code != 0:
         last = last_line(out, err)

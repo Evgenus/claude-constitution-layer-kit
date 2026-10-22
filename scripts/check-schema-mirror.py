@@ -18,12 +18,19 @@ accepts and the schema rejects, and a case listed as stricter on purpose one the
 accepts and the mirror rejects — an exemption that stops holding is itself red, with the fix
 that removes it or restores the rule it covered.
 
+The dials schema's required key, `module_prefix`, is held on its own: the corpus holds the key absent
+and a value of every shape the schema's pattern allows or refuses, and reads each value as the module
+whose namespace starts with it, so that the reader's check that its own namespace carries the prefix
+(C5.12) never stands in for the pattern; the mirror may be stricter than the schema, never more lenient.
+
 Modes:  no arguments   compare the mirrors with the kit's schemas;
         --self-test    prove the check on mutated copies held in memory: a value added to a
-                       schema's enum, a value added to or removed from a mirror's values and a
-                       schema limit moved past the mirror's are each red with the line that names
-                       the value and both verdicts; the untouched inputs are green; a schema that
-                       breaks its own draft is a BROKEN line.
+                       schema's enum, a value added to or removed from a mirror's values, a
+                       schema limit moved past the mirror's and a schema pattern of the prefix
+                       narrowed past the mirror's are each red with the line that names the value
+                       and both verdicts; so are a mirror that does not require the prefix and
+                       one that holds its pattern loosely; the untouched inputs are green; a schema
+                       that breaks its own draft is a BROKEN line.
 Exit: 0 green; 2 the mirror and a schema disagree, or an exemption no longer holds; 1 the
 check could not run, or a schema breaks its own draft.
 """
@@ -34,6 +41,7 @@ import argparse
 import contextlib
 import copy
 import json
+import re
 import sys
 import tempfile
 from collections.abc import Callable, Iterator, Mapping
@@ -46,6 +54,7 @@ from unittest import mock
 KIT = Path(__file__).resolve().parent.parent
 for module in ("const-meta-types", "const-decision-records"):  # kit-side test code only
     sys.path.insert(0, str(KIT / "modules" / module / "plugin" / "scripts"))
+sys.path.insert(0, str(KIT / "shared"))  # the shared package: no plugin holds a link to it
 
 try:
     import jsonschema
@@ -56,6 +65,7 @@ except ImportError as exc:
     print("BROKEN: the check could not run — 0 cases examined")
     sys.exit(1)
 
+from constitution_layer_kit import dials as dials_reader  # noqa: E402
 from constitution_layer_kit import identity  # noqa: E402
 from constitution_layer_kit.dials import load_dials  # noqa: E402
 from constitution_layer_kit.envelope import parse_envelope  # noqa: E402
@@ -204,24 +214,66 @@ def record_corpus(schema: dict[str, Any], mirror: Mirror) -> list[EnvelopeCase]:
     return cases
 
 
+PREFIX = {"module_prefix": "const-"}  # the required key, as the kit writes it
 DIALS_CORPUS: list[tuple[str, object]] = [
     ("empty file", {}),
-    ("root only", {"root_policy": "docs/policies/root.md"}),
-    ("root empty string", {"root_policy": ""}),
-    ("root not a string", {"root_policy": 3}),
-    ("dialect empty", {"territory_dialect": ""}),
-    ("dialect not a string", {"territory_dialect": 1}),
-    ("namespace not a mapping", {"notes-policy": "docs/**"}),
-    ("territory not a list", {"notes-policy": {"territory": "docs/**"}}),
-    ("territory with empty item", {"notes-policy": {"territory": [""]}}),
-    ("territory with non-string item", {"notes-policy": {"territory": [1]}}),
-    ("valid policy namespace", {"notes-policy": {"territory": ["docs/notes/**"], "anything": 1}}),
-    ("policy namespace null", {"notes-policy": None}),
-    ("own namespace null", {"const-meta-types": None}),
-    ("own namespace not a mapping", {"const-meta-types": "x"}),
-    ("another module's namespace not a mapping", {"const-other": 5}),
-    ("another module's territory not a list", {"const-other": {"territory": "x"}}),
-    ("own territory with a non-string item", {"const-meta-types": {"territory": [1]}}),
+    ("prefix only", dict(PREFIX)),
+    ("prefix absent", {"root_policy": "docs/policies/root.md"}),
+    ("prefix of another layer", {"module_prefix": "other-"}),
+    ("root only", {**PREFIX, "root_policy": "docs/policies/root.md"}),
+    ("root empty string", {**PREFIX, "root_policy": ""}),
+    ("root not a string", {**PREFIX, "root_policy": 3}),
+    ("dialect empty", {**PREFIX, "territory_dialect": ""}),
+    ("dialect not a string", {**PREFIX, "territory_dialect": 1}),
+    ("namespace not a mapping", {**PREFIX, "notes-policy": "docs/**"}),
+    ("territory not a list", {**PREFIX, "notes-policy": {"territory": "docs/**"}}),
+    ("territory with empty item", {**PREFIX, "notes-policy": {"territory": [""]}}),
+    ("territory with non-string item", {**PREFIX, "notes-policy": {"territory": [1]}}),
+    ("valid policy namespace", {**PREFIX, "notes-policy": {"territory": ["docs/notes/**"], "anything": 1}}),
+    ("policy namespace null", {**PREFIX, "notes-policy": None}),
+    ("own namespace null", {**PREFIX, "const-meta-types": None}),
+    ("own namespace not a mapping", {**PREFIX, "const-meta-types": "x"}),
+    ("another module's namespace not a mapping", {**PREFIX, "const-other": 5}),
+    ("another module's territory not a list", {**PREFIX, "const-other": {"territory": "x"}}),
+    ("own territory with a non-string item", {**PREFIX, "const-meta-types": {"territory": [1]}}),
+]
+# The values of `module_prefix` the schema's pattern allows or refuses, each read by a module whose
+# namespace starts with the value (`READER_SUFFIX` after it), so that the pattern is all that judges it. The
+# schema is the Python `re` of the validator: it takes a trailing line feed after the '-', which the
+# pattern's `$` allows there; the mirror, which holds the whole value, is stricter on that one.
+READER_SUFFIX = "x"
+# The case that the self-test's loose-pattern mirror must fail on: a value that the kit's own namespace does
+# not start with. A reader left at the kit's own namespace, `const-…`, would pass the value `const` on the
+# strength of that namespace whatever the pattern says, so a case on `const` cannot show the reader is the
+# case's own.
+UPPER_CASE_PREFIX = "prefix with an upper-case letter"
+PREFIX_SHAPES: list[tuple[str, object]] = [
+    ("prefix of one word", "const-"),
+    ("prefix of two words", "const-meta-"),
+    ("prefix of three words", "ab-cd-ef-"),
+    ("prefix with digits", "a1-b2-"),
+    ("prefix with a digit-only word", "a-1-"),
+    ("prefix of one letter", "a-"),
+    ("prefix without a trailing dash", "const"),
+    ("prefix with a doubled dash", "const--"),
+    ("prefix with a leading dash", "-const-"),
+    ("prefix of a dash alone", "-"),
+    (UPPER_CASE_PREFIX, "Const-"),
+    ("prefix in upper case", "CONST-"),
+    ("prefix with a first digit", "1const-"),
+    ("prefix with an underscore", "const_x-"),
+    ("prefix with a space inside", "const -"),
+    ("prefix with a trailing space", "const- "),
+    ("prefix with a leading space", " const-"),
+    ("prefix with a line feed after the dash", "const-\n"),
+    ("prefix with a letter beyond ASCII", "çonst-"),
+    ("prefix with a digit beyond ASCII", "a\u0663-"),
+    ("prefix empty", ""),
+    ("prefix a number", 3),
+    ("prefix a boolean", True),
+    ("prefix null", None),
+    ("prefix a list", ["const-"]),
+    ("prefix a mapping", {"const-": 1}),
 ]
 # Kernel §6: a reader reads its own namespace and the policy namespaces, no other module's. A
 # namespace named like a module is a policy's only when a policy document carries that id, so
@@ -248,8 +300,30 @@ def schema_accepts(validator: jsonschema.Validator, instance: Any) -> bool:
     return not list(validator.iter_errors(instance))
 
 
-def mirror_accepts_dials(instance: object) -> bool:
-    with tempfile.TemporaryDirectory() as tmp:
+def dials_cases() -> list[tuple[str, object, str | None]]:
+    """Every dials case with the namespace of the module that reads it: None for the kit's own reader of
+    this check, a name that starts with the prefix for a value of `module_prefix` that is a string, so that
+    the reader's check of its own namespace against the prefix never judges the pattern."""
+    cases: list[tuple[str, object, str | None]] = [(name, instance, None) for name, instance in DIALS_CORPUS]
+    for name, value in PREFIX_SHAPES:
+        reader = value + READER_SUFFIX if isinstance(value, str) else None
+        cases.append((name, {"module_prefix": value}, reader))
+    return cases
+
+
+@contextlib.contextmanager
+def reading_as(namespace: str | None) -> Iterator[None]:
+    """The shared reader asks which module reads the file. For the span of the block a scope declares the
+    gate afresh under another namespace; it shadows the run's own declaration until it closes."""
+    if namespace is None:
+        yield
+        return
+    with identity.declared(replace(start.GATE, namespace=namespace)):
+        yield
+
+
+def mirror_accepts_dials(instance: object, reader: str | None = None) -> bool:
+    with tempfile.TemporaryDirectory() as tmp, reading_as(reader):
         Path(tmp, "constitution.yaml").write_text(yaml.safe_dump(instance), encoding="utf-8")
         try:
             load_dials(Path(tmp))
@@ -384,9 +458,9 @@ def compare(
                         ALIGN,
                     )
                 )
-        for name, instance in DIALS_CORPUS:
+        for name, instance, reader in dials_cases():
             mirror_says, schema_says = (
-                mirror_accepts_dials(instance),
+                mirror_accepts_dials(instance, reader),
                 schema_accepts(dials_validator, instance),
             )
             found = dials_disagreement(name, mirror_says, schema_says)
@@ -409,7 +483,7 @@ def compare(
                 )
             )
     counts = (
-        f"{len(corpus)} envelope cases (equality), {len(DIALS_CORPUS)} dials cases (never more lenient on"
+        f"{len(corpus)} envelope cases (equality), {len(dials_cases())} dials cases (never more lenient on"
         f" the keys a gate reads; {len(NOT_THIS_READERS)} are another reader's),"
         f" {len(records)} record cases (equality but {len(STRICTER_ON_PURPOSE)} stricter on purpose) examined"
     )
@@ -487,6 +561,33 @@ def mirror_accepting_any_status() -> Iterator[None]:
         yield
 
 
+def with_prefix_pattern(schema: dict[str, Any], pattern: str) -> dict[str, Any]:
+    changed = copy.deepcopy(schema)
+    changed["properties"]["module_prefix"]["pattern"] = pattern
+    return changed
+
+
+@contextlib.contextmanager
+def mirror_defaulting_the_prefix() -> Iterator[None]:
+    """A mirror that reads a file with no `module_prefix`, or a null one, as if it named `const-`: the key
+    is no longer required, though the schema requires it."""
+    real = dials_reader._module_prefix
+
+    def lenient(value: object) -> str:
+        return real(value) if value is not None else "const-"
+
+    with mock.patch.object(dials_reader, "_module_prefix", lenient):
+        yield
+
+
+@contextlib.contextmanager
+def mirror_with_a_loose_prefix_pattern() -> Iterator[None]:
+    """A mirror whose pattern of the prefix takes any string: a value the schema's pattern refuses, such as
+    one with no '-' at its end, is then read."""
+    with mock.patch.object(dials_reader, "_PREFIX_SHAPE", re.compile(".*")):
+        yield
+
+
 def self_test() -> int:
     """Red→green on mutated copies held in memory: each mutation is red with the line that names the
     value and both verdicts, the untouched inputs are green, a schema that breaks its draft is BROKEN."""
@@ -545,6 +646,24 @@ def self_test() -> int:
             (f"RED: envelope 'status '{OUTSIDE}'': schema accepts=False, mirror accepts=True",),
         ),
         (
+            "a schema pattern of the prefix narrowed past the mirror's is red",
+            (envelope, record, with_prefix_pattern(dials, "^[a-z]+-$"), real),
+            EXIT_RED,
+            ("RED: dials 'prefix of two words': the schema rejects it but the mirror accepts it",),
+        ),
+        (
+            "a mirror that does not require the prefix is red",
+            (envelope, record, dials, real),
+            EXIT_RED,
+            ("RED: dials 'prefix absent': the schema rejects it but the mirror accepts it",),
+        ),
+        (
+            "a mirror that holds the prefix's pattern loosely is red",
+            (envelope, record, dials, real),
+            EXIT_RED,
+            (f"RED: dials '{UPPER_CASE_PREFIX}': the schema rejects it but the mirror accepts it",),
+        ),
+        (
             "the untouched inputs are green",
             (envelope, record, dials, real),
             EXIT_GREEN,
@@ -558,7 +677,9 @@ def self_test() -> int:
         ),
     ]
     under: dict[str, Callable[[], contextlib.AbstractContextManager[None]]] = {
-        "a mirror that accepts a status neither side lists is red": mirror_accepting_any_status
+        "a mirror that accepts a status neither side lists is red": mirror_accepting_any_status,
+        "a mirror that does not require the prefix is red": mirror_defaulting_the_prefix,
+        "a mirror that holds the prefix's pattern loosely is red": mirror_with_a_loose_prefix_pattern,
     }
     failed = 0
     for name, inputs, wanted_code, wanted in cases:
@@ -584,13 +705,13 @@ def main(argv: list[str]) -> int:
         print("BROKEN: misinvocation — fix: run with no arguments, or with --self-test")
         print(COULD_NOT_RUN)
         return EXIT_BROKEN
-    identity.declare(start.GATE)  # the shared reader asks which gate it serves
-    try:
-        if args.self_test:
-            return self_test()
-        code, lines = outcome(*load_schemas(), mirror_values())
-    except Broken as broken:
-        code, lines = broken_lines(broken)
+    with identity.declared(start.GATE):  # the shared reader asks which gate it serves and which file it opens
+        try:
+            if args.self_test:
+                return self_test()
+            code, lines = outcome(*load_schemas(), mirror_values())
+        except Broken as broken:
+            code, lines = broken_lines(broken)
     print("\n".join(lines))
     return code
 

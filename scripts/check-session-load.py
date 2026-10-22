@@ -2,6 +2,15 @@
 """Kit check: a module, installed through Claude Code into a bare repository, loads in a session — its
 skills listed and its start hooks run (decision dec-0093-module-evals-with-local-receipts, R10).
 
+The shared code (decision dec-0099-shared-code-installed-as-a-pip-package, R17): a module's plugin holds no
+copy of `shared/constitution_layer_kit/`, and its start hooks import the package that `python3` finds. So
+that they find the change's own code and never a release a person installed, the check makes, right after
+the bare repository, the environment of `kit_install.shared_path` under the same throwaway folder: a virtual
+environment of the python3 the check runs under, with its system packages, whose `.pth` file names the
+working folder's `shared/`; nothing is built and nothing needs the network. Every `claude` command below,
+the install's and the session's, runs with that environment's `bin` first on PATH, and so do the hooks the
+session starts. A failure to make the environment is a BROKEN line with the fix, as that function words it.
+
 For the module named, in throwaway folders the check removes:
   1. the bare repository and the install of `kit_install`, the steps `scripts/check-bare-install.py` takes
      too, from --from, else the environment's CONSTITUTION_KIT_INSTALL_FROM, else the kit's working folder;
@@ -33,7 +42,12 @@ Modes:  --module <name> [--from <source>]   check one module;
                        a missing skill, one hook too few, one too many, a hook that exits 1, one whose outcome
                        is no success with exit 0, and one that prints nothing each a finding; the report of
                        one finding as literal lines with exit 2; a stream with no init event a BROKEN line;
-                       and the whole run, install and session, against a fake `claude` on PATH, green.
+                       and the whole run, install and session, against a fake `claude` on PATH, green: the
+                       toy plugin has a script that imports the shared package with no link beside it, which
+                       the fake runs as a start hook with the session's PATH and which prints the mark of the
+                       toy kit's shared package, so the run is green only with the environment of the shared
+                       code; the same run with the environment dropped, the PATH the person's, ends with no
+                       start event, a BROKEN line.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -52,7 +66,17 @@ from pathlib import Path
 from unittest import mock
 
 import kit_install
-from kit_install import FROM_ENV, Broken, Refused, bare_repository, install, kit_marketplace, run, there
+from kit_install import (
+    FROM_ENV,
+    Broken,
+    Refused,
+    bare_repository,
+    install,
+    kit_marketplace,
+    run,
+    shared_path,
+    there,
+)
 from kit_module_doc import DocumentError, Note, claude_env, claude_note
 
 KIT = Path(__file__).resolve().parent.parent
@@ -210,9 +234,12 @@ def judge(module: str, source: Path, start: Start) -> list[Finding]:
     return found
 
 
-def session(repo: Path, config: Path) -> str:
+def session(repo: Path, config: Path, path: str) -> str:
+    """The stream of one headless session in `repo`, the configuration folder `config`, with `path` as its
+    PATH: the environment of the shared code, as `shared_path` makes it, so that the module's start hooks
+    import the change's own shared package."""
     env = {k: v for k, v in claude_env(os.environ).items() if k not in NO_LOGIN}
-    env |= {"CLAUDE_CONFIG_DIR": str(config), "DISABLE_AUTOUPDATER": "1"}
+    env |= {"CLAUDE_CONFIG_DIR": str(config), "DISABLE_AUTOUPDATER": "1", "PATH": path}
     argv = ["claude", "-p", PROMPT, "--output-format", "stream-json", "--verbose", "--include-hook-events"]
     code, out, err = run(argv, repo, env, timeout=SESSION_TIMEOUT)
     if code == 124:
@@ -228,13 +255,14 @@ def check_module(module: str, source: str, note: Note) -> tuple[list[Finding], s
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         repo = bare_repository(root)
+        path = shared_path(root)  # the PATH of every `claude` command below, and so of the start hooks
         try:
-            install(module, root, repo, source, marketplace, note)
+            install(module, root, repo, source, marketplace, note, path=path)
         except Refused as refused:
             return [
                 Finding(module, f"Claude Code refuses to install it ({refused})", "fix its manifest")
             ], "no install"
-        start = start_of(session(repo, root / "config"))
+        start = start_of(session(repo, root / "config", path))
     examined = (
         f"{len(expected_skills(kit_source, module))} skill(s), {expected_hooks(kit_source)} start hook(s)"
     )
@@ -251,9 +279,18 @@ def report(module: str, findings: list[Finding], examined: str, note: str = "") 
     return EXIT_GREEN
 
 
+TOY_MARK = "toy-shared"  # what the toy kit's shared package says, so that no other copy passes for it
+
+
 def toy_module(root: Path) -> Path:
-    """The plugin folder of a toy module, `modules/const-x/plugin` under `root`: its skills, its hooks."""
+    """The plugin folder of a toy module, `modules/const-x/plugin` under `root`: its skills, its hooks, and
+    `scripts/entry.py`, which imports the shared package with no link to it beside the script and prints what
+    the package says."""
     plugin = root / "modules" / "const-x" / "plugin"
+    (plugin / "scripts").mkdir(parents=True)
+    (plugin / "scripts" / "entry.py").write_text(
+        "import constitution_layer_kit\nprint(constitution_layer_kit.MARK)\n", encoding="utf-8"
+    )
     (plugin / "skills" / "s").mkdir(parents=True)
     (plugin / "skills" / "s" / "SKILL.md").write_text("---\nname: s\ndescription: d\n---\n", encoding="utf-8")
     (plugin / "skills" / "notes").mkdir()
@@ -287,7 +324,9 @@ GOOD = {"exit_code": 0, "outcome": "success", "output": "const-x (advisory): loa
 
 
 def fake_claude(folder: Path, plugin: Path, said: str) -> Path:
-    """A `claude` that answers the install's three commands and prints `said` as the session's stream."""
+    """A `claude` that answers the install's three commands and, as a session, runs the plugin's
+    `scripts/entry.py` with the PATH it was given, as a start hook would, and prints `said` as the session's
+    stream only when that script prints the toy kit's mark; else it ends the session with no stream."""
     script = folder / "claude"
     entry = json.dumps([{"id": "const-x@toy", "scope": "user", "installPath": str(plugin)}])
     script.write_text(
@@ -296,7 +335,8 @@ def fake_claude(folder: Path, plugin: Path, said: str) -> Path:
         '  "plugin marketplace") exit 0 ;;\n'
         '  "plugin install") echo \'{"outcome": "ok", "scope": "user"}\' ;;\n'
         f"  \"plugin list\") echo '{entry}' ;;\n"
-        f"  *) cat {folder / 'stream.jsonl'} ; exit 1 ;;\n"
+        f'  *) [ "$(python3 {plugin / "scripts" / "entry.py"} 2>/dev/null)" = {TOY_MARK} ] || exit 1\n'
+        f"     cat {folder / 'stream.jsonl'} ; exit 1 ;;\n"
         "esac\n",
         encoding="utf-8",
     )
@@ -307,7 +347,12 @@ def fake_claude(folder: Path, plugin: Path, said: str) -> Path:
 
 @contextlib.contextmanager
 def toy_kit(root: Path) -> Iterator[Path]:
-    """The kit's names read from a toy kit at `root`: its module, its kernel and its marketplace."""
+    """The kit's names read from a toy kit at `root`: its module, its kernel, its marketplace and its shared
+    package, which says `TOY_MARK`."""
+    (root / "shared" / "constitution_layer_kit").mkdir(parents=True)
+    (root / "shared" / "constitution_layer_kit" / "__init__.py").write_text(
+        f'MARK = "{TOY_MARK}"\n', encoding="utf-8"
+    )
     (root / "kernel").mkdir()
     (root / "kernel" / "CONVENTIONS.md").write_text("# kernel\n", encoding="utf-8")
     (root / ".claude-plugin").mkdir()
@@ -316,6 +361,21 @@ def toy_kit(root: Path) -> Iterator[Path]:
     )
     with mock.patch.dict(globals(), {"KIT": root}), mock.patch.dict(vars(kit_install), {"KIT": root}):
         yield root
+
+
+def whole_run_said(root: Path) -> str:
+    """The whole run over the toy kit at `root`, in one line: what it examined when it is green, else its
+    findings or the BROKEN line it ends in."""
+    try:
+        findings, examined = check_module("const-x", str(root), Note("2.1.282"))
+    except Broken as broken:
+        return f"BROKEN: {broken}"
+    return examined if not findings else f"RED: {[f.what for f in findings]}"
+
+
+def unmade_path(root: Path, shared: Path | None = None, path: str | None = None) -> str:
+    """`shared_path` without the environment: the person's PATH, for the case that drops it."""
+    return os.environ["PATH"] if path is None else path
 
 
 def self_test() -> int:
@@ -384,16 +444,30 @@ def self_test() -> int:
         bin_folder.mkdir()
         fake_claude(bin_folder, plugin, stream(["const-x"], ["const-x:s"], [GOOD]))
         path = {"PATH": f"{bin_folder}{os.pathsep}{os.environ.get('PATH', '')}"}
+        # the same run twice over the toy kit: with the environment of the shared code, and with it dropped,
+        # the PATH staying the person's, so that the script that imports the shared package fails in the
+        # session, which ends with no start event
         with toy_kit(root), mock.patch.dict(os.environ, path):
-            findings, examined = check_module("const-x", str(root), Note("2.1.282"))
-        ok = findings == [] and examined == "1 skill(s), 1 start hook(s)"
+            green = whole_run_said(root)
+            with mock.patch.dict(globals(), {"shared_path": unmade_path}):
+                said = whole_run_said(root)
+        ok = green == "1 skill(s), 1 start hook(s)"
         failed += 0 if ok else 1
         print(
-            f"[{'ok' if ok else 'FAIL'}] the whole run against a fake claude, install and session, is green"
+            f"[{'ok' if ok else 'FAIL'}] the whole run against a fake claude, install and session, is green,"
+            " the plugin's script importing the shared package with no link beside it"
         )
         if not ok:
-            print(f"        got {findings} {examined}")
-    total = len(cases) + 3
+            print(f"        got {green}")
+        ok = said.startswith("BROKEN: the session reported no start event (no output) — fix:")
+        failed += 0 if ok else 1
+        print(
+            f"[{'ok' if ok else 'FAIL'}] the same run without the shared code's environment, the script that"
+            " imports the shared package fails, so the session reports no start: a BROKEN line"
+        )
+        if not ok:
+            print(f"        got {said}")
+    total = len(cases) + 4
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 

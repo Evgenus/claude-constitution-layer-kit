@@ -23,7 +23,6 @@ from pathlib import Path
 import pytest
 import yaml
 from acceptance import broken_first_line, expect, failure_of, item
-from constitution_layer_kit import identity
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.model import Broken, Finding
 from consumer import ROOT_POLICY, Consumer, document, envelope
@@ -35,7 +34,7 @@ from test_shared_items import Subject
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 
-identity.declare(start.GENERATOR)  # the expected messages are built by the same functions the generator uses
+IDENTITY = start.GENERATOR  # declared for the whole session by conftest; the expected messages read it
 # — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
 H = Harness(SCRIPTS, "new-document.sh", "new-document.py", start.GENERATOR.namespace)
 NAMESPACE = start.GENERATOR.namespace
@@ -787,7 +786,10 @@ def test_repository_refusals() -> None:
     consumer = prepared()
     (consumer.root / "constitution.yaml").unlink()
     no_dials = run(consumer, *NOTE_ARGS)
-    no_root = run(prepared(raw_dials="notes-policy:\n  territory: ['docs/notes/**']\n"), *NOTE_ARGS)
+    no_root = run(
+        prepared(raw_dials="module_prefix: const-\nnotes-policy:\n  territory: ['docs/notes/**']\n"),
+        *NOTE_ARGS,
+    )
     outside = H.scratch_dir()
     loose = H.run_gate("", args=NOTE_ARGS, cwd=outside, env={"GIT_CEILING_DIRECTORIES": str(outside.parent)})
     # the directory the run stands in and the repository root are paths: whole, a break and a backslash shown
@@ -1125,13 +1127,11 @@ def test_write_fails_part_way() -> None:
     is L5.20, and the file and the directory made for it are removed: the tree as it was."""
     consumer = prepared()
     before = tree_state(consumer)
-    env = dict(os.environ)
-    env.pop("CLAUDE_PLUGIN_DATA", None)
     done = subprocess.run(
         [H.sh, str(H.wrapper), *LONG_ARGS],
         text=True,
         capture_output=True,
-        env=env,
+        env=H.environment(),
         check=False,
         cwd=consumer.root,
         preexec_fn=limited_to_file_size,  # the harness's run takes none: the limit is this item's alone

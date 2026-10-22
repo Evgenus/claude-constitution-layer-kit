@@ -6,6 +6,16 @@ Requires: git, Python 3.12 or newer as `python3`, the libraries in `requirements
 https://vale.sh/docs/install. A missing `python3`, library or `vale`, or a `vale` below the
 floor, is reported by the check with the fix on its first line; nothing is silently skipped.
 
+The shared code is the Python package `constitution-layer-kit`, which brings PyYAML with it. A project
+installs it once, for the `python3` its hooks run:
+```bash
+python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
+```
+Until that tag exists, install from a clone of the kit: `python3 -m pip install <the kit's clone>/shared`.
+A line that starts `BROKEN: const-language needs the Python package constitution-layer-kit`,
+`BROKEN: const-language needs constitution-layer-kit` or
+`BROKEN: const-language was written for constitution-layer-kit` points here.
+
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). One check hook, one scan, one skill, and two pointer hooks. The check hook runs after
    every `Write` and `Edit` of a covered Markdown document and hands the findings back to the
@@ -13,10 +23,6 @@ floor, is reported by the check with the fix on its first line; nothing is silen
    `plain-language`, is for the model to load before prose is written and when a finding is read.
    The two pointer hooks, at session start and at each subagent's start, print one line naming
    it (183 characters, advisory); a line after the count line of every red names it too.
-   A copy of this plugin's folder made outside
-   the repository it comes from must follow links (`cp -RL`): `scripts/constitution_layer_kit` is a link to code the plugin shares with its siblings, and an install from the marketplace copies what it points at. A
-   checkout made without symlink support leaves one-line text files in their place
-   (`git config core.symlinks true`, then check out again).
 2. **What is checked.** The prose of a covered document — the envelope, headings, code spans,
    code blocks and table cells left out of the grade — against five rules, each generated for
    Vale from the dials on every run: the document's Flesch–Kincaid grade against a ceiling; each
@@ -27,10 +33,10 @@ floor, is reported by the check with the fix on its first line; nothing is silen
    switches a rule off. The check reads only the configuration it generates (`--config`,
    `--no-global`) and never a `.vale.ini` or a `StylesPath` of the repository, so Vale run by
    hand beside it sees a second configuration.
-3. **Zero configuration works** in a repository that has a `constitution.yaml` with no key of this
-   namespace: every Markdown file git lists is covered, the ceiling is grade 10, the limit 25
-   words, the four rules red and the passive a note. Without that file every run is a visible skip
-   naming it; an empty mapping, `{}`, is enough.
+3. **Zero configuration works** in a repository whose `constitution.yaml` has `module_prefix`
+   and no key of this namespace: every Markdown file git lists is covered, the ceiling is grade 10,
+   the limit 25 words, the four rules red and the passive a note. Without that file every run is a
+   visible skip naming it; `module_prefix: const-` alone is enough.
 4. Calibration, all optional, in the project's `constitution.yaml`:
    ```yaml
    const-language:

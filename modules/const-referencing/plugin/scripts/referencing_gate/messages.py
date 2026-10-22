@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from constitution_layer_kit import identity
 from constitution_layer_kit.messages import echoed, escaped
-from constitution_layer_kit.model import DIALS_FILE, Broken, Finding, SharedKey
+from constitution_layer_kit.model import Broken, Finding, SharedKey
 
 from .model import ActKey, Key, ToolKey
 
@@ -22,6 +22,10 @@ _LANE = "{pattern: <regular expression>, names: <what the form cites>, fix: <the
 
 def _ns() -> str:
     return identity.current().namespace
+
+
+def _file() -> str:
+    return identity.dials_file()
 
 
 # ---------------------------------------------------------------- findings: the forms of a reference
@@ -130,7 +134,7 @@ def r7_heading_anchor(rel: str, line: int, destination: str, target: str) -> Fin
         f'add <a id="<short fixed key>"></a> on its own line before that heading in {escaped(target)} and'
         f" cite the key; a repository whose links go through headings sets {_ns()}:"
         f" {{heading_anchors: allow}} in"
-        f" {DIALS_FILE} until they are converted",
+        f" {_file()} until they are converted",
     )
 
 
@@ -249,7 +253,7 @@ def f9_scan_tail(documents: int, links: int, scanned: int, lanes: int, mentions:
 
 
 def _c5(detail: str, fix: str) -> Broken:
-    return Broken(SharedKey.C5, f"{DIALS_FILE}: {detail}", fix)
+    return Broken(SharedKey.C5, f"{_file()}: {detail}", fix)
 
 
 def c5_territories() -> Broken:
@@ -490,7 +494,7 @@ def v5_parent_is_a_file(path: str) -> Broken:
 
 def v5_no_root_policy() -> Broken:
     return v5_refused(
-        f"{_ns()}.governed_only is set and {DIALS_FILE} names no root_policy, so nobody can say which"
+        f"{_ns()}.governed_only is set and {_file()} names no root_policy, so nobody can say which"
         " documents a move must repair",
         _GOVERNED_ONLY_NEEDS_ROOT,
     )
@@ -498,6 +502,6 @@ def v5_no_root_policy() -> Broken:
 
 def v5_no_dials(root: str) -> Broken:
     return v5_refused(
-        f"no {DIALS_FILE} in {escaped(root)}: the check that proves a move cannot run",
-        f"create {DIALS_FILE} at the repository's top — an empty mapping, {{}}, is enough",
+        f"no {_file()} in {escaped(root)}: the check that proves a move cannot run",
+        f"create {_file()} at the repository's top — a file that holds only module_prefix: const- is enough",
     )

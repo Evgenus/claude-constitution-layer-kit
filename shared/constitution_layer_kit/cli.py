@@ -1,4 +1,4 @@
-"""The command line and the single guard.
+"""The command line, the single guard, and the check of the installed release.
 
 Parameters are parsed with argparse, whose own default is to exit 2 on bad usage; 2 is
 reserved for findings, so a misinvoked hook must not read as "blocked, here is the
@@ -6,12 +6,17 @@ feedback" having produced no verdict. The parser here raises a configuration fai
 instead, and carries no built-in help action: argparse's help prints and exits on its
 own, past the guard and the log. The usage is one line, in the misinvocation message.
 The guard turns every configuration failure, and every unexpected exception, into
-exit 1 — never 0 — and flushes the log however the run ended.
+exit 1 — never 0 — and flushes the log however the run ended. It declares the gate for the length of the
+run, in one scope that closes before it returns.
+
+`version_failure` is the check every module's entry file calls right after it imports this module:
+whether the installed release serves the module, else the one line to print before it exits 1.
 """
 
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 import traceback
 from collections.abc import Callable, Mapping, Sequence
@@ -19,6 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import NoReturn, TextIO
 
+from . import __version__ as __version__  # re-exported: the installed version `version_failure` compares
 from . import identity, messages, preflight
 from .errors import ConfigurationFailure
 from .identity import Identity
@@ -26,6 +32,45 @@ from .model import EXIT_BROKEN, Mode
 from .output import Output
 
 SCAN_FLAG = "--scan"
+
+# A version is major.minor.patch, three decimal integers written without a leading zero, and nothing else:
+# no prefix, no suffix, no space, no digit of another script (`[0-9]`, where `\d` takes them all).
+_VERSION_SHAPE = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
+
+
+def _version(text: str, whose: str) -> tuple[int, int, int]:
+    found = _VERSION_SHAPE.fullmatch(text)
+    if found is None:
+        raise ValueError(
+            f"{whose} {text!r} is not major.minor.patch: three decimal integers without a leading zero,"
+            " and nothing else"
+        )
+    return int(found[1]), int(found[2]), int(found[3])
+
+
+def version_failure(namespace: str, required: str, guide: str, until: str) -> str | None:
+    """Whether the installed constitution-layer-kit serves a module that requires `required`. None when it
+    does: the installed `__version__` is at or above `required` and of the same major. Otherwise the one
+    rendered BROKEN line the module's entry file prints, with its closing line, before it exits 1: `C16`
+    when the installed version is below `required` — the shared code is too old, a required major above the
+    installed one included — and `C17` when the required major is below the installed major — the module is
+    too old for that major. `guide` is the path of the module's install note and `until` its closing clause,
+    empty for a generator's, which closes with none.
+
+    Both versions are strict major.minor.patch. A malformed `required` raises ValueError: a defect of the
+    module, which its fixtures catch. This reads no identity, since none is declared when it runs.
+
+    The signature of this function never changes from the first release on, and no parameter changes its
+    meaning. Every module's entry file calls it right after it imports `cli`, before it builds anything,
+    on whatever release is installed, one older or newer than the module was written for. A changed
+    signature would end that call in an error of its own, and the module would print neither line."""
+    needed = _version(required, "the required version")
+    installed = _version(__version__, "the installed version")
+    if installed < needed:  # a required major above the installed one is below it too
+        return messages.c16_shared_too_old(namespace, required, __version__, guide, until).render()
+    if needed[0] < installed[0]:
+        return messages.c17_module_too_old(namespace, required, __version__, guide, until).render()
+    return None
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,21 +164,24 @@ def guarded(
     mode, with no arguments to parse and a closing line saying the gate's state is not said.
     `could_not_run` is the line that closes a
     failure: a gate's says that nothing was examined, a generator's that nothing was changed. The
-    mode is declared with the gate: a hook starts the run's one deadline, `gate.hook_seconds` from this
-    declaration, and every wait of the run takes what is left of it, each git call also within its own
+    gate and the mode are declared for the length of the run, in one scope of `identity.declared` that the
+    guard opens around everything it does — the output, the body, the failure lines and the flush — and
+    closes before it returns the exit code: a hook starts the run's one deadline, `gate.hook_seconds` from the
+    opening, and every wait of the run takes what is left of it, each git call also within its own
     `GIT_SECONDS`; a scan and an act have no deadline and no budget."""
-    identity.declare(gate, mode)  # first: every text, the log, the git calls and the deadline ask who and how
-    output = Output(mode)
-    try:
-        return body(output)
-    except ConfigurationFailure as failure:
-        output.err(failure.broken.render())
-        output.err(could_not_run())
-    except Exception as exc:  # not fail-open: an unexpected failure exits 1, never 0
-        # the BROKEN line first: in hook mode only the first stderr line reaches the user
-        output.err(messages.c12_unexpected(f"{type(exc).__name__}: {exc}").render())
-        output.err(could_not_run())
-        output.err(traceback.format_exc().rstrip())
-    finally:
-        output.flush()
-    return EXIT_BROKEN
+    # first: every text, the log, the git calls and the deadline ask who and how
+    with identity.declared(gate, mode):
+        output = Output(mode)
+        try:
+            return body(output)
+        except ConfigurationFailure as failure:
+            output.err(failure.broken.render())
+            output.err(could_not_run())
+        except Exception as exc:  # not fail-open: an unexpected failure exits 1, never 0
+            # the BROKEN line first: in hook mode only the first stderr line reaches the user
+            output.err(messages.c12_unexpected(f"{type(exc).__name__}: {exc}").render())
+            output.err(could_not_run())
+            output.err(traceback.format_exc().rstrip())
+        finally:
+            output.flush()
+        return EXIT_BROKEN

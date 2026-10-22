@@ -14,6 +14,7 @@ GATE = Identity(
     namespace="const-referencing",
     gate="check-references",
     plugin_root=Path(__file__).resolve().parents[2],
+    dials_file="constitution.yaml",
     hook_seconds=HOOK_SECONDS,
     skills={Mode.HOOK: "referencing", Mode.SCAN: "referencing"},  # the skill a red names (F10)
 )

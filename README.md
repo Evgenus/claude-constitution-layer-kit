@@ -74,7 +74,7 @@ The [install guide](INSTALL.md) bootstraps a new project step by step: the prere
 | 1 | `kernel/` | the semantic kernel, `CONVENTIONS.md`, and its schemas |
 | 2 | `modules/` | the modules, one plugin each, each with a `README.md` that is its landing page |
 | 3 | `module-template/` | the fixed shape every module fills |
-| 4 | `shared/` | the code every gate shares, linked into each module ([shared/GATE.md](shared/GATE.md)) |
+| 4 | `shared/` | the code every gate shares, a Python package that each module imports and pip installs ([shared/GATE.md](shared/GATE.md)) |
 | 5 | `docs/` | the requirements matrix, the rollout plan, the kit's policies, decision records, research and style guide |
 | 6 | `templates/` | the templates of the kit's own document kinds |
 | 7 | `scripts/` | the kit's own checks and hooks, never shipped in a module |

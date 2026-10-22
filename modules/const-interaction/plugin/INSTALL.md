@@ -5,6 +5,16 @@ Requires: git, Python 3.12 or newer as `python3`, and the libraries in `requirem
 reported on the first shell command of a session and at session start, each with the fix on the
 first line; nothing is silently skipped.
 
+The shared code is the Python package `constitution-layer-kit`, which brings PyYAML with it. A project
+installs it once, for the `python3` its hooks run:
+```bash
+python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
+```
+Until that tag exists, install from a clone of the kit: `python3 -m pip install <the kit's clone>/shared`.
+A line that starts `BROKEN: const-interaction needs the Python package constitution-layer-kit`,
+`BROKEN: const-interaction needs constitution-layer-kit` or
+`BROKEN: const-interaction was written for constitution-layer-kit` points here.
+
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). Two hooks. At every session start — startup, resume, clear, compaction, fork — the plugin
    prints its rules for every reply into the model's context (about 2,400 characters with the verbosity line; the
@@ -14,17 +24,14 @@ first line; nothing is silently skipped.
    where a subcommand matches a listed destructive pattern, asks the platform to prompt you with the
    reason — what matched, why the act is hard to reverse, the reversible alternative — labelled with
    the plugin's name; you confirm at the prompt, once per command. Where no prompt can be shown, in a
-   headless session, the platform denies the command with that reason and the model waits. A copy of
-   this plugin's folder made outside the repository it comes from must follow links (`cp -RL`):
-   `scripts/constitution_layer_kit` is a link to code the plugin shares with its siblings, and an install from the marketplace copies what it points at. A checkout made without symlink support leaves one-line text files in their
-   place (`git config core.symlinks true`, then check out again).
-2. **Zero configuration works** in a repository that has a `constitution.yaml` with no key of this
-   namespace: the default list gates a forced push, a hard reset, a forced checkout, `git restore`,
+   headless session, the platform denies the command with that reason and the model waits.
+2. **Zero configuration works** in a repository whose `constitution.yaml` has `module_prefix`
+   and no key of this namespace: the default list gates a forced push, a hard reset, a forced checkout, `git restore`,
    `git clean -f`, `git branch -D` and `-f`, `git stash drop` and `clear`, `git rebase`, `git filter-branch`,
    `git filter-repo`, `git reflog expire`, `git gc --prune=now` and a recursive `rm`; the list scan
    covers every Markdown file git lists with the default handle forms. Without that file every run
-   is a visible skip naming it, and the session-start line says so; an empty mapping, `{}`, is
-   enough. The command is read as the platform reads it for its own rules: split on `&&`, `||`,
+   is a visible skip naming it, and the session-start line says so; `module_prefix: const-` alone
+   is enough. The command is read as the platform reads it for its own rules: split on `&&`, `||`,
    `;`, `|`, `&` and newlines outside quotes, the contents of `$(…)` and backticks and the string
    after the `-c` of a shell examined too, the wrappers of the dial `wrappers` stripped with their own
    options, a shell keyword stripped, a program path reduced to its name, the options between a
@@ -53,7 +60,7 @@ first line; nothing is silently skipped.
      boundary_examples: []     # the project's own pairs, printed at session start: [{violates: "…", complies: "…"}]
      verbosity: triggered      # the one value: assumption and restatement lines only when triggered
      severity: block           # block (default) | warn
-     # log_dir: .gate-logs     # optional, and the directory must be git-ignored; see step 7
+     # log_dir: .gate-logs     # optional; see step 7
    ```
    `destructive` is a list of entries — `command` a list of words, `flags` optional, `teach` and
    `alternative` texts. A malformed entry is refused naming it. So is an entry whose words the
@@ -82,18 +89,18 @@ first line; nothing is silently skipped.
    sh <plugin root>/scripts/check-destructive.sh --scan --command 'git push --force origin main'
    ```
 6. **Fallback** for a consumer that cannot run hooks: copy `scripts/rules.txt` into the project's
-   own `CLAUDE.md`. This is a manual step; the copy drifts on every version bump and the gate does
-   not run — say so in the copy.
+   own `CLAUDE.md`. The copy drifts on every version bump and the gate does not run — say so in
+   the copy.
 7. Output log: everything the hooks and the scans print is also appended, one JSON line per print
    (timestamp, module, gate, mode, session, stream, text), to `const-interaction.jsonl` — a
    prompt's reason and a denied command leave no trace in git. By default it lives in the
    platform's per-plugin data directory. Set `log_dir` to keep it inside the repository; the
    directory must be git-ignored, and the gate refuses to run otherwise.
-8. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-interaction/tests -p no:cacheprovider` — all green.
+8. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the commit the install records (`gitCommitSha` in `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-interaction/tests -p no:cacheprovider` — all green.
 9. CLAUDE.md pointer: none. The rules ride on the session-start hook; the gate on the shell hook.
 
-What this module does not check: a command given to the `PowerShell` tool, which no hook of this
-plugin sees, since the gate is wired to `Bash` alone; a destructive act the list does not name — an interpreter
+What this module does not check: a command given to the `PowerShell` tool, since the gate is wired
+to `Bash` alone; a destructive act the list does not name — an interpreter
 one-liner, a script file, a shell function or alias, a deletion through a file tool, a database
 statement inside a quoted argument; `git checkout -- .` and any pattern that needs an argument
 value; whether a reply matched its question's shape, listed its assumptions or softened a

@@ -11,30 +11,38 @@ the module's Subject leaves out is skipped, the reason naming the flag, and its 
 from __future__ import annotations
 
 import ast
+import contextvars
+import importlib
+import inspect
 import json
 import os
 import re
 import shlex
 import shutil
+import site
 import subprocess
 import sys
 import tempfile
 from collections.abc import Callable, Sequence
 from contextlib import nullcontext
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Protocol
 
 import pytest
 from acceptance import broken_first_line, expect, item
+from constitution_layer_kit import __version__ as package_version
+from constitution_layer_kit import cli, identity, messages, pipeline, preflight, repository
 from constitution_layer_kit import envelope as envelope_reader
-from constitution_layer_kit import identity, messages, pipeline, preflight, repository
+from constitution_layer_kit.dials import load_dials
 from constitution_layer_kit.envelope import ID_RE, declared_policy, document_id, parse_envelope
-from constitution_layer_kit.model import DECLARATION, DIALECT, Broken, EnvelopeState, Finding, SharedKey
+from constitution_layer_kit.errors import ConfigurationFailure
+from constitution_layer_kit.model import DECLARATION, DIALECT, Broken, EnvelopeState, Finding, Mode, SharedKey
 from constitution_layer_kit.output import ROTATE_AT, log_name
 from constitution_layer_kit.repository import list_markdown
 from consumer import ROOT_POLICY
 from harness import (
+    SHARED,
     Edit,
     Harness,
     Result,
@@ -47,6 +55,7 @@ from harness import (
 )
 
 NO_ENVELOPE = "# Fixture\n\nNo envelope at all.\n"
+PACKAGE = "constitution_layer_kit"  # the shared package, a folder of the kit's `shared/`
 
 # Run at the start of a gate's process, through a `sitecustomize` on PYTHONPATH — any module's entry
 # point, whatever its wrapper. It logs the `timeout=` each git call is given, one line, the call after it;
@@ -56,9 +65,9 @@ NO_ENVELOPE = "# Fixture\n\nNo envelope at all.\n"
 # deadline's clock stands still: a fake git the case has just written takes seconds to start the first time
 # on a loaded machine (0.2 to 3.1 s measured on macOS on 2026-10-16, 0.02 s each time after), so the real
 # budget of 3 s could cut a call the case never meant to cut.
-# It also logs the `hook_seconds` of each declaration the process makes, and where the environment names
-# a lower hook budget it declares the gate with that many seconds in place of its own: the one deadline of
-# a hook run, lowered for the case that spends it.
+# It also logs the `hook_seconds` of each scope the process opens (`identity.declared`), and where the
+# environment names a lower hook budget it opens the scope with that many seconds in place of the gate's
+# own: the one deadline of a hook run, lowered for the case that spends it.
 GIT_PATCH = """\
 import dataclasses
 import os
@@ -66,17 +75,14 @@ import subprocess
 import sys
 import types
 
-scripts = os.environ["GIT_PATCH_SCRIPTS"]
-sys.path.insert(0, scripts)
 from constitution_layer_kit import identity, repository
 
-sys.path.remove(scripts)
 lowered = os.environ.get("GIT_PATCH_SECONDS")
 trigger = os.environ.get("GIT_PATCH_TRIGGER")
 hook_lowered = os.environ.get("GIT_PATCH_HOOK_SECONDS")
 late = os.environ.get("GIT_PATCH_LATE")
 unclocked = os.environ.get("GIT_PATCH_UNCLOCKED")
-log, run, declare = os.environ["GIT_PATCH_LOG"], subprocess.run, identity.declare
+log, run, declared = os.environ["GIT_PATCH_LOG"], subprocess.run, identity.declared
 if late or unclocked:  # the deadline's clock stands still but for the lateness of git's answers
     clock = [0.0]
     identity.time = types.SimpleNamespace(monotonic=lambda: clock[0])
@@ -104,11 +110,11 @@ def declaring(gate, mode=None):
         gate = dataclasses.replace(gate, hook_seconds=float(hook_lowered))
     with open(log + "-hook-seconds", "a") as out:
         out.write(repr(gate.hook_seconds) + "\\n")
-    declare(gate, mode)
+    return declared(gate, mode)
 
 
 subprocess.run = spy
-identity.declare = declaring
+identity.declared = declaring
 """
 HANG_SECONDS = 0.5  # the budget of the one call a hang case lowers it for: the case waits well under a second
 # What a hang case allows the whole run, the gate's start-up included. It only stops an endless wait, so it is
@@ -125,9 +131,9 @@ def git_patch(
     unclocked: bool = False,
 ) -> tuple[dict[str, str], Path]:
     """The environment that makes a gate's process log the `timeout=` of each git call it makes and the
-    `hook_seconds` it is declared with, and, with `seconds` and a `trigger`, give the call whose arguments
-    hold the trigger that many seconds, and, with `hook_seconds`, declare the gate with that hook budget
-    in place of its own; with the log it writes. With `late`, the deadline reads a clock of the patch's
+    `hook_seconds` its scope is opened with, and, with `seconds` and a `trigger`, give the call whose
+    arguments hold the trigger that many seconds, and, with `hook_seconds`, declare the gate with that hook
+    budget in place of its own; with the log it writes. With `late`, the deadline reads a clock of the patch's
     own, which starts at 0 and moves only when git answers: by `late` seconds for each call given more,
     and by the whole of what a call was given when `late` is as much or more, that call then cut as the
     timeout cuts it, with no git started. So which call the deadline meets follows from the numbers
@@ -140,7 +146,6 @@ def git_patch(
     log = folder / "git-calls"
     env = {
         "PYTHONPATH": os.pathsep.join(filter(None, [str(folder), os.environ.get("PYTHONPATH")])),
-        "GIT_PATCH_SCRIPTS": str(h.scripts),
         "GIT_PATCH_LOG": str(log),
     }
     if seconds is not None and trigger is not None:
@@ -166,8 +171,22 @@ def declared_hook_seconds(log: Path) -> list[str]:
     return kept.read_text().splitlines() if kept.exists() else []
 
 
+def entry_requires(entry: Path) -> str:
+    """The release of the shared package that an entry file requires: the string it assigns to `REQUIRES`
+    at the top of the file, read from its syntax tree, never run."""
+    for node in ast.parse(entry.read_text(encoding="utf-8")).body:
+        if (
+            isinstance(node, ast.Assign)
+            and [target.id for target in node.targets if isinstance(target, ast.Name)] == ["REQUIRES"]
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        ):
+            return node.value.value
+    pytest.fail(f"{entry} assigns no string to REQUIRES at its top level")
+
+
 def hook_budget(calls: list[str]) -> None:
-    """Every git call of a process declared a hook carried the hook's budget, and there was one."""
+    """Every git call of a run whose scope opened in hook mode carried the hook's budget; there was one."""
     assert bool(calls) and set(calls) == {repr(repository.GIT_SECONDS)}, f"the git calls' timeouts: {calls}"
 
 
@@ -372,11 +391,12 @@ class SharedItems:
     def broken(self, result: Result, failure: Broken) -> None:
         self.broken_as_typed(result, failure.render())
 
-    def broken_as_typed(self, result: Result, line: str) -> None:
+    def broken_as_typed(self, result: Result, line: str, label: str = "") -> None:
         """The failure's line first — typed by hand where the item types it — then the closing line."""
-        broken_first_line(result, line)
+        broken_first_line(result, line, label)
         counted = self.s.closing in result.stderr  # a run that examined, or changed, nothing says so
-        assert counted, f"no count line after: {result.stderr.strip()}"
+        said = f"no count line after: {result.stderr.strip()}"
+        assert counted, f"{label}: {said}" if label else said
 
     def bin_with(self, *tools: str) -> str:
         """A PATH directory holding only the named tools, to simulate the absence of the rest."""
@@ -386,6 +406,107 @@ class SharedItems:
             assert source, tool
             os.symlink(source, directory / tool)
         return str(directory)
+
+    # ---------------------------------------------------------------- the shared package: absent, old, new
+
+    def clause(self) -> str:
+        """What closes `C15`, `C16` and `C17` behind a dash in the entry file: the identity's
+        `until_installed`; a generator's closing carries none, its text ending after `says`."""
+        return f" — {identity.current().until_installed}" if self.s.event_driven else ""
+
+    def guide(self) -> Path:
+        """The install note the lines send to: `INSTALL.md` in the folder above the entry file's."""
+        return self.h.entry.parent.parent / "INSTALL.md"
+
+    def package_missing(self, guide: Path) -> str:
+        """`C15` as the entry file prints it, typed by hand: the version it requires and that version's
+        major, the path of the plugin's own install note, escaped, and the module's clause."""
+        required = entry_requires(self.h.entry)
+        return (
+            f"BROKEN: {self.ns} needs the Python package constitution-layer-kit {required} or a later"
+            f" {required.partition('.')[0]}.x release, and python3 cannot import it — fix: install it for"
+            f" python3 as {messages.escaped(str(guide))} says{self.clause()}"
+        )
+
+    def package_too_old(self, found: str, guide: Path) -> str:
+        """`C16` as the entry file prints it, typed by hand, for an installed release `found`."""
+        required = entry_requires(self.h.entry)
+        return (
+            f"BROKEN: {self.ns} needs constitution-layer-kit {required} or a later"
+            f" {required.partition('.')[0]}.x release, found {found} — fix: install one for python3 as"
+            f" {messages.escaped(str(guide))} says{self.clause()}"
+        )
+
+    def module_too_old(self, found: str, guide: Path) -> str:
+        """`C17` as the entry file prints it, typed by hand, for an installed release `found`."""
+        required = entry_requires(self.h.entry)
+        return (
+            f"BROKEN: {self.ns} was written for constitution-layer-kit {required}, a"
+            f" {required.partition('.')[0]}.x release, found {found} — fix: update the plugin to a release"
+            f" written for {found.partition('.')[0]}.x, or install a {required.partition('.')[0]}.x release"
+            f" of constitution-layer-kit for python3 as {messages.escaped(str(guide))} says{self.clause()}"
+        )
+
+    def release_with(self, version: str) -> dict[str, str]:
+        """The environment that puts a copy of the shared package first on PYTHONPATH, its `__version__`
+        set to `version`: the gate imports the copy, since the harness's own folder comes after it."""
+        folder = self.h.scratch_dir()
+        copy = folder / PACKAGE
+        shutil.copytree(SHARED / PACKAGE, copy, ignore=shutil.ignore_patterns("__pycache__"))
+        init = copy / "__init__.py"
+        text = init.read_text(encoding="utf-8")
+        stated = f'__version__ = "{package_version}"'
+        assert text.count(stated) == 1, f"{init} does not state its version as {stated}"
+        init.write_text(text.replace(stated, f'__version__ = "{version}"'), encoding="utf-8")
+        return {"PYTHONPATH": str(folder)}
+
+    def installed_release(self) -> tuple[dict[str, str], Path, Path]:
+        """A release of the shared package where an install puts it, behind every folder of PYTHONPATH: the
+        site-packages of a new virtual environment, made as the kit's install check makes its own (from the
+        python3 the tests run under, with that python3's packages, PyYAML among them, named by a `.pth` file
+        of its own). The copy is of the working tree's version, which serves every module, and it is marked:
+        importing it creates the file `mark`. Returns the environment that puts the new environment's `bin`
+        first on PATH and leaves PYTHONPATH empty, that mark, and the copy's `__init__.py`."""
+        home = self.h.scratch_dir() / "installed"
+        made = [sys.executable, "-m", "venv", "--system-site-packages", "--without-pip", str(home)]
+        subprocess.run(made, capture_output=True, check=True)
+        python = home / "bin" / "python3"
+        where = subprocess.run(
+            [str(python), "-c", "import sysconfig; print(sysconfig.get_path('purelib'))"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        packages = Path(where.stdout.strip())
+        outer = [*site.getsitepackages(), site.getusersitepackages()]
+        (packages / "outer.pth").write_text("".join(f"{folder}\n" for folder in outer), encoding="utf-8")
+        copy = packages / PACKAGE
+        shutil.copytree(SHARED / PACKAGE, copy, ignore=shutil.ignore_patterns("__pycache__"))
+        mark = home / "imported"
+        with (copy / "__init__.py").open("a", encoding="utf-8") as init:
+            init.write(f"\nopen({str(mark)!r}, 'a', encoding='utf-8').close()  # the mark of this copy\n")
+        path = os.pathsep.join(filter(None, [str(home / "bin"), os.environ.get("PATH")]))
+        return {"PATH": path, "PYTHONPATH": ""}, mark, copy / "__init__.py"
+
+    def valid_run(
+        self, env: dict[str, str] | None = None, command: Sequence[str] | None = None
+    ) -> tuple[Result, str]:
+        """A run the gate passes, as each kind of gate is run: a generator's act from inside a fresh
+        consumer, a scan over a consumer holding the passed document, the event of a gate on no file, and
+        for a gate on a file a README with no envelope. The result, and the green line it says."""
+        consumer = self.h.fresh_consumer()
+        if not self.s.event_driven:
+            result = self.h.run_gate("", args=self.s.act_args, env=env, command=command, cwd=consumer.root)
+            return result, self.s.green
+        if self.s.scan_only:
+            consumer.write(self.s.valid.target, self.s.valid.text)
+            result = self.h.run_gate("", args=self.scan_args(consumer.root), env=env, command=command)
+            return result, self.s.green
+        if self.no_file:
+            result = self.h.run_gate(self.payload(consumer.root, self.s.valid), env=env, command=command)
+            return result, self.s.green
+        event = event_json(consumer.root, Write("README.md", NO_ENVELOPE))
+        return self.h.run_gate(event, env=env, command=command), self.s.bare_readme
 
     # ---------------------------------------------------------------- the dials file
 
@@ -516,7 +637,7 @@ class SharedItems:
 
     def budget_by_mode(self) -> None:
         """The rule at its one decision point, in a process of its own for each mode: a hook gives git
-        `GIT_SECONDS`; a scan, an act and a process declared with no mode give it no clock."""
+        `GIT_SECONDS`; a scan, an act and a scope opened with no mode give it no clock."""
         program = (
             "import json, sys\n"
             "from pathlib import Path\n"
@@ -524,13 +645,13 @@ class SharedItems:
             "from constitution_layer_kit import identity, repository\n"
             "from constitution_layer_kit.model import Mode\n"
             "mode = {'hook': Mode.HOOK, 'scan': Mode.SCAN, 'act': Mode.ACT, 'none': None}[sys.argv[2]]\n"
-            "identity.declare(identity.Identity('x', 'y', Path('.')), mode)\n"
-            "print(json.dumps(repository.budget()))\n"
+            "with identity.declared(identity.Identity('x', 'y', Path('.'), 'x.yaml'), mode):\n"
+            "    print(json.dumps(repository.budget()))\n"
         )
         seen: dict[str, object] = {}
         for mode in ("hook", "scan", "act", "none"):
             done = subprocess.run(
-                [sys.executable, "-c", program, str(self.h.scripts), mode],
+                [sys.executable, "-c", program, str(SHARED), mode],
                 capture_output=True,
                 text=True,
                 check=False,
@@ -560,34 +681,46 @@ class SharedItems:
         ok = got == subcommands and all(real == typed for real, typed in words)
         assert ok, f"subcommands {got}; the call as typed {[real for real, _ in words]}"
 
-    def declaration_is_one(self) -> None:
-        """A process is one gate in one mode: the same identity twice with different modes is a defect,
-        the same identity and mode twice is not."""
+    def scopes_shadow(self) -> None:
+        """A scope opened inside another shadows the outer declaration until it closes, and the outer one
+        holds again after it, whether the inner one is the same identity in the same mode or not. Read in a
+        process of its own as the gate's name, the dials file's name and the git budget the mode gives:
+        a hook gives git a clock, a scan and an act none."""
         program = (
-            "import sys\n"
+            "import json, sys\n"
             "from pathlib import Path\n"
             "sys.path.insert(0, sys.argv[1])\n"
-            "from constitution_layer_kit import identity\n"
+            "from constitution_layer_kit import identity, repository\n"
             "from constitution_layer_kit.model import Mode\n"
-            "who = identity.Identity('x', 'y', Path('.'))\n"
-            "identity.declare(who, Mode.HOOK)\n"
-            "identity.declare(who, Mode.HOOK)\n"
-            "print('same twice: fine')\n"
-            "try:\n"
-            "    identity.declare(who, Mode.SCAN)\n"
-            "except RuntimeError as failure:\n"
-            "    print('other mode: RuntimeError', failure)\n"
+            "who = identity.Identity('x', 'y', Path('.'), 'x.yaml')\n"
+            "other = identity.Identity('x', 'z', Path('.'), 'z.yaml')\n"
+            "seen = []\n"
+            "def read():\n"
+            "    clocked = repository.budget() is not None\n"
+            "    seen.append([identity.current().gate, identity.dials_file(), clocked])\n"
+            "with identity.declared(who, Mode.HOOK):\n"
+            "    read()\n"
+            "    with identity.declared(who, Mode.HOOK):\n"
+            "        read()\n"
+            "    with identity.declared(who, Mode.SCAN):\n"
+            "        read()\n"
+            "    with identity.declared(other, Mode.ACT):\n"
+            "        read()\n"
+            "    read()\n"
+            "print(json.dumps(seen))\n"
         )
         done = subprocess.run(
-            [sys.executable, "-c", program, str(self.h.scripts)], capture_output=True, text=True, check=False
+            [sys.executable, "-c", program, str(SHARED)], capture_output=True, text=True, check=False
         )
-        lines = done.stdout.splitlines()
-        ok = (
-            done.returncode == 0
-            and lines[:1] == ["same twice: fine"]
-            and (len(lines) == 2 and lines[1].startswith("other mode: RuntimeError"))
-        )
-        assert ok, f"exit {done.returncode}: {lines or done.stderr.strip()[-200:]}"
+        wanted = [  # typed by hand: the gate, the file, whether git has a clock
+            ["y", "x.yaml", True],  # the outer scope
+            ["y", "x.yaml", True],  # the same identity and mode again
+            ["y", "x.yaml", False],  # the same identity in a scan
+            ["z", "z.yaml", False],  # another identity, its file and mode
+            ["y", "x.yaml", True],  # the outer one holds again
+        ]
+        seen = json.loads(done.stdout) if done.returncode == 0 else done.stderr.strip()[-200:]
+        assert seen == wanted, f"exit {done.returncode}: wanted {wanted}, got {seen}"
 
     def is_file(self, word: str) -> bool:
         """A word that is an existing file; one the filesystem will not answer for counts as one, since
@@ -865,7 +998,7 @@ class SharedItems:
         """The rule at its decision point, in a process of its own for each mode, the gate declared with a
         hook budget of 2 s: a hook run has a deadline, so a wait takes the smaller of its cap and what is
         left (a cap of 10 s gets under 2 s, a cap of 0.5 s gets 0.5 s) and a git call gets under 2 s, never
-        the 3 s of its own cap; a scan, an act and a process declared with no mode have none, so a wait takes
+        the 3 s of its own cap; a scan, an act and a scope opened with no mode have none, so a wait takes
         its cap and git no clock. An identity declared without a hook budget has the shared 25 s."""
         program = (
             "import json, sys\n"
@@ -874,14 +1007,15 @@ class SharedItems:
             "from constitution_layer_kit import identity, repository\n"
             "from constitution_layer_kit.model import Mode\n"
             "mode = {'hook': Mode.HOOK, 'scan': Mode.SCAN, 'act': Mode.ACT, 'none': None}[sys.argv[2]]\n"
-            "identity.declare(identity.Identity('x', 'y', Path('.'), hook_seconds=2), mode)\n"
-            "asked = [identity.remaining(10, 'x'), identity.remaining(0.5, 'x'), repository.budget()]\n"
+            "who = identity.Identity('x', 'y', Path('.'), 'x.yaml', hook_seconds=2)\n"
+            "with identity.declared(who, mode):\n"
+            "    asked = [identity.remaining(10, 'x'), identity.remaining(0.5, 'x'), repository.budget()]\n"
             "print(json.dumps(asked))\n"
         )
         seen: dict[str, object] = {}
         for mode in ("hook", "scan", "act", "none"):
             done = subprocess.run(
-                [sys.executable, "-c", program, str(self.h.scripts), mode],
+                [sys.executable, "-c", program, str(SHARED), mode],
                 capture_output=True,
                 text=True,
                 check=False,
@@ -896,15 +1030,15 @@ class SharedItems:
             and 0 < hook[2] <= 2
         )
         without = all(seen[mode] == [10, 0.5, None] for mode in ("scan", "act", "none"))
-        default = identity.Identity("x", "y", Path(".")).hook_seconds == 25
+        default = identity.Identity("x", "y", Path("."), "x.yaml").hook_seconds == 25
         assert in_a_hook and without and default, (
             f"a wait of cap 10 s, of cap 0.5 s, and a git call, by mode: {seen}; the default budget"
-            f" {identity.Identity('x', 'y', Path('.')).hook_seconds:g} s"
+            f" {identity.Identity('x', 'y', Path('.'), 'x.yaml').hook_seconds:g} s"
         )
 
     def spent_deadline(self) -> None:
         """A wait asked after the deadline is the shared failure C12.14, typed by hand, before the wait
-        begins: in a hook process whose clock is moved 100 s on after its declaration (budget 2 s),
+        begins: in a hook scope whose clock is moved 100 s on after its opening (budget 2 s),
         `identity.remaining` and a shared git call both end in it, and no git process was started."""
         program = (
             "import subprocess, sys, time\n"
@@ -913,23 +1047,24 @@ class SharedItems:
             "from constitution_layer_kit import identity, repository\n"
             "from constitution_layer_kit.errors import ConfigurationFailure\n"
             "from constitution_layer_kit.model import Mode\n"
-            "identity.declare(identity.Identity('x', 'y', Path('.'), hook_seconds=2), Mode.HOOK)\n"
+            "who = identity.Identity('x', 'y', Path('.'), 'x.yaml', hook_seconds=2)\n"
             "real, started = time.monotonic, []\n"
-            "time.monotonic = lambda: real() + 100\n"
-            "subprocess.run = lambda *args, **kwargs: started.append(args)\n"
             "asks = [\n"
             "    lambda: identity.remaining(10, 'the prose linter finished'),\n"
             "    lambda: repository.git(['ls-files', '-z'], Path('.')),\n"
             "]\n"
-            "for ask in asks:\n"
-            "    try:\n"
-            "        ask()\n"
-            "    except ConfigurationFailure as failure:\n"
-            "        print(failure.broken.render())\n"
+            "with identity.declared(who, Mode.HOOK):\n"
+            "    time.monotonic = lambda: real() + 100\n"
+            "    subprocess.run = lambda *args, **kwargs: started.append(args)\n"
+            "    for ask in asks:\n"
+            "        try:\n"
+            "            ask()\n"
+            "        except ConfigurationFailure as failure:\n"
+            "            print(failure.broken.render())\n"
             "print(len(started))\n"
         )
         done = subprocess.run(
-            [sys.executable, "-c", program, str(self.h.scripts)], capture_output=True, text=True, check=False
+            [sys.executable, "-c", program, str(SHARED)], capture_output=True, text=True, check=False
         )
         wanted = [
             self.spent("2", "the prose linter finished"),
@@ -940,6 +1075,45 @@ class SharedItems:
         assert done.returncode == 0 and lines == wanted, (
             f"exit {done.returncode}: {lines or done.stderr.strip()[-300:]}"
         )
+
+    def deadline_starts_at_the_opening(self) -> None:
+        """In hook mode the opening of the scope starts the run's deadline, `hook_seconds` from that moment
+        on a clock the program moves by hand: a wait asked 4 s after the opening of a 10 s scope gets 6 s;
+        a hook scope opened inside it starts a deadline of its own, 10 s, which ends with it, and the outer
+        deadline holds again; a scan scope opened inside has none, a cap unchanged; a hook scope opened
+        7 s later, past the outer deadline, gets its own 10 s; outside every scope a wait gets its cap."""
+        program = (
+            "import json, sys, time\n"
+            "from pathlib import Path\n"
+            "sys.path.insert(0, sys.argv[1])\n"
+            "from constitution_layer_kit import identity\n"
+            "from constitution_layer_kit.model import Mode\n"
+            "clock = [1000.0]\n"
+            "time.monotonic = lambda: clock[0]\n"
+            "who = identity.Identity('x', 'y', Path('.'), 'x.yaml', hook_seconds=10)\n"
+            "asked = []\n"
+            "def ask():\n"
+            "    asked.append(identity.remaining(100, 'x'))\n"
+            "with identity.declared(who, Mode.HOOK):\n"
+            "    clock[0] = 1004.0\n"
+            "    ask()\n"
+            "    with identity.declared(who, Mode.HOOK):\n"
+            "        ask()\n"
+            "    with identity.declared(who, Mode.SCAN):\n"
+            "        ask()\n"
+            "    ask()\n"
+            "    clock[0] = 1011.0\n"
+            "    with identity.declared(who, Mode.HOOK):\n"
+            "        ask()\n"
+            "ask()\n"
+            "print(json.dumps(asked))\n"
+        )
+        done = subprocess.run(
+            [sys.executable, "-c", program, str(SHARED)], capture_output=True, text=True, check=False
+        )
+        wanted = [6, 10, 100, 6, 10, 100]  # typed by hand, in the order the program asks
+        asked = json.loads(done.stdout) if done.returncode == 0 else done.stderr.strip()[-300:]
+        assert asked == wanted, f"exit {done.returncode}: the waits' seconds, wanted {wanted}, got {asked}"
 
     def git_call_log(self, log: Path) -> list[tuple[float, list[str]]]:
         """Each git call the log holds: the `timeout=` it was given and its arguments."""
@@ -1024,6 +1198,8 @@ class SharedItems:
             "C12.10": messages.c12_unreadable(path),
             "C12.11": messages.c12_unexpected("ValueError: " + "v" * 100),
             "C13": messages.c13_log_dir_not_ignored(path),
+            "C16": messages.c16_shared_too_old(self.ns, "1.0.1", "1.0.0", path, VERSION_UNTIL),
+            "C17": messages.c17_module_too_old(self.ns, "1.4.2", "2.0.0", path, VERSION_UNTIL),
         }
         wanted = {
             "C4 detail whole": f"BROKEN: constitution.yaml is not valid YAML (at {'w' * 100}\\\\x) — fix: "
@@ -1074,6 +1250,11 @@ class SharedItems:
             "C13": f"BROKEN: constitution.yaml: {self.ns}.log_dir '{esc}' is not ignored by git — fix: a log"
             " inside the working tree must be git-ignored, or every verdict dirties the tree; add the"
             " directory to .gitignore, or remove the key",
+            "C16": f"BROKEN: {self.ns} needs constitution-layer-kit 1.0.1 or a later 1.x release, found 1.0.0"
+            f" — fix: install one for python3 as {esc} says — until then Markdown writes pass unchecked",
+            "C17": f"BROKEN: {self.ns} was written for constitution-layer-kit 1.4.2, a 1.x release, found"
+            " 2.0.0 — fix: update the plugin to a release written for 2.x, or install a 1.x release of"
+            f" constitution-layer-kit for python3 as {esc} says — until then Markdown writes pass unchecked",
         }
         rendered = [
             ("escaped keeps a path whole", messages.escaped("p" * 200), "p" * 200),
@@ -1284,10 +1465,10 @@ def test_malformed_dials(subject: Subject) -> None:
 def test_dials_not_mapping(subject: Subject) -> None:
     it = shared(subject, "dials_not_mapping")
     result, _ = it.s.gate_on(it.s.valid, raw_dials="- a\n- b\n")
-    line = (  # typed by hand: both kernel keys, the second said to be needed only off the default
-        "BROKEN: constitution.yaml is not a mapping — fix: the file holds top-level keys: root_policy,"
-        " and territory_dialect when the dialect is not gitignore, then one namespace per policy or"
-        " module"
+    line = (  # typed by hand: the three kernel keys, the dialect said to be needed only off the default
+        "BROKEN: constitution.yaml is not a mapping — fix: the file holds top-level keys: module_prefix,"
+        " root_policy, and territory_dialect when the dialect is not gitignore, then one namespace per"
+        " policy or module"
     )
     it.broken_as_typed(result, line)
 
@@ -1419,28 +1600,48 @@ def test_library_absent(subject: Subject) -> None:
     it.broken(result, messages.c2_library_missing("PyYAML", str(preflight.requirements_file())))
 
 
-@item(115, "absence: the shared code, as an install that dropped its link would leave the plugin")
+@item(115, "absence: the shared code, the Python package that python3 cannot import")
 def test_shared_code_absent(subject: Subject) -> None:
-    """The plugin as an install that dropped the link to the shared code would leave it."""
+    """The package missing for python3 in four ways, each the entry file's `C15`, typed by hand, then the
+    closing line: a folder first on PYTHONPATH whose package fails to import; the harness's own shared
+    folder left out with nothing else importable (`-S`, so that no release installed for the developer's
+    python3 is found); an empty folder of the package's name as the one candidate; and the plugin in a folder
+    whose name holds a backslash, a line feed and a carriage return, whose path the line shows escaped on
+    one line. The note the line sends to exists."""
     it = shared(subject, "shared_code_absent")
-    plugin = it.h.scratch_dir() / "plugin"
-    shutil.copytree(it.h.scripts, plugin / "scripts", symlinks=True)
-    gate_code = plugin / "scripts" / "constitution_layer_kit"
-    gate_code.unlink() if gate_code.is_symlink() else shutil.rmtree(gate_code)
-    consumer = it.h.fresh_consumer()
+    stdin = it.payload(it.h.fresh_consumer().root, it.s.valid)
+    assert it.guide().is_file(), f"the line sends to {it.guide()}, which is no file"
+    wanted = it.package_missing(it.guide())
+    failing = it.h.scratch_dir()
+    (failing / PACKAGE).mkdir()
+    (failing / PACKAGE / "__init__.py").write_text(
+        "raise ImportError('simulated absence')\n", encoding="utf-8"
+    )
+    it.broken_as_typed(
+        it.h.run_gate(stdin, env={"PYTHONPATH": str(failing)}), wanted, "a package that fails to import"
+    )
+    alone = [sys.executable, "-S", str(it.h.entry)]
+    nothing = {"PYTHONPATH": ""}
+    it.broken_as_typed(
+        it.h.run_gate(stdin, env=nothing, command=alone, shared=False), wanted, "the shared folder left out"
+    )
+    empty = it.h.scratch_dir()
+    (empty / PACKAGE).mkdir()
+    it.broken_as_typed(
+        it.h.run_gate(stdin, env={"PYTHONPATH": str(empty)}, command=alone, shared=False),
+        wanted,
+        "an empty folder of the package's name",
+    )
+    odd = it.h.scratch_dir() / "a\\b\nc\rd"
+    (odd / "scripts").mkdir(parents=True)
+    shutil.copy(it.h.entry, odd / "scripts" / it.h.entry.name)
     result = it.h.run_gate(
-        it.payload(consumer.root, it.s.valid),
-        command=[it.h.sh, str(plugin / "scripts" / it.h.wrapper.name)],
+        stdin,
+        env=nothing,
+        command=[sys.executable, "-S", str(odd / "scripts" / it.h.entry.name)],
+        shared=False,
     )
-    expect(result, 1, f"BROKEN: {it.ns} is installed without its shared code", "stderr", label="link removed")
-    gate_code.mkdir()  # an install that left an empty directory behind: importable, and still no code
-    result = it.h.run_gate(
-        it.payload(consumer.root, it.s.valid),
-        command=[it.h.sh, str(plugin / "scripts" / it.h.wrapper.name)],
-    )
-    expect(
-        result, 1, f"BROKEN: {it.ns} is installed without its shared code", "stderr", label="empty directory"
-    )
+    it.broken_as_typed(result, it.package_missing(odd / "INSTALL.md"), "a plugin folder with line breaks")
 
 
 @item(116, "a failing git is a configuration failure, never a green skip")
@@ -1581,7 +1782,8 @@ def test_no_dials_file(subject: Subject) -> None:
 @item(129, "a dials file with no root_policy: a visible skip")
 def test_no_root_policy(subject: Subject) -> None:
     it = shared(subject, "no_root_policy")
-    result, _ = it.s.gate_on(it.s.red, raw_dials="notes-policy:\n  territory: ['docs/notes/**']\n")
+    raw = "module_prefix: const-\nnotes-policy:\n  territory: ['docs/notes/**']\n"
+    result, _ = it.s.gate_on(it.s.red, raw_dials=raw)
     reason = "constitution.yaml has no root_policy: nothing is claimed"  # typed by hand
     expect(result, 0, messages.g1_green_skip(reason), "stdout")
 
@@ -1798,23 +2000,8 @@ def test_copy_with_links_followed(subject: Subject) -> None:
     plugin = it.h.scratch_dir() / "plugin"
     shutil.copytree(it.h.scripts, plugin / "scripts", symlinks=False)
     shutil.copy(preflight.requirements_file(), plugin / "requirements.txt")
-    copied = [it.h.sh, str(plugin / "scripts" / it.h.wrapper.name)]
-    consumer = it.h.fresh_consumer()
-    if not it.s.event_driven:  # a generator: a run that completes, from inside the consumer
-        result = it.h.run_gate("", args=it.s.act_args, command=copied, cwd=consumer.root)
-        expect(result, 0, it.s.green, "stdout")
-        return
-    if it.s.scan_only:  # the consumer holding the passed document, scanned by the copy
-        consumer.write(it.s.valid.target, it.s.valid.text)
-        result = it.h.run_gate("", args=it.scan_args(consumer.root), command=copied)
-        expect(result, 0, it.s.green, "stdout")
-        return
-    if it.no_file:  # a clean consumer at a turn's end, or a command the gate passes: the gate's green
-        result = it.h.run_gate(it.payload(consumer.root, it.s.valid), command=copied)
-        expect(result, 0, it.s.green, "stdout")
-        return
-    result = it.h.run_gate(event_json(consumer.root, Write("README.md", NO_ENVELOPE)), command=copied)
-    expect(result, 0, it.s.bare_readme, "stdout")
+    result, green = it.valid_run(command=[it.h.sh, str(plugin / "scripts" / it.h.wrapper.name)])
+    expect(result, 0, green, "stdout")
 
 
 @item(141, "not fail-open: an unexpected exception exits 1, BROKEN first, the traceback after")
@@ -2252,7 +2439,7 @@ def test_git_has_a_budget_in_a_hook(subject: Subject) -> None:
         it.attempted(check)
         for check in (
             it.budget_by_mode,
-            it.declaration_is_one,
+            it.scopes_shadow,
             it.git_words,
             it.the_tie_catches_a_short_handler,
         )
@@ -2344,19 +2531,21 @@ def test_skill_named_after_red(subject: Subject) -> None:
 
 @item(
     167,
-    "C12.14: a hook run has one deadline, every wait takes the smaller of its cap and what is left,"
-    " and a run that spends it ends in a shared line; a scan and an act have none",
+    "C12.14: a hook run has one deadline from the opening of its scope, every wait takes the smaller of its"
+    " cap and what is left, and a run that spends it ends in a shared line; a scan and an act have none",
 )
 def test_hook_has_one_deadline(subject: Subject) -> None:
-    """N52: a hook run has one deadline, from its declaration, and every wait takes the smaller of its
-    own cap and what is left of it; past it the gate says so in the shared line C12.14, non-blocking like
-    every configuration failure, the count line after it. A scan, an act and a process declared with no
+    """N52: a hook run has one deadline, from the opening of its scope, and every wait takes the smaller of
+    its own cap and what is left of it; past it the gate says so in the shared line C12.14, non-blocking
+    like every configuration failure, the count line after it. A scan, an act and a scope opened with no
     mode have no deadline. Read at the decision point, in a process for each mode, in a process whose
-    clock is moved past the deadline, and through the gate with a git that answers late on a clock of the
-    test's own, which only git's answers move."""
+    clock is moved past the deadline, in a process whose clock shows that the opening starts it, and
+    through the gate with a git that answers late on a clock of the test's own, which only git's answers
+    move."""
     it = shared(subject, "hook_has_one_deadline")
     results: list[tuple[bool, str]] = [
-        it.attempted(check) for check in (it.deadline_by_mode, it.spent_deadline)
+        it.attempted(check)
+        for check in (it.deadline_by_mode, it.spent_deadline, it.deadline_starts_at_the_opening)
     ]
     if it.s.event_driven and not it.s.scan_only:  # a gate with a hook run
         results += [
@@ -2366,3 +2555,1059 @@ def test_hook_has_one_deadline(subject: Subject) -> None:
     failed = [evidence for ok, evidence in results if not ok]
     if failed:
         pytest.fail(f"{len(failed)} of {len(results)} checks red: " + " | ".join(failed))
+
+
+# The version check of a module's entry file, `cli.version_failure`: a module of namespace `const-x`, its
+# install note at VERSION_GUIDE, its closing clause VERSION_UNTIL. The installed version is set by pytest's
+# `monkeypatch` on the `__version__` that `cli` reads, so that every case names it by hand.
+VERSION_GUIDE = "/p/plugin/INSTALL.md"
+VERSION_UNTIL = "until then Markdown writes pass unchecked"
+# The end both lines share, typed by hand: the module's install note and its closing clause.
+GUIDE_SAYS = "for python3 as /p/plugin/INSTALL.md says — until then Markdown writes pass unchecked"
+
+
+def version_asked(
+    monkeypatch: pytest.MonkeyPatch,
+    installed: str,
+    required: str,
+    guide: str = VERSION_GUIDE,
+    until: str = VERSION_UNTIL,
+) -> str | None:
+    """What the check says to a module of namespace `const-x` that requires `required`, when the
+    installed package is `installed`."""
+    monkeypatch.setattr(cli, "__version__", installed)
+    return cli.version_failure("const-x", required, guide, until)
+
+
+@item(
+    168,
+    "version_failure: an installed version at or above the required one, of the same major, gives no line",
+)
+def test_version_serves(subject: Subject, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The check returns None for the same version, a later minor, a later patch, a later minor with an
+    earlier patch, and for numbers read as numbers (10 is above 9), in major 0 and in a later major too."""
+    shared(subject, "version_serves")
+    cases = [  # (installed, required, why it serves)
+        ("1.0.0", "1.0.0", "the same version"),
+        ("1.1.0", "1.0.0", "a later minor"),
+        ("1.0.1", "1.0.0", "a later patch"),
+        ("1.3.0", "1.2.9", "a later minor with an earlier patch"),
+        ("1.10.0", "1.9.0", "a minor of 10 is above one of 9"),
+        ("1.0.10", "1.0.9", "a patch of 10 is above one of 9"),
+        ("12.0.0", "12.0.0", "the same version in major 12"),
+        ("2.5.7", "2.5.6", "a later patch in major 2"),
+        ("0.4.3", "0.4.2", "a later patch in major 0"),
+        ("0.0.0", "0.0.0", "the smallest version, as the largest requirement"),
+    ]
+    failed = [
+        f"installed {installed} for a module that requires {required} ({why}): {said!r}"
+        for installed, required, why in cases
+        if (said := version_asked(monkeypatch, installed, required)) is not None
+    ]
+    assert not failed, "; ".join(failed)
+
+
+@item(169, "C16: an installed version below the required one, a required major above it included, is a line")
+def test_version_shared_too_old(subject: Subject, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The shared code is too old for the module: below it by a patch, by a minor, by numbers read as
+    numbers (9 is below 10), by a major — the line then names the later major — each line typed by hand."""
+    shared(subject, "version_shared_too_old")
+    cases = [  # (installed, required, the line's headline)
+        (
+            "1.0.0",
+            "1.0.1",
+            "const-x needs constitution-layer-kit 1.0.1 or a later 1.x release, found 1.0.0",
+        ),
+        (
+            "1.2.9",
+            "1.3.0",
+            "const-x needs constitution-layer-kit 1.3.0 or a later 1.x release, found 1.2.9",
+        ),
+        (
+            "1.9.0",
+            "1.10.0",
+            "const-x needs constitution-layer-kit 1.10.0 or a later 1.x release, found 1.9.0",
+        ),
+        (
+            "1.0.9",
+            "1.0.10",
+            "const-x needs constitution-layer-kit 1.0.10 or a later 1.x release, found 1.0.9",
+        ),
+        (
+            "1.9.9",
+            "2.0.0",
+            "const-x needs constitution-layer-kit 2.0.0 or a later 2.x release, found 1.9.9",
+        ),
+        (
+            "2.0.0",
+            "3.1.4",
+            "const-x needs constitution-layer-kit 3.1.4 or a later 3.x release, found 2.0.0",
+        ),
+        (
+            "0.9.0",
+            "1.0.0",
+            "const-x needs constitution-layer-kit 1.0.0 or a later 1.x release, found 0.9.0",
+        ),
+        (
+            "9.9.9",
+            "10.0.0",
+            "const-x needs constitution-layer-kit 10.0.0 or a later 10.x release, found 9.9.9",
+        ),
+    ]
+    failed = []
+    for installed, required, headline in cases:
+        line = f"BROKEN: {headline} — fix: install one {GUIDE_SAYS}"
+        said = version_asked(monkeypatch, installed, required)
+        if said != line:
+            failed.append(f"installed {installed}, required {required}: wanted {line!r}, got {said!r}")
+    assert not failed, "; ".join(failed)
+
+
+@item(170, "C17: a required major below the installed one is a line naming the version required and found")
+def test_version_module_too_old(subject: Subject, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The module is too old for the installed major, whatever its minor and patch (a required 1.9.9 is
+    below an installed 2.0.0), the majors read as numbers (9 is below 10); the line names the version the
+    module requires and its major, the version found, and both ways out, each line typed by hand."""
+    shared(subject, "version_module_too_old")
+    written = "const-x was written for constitution-layer-kit"
+    cases = [  # (installed, required, headline, the major to update the plugin to, the one to install)
+        ("2.0.0", "1.4.2", f"{written} 1.4.2, a 1.x release, found 2.0.0", "2.x", "1.x"),
+        ("2.0.0", "1.9.9", f"{written} 1.9.9, a 1.x release, found 2.0.0", "2.x", "1.x"),
+        ("3.1.4", "1.0.0", f"{written} 1.0.0, a 1.x release, found 3.1.4", "3.x", "1.x"),
+        ("1.0.0", "0.9.9", f"{written} 0.9.9, a 0.x release, found 1.0.0", "1.x", "0.x"),
+        ("10.2.3", "9.9.9", f"{written} 9.9.9, a 9.x release, found 10.2.3", "10.x", "9.x"),
+    ]
+    failed = []
+    for installed, required, headline, update_to, install in cases:
+        line = (
+            f"BROKEN: {headline} — fix: update the plugin to a release written for {update_to}, or install a"
+            f" {install} release of constitution-layer-kit {GUIDE_SAYS}"
+        )
+        said = version_asked(monkeypatch, installed, required)
+        if said != line:
+            failed.append(f"installed {installed}, required {required}: wanted {line!r}, got {said!r}")
+    assert not failed, "; ".join(failed)
+
+
+@item(171, "C16, C17: a generator's empty clause closes the line with none, and a guide path is escaped")
+def test_version_clause_and_guide(subject: Subject, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An empty closing clause, a generator's, leaves no dash and no text after `says`, in both lines. A
+    guide path with a line break, a carriage return and a backslash is shown escaped, never cut, so each
+    line stays one line; each line typed by hand."""
+    shared(subject, "version_clause_and_guide")
+    bare_16 = (  # installed 1.0.0, required 1.0.1, no clause
+        "BROKEN: const-x needs constitution-layer-kit 1.0.1 or a later 1.x release, found 1.0.0"
+        " — fix: install one for python3 as /p/plugin/INSTALL.md says"
+    )
+    bare_17 = (  # installed 2.0.0, required 1.4.2, no clause
+        "BROKEN: const-x was written for constitution-layer-kit 1.4.2, a 1.x release, found 2.0.0 — fix:"
+        " update the plugin to a release written for 2.x, or install a 1.x release of constitution-layer-kit"
+        " for python3 as /p/plugin/INSTALL.md says"
+    )
+    odd = "/p/a\nb\rc\\d/INSTALL.md"  # a line feed, a carriage return and a backslash
+    escaped_16 = (
+        "BROKEN: const-x needs constitution-layer-kit 1.0.1 or a later 1.x release, found 1.0.0"
+        " — fix: install one for python3 as /p/a\\nb\\rc\\\\d/INSTALL.md says"
+        " — until then Markdown writes pass unchecked"
+    )
+    escaped_17 = (
+        "BROKEN: const-x was written for constitution-layer-kit 1.4.2, a 1.x release, found 2.0.0 — fix:"
+        " update the plugin to a release written for 2.x, or install a 1.x release of constitution-layer-kit"
+        " for python3 as /p/a\\nb\\rc\\\\d/INSTALL.md says — until then Markdown writes pass unchecked"
+    )
+    checks = [  # (installed, required, guide, clause, the line)
+        ("1.0.0", "1.0.1", VERSION_GUIDE, "", bare_16),
+        ("2.0.0", "1.4.2", VERSION_GUIDE, "", bare_17),
+        ("1.0.0", "1.0.1", odd, VERSION_UNTIL, escaped_16),
+        ("2.0.0", "1.4.2", odd, VERSION_UNTIL, escaped_17),
+    ]
+    failed = []
+    for installed, required, guide, until, line in checks:
+        said = version_asked(monkeypatch, installed, required, guide, until)
+        if said != line:
+            failed.append(f"installed {installed}, required {required}: wanted {line!r}, got {said!r}")
+        elif said is not None and len(said.splitlines()) != 1:
+            failed.append(f"installed {installed}, required {required}: the line is not one line: {said!r}")
+    assert not failed, "; ".join(failed)
+
+
+@item(172, "version_failure: a required version that is not major.minor.patch of integers raises ValueError")
+def test_version_malformed(subject: Subject, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A malformed required version is a defect of the module, not a line: it raises ValueError, whatever
+    is installed — fewer or more parts, a leading zero, a prefix, a suffix, a space or line break around
+    it, a sign, a digit of another script. The edges of the shape stay accepted. The installed version, if
+    it were malformed, would raise too, never serve in silence."""
+    shared(subject, "version_malformed")
+    malformed = [
+        "",
+        "1",
+        "1.0",
+        "1.0.0.0",
+        "01.0.0",
+        "1.00.0",
+        "1.0.00",
+        "v1.0.0",
+        "1.0.0-rc1",
+        "1.0.0+build",
+        "1.0.0a1",
+        "1.0.x",
+        "1..0",
+        "1,0,0",
+        " 1.0.0",
+        "1.0.0 ",
+        "1.0.0\n",
+        "-1.0.0",
+        "+1.0.0",
+        "1.-1.0",
+        "١.٠.٠",  # Arabic-Indic digits, which int() reads and the shape does not
+        "１.０.０",  # full-width digits
+        "1٠.0.0",  # an ASCII digit first, an Arabic-Indic one after it: ten, to int()
+        "1.1٠.0",
+        "1.0.1١",
+        "1.0.0.",
+        "constitution-layer-kit-v1.0.0",
+    ]
+    not_raised = []
+    for required in malformed:
+        try:
+            said = version_asked(monkeypatch, "5.0.0", required)
+        except ValueError:
+            continue
+        not_raised.append(f"{required!r} gave {said!r}")
+    edges = [("0.0.0", "0.0.0"), ("10.20.30", "10.20.30"), ("100.0.1", "99.99.99")]
+    refused = []
+    for installed, required in edges:
+        try:
+            version_asked(monkeypatch, installed, required)
+        except ValueError as error:
+            refused.append(f"{required!r} with {installed} installed: {error}")
+    try:
+        said = version_asked(monkeypatch, "1.0", "1.0.0")
+    except ValueError:
+        said = "ValueError"
+    problems = [
+        *([f"no ValueError for {len(not_raised)} of them: {'; '.join(not_raised)}"] if not_raised else []),
+        *([f"a well-formed version refused: {'; '.join(refused)}"] if refused else []),
+        *([f"a malformed installed version gave {said!r}, not ValueError"] if said != "ValueError" else []),
+    ]
+    assert not problems, " | ".join(problems)
+
+
+@item(173, "version_failure reads the package's own __version__ and keeps its signature")
+def test_version_reads_the_package(subject: Subject) -> None:
+    """Unpatched, the check reads the `__version__` of the package: that version serves a module that
+    requires it, a patch above it is `C16` naming it, a major below it is `C17` naming it. The parameters
+    are `namespace`, `required`, `guide` and `until`, in that order, each a string with no default, and the
+    result is a string or None: the signature every module's entry file calls from the first release on."""
+    shared(subject, "version_reads_the_package")
+    major, minor, patch = (int(part) for part in package_version.split("."))
+    above = f"{major}.{minor}.{patch + 1}"
+    problems = []
+    if cli.__version__ != package_version:
+        problems.append(f"cli reads {cli.__version__!r}, the package says {package_version!r}")
+    served = cli.version_failure("const-x", package_version, VERSION_GUIDE, VERSION_UNTIL)
+    if served is not None:
+        problems.append(f"the installed version does not serve a module that requires it: {served!r}")
+    shared_old = cli.version_failure("const-x", above, VERSION_GUIDE, VERSION_UNTIL)
+    wanted = (
+        f"BROKEN: const-x needs constitution-layer-kit {above} or a later {major}.x release,"
+        f" found {package_version} — fix: install one {GUIDE_SAYS}"
+    )
+    if shared_old != wanted:
+        problems.append(f"required {above}: wanted {wanted!r}, got {shared_old!r}")
+    if major >= 1:
+        module_old = cli.version_failure("const-x", f"{major - 1}.0.0", VERSION_GUIDE, VERSION_UNTIL)
+        wanted = (
+            f"BROKEN: const-x was written for constitution-layer-kit {major - 1}.0.0, a {major - 1}.x"
+            f" release, found {package_version} — fix: update the plugin to a release written for"
+            f" {major}.x, or install a {major - 1}.x release of constitution-layer-kit {GUIDE_SAYS}"
+        )
+        if module_old != wanted:
+            problems.append(f"required {major - 1}.0.0: wanted {wanted!r}, got {module_old!r}")
+    parameters = inspect.signature(cli.version_failure, eval_str=True)
+    names = list(parameters.parameters)
+    typed = [parameters.parameters[name].annotation for name in names]
+    plain = [parameters.parameters[name].kind is inspect.Parameter.POSITIONAL_OR_KEYWORD for name in names]
+    bare = [parameters.parameters[name].default is inspect.Parameter.empty for name in names]
+    if names != ["namespace", "required", "guide", "until"] or typed != [str] * 4 or not all(plain + bare):
+        problems.append(f"the signature changed: {parameters}")
+    if parameters.return_annotation != (str | None):
+        problems.append(f"the result is no longer a string or None: {parameters.return_annotation!r}")
+    assert not problems, " | ".join(problems)
+
+
+# The declaration of a gate — its identity, the name of its dials file included, and the mode of the run — is
+# held in a context variable of the shared package with no default, and exists only inside a scope of
+# `identity.declared`. The module's conftest opens one scope for the test session, with the identity its test
+# file names; an item that needs another declaration opens its own scope inside it, and an item that needs
+# none runs in a context of its own, `contextvars.Context().run`, which starts empty and keeps whatever it
+# declares to itself. The defects' texts are typed by hand.
+UNDECLARED = "the entry point did not declare which gate it is"
+EMPTY = "a process reads one dials file: an empty name is no file, a defect of the entry point"
+OTHER_FILE = "team.yaml"  # a name no kit of this repository uses
+BLANK_FILES = ("", "   ", " \t\n")  # names of no file: empty, and empty once stripped of whitespace
+
+
+def named(dials_file: str, gate: str = "y", hook_seconds: float = identity.HOOK_SECONDS) -> identity.Identity:
+    """An identity for the items that open a scope of their own: namespace `x`, the gate `gate`, the dials
+    file `dials_file`."""
+    return identity.Identity("x", gate, Path("."), dials_file, hook_seconds=hook_seconds)
+
+
+def refused_with(text: str, body: Callable[[], object]) -> str | None:
+    """None when `body`, run in a context of its own, raises the RuntimeError whose text is `text`;
+    otherwise what happened instead."""
+    try:
+        done = contextvars.Context().run(body)
+    except RuntimeError as defect:
+        return None if str(defect) == text else f"RuntimeError({str(defect)!r})"
+    return f"returned {done!r}"
+
+
+@item(
+    174,
+    "outside every scope nothing is declared: a read of the identity or of the dials file's name is a defect,"
+    " in code and in text, the mode reads as none and no wait has a deadline",
+)
+def test_dials_file_undeclared(subject: Subject) -> None:
+    """In a context of its own, where no scope is open, the identity, the dials file's name, the dials
+    reader and five of the shared messages that name the file (`G1.4`, `G1.5`, `C4b`, `C5.8`, `C13`)
+    raise `RuntimeError` and never read or print a file of some kit's — the reader even where a file named
+    `constitution.yaml` lies in the repository. The mode reads as none, and a wait takes its cap, a wait no
+    verdict depends on its cap, and a wait that ran out is its own failure's line, as they did with no
+    declaration. And the shared code holds no name of the file at all: its source says `constitution.yaml`
+    nowhere, so that no module-level name can hold it."""
+    shared(subject, "dials_file_undeclared")
+    problems = []
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        valid = {"module_prefix": "const-", "root_policy": "docs/p.md"}
+        (root / "constitution.yaml").write_text(json.dumps(valid), encoding="utf-8")
+        reads: dict[str, Callable[[], object]] = {
+            "identity.current": identity.current,
+            "identity.dials_file": identity.dials_file,
+            "dials.load_dials": lambda: load_dials(root),
+            "G1.4": lambda: messages.g1_skip_no_dials("/r"),
+            "G1.5": messages.g1_skip_no_root,
+            "C4b": messages.c4b_dials_not_mapping,
+            "C5.8": messages.c5_severity,
+            "C13": lambda: messages.c13_log_dir_not_ignored("logs"),
+        }
+        for label, read in reads.items():
+            if (refused := refused_with(UNDECLARED, read)) is not None:
+                problems.append(f"{label} outside every scope: {refused}")
+    own = Broken(SharedKey.C2, "a wait of its own ran out", "wait less")
+
+    def without_a_scope() -> list[object]:
+        failure = identity.ran_out(1, 10, "x", own)
+        return [identity.declared_mode(), identity.remaining(10, "x"), identity.left_of(10), failure.broken]
+
+    if (got := contextvars.Context().run(without_a_scope)) != [None, 10, 10, own]:
+        problems.append(f"the mode, the waits and the failure of a wait outside every scope: {got}")
+    source = Path(inspect.getsourcefile(identity) or "").resolve().parent
+    files = sorted(source.glob("*.py"))
+    if not files:
+        problems.append(f"no source of the shared package found beside {source}")
+    problems += [
+        f"{path.name} names constitution.yaml"
+        for path in files
+        if "constitution.yaml" in path.read_text(encoding="utf-8")
+    ]
+    assert not problems, "; ".join(problems)
+
+
+@item(
+    175,
+    "an identity whose dials file is empty, or empty once stripped of whitespace, is a defect of the entry"
+    " point as its scope opens, and declares nothing",
+)
+def test_dials_file_empty(subject: Subject) -> None:
+    """An empty name is no file, and so is one of only whitespace, which is empty once stripped. Opening a
+    scope with such an identity raises `RuntimeError` of its own text, in a context where nothing is
+    declared — a read there is still the defect of S174, and a real scope opened after it stands — and
+    inside an open scope, which the failed opening leaves as it was."""
+    shared(subject, "dials_file_empty")
+
+    def opens_empty_first(empty: str) -> str:
+        try:
+            with identity.declared(named(empty)):
+                return "no error"
+        except RuntimeError as defect:
+            if str(defect) != EMPTY:
+                return f"RuntimeError({str(defect)!r})"
+        try:
+            read = identity.dials_file()
+        except RuntimeError as defect:
+            if str(defect) != UNDECLARED:
+                return f"after the failed opening, a read raised RuntimeError({str(defect)!r})"
+        else:
+            return f"after the failed opening, a read gave {read!r}"
+        with identity.declared(named(OTHER_FILE)):
+            return identity.dials_file()
+
+    def opens_empty_inside(empty: str) -> str:
+        with identity.declared(named(OTHER_FILE, "outer")):
+            try:
+                with identity.declared(named(empty, "inner")):
+                    return "no error"
+            except RuntimeError as defect:
+                if str(defect) != EMPTY:
+                    return f"RuntimeError({str(defect)!r})"
+            return f"{identity.current().gate} {identity.dials_file()}"
+
+    problems = []
+    for empty in BLANK_FILES:
+        if (read := contextvars.Context().run(opens_empty_first, empty)) != OTHER_FILE:
+            problems.append(f"{empty!r} first, then {OTHER_FILE!r}: {read!r}, wanted {OTHER_FILE!r}")
+        if (read := contextvars.Context().run(opens_empty_inside, empty)) != f"outer {OTHER_FILE}":
+            problems.append(f"{empty!r} inside {OTHER_FILE!r}: {read!r}, wanted the outer scope's")
+    assert not problems, "; ".join(problems)
+
+
+@item(
+    176,
+    "a scope declares the gate until it closes, normally or by an exception; one opened inside another"
+    " shadows it and the outer one holds again; one made in a context of its own leaves the session's alone",
+)
+def test_scopes(subject: Subject) -> None:
+    """The declaration exists from the opening of a scope to its closing and is reset at the closing,
+    whether the body ends or raises — and a body's own exception passes through. A scope opened inside
+    another shadows the outer declaration, the gate, the dials file's name and the mode, until it closes,
+    and the outer one holds again after it: the same identity and mode twice, another mode, another
+    identity and another name of the file are all no defect, and an inner scope that ends by an exception
+    leaves the outer one as it was. A scope opened in a context of its own leaves the session's
+    declaration as it was."""
+    shared(subject, "scopes")
+    first, second = named("a.yaml", "first"), named("b.yaml", "second", hook_seconds=7)
+
+    def reads() -> tuple[str, str, Mode | None]:
+        return identity.current().gate, identity.dials_file(), identity.declared_mode()
+
+    def lifecycle() -> list[object]:
+        seen: list[object] = [refused_with(UNDECLARED, reads)]
+        with identity.declared(first, Mode.HOOK):
+            seen.append(reads())
+        seen.append(refused_with(UNDECLARED, reads))
+        try:
+            with identity.declared(first):
+                seen.append(reads())
+                raise KeyError("raised in the body")
+        except KeyError as passed:
+            seen.append(str(passed))
+        seen.append(refused_with(UNDECLARED, reads))
+        return seen
+
+    def nested() -> list[object]:
+        seen: list[object] = []
+        with identity.declared(first, Mode.HOOK):
+            with identity.declared(first, Mode.HOOK):
+                seen.append(reads())
+            seen.append(reads())
+            with identity.declared(first, Mode.SCAN):
+                seen.append(reads())
+            with identity.declared(second):
+                seen.append(reads())
+                try:
+                    with identity.declared(first, Mode.ACT):
+                        seen.append(reads())
+                        raise KeyError("raised in the inner body")
+                except KeyError:
+                    seen.append(reads())
+            seen.append(reads())
+        seen.append(refused_with(UNDECLARED, reads))
+        return seen
+
+    wanted_lifecycle: list[object] = [
+        None,  # before the scope: a read is the defect
+        ("first", "a.yaml", Mode.HOOK),
+        None,  # after it: the defect again
+        ("first", "a.yaml", None),
+        "'raised in the body'",
+        None,  # after a body that raised: the defect again
+    ]
+    wanted_nested: list[object] = [
+        ("first", "a.yaml", Mode.HOOK),  # the same identity and mode again
+        ("first", "a.yaml", Mode.HOOK),  # the outer scope holds again
+        ("first", "a.yaml", Mode.SCAN),  # the same identity in another mode
+        ("second", "b.yaml", None),  # another identity, its file and no mode
+        ("first", "a.yaml", Mode.ACT),  # a scope inside that one
+        ("second", "b.yaml", None),  # which an exception closed: the one around it holds
+        ("first", "a.yaml", Mode.HOOK),  # the outermost holds again
+        None,  # and after it: the defect
+    ]
+    problems = []
+    for what, run, wanted in (("lifecycle", lifecycle, wanted_lifecycle), ("nesting", nested, wanted_nested)):
+        if (got := contextvars.Context().run(run)) != wanted:
+            problems.append(f"{what}: wanted {wanted}, got {got}")
+    session = (identity.current(), identity.dials_file(), identity.declared_mode())
+    contextvars.Context().run(lifecycle)
+    contextvars.Context().run(nested)
+    if (after := (identity.current(), identity.dials_file(), identity.declared_mode())) != session:
+        problems.append(f"scopes made in contexts of their own changed the session's declaration: {after}")
+    assert not problems, "; ".join(problems)
+
+
+@item(177, "every shared message that names the dials file names the declared one, and the reader opens it")
+def test_dials_file_name_is_the_declared_one(subject: Subject) -> None:
+    """With a scope of the module's own identity, its dials file `team.yaml`, open inside the session's,
+    each of the twenty-one shared texts that name the file says `team.yaml` and none says
+    `constitution.yaml`, each text typed by hand; `load_dials` opens `team.yaml` and never
+    `constitution.yaml`, reads no file where only `constitution.yaml` lies, and its failure on a team.yaml
+    that is no YAML names `team.yaml`."""
+    it = shared(subject, "dials_file_name_is_the_declared_one")
+    ns = it.ns
+    team = replace(identity.current(), dials_file=OTHER_FILE)
+
+    def built() -> dict[str, str]:
+        return {
+            "G1.4": messages.g1_skip_no_dials("/r"),
+            "G1.5": messages.g1_skip_no_root(),
+            "C4": messages.c4_dials_invalid_yaml("at line 2").render(),
+            "C4b": messages.c4b_dials_not_mapping().render(),
+            "C5.1": messages.c5_root_policy_path().render(),
+            "C5.2": messages.c5_dialect_empty().render(),
+            "C5.3": messages.c5_dialect_unsupported("svn").render(),
+            "C5.4": messages.c5_namespace_not_mapping("k").render(),
+            "C5.5": messages.c5_own_namespace_not_mapping().render(),
+            "C5.6": messages.c5_territory_shape("k").render(),
+            "C5.7": messages.c5_territory_pattern("k.territory", "#x").render(),
+            "C5.8": messages.c5_severity().render(),
+            "C5.9": messages.c5_log_dir().render(),
+            "C5.10": messages.c5_unknown_dial("zz", ["a", "b"]).render(),
+            "C5.11": messages.c5_prefix_invalid().render(),
+            "C5.12": messages.c5_namespace_outside_prefix("other-").render(),
+            "C6": messages.c6_root_missing("docs/p.md").render(),
+            "C8": messages.c8_root_claims_nothing("pol").render(),
+            "C12.3": messages.c12_check_ignore("boom").render(),
+            "C12.7": messages.c12_dials_unreadable("denied").render(),
+            "C13": messages.c13_log_dir_not_ignored("logs").render(),
+        }
+
+    with identity.declared(team):
+        said = built()
+    wanted = {  # typed by hand
+        "G1.4": "no team.yaml in /r: nothing is claimed",
+        "G1.5": "team.yaml has no root_policy: nothing is claimed",
+        "C4": "BROKEN: team.yaml is not valid YAML (at line 2) — fix: repair the YAML at the place the"
+        " message names; nothing is checked until the file parses",
+        "C4b": "BROKEN: team.yaml is not a mapping — fix: the file holds top-level keys: module_prefix,"
+        " root_policy, and territory_dialect when the dialect is not gitignore, then one namespace per"
+        " policy or module",
+        "C5.1": "BROKEN: team.yaml: root_policy must be a repository-relative path — fix: root_policy:"
+        " <path of the root policy, relative to the repository root>",
+        "C5.2": "BROKEN: team.yaml: territory_dialect must be a non-empty string — fix: remove the key, or"
+        " set territory_dialect: gitignore — the one dialect supported",
+        "C5.3": f"BROKEN: team.yaml: territory_dialect 'svn' is not supported by {ns} (supports: gitignore)"
+        " — fix: set territory_dialect: gitignore, or remove the key",
+        "C5.4": "BROKEN: team.yaml: namespace 'k' must be a mapping — fix: write it as k: {territory: [...]}",
+        "C5.5": f"BROKEN: team.yaml: namespace '{ns}' must be a mapping of this module's dials — fix: write"
+        " this module's dials under it as a mapping, or remove the key",
+        "C5.6": "BROKEN: team.yaml: k.territory must be a list of non-empty strings — fix: write it as k:"
+        ' {territory: ["<pattern>", ...]}',
+        "C5.7": "BROKEN: team.yaml: k.territory holds a pattern git would not read as one: '#x' — fix: a"
+        " pattern may not start with '#' (a comment to git) nor contain a line break; escape a leading #"
+        " as \\# bare or in single quotes, as \\\\# in double quotes, and remove a line break",
+        "C5.8": f"BROKEN: team.yaml: {ns}.severity must be block or warn — fix: under {ns}, set severity:"
+        " block or severity: warn, or remove that line",
+        "C5.9": f"BROKEN: team.yaml: {ns}.log_dir must be a repository-relative directory — fix: under"
+        f" {ns}, set log_dir: <a git-ignored directory>, or remove that line",
+        "C5.10": f"BROKEN: team.yaml: {ns}.zz is no dial of this module — fix: a misspelt dial would be"
+        " ignored in silence, so none is: write one of a, b",
+        "C5.11": "BROKEN: team.yaml: module_prefix is missing, or is not a kebab-case word that ends in '-'"
+        " — fix: a gate tells a module's namespace from a policy's by this prefix, so write module_prefix:"
+        " const- as a top-level key, or correct its value to a kebab-case word that ends in '-'",
+        "C5.12": f"BROKEN: team.yaml: module_prefix 'other-' is not the start of this module's namespace"
+        f" '{ns}' — fix: a gate reads the file of its own modules only, so set module_prefix: const- if"
+        " this file is for this module, or check it with a module whose namespace starts with 'other-'",
+        "C6": "BROKEN: team.yaml names root_policy 'docs/p.md' but no such file exists — fix: create it, or"
+        " point root_policy at the policy for policies",
+        "C8": "BROKEN: root policy 'pol' claims no territory in team.yaml — fix: write pol: {territory:"
+        " [<where policies live, including the root itself>]} — nothing is governed until then",
+        "C12.3": "BROKEN: git check-ignore failed: boom — fix: territory patterns must be gitignore syntax;"
+        " check team.yaml",
+        "C12.7": "BROKEN: team.yaml cannot be read (denied) — fix: check the file's permissions",
+        "C13": f"BROKEN: team.yaml: {ns}.log_dir 'logs' is not ignored by git — fix: a log inside the"
+        " working tree must be git-ignored, or every verdict dirties the tree; add the directory to"
+        " .gitignore, or remove the key",
+    }
+    problems = [
+        f"{key}: wanted {line!r}, got {said.get(key)!r}"
+        for key, line in wanted.items()
+        if said.get(key) != line
+    ]
+    problems += [
+        f"{key} still names constitution.yaml: {line!r}"
+        for key, line in said.items()
+        if "constitution.yaml" in line
+    ]
+    problems += [f"a text is missing: {key}" for key in said if key not in wanted]
+
+    def reads() -> list[str]:
+        seen: list[str] = []
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            prefixed = {"module_prefix": "const-"}
+            kit = json.dumps({**prefixed, "root_policy": "kit.md"})
+            (root / "constitution.yaml").write_text(kit, encoding="utf-8")
+            alone = load_dials(root)  # only constitution.yaml lies here: this reader opens team.yaml
+            seen.append("no file, nothing claimed" if alone is None else f"read {alone.root_policy!r}")
+            (root / OTHER_FILE).write_text(json.dumps({**prefixed, "root_policy": "docs/p.md"}), "utf-8")
+            both = load_dials(root)  # JSON is YAML: the file the entry point declared wins
+            seen.append("nothing" if both is None else f"read {both.root_policy!r}")
+            (root / OTHER_FILE).write_text("[unbalanced", encoding="utf-8")
+            try:
+                load_dials(root)
+            except ConfigurationFailure as failure:
+                seen.append(failure.broken.render().split(" (", 1)[0])
+        return seen
+
+    wanted_reads = [
+        "no file, nothing claimed",
+        "read 'docs/p.md'",
+        "BROKEN: team.yaml is not valid YAML",
+    ]
+    with identity.declared(team):
+        got = reads()
+    if got != wanted_reads:
+        problems.append(f"the reader: wanted {wanted_reads}, got {got}")
+    assert not problems, "; ".join(problems)
+
+
+@item(
+    178,
+    "a module's own messages name the declared dials file: its _file() gives it, its source holds no name",
+)
+def test_module_messages_name_the_declared_file(subject: Subject) -> None:
+    """The module's own `messages.py` asks the package for the dials file's name when it builds a message,
+    as the shared texts do: with a scope whose identity names `team.yaml` open inside the session's, its
+    `_file()` gives `team.yaml`; and no string constant of that file, a docstring aside, contains
+    `constitution.yaml`, so that no message of the module can name the file without asking. The module's
+    messages are found in the one package beside its entry files that holds a `messages.py`, and imported as
+    its tests do."""
+    it = shared(subject, "module_messages_name_the_declared_file")
+    packages = sorted(
+        folder
+        for folder in it.h.scripts.iterdir()
+        if folder.name != "constitution_layer_kit"
+        and (folder / "__init__.py").is_file()
+        and (folder / "messages.py").is_file()
+    )
+    found = [p.name for p in packages]
+    assert len(packages) == 1, (
+        f"wanted the one package of the module's own messages in {it.h.scripts}: {found}"
+    )
+    folder = packages[0]
+    own = importlib.import_module(f"{folder.name}.messages")
+    problems = []
+    file_of = getattr(own, "_file", None)
+    if not callable(file_of):
+        problems.append(f"{folder.name}.messages has no function _file")
+    else:
+        with identity.declared(replace(identity.current(), dials_file=OTHER_FILE)):
+            read = file_of()
+        if read != OTHER_FILE:
+            problems.append(f"_file() gave {read!r} with {OTHER_FILE!r} declared")
+    tree = ast.parse((folder / "messages.py").read_text(encoding="utf-8"))
+    docstrings = {
+        id(node.body[0].value)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
+        and node.body
+        and isinstance(node.body[0], ast.Expr)
+        and isinstance(node.body[0].value, ast.Constant)
+        and isinstance(node.body[0].value.value, str)
+    }
+    problems += [
+        f"line {node.lineno} of {folder.name}/messages.py holds a string with constitution.yaml in it"
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and id(node) not in docstrings
+        and "constitution.yaml" in node.value
+    ]
+    assert not problems, "; ".join(problems)
+
+
+# The kernel-owned key `module_prefix`: required in every dials file a gate reads, a kebab-case word that
+# ends in '-', and the start of the namespace of the module that reads the file. Every module of this kit
+# is named const-<aspect>, so the line its fix gives is `module_prefix: const-`; the lines are typed by hand.
+NO_PREFIX = (
+    "BROKEN: constitution.yaml: module_prefix is missing, or is not a kebab-case word that ends in '-'"
+    " — fix: a gate tells a module's namespace from a policy's by this prefix, so write module_prefix:"
+    " const- as a top-level key, or correct its value to a kebab-case word that ends in '-'"
+)
+
+
+def outside_prefix(prefix: str, ns: str) -> str:
+    """The line `C5.12` is for the module `ns` reading a file whose `module_prefix` is `prefix`, typed by
+    hand; the part of the namespace up to its first '-' is `const-` for every module of this kit."""
+    return (
+        f"BROKEN: constitution.yaml: module_prefix '{prefix}' is not the start of this module's namespace"
+        f" '{ns}' — fix: a gate reads the file of its own modules only, so set module_prefix: const- if"
+        f" this file is for this module, or check it with a module whose namespace starts with '{prefix}'"
+    )
+
+
+@item(179, "C5.11: a dials file that names no module_prefix is a configuration failure, whatever it holds")
+def test_dials_prefix_absent(subject: Subject) -> None:
+    """The key is required, as the kernel's schema requires it: a file with other keys, an empty file, a
+    file of one comment and a file of `{}` each fail the gate under `C5.11`, the exact line to write in
+    the fix, and no gate runs on the file until it is added."""
+    it = shared(subject, "dials_prefix_absent")
+    files = {
+        "other keys": "root_policy: docs/policies/root-policy.md\nroot-policy:\n  territory: ['x/**']\n",
+        "an empty file": "",
+        "one comment": "# nothing here yet\n",
+        "an empty mapping": "{}\n",
+        "the prefix only in a comment": "# module_prefix: const-\nroot_policy: docs/policies/root.md\n",
+        "the prefix as a namespace's key": f"{it.ns}:\n  module_prefix: const-\n",
+    }
+    failed: list[str] = []
+    for what, raw in files.items():
+        try:  # gathered: one file's red hides no other
+            it.broken_as_typed(it.s.gate_on(it.s.valid, raw_dials=raw)[0], NO_PREFIX)
+        except AssertionError as error:
+            failed.append(f"{what}: {error}")
+    assert not failed, "; ".join(failed)
+
+
+@item(180, "C5.11: a module_prefix that is no kebab-case word ending in '-' is the same failure")
+def test_dials_prefix_malformed(subject: Subject) -> None:
+    """The kernel schema's pattern `^[a-z][a-z0-9]*(-[a-z0-9]+)*-$` held whole: no trailing '-', an
+    upper-case letter, a first digit, an underscore, a space, a doubled or a leading '-', a '-' alone,
+    a line break after the '-', an empty string, a number, a boolean, a list, a mapping and a null each
+    fail under `C5.11`, the line typed by hand, whatever the module's namespace."""
+    it = shared(subject, "dials_prefix_malformed")
+    values: dict[str, object] = {
+        "no trailing '-'": "const",
+        "a namespace without its '-'": it.ns,
+        "an upper-case letter": "Const-",
+        "all upper case": "CONST-",
+        "a first digit": "1const-",
+        "an underscore": "const_x-",
+        "a space inside": "const -",
+        "a space after": "const- ",
+        "a space before": " const-",
+        "a doubled '-'": "const--",
+        "a leading '-'": "-const-",
+        "'-' alone": "-",
+        "a line break after the '-'": "const-\n",
+        "an empty string": "",
+        "a number": 5,
+        "a boolean": True,
+        "a list": ["const-"],
+        "a mapping": {"const-": 1},
+        "a null": None,
+    }
+    failed: list[str] = []
+    for what, value in values.items():
+        try:  # gathered: one value's red hides no other
+            it.broken_as_typed(it.s.gate_on(it.s.valid, dials_patch={"module_prefix": value})[0], NO_PREFIX)
+        except AssertionError as error:
+            failed.append(f"{what}: {error}")
+    assert not failed, "; ".join(failed)
+
+
+@item(181, "C5.12: a file whose module_prefix the reading module's namespace does not start with is refused")
+def test_dials_prefix_outside(subject: Subject) -> None:
+    """A well-formed prefix that is not the start of the namespace of the module that reads the file — the
+    file of another layer, a longer word than the namespace's own first part, a shorter word that is no
+    start of it — fails the gate under `C5.12`, the line typed by hand with the prefix as the file gives
+    it; a module reads the file of its own modules only."""
+    it = shared(subject, "dials_prefix_outside")
+    prefixes = ["other-", "know-", f"{it.ns}-", "c-", "const-zz-", "cons-", "a1-b2-"]
+    failed: list[str] = []
+    for prefix in prefixes:
+        try:  # gathered: one prefix's red hides no other
+            result = it.s.gate_on(it.s.valid, dials_patch={"module_prefix": prefix})[0]
+            it.broken_as_typed(result, outside_prefix(prefix, it.ns))
+        except AssertionError as error:
+            failed.append(f"{prefix}: {error}")
+    assert not failed, "; ".join(failed)
+
+
+# A kit of another layer reads its own file: one process of a gate named `know-check` or `know-sub-check`
+# whose identity names the file `layer.yaml`, in a process of its own as a gate runs. The program prints, as
+# one JSON object, what the dials reader gave or the configuration failure it raised.
+LAYER_PROGRAM = (
+    "import json, sys\n"
+    "from pathlib import Path\n"
+    "sys.path.insert(0, sys.argv[1])\n"
+    "from constitution_layer_kit import identity\n"
+    "from constitution_layer_kit.dials import load_dials\n"
+    "from constitution_layer_kit.errors import ConfigurationFailure\n"
+    "namespace, text, folder = sys.argv[2:5]\n"
+    "who = identity.Identity(namespace, 'check', Path('.'), 'layer.yaml')\n"
+    "Path(folder, 'layer.yaml').write_text(text, encoding='utf-8')\n"
+    "with identity.declared(who):\n"
+    "    try:\n"
+    "        dials = load_dials(Path(folder))\n"
+    "    except ConfigurationFailure as failure:\n"
+    "        print(json.dumps({'broken': failure.broken.render()}))\n"
+    "    else:\n"
+    "        print(json.dumps({'prefix': dials.module_prefix, 'own': dict(dials.own),\n"
+    "                          'namespaces': {k: list(v.territory) for k, v in dials.namespaces.items()}}))\n"
+)
+LAYER_FILE = """\
+module_prefix: know-
+root_policy: docs/policies/root-policy.md
+know-check:
+  severity: warn
+know-odd: 5
+know-loose:
+  territory: not a list
+know-kept:
+  territory: ["a/**"]
+notes-policy:
+  territory: ["docs/**"]
+"""
+
+
+@item(182, "the prefix is the file's own: the reader names none, and reads a namespace by the one declared")
+def test_dials_prefix_is_the_files(subject: Subject) -> None:
+    """A gate of another kit, named `know-check`, reads `layer.yaml` with `module_prefix: know-`: the
+    prefix is read as the file gives it, a key that starts with it and holds a mapping is a module's, its
+    territory kept when well formed and empty otherwise, a key that starts with it and holds no mapping is
+    ignored, and a key that starts with `const-` is nothing special there — it must be a mapping, as a
+    policy's namespace must. A longer prefix, `know-sub-`, serves a gate named `know-sub-check`. The
+    fix of `C5.11` and the line of `C5.12` take the prefix from the reading module's namespace, and the
+    source of the shared package says `const-` nowhere, so that no prefix of this kit is built in."""
+    it = shared(subject, "dials_prefix_is_the_files")
+
+    def read(namespace: str, text: str) -> object:
+        folder = it.h.scratch_dir()
+        done = subprocess.run(
+            [sys.executable, "-c", LAYER_PROGRAM, str(SHARED), namespace, text, str(folder)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return json.loads(done.stdout) if done.returncode == 0 else done.stderr.strip()[-300:]
+
+    def no_prefix(fix_word: str) -> dict[str, str]:
+        """`C5.11` for the file `layer.yaml`, the line to write being `module_prefix: {fix_word}`."""
+        return {
+            "broken": "BROKEN: layer.yaml: module_prefix is missing, or is not a kebab-case word that ends in"
+            " '-' — fix: a gate tells a module's namespace from a policy's by this prefix, so write"
+            f" module_prefix: {fix_word} as a top-level key, or correct its value to a kebab-case word that"
+            " ends in '-'"
+        }
+
+    sub_file = (
+        "module_prefix: know-sub-\nknow-sub-check:\n  severity: block\nknow-sub-a: 7\n"
+        "know-sub-b:\n  territory: [1]\n"
+    )
+    cases: dict[str, tuple[object, object]] = {
+        "know- file, know-check": (
+            read("know-check", LAYER_FILE),
+            {
+                "prefix": "know-",
+                "own": {"severity": "warn"},
+                "namespaces": {
+                    "know-check": [],
+                    "know-loose": [],
+                    "know-kept": ["a/**"],
+                    "notes-policy": ["docs/**"],
+                },
+            },
+        ),
+        "const- is nothing special there": (
+            read("know-check", LAYER_FILE + "const-x: 5\n"),
+            {
+                "broken": "BROKEN: layer.yaml: namespace 'const-x' must be a mapping — fix: write it as"
+                " const-x: {territory: [...]}"
+            },
+        ),
+        "a policy's territory is held strictly": (
+            read("know-check", LAYER_FILE + "plain-policy:\n  territory: 7\n"),
+            {
+                "broken": "BROKEN: layer.yaml: plain-policy.territory must be a list of non-empty strings"
+                ' — fix: write it as plain-policy: {territory: ["<pattern>", ...]}'
+            },
+        ),
+        "a longer prefix": (
+            read("know-sub-check", sub_file),
+            {
+                "prefix": "know-sub-",
+                "own": {"severity": "block"},
+                "namespaces": {"know-sub-check": [], "know-sub-b": []},
+            },
+        ),
+        "a longer prefix leaves know-x to the policies": (
+            read("know-sub-check", sub_file + "know-x: 7\n"),
+            {
+                "broken": "BROKEN: layer.yaml: namespace 'know-x' must be a mapping — fix: write it as"
+                " know-x: {territory: [...]}"
+            },
+        ),
+        "C5.11 names the reader's own prefix": (
+            read("know-check", "root_policy: docs/p.md\n"),
+            no_prefix("know-"),
+        ),
+        "C5.11 names the part up to the first '-'": (
+            read("know-sub-check", "module_prefix: Know-\n"),
+            no_prefix("know-"),
+        ),
+        "C5.12 for another layer's file": (
+            read("know-check", "module_prefix: const-\n"),
+            {
+                "broken": "BROKEN: layer.yaml: module_prefix 'const-' is not the start of this module's"
+                " namespace 'know-check' — fix: a gate reads the file of its own modules only, so set"
+                " module_prefix: know- if this file is for this module, or check it with a module whose"
+                " namespace starts with 'const-'"
+            },
+        ),
+        "C5.12 for a prefix longer than the namespace's start": (
+            read("know-check", "module_prefix: know-sub-\n"),
+            {
+                "broken": "BROKEN: layer.yaml: module_prefix 'know-sub-' is not the start of this module's"
+                " namespace 'know-check' — fix: a gate reads the file of its own modules only, so set"
+                " module_prefix: know- if this file is for this module, or check it with a module whose"
+                " namespace starts with 'know-sub-'"
+            },
+        ),
+    }
+    problems = [
+        f"{what}: wanted {wanted!r}, got {got!r}" for what, (got, wanted) in cases.items() if got != wanted
+    ]
+    source = Path(inspect.getsourcefile(identity) or "").resolve().parent
+    files = sorted(source.glob("*.py"))
+    if not files:
+        problems.append(f"no source of the shared package found beside {source}")
+    problems += [
+        f"{path.name} names const-" for path in files if "const-" in path.read_text(encoding="utf-8")
+    ]
+    assert not problems, "; ".join(problems)
+
+
+@item(
+    183, "under the prefix the file declares, a namespace with no mapping is ignored; any other is a policy's"
+)
+def test_dials_prefix_namespaces(subject: Subject) -> None:
+    """With `module_prefix: const-`, as before this key was read from the file: a key that starts with it
+    and holds no mapping, or a mapping with a territory of the wrong shape, is another module's business
+    and changes no verdict; a key that does not start with it must be a mapping with a territory of
+    non-empty strings, as a policy's namespace must, and fails under `C5.4` or `C5.6`, each line typed
+    by hand."""
+    it = shared(subject, "dials_prefix_namespaces")
+    plain = it.s.gate_on(it.s.valid)[0]
+    failed: list[str] = []
+    lenient: dict[str, dict[str, object]] = {
+        "no mapping": {"const-zz": 5},
+        "a null": {"const-zz": None},
+        "a territory that is no list": {"const-zz": {"territory": "not a list"}},
+        "a territory of a number": {"const-zz": {"territory": [1]}},
+        "the prefix alone": {"const-": 5},
+    }
+    for what, patch in lenient.items():
+        got = it.s.gate_on(it.s.valid, dials_patch=patch)[0]
+        if (got.code, "BROKEN" in got.stderr) != (plain.code, "BROKEN" in plain.stderr):
+            failed.append(f"{what}: exit {got.code}, the plain run exit {plain.code}: {got.stderr[:200]}")
+    strict: dict[str, tuple[dict[str, object], str]] = {
+        "a key outside the prefix that holds no mapping": (
+            {"know-zz": 5},
+            "BROKEN: constitution.yaml: namespace 'know-zz' must be a mapping — fix: write it as know-zz:"
+            " {territory: [...]}",
+        ),
+        "a key outside the prefix with a territory that is no list": (
+            {"know-zz": {"territory": "x"}},
+            "BROKEN: constitution.yaml: know-zz.territory must be a list of non-empty strings — fix: write"
+            ' it as know-zz: {territory: ["<pattern>", ...]}',
+        ),
+        "a key that only contains the prefix": (
+            {"zz-const-": 5},
+            "BROKEN: constitution.yaml: namespace 'zz-const-' must be a mapping — fix: write it as"
+            " zz-const-: {territory: [...]}",
+        ),
+    }
+    for what, (patch, line) in strict.items():
+        try:  # gathered: one key's red hides no other
+            it.broken_as_typed(it.s.gate_on(it.s.valid, dials_patch=patch)[0], line)
+        except AssertionError as error:
+            failed.append(f"{what}: {error}")
+    assert not failed, "; ".join(failed)
+
+
+@item(184, "C16: the installed release is below the one the entry file requires, through the entry point")
+def test_shared_code_too_old(subject: Subject) -> None:
+    """A copy of the shared package whose `__version__` is `0.9.0`, first on PYTHONPATH, under the module's
+    real entry point: `C16`, typed by hand, naming the version the entry file requires and the one found,
+    exit 1, the closing line after it. The entry file alone in a folder of its own, with none of the
+    module's packages beside it, gives the same line with the path of its own note: the check comes before
+    the import of the module's own package."""
+    it = shared(subject, "shared_code_too_old")
+    found = "0.9.0"
+    stdin = it.payload(it.h.fresh_consumer().root, it.s.valid)
+    env = it.release_with(found)
+    it.broken_as_typed(it.h.run_gate(stdin, env=env), it.package_too_old(found, it.guide()), "in place")
+    alone = it.h.scratch_dir() / "plugin"
+    (alone / "scripts").mkdir(parents=True)
+    shutil.copy(it.h.entry, alone / "scripts" / it.h.entry.name)
+    result = it.h.run_gate(stdin, env=env, command=[sys.executable, str(alone / "scripts" / it.h.entry.name)])
+    it.broken_as_typed(result, it.package_too_old(found, alone / "INSTALL.md"), "the entry file alone")
+
+
+@item(185, "C17: the installed release is of a later major than the one the entry file requires")
+def test_shared_code_new_major(subject: Subject) -> None:
+    """A copy of the shared package whose `__version__` is `2.0.0`, under the module's real entry point:
+    `C17`, typed by hand, naming the version the entry file requires, its major and the major found,
+    exit 1, the closing line after it. The entry file alone in a folder of its own gives the same line
+    with the path of its own note."""
+    it = shared(subject, "shared_code_new_major")
+    found = "2.0.0"
+    stdin = it.payload(it.h.fresh_consumer().root, it.s.valid)
+    env = it.release_with(found)
+    it.broken_as_typed(it.h.run_gate(stdin, env=env), it.module_too_old(found, it.guide()), "in place")
+    alone = it.h.scratch_dir() / "plugin"
+    (alone / "scripts").mkdir(parents=True)
+    shutil.copy(it.h.entry, alone / "scripts" / it.h.entry.name)
+    result = it.h.run_gate(stdin, env=env, command=[sys.executable, str(alone / "scripts" / it.h.entry.name)])
+    it.broken_as_typed(result, it.module_too_old(found, alone / "INSTALL.md"), "the entry file alone")
+
+
+@item(186, "an installed release of a later minor or patch of the same major serves the entry file")
+def test_shared_code_later_release(subject: Subject) -> None:
+    """Copies of the shared package at `1.0.1`, `1.4.0` and `1.10.0`, under the module's real entry point,
+    the last read as a number above `1.4.0`: each run passes what it passes with the release at hand, its
+    green line on stdout and no `BROKEN` line, each run gathered so that one version's red hides no
+    other."""
+    it = shared(subject, "shared_code_later_release")
+    failed: list[str] = []
+    for found in ("1.0.1", "1.4.0", "1.10.0"):
+        result, green = it.valid_run(env=it.release_with(found))
+        if result.code != 0 or green not in result.stdout or "BROKEN" in result.stderr:
+            failed.append(
+                f"{found}: exit {result.code}, stdout {result.stdout.strip()}, stderr {result.stderr.strip()}"
+            )
+    assert not failed, "; ".join(failed)
+
+
+@item(187, "a release installed where pip puts it stands behind the shared code of the working tree")
+def test_installed_release_behind_the_working_tree(subject: Subject) -> None:
+    """A copy of the shared package at the working tree's version, which serves every module, in the
+    site-packages of a virtual environment whose python3 comes first on PATH, marked so that importing it
+    creates a file. Control: with the harness's own folder left out (`shared=False`), that python3 imports
+    the copy and the mark is made, so the copy is where an install puts it and the mark works. Then the
+    module's gate, run as the harness runs every gate, passes what it passes with no release installed
+    and never imports the copy: the harness puts the working tree's shared code on PYTHONPATH, ahead of
+    site-packages, since a fixture that ran an installed release would test no change of the shared
+    code."""
+    it = shared(subject, "installed_release_behind_the_working_tree")
+    env, mark, copy = it.installed_release()
+    program = "import constitution_layer_kit as m; print(m.__file__)"
+    control = it.h.run_gate("", command=["python3", "-c", program], env=env, shared=False)
+    imported = Path(control.stdout.strip()).resolve() if control.stdout.strip() else None
+    assert control.code == 0 and imported == copy.resolve() and mark.is_file(), (
+        f"the control: python3 without the harness's folder imported {imported} (exit {control.code},"
+        f" mark made: {mark.is_file()}), not the copy installed at {copy}: {control.stderr.strip()}"
+    )
+    mark.unlink()
+    result, green = it.valid_run(env=env)
+    assert result.code == 0 and green in result.stdout and "BROKEN" not in result.stderr, (
+        f"with a release installed: exit {result.code}, stdout {result.stdout.strip()},"
+        f" stderr {result.stderr.strip()}"
+    )
+    assert not mark.exists(), (
+        "the gate imported the release installed in site-packages, not the shared code of the working tree"
+        " the harness puts on PYTHONPATH"
+    )

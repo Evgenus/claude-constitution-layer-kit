@@ -15,6 +15,7 @@ GATE = Identity(
     namespace="const-task-close",
     gate="check-task-close",
     plugin_root=Path(__file__).resolve().parents[2],
+    dials_file="constitution.yaml",
     hook_seconds=HOOK_SECONDS,
     # what a failure to install leaves unchecked: the turn-end tree and a change's documents, not a write
     until_installed="until then neither the tree at turn end nor a change's documents are checked",

@@ -38,7 +38,7 @@ claude -p "<prompt>" --plugin-dir <kit>/modules/<module>/plugin --setting-source
   --output-format stream-json --verbose --include-hook-events > <scratch>/<handle>.jsonl
 ```
 
-Add `--plugin-dir` once per further module the message names. macOS has no `timeout`; a run
+Add `--plugin-dir` once per further module the message names. A plugin carries no shared code: its hooks import the package `python3` finds, so set `PYTHONPATH=<kit>/shared` for `claude` (the clone's own folder) unless a release the modules accept is installed; else a gate prints `C15` or `C16`. macOS has no `timeout`; a run
 takes one to three minutes, so run them one at a time and wait. Report `claude --version` once.
 
 From each stream, with a small parser you write to the scratch directory, extract: the `init`

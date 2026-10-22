@@ -11,7 +11,8 @@ files of every module job (decision dec-0089-module-coverage-report). Mutation s
 this report: it stays a work item of its own, pending at step 9 of the rollout plan.
 
 The measured code is the module's own Python under modules/<module>/plugin/scripts (`own`) and the shared
-constitution_layer_kit it links, read at shared/constitution_layer_kit (`shared`). Per module, the JSON keys
+constitution_layer_kit its fixtures' gates import, read at shared/constitution_layer_kit (`shared`): a
+plugin holds none of it, and the module's tests link to it. Per module, the JSON keys
 as written:
   own_lines, own_lines_covered        the statements of the module's own Python, and those run;
   own_branches, own_branches_covered  its branch destinations, and those taken;

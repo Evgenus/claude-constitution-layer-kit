@@ -24,7 +24,6 @@ from pathlib import Path
 import pytest
 import yaml
 from acceptance import broken_first_line, expect, failure_of, item
-from constitution_layer_kit import identity
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.model import Broken, Finding
 from consumer import Consumer
@@ -46,7 +45,7 @@ SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 PLUGIN_ROOT = SCRIPTS.parent
 MODULE_ROOT = PLUGIN_ROOT.parent
 
-identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
+IDENTITY = start.GATE  # declared for the whole session by conftest; the expected messages read it
 # — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
 H = Harness(SCRIPTS, "check-destructive.sh", "check-destructive.py", start.GATE.namespace)
 LISTS = Harness(SCRIPTS, "check-list-handles.sh", "check-list-handles.py", start.GATE.namespace)
@@ -1945,8 +1944,9 @@ def test_t31() -> None:
     no_dials = SESSION.run_gate(session_json(root))
     no_dials_line = (
         f"const-interaction: no constitution.yaml in {root} — the destructive-command gate examines nothing"
-        " there until the file exists (an empty mapping, {} is enough for the default list)"
-    ).replace("{} is", "{}, is")
+        " there until the file exists (a file that holds only module_prefix: const- is enough for the"
+        " default list)"
+    )
     verbosity = (
         "const-interaction: verbosity is triggered — the assumption block and the restatement appear only"
         " when triggered, never as an empty ritual\n"
@@ -1983,8 +1983,8 @@ def test_t31() -> None:
     )
     weird_dials_ok = weird_no_dials.stdout == RULES + verbosity + (
         f"const-interaction: no constitution.yaml in {weird_parent}/" + WEIRD_DIR_SHOWN + " — the"
-        " destructive-command gate examines nothing there until the file exists (an empty mapping, {}, is"
-        " enough for the default list)\n"
+        " destructive-command gate examines nothing there until the file exists (a file that holds only"
+        " module_prefix: const- is enough for the default list)\n"
     )
     weird_repo_ok = weird_no_repo.stdout == RULES + verbosity + (
         f"const-interaction: {weird_parent}/l" + WEIRD_DIR_SHOWN + " is not inside a git repository — the"
@@ -2089,9 +2089,10 @@ def test_t42() -> None:
     Markdown writes pass unchecked" — the shell gate's `until then shell commands pass unchecked`, the list
     check's `until then no list is scanned`: C1 (no python3, the POSIX entry), C2 (PyYAML missing, the
     shell gate in its hook mode, the list check in its scan), C14 (an interpreter below the floor, run by
-    a version it is told it has) and C15 (a copy without the shared code), each first line typed whole;
-    and each gate's two entry files hold its clause exactly three times, once per entry text (C1, C14,
-    C15), and "Markdown writes" nowhere."""
+    a version it is told it has) and C15 (the shared package missing for python3), each first line typed
+    whole; and each gate's two entry files hold its clause exactly four times, once per entry text (C1, C14,
+    C15) and once as the clause the Python entry file hands to the version check of the shared package (C16,
+    C17), and "Markdown writes" nowhere."""
     root = prepared()
     problems: list[str] = []
     tools = H.scratch_dir()  # a PATH holding only sh and dirname: no python3
@@ -2104,10 +2105,6 @@ def test_t42() -> None:
     lowered = (  # an entry file run as an interpreter of 3.11 would run it
         "import sys; sys.version_info = (3, 11, 0); path = sys.argv[1]; "
         "exec(compile(open(path).read(), path, 'exec'), {'__name__': '__main__', '__file__': path})"
-    )
-    plugin = H.scratch_dir() / "plugin"  # an install that dropped the link to the shared code
-    shutil.copytree(
-        SCRIPTS, plugin / "scripts", symlinks=True, ignore=shutil.ignore_patterns("constitution_layer_kit")
     )
     gates: tuple[tuple[str, Harness, str, str, list[str]], ...] = (
         ("shell gate", H, SHELL_CLOSING, bash_json(root, "ls"), []),
@@ -2140,22 +2137,24 @@ def test_t42() -> None:
         )
         line_of(
             "C15",
-            harness.run_gate(
-                stdin, args, command=[harness.sh, str(plugin / "scripts" / harness.wrapper.name)]
+            harness.run_gate(  # the harness's shared folder left out, and no site-packages
+                stdin,
+                args,
+                env={"PYTHONPATH": ""},
+                command=[sys.executable, "-S", str(harness.entry)],
+                shared=False,
             ),
-            "BROKEN: const-interaction is installed without its shared code (scripts/constitution_layer_kit"
-            " is missing"
-            " or is not a directory) — fix: install the plugin from its marketplace, or load it from a full"
-            " checkout of the repository it comes from; a copy of the plugin's folder must be made with"
-            f" links followed (cp -RL) — {clause}",
+            "BROKEN: const-interaction needs the Python package constitution-layer-kit 1.0.0 or a later 1.x"
+            " release, and python3 cannot import it — fix: install it for python3 as"
+            f" {PLUGIN_ROOT / 'INSTALL.md'} says — {clause}",
         )
         sources = "".join(
             (SCRIPTS / entry).read_text(encoding="utf-8")
             for entry in (harness.wrapper.name, harness.entry.name)
         )
-        if sources.count(clause) != 3 or "Markdown writes" in sources:
+        if sources.count(clause) != 4 or "Markdown writes" in sources:
             problems.append(
-                f"{name} entry files: the clause {sources.count(clause)} times, wanted 3; or Markdown writes"
+                f"{name} entry files: the clause {sources.count(clause)} times, wanted 4; or Markdown writes"
             )
     assert not problems, "; ".join(problems)
 

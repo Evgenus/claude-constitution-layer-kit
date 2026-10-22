@@ -14,6 +14,7 @@ GATE = Identity(
     namespace="const-meta-types",
     gate="check-governed-document",
     plugin_root=Path(__file__).resolve().parents[2],
+    dials_file="constitution.yaml",
     hook_seconds=HOOK_SECONDS,
     skills={Mode.HOOK: "choose-meta-type", Mode.SCAN: "choose-meta-type"},  # the skill a red names (F10)
 )

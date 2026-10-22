@@ -26,7 +26,6 @@ from pathlib import Path
 import pytest
 import yaml
 from acceptance import broken_first_line, check_case, expect, item
-from constitution_layer_kit import identity
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.model import Broken, Finding
 from consumer import Consumer, document
@@ -36,7 +35,7 @@ from test_shared_items import NO_ENVELOPE, PatternDial, Subject, git_patch, git_
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 
-identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
+IDENTITY = start.GATE  # declared for the whole session by conftest; the expected messages read it
 # — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
 H = Harness(SCRIPTS, "check-references.sh", "check-references.py", start.GATE.namespace)
 
@@ -913,7 +912,7 @@ def test_a_tree_taken_out() -> None:
 def test_governed_only_without_root() -> None:
     """governed_only with no root policy is a configuration failure in every mode — as the mover
     refuses — never a skip that lets a write through with nothing examined; by default none is needed."""
-    rootless = yaml.safe_dump({NAMESPACE: {"governed_only": True}})
+    rootless = yaml.safe_dump({"module_prefix": "const-", NAMESPACE: {"governed_only": True}})
     failure = (  # typed by hand
         "BROKEN: constitution.yaml: const-referencing.governed_only is set and no root_policy is named, so"
         " nobody can say which documents a policy governs — fix: name the root policy, or remove"
@@ -925,7 +924,7 @@ def test_governed_only_without_root() -> None:
     consumer.write(VALID.target, VALID.text)
     after = H.run_gate(event_json(consumer.root, VALID, event=AFTER))
     scan = H.run_gate("", args=["--scan", str(root)])
-    default, _ = gate_on(VALID, raw_dials="{}\n")
+    default, _ = gate_on(VALID, raw_dials="module_prefix: const-\n")
     broken(before, failure)
     broken(after, failure)
     broken(scan, failure)
@@ -1169,14 +1168,12 @@ def moving_consumer() -> Consumer:
 
 
 def mover(consumer: Consumer, *arguments: str, cwd: str = "", env: dict[str, str] | None = None) -> Result:
-    merged = {key: value for key, value in os.environ.items() if key != "CLAUDE_PLUGIN_DATA"}
-    merged.update(env or {})
     done = subprocess.run(
         [H.sh, str(MOVER), *arguments],
         cwd=consumer.root / cwd,
         capture_output=True,
         text=True,
-        env=merged,
+        env=H.environment(env),
         check=False,
     )
     return Result(done.returncode, done.stdout, done.stderr)
@@ -1253,7 +1250,9 @@ def test_repair_after_a_hand_move() -> None:
     if command not in taught:
         pytest.fail(f"the scan did not teach {command!r}: {taught}")
     typed = command.replace("<old path>", OLD).replace("<new path>", NEW)
-    done = subprocess.run(typed, shell=True, cwd=consumer.root, capture_output=True, text=True, check=False)  # noqa: S602 — the point is to run the line as a reader would paste it
+    done = subprocess.run(  # noqa: S602 — the point is to run the line as a reader would paste it
+        typed, shell=True, cwd=consumer.root, capture_output=True, text=True, env=H.environment(), check=False
+    )
     assert done.returncode == 0 and "GREEN: " in done.stdout, (
         f"exit {done.returncode}: {done.stdout}{done.stderr}"
     )
@@ -1271,7 +1270,15 @@ def test_repair_by_ids() -> None:
     command = messages.mover_command("--ids")
     if command not in blocked.stderr:
         pytest.fail(f"R3 did not teach {command!r}: {blocked.stderr}")
-    done = subprocess.run(command, shell=True, cwd=consumer.root, capture_output=True, text=True, check=False)  # noqa: S602 — as above
+    done = subprocess.run(  # noqa: S602 — as above
+        command,
+        shell=True,
+        cwd=consumer.root,
+        capture_output=True,
+        text=True,
+        env=H.environment(),
+        check=False,
+    )
     two = (consumer.root / "docs/notes/two.md").read_text()
     assert "[note-one](../moved/deep/first.md#k1)" in two, f"the id link: {two}"
     assert messages.v2_rewrote("docs/notes/two.md", 1) in done.stdout, done.stdout + done.stderr
@@ -1375,7 +1382,8 @@ def test_mover_without_dials() -> None:
     broken_first_line(
         mover(odd, OLD, NEW),
         f"BROKEN: no constitution.yaml in {parent}/{WEIRD_DIR_SHOWN}: the check that proves a move cannot run"
-        " — fix: create constitution.yaml at the repository's top — an empty mapping, {}, is enough",
+        " — fix: create constitution.yaml at the repository's top — a file that holds only module_prefix:"
+        " const- is enough",
     )
     assert (consumer.root / OLD).exists(), result.stdout + result.stderr
 
@@ -1617,7 +1625,7 @@ def test_mover_asks_before_it_moves() -> None:
     governed_only with no root policy, are refusals that find the tree as it was."""
     no_lychee = moving_consumer()
     before = porcelain(no_lychee)
-    merged = {**{k: v for k, v in os.environ.items() if k != "CLAUDE_PLUGIN_DATA"}, **path_with(None)}
+    merged = H.environment(path_with(None))
     done = subprocess.run(
         [H.sh, str(MOVER), OLD, NEW],
         cwd=no_lychee.root,
@@ -1630,7 +1638,9 @@ def test_mover_asks_before_it_moves() -> None:
         Result(done.returncode, done.stdout, done.stderr), messages.x1_no_lychee("0.24.2").render()
     )
     rootless = H.fresh_consumer((Write(OLD, ONE), Write("docs/notes/two.md", TWO)))
-    rootless.write("constitution.yaml", yaml.safe_dump({NAMESPACE: {"governed_only": True}}))
+    rootless.write(
+        "constitution.yaml", yaml.safe_dump({"module_prefix": "const-", NAMESPACE: {"governed_only": True}})
+    )
     rootless.commit()
     state = porcelain(rootless)
     refused = mover(rootless, OLD, NEW)
@@ -1651,7 +1661,7 @@ def test_mover_says_when_it_stopped_midway() -> None:
     """A failure after the move must not claim that nothing was changed."""
     consumer = moving_consumer()
     dying = 'case "$1" in --version) echo "lychee 0.24.2";; *) echo "error: gone wrong" >&2; exit 3;; esac\n'
-    merged = {**{k: v for k, v in os.environ.items() if k != "CLAUDE_PLUGIN_DATA"}, **path_with(dying)}
+    merged = H.environment(path_with(dying))
     done = subprocess.run(
         [H.sh, str(MOVER), OLD, NEW],
         cwd=consumer.root,
@@ -1786,7 +1796,7 @@ def test_owned_invocation_from_inside() -> None:
     consumer.write(SOURCE, source("See [x](gone.md)."))
     consumer.write(".lycheeignore", "gone.md\n")
     consumer.write("lychee.toml", 'exclude_path = ["docs"]\n')
-    merged = {k: v for k, v in os.environ.items() if k != "CLAUDE_PLUGIN_DATA"}
+    merged = H.environment()
     done = subprocess.run(
         [H.sh, str(SCRIPTS / "check-references.sh"), "--scan"],
         cwd=consumer.root,
@@ -1948,10 +1958,6 @@ def test_mover_entry_absences() -> None:
     """The mover's own exits before the guard — no python3, an install without the shared code — and
     the shared C2 inside it, closed by the mover's clause."""
     consumer = moving_consumer()
-    env = {
-        **{k: v for k, v in os.environ.items() if k != "CLAUDE_PLUGIN_DATA"},
-        "PATH": path_with(None)["PATH"],
-    }
     bare = H.scratch_dir()
     os.symlink(shutil.which("dirname") or "/usr/bin/dirname", bare / "dirname")
     no_python = subprocess.run(
@@ -1959,21 +1965,15 @@ def test_mover_entry_absences() -> None:
         cwd=consumer.root,
         capture_output=True,
         text=True,
-        env={**env, "PATH": str(bare)},
+        env=H.environment({"PATH": str(bare)}),
         check=False,
     )
-    plugin = H.scratch_dir() / "plugin"
-    shutil.copytree(SCRIPTS, plugin / "scripts", symlinks=True)
-    shared_code = (
-        plugin / "scripts" / "constitution_layer_kit"
-    )  # a link in a checkout, a directory in an install
-    shared_code.unlink() if shared_code.is_symlink() else shutil.rmtree(shared_code)
-    no_shared = subprocess.run(
-        [H.sh, str(plugin / "scripts" / "move-document.sh"), OLD, NEW],
+    no_shared = subprocess.run(  # the shared package missing for python3: no site-packages, no shared folder
+        [sys.executable, "-S", str(SCRIPTS / "move-document.py"), OLD, NEW],
         cwd=consumer.root,
         capture_output=True,
         text=True,
-        env=env,
+        env=H.environment({"PYTHONPATH": ""}, shared=False),
         check=False,
     )
     shadow = H.scratch_dir()  # the shared C2, printed by the preflight, closes with the mover's own clause
@@ -1983,7 +1983,7 @@ def test_mover_entry_absences() -> None:
         cwd=consumer.root,
         capture_output=True,
         text=True,
-        env={**env, "PYTHONPATH": str(shadow)},
+        env=H.environment({"PYTHONPATH": str(shadow)}),
         check=False,
     )
     library_first = no_library.stderr.splitlines()[0] if no_library.stderr else ""
@@ -1995,7 +1995,10 @@ def test_mover_entry_absences() -> None:
     ), no_python.stderr
     assert (
         no_shared.returncode == 1
-        and "is installed without its shared code" in no_shared.stderr
+        and no_shared.stderr.splitlines()[0]
+        == "BROKEN: const-referencing needs the Python package constitution-layer-kit 1.0.0 or a later 1.x"
+        " release, and python3 cannot import it — fix: install it for python3 as"
+        f" {PLUGIN / 'INSTALL.md'} says"
         and closing in no_shared.stderr
     ), no_shared.stderr
     assert (
@@ -2041,8 +2044,7 @@ DYING = 'case "$1" in --version) echo "lychee 0.24.2";; *) echo "error: gone wro
 
 
 def mover_with(consumer: Consumer, lychee_script: str | None, *arguments: str) -> Result:
-    merged = {k: v for k, v in os.environ.items() if k != "CLAUDE_PLUGIN_DATA"}
-    merged.update(path_with(lychee_script))
+    merged = H.environment(path_with(lychee_script))
     done = subprocess.run(
         [H.sh, str(MOVER), *arguments],
         cwd=consumer.root,
@@ -2601,7 +2603,7 @@ def test_mover_refuses_what_would_leave_coverage() -> None:
     for result, failure in refused:
         broken_first_line(result, failure.render())
     outside = H.scratch_dir()
-    merged = {k: v for k, v in os.environ.items() if k != "CLAUDE_PLUGIN_DATA"}
+    merged = H.environment()
     nowhere = subprocess.run(
         [H.sh, str(MOVER), "a.md", "b.md"],
         cwd=outside,

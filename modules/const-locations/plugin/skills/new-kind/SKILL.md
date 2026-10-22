@@ -79,9 +79,13 @@ without the command; the paths below are an example, any layout inside the repos
 1. `constitution.yaml` at the repository root:
    ```yaml
    root_policy: docs/policies/root-policy.md
+   module_prefix: const-
    root-policy:
      territory: ["docs/policies/**"]
    ```
+   `module_prefix` is required. It is the prefix that starts the name of every module's
+   namespace in this file, `const-` for these modules. A file without it stops every check
+   with a configuration failure that names the line to add.
 2. The root policy at that path, with the envelope every governed document carries:
    ```markdown
    ---

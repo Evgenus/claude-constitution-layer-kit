@@ -5,20 +5,27 @@ Requires: git, Python 3.12 or newer as `python3`, and the libraries in `requirem
 reported on the first `Write` or `Edit` of any file, a missing git on the first one of a Markdown
 file, each with the fix on the first line; nothing is silently skipped.
 
+The shared code is the Python package `constitution-layer-kit`, which brings PyYAML with it. A project
+installs it once, for the `python3` its hooks run:
+```bash
+python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
+```
+Until that tag exists, install from a clone of the kit: `python3 -m pip install <the kit's clone>/shared`.
+A line that starts `BROKEN: const-questions needs the Python package constitution-layer-kit`,
+`BROKEN: const-questions needs constitution-layer-kit` or
+`BROKEN: const-questions was written for constitution-layer-kit` points here.
+
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). Two hooks. At every session start — after a resume, a compaction and a clear too — the shape
    of a decision message is printed into the session's context, 648 characters, advisory: lettered
    options with **Pros:** and **Cons:** sub-bullets, one recommendation, the decider named, and
    the instruction to load the skill before any choice is put. Before every `Write` and `Edit` of
    a Markdown file the document as it will be after the write is checked for open-question
-   markers, and a finding blocks the write. A copy
-   of this plugin's folder made outside the repository it comes from must follow links (`cp -RL`):
-   `scripts/constitution_layer_kit` is a link to code the plugin shares with its siblings, and an install from the marketplace copies what it points at. A checkout made without symlink support leaves one-line text files in their
-   place (`git config core.symlinks true`, then check out again).
-2. **Zero configuration works** in a repository that has a `constitution.yaml` with no key of this
-   namespace: every Markdown file git lists is covered, and the markers looked for are `[decide:`, `TODO`,
-   `TBD` and `FIXME`. Without that file every run is a visible skip naming it; an empty mapping,
-   `{}`, is enough. A marker inside a code span or a fenced code block is a quotation and is never
+   markers, and a finding blocks the write.
+2. **Zero configuration works** in a repository whose `constitution.yaml` has `module_prefix`
+   and no key of this namespace: every Markdown file git lists is covered, and the markers looked for are `[decide:`, `TODO`,
+   `TBD` and `FIXME`. Without that file every run is a visible skip naming it; `module_prefix: const-`
+   alone is enough. A marker inside a code span or a fenced code block is a quotation and is never
    reported; a marker that begins or ends with a letter, a digit or an underscore counts only as a whole word,
    so `TODOs` and `TODO_LIST` pass; the match is case-sensitive. A deferred question written in
    prose carries no marker and is not seen: the skill's rule, not the gate's.

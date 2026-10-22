@@ -15,7 +15,7 @@ from collections.abc import Sequence
 
 from constitution_layer_kit import identity
 from constitution_layer_kit.messages import echoed, escaped
-from constitution_layer_kit.model import DIALS_FILE, Broken, EnvelopeState, Finding, SharedKey, Status
+from constitution_layer_kit.model import Broken, EnvelopeState, Finding, SharedKey, Status
 
 from .model import Key, Stakes
 
@@ -24,6 +24,10 @@ _STATUSES = " | ".join(s.value for s in Status)
 
 def _ns() -> str:
     return identity.current().namespace
+
+
+def _file() -> str:
+    return identity.dials_file()
 
 
 # ---------------------------------------------------------------- findings: the decision record
@@ -108,7 +112,7 @@ def g1_skip_no_record_policies() -> str:
     return (
         f"{_ns()}.record_policies names no policy, so no document is known to be a decision"
         f" record — to switch the check on, write {_ns()}: {{record_policies: [<id of the policy"
-        f" that governs decision records>]}} in {DIALS_FILE}"
+        f" that governs decision records>]}} in {_file()}"
     )
 
 
@@ -127,7 +131,7 @@ def n2_note_dangling_record_policy(policy_id: str) -> str:
 def n3_note_record_policy_claims_nothing(policy_id: str, path: str) -> str:
     return (
         f"note: {_ns()}.record_policies names '{escaped(policy_id)}' ({escaped(path)}), whose namespace"
-        f" declares no territory — it governs no document until {DIALS_FILE} holds {escaped(policy_id)}:"
+        f" declares no territory — it governs no document until {_file()} holds {escaped(policy_id)}:"
         " {territory: [<patterns of the paths where decision records live>]}"
     )
 
@@ -136,12 +140,12 @@ def n3_note_record_policy_claims_nothing(policy_id: str, path: str) -> str:
 
 
 def z1_empty() -> str:
-    return f"{_ns()}: no document is examined — {_ns()}.record_policies is an empty list in {DIALS_FILE}"
+    return f"{_ns()}: no document is examined — {_ns()}.record_policies is an empty list in {_file()}"
 
 
 def z1_no_dials(root: str) -> str:
     return (
-        f"{_ns()}: no {DIALS_FILE} in {escaped(root)} — the record gate examines nothing there until the file"
+        f"{_ns()}: no {_file()} in {escaped(root)} — the record gate examines nothing there until the file"
         f" names a record policy in {_ns()}.record_policies"
     )
 
@@ -164,7 +168,7 @@ def z1_could_not_run() -> str:
 def c5_record_policies() -> Broken:
     return Broken(
         SharedKey.C5,
-        f"{DIALS_FILE}: {_ns()}.record_policies must be a list of kebab-case policy ids",
+        f"{_file()}: {_ns()}.record_policies must be a list of kebab-case policy ids",
         f"write {_ns()}: {{record_policies: [<id of the policy that governs decision records>]}},"
         " or remove the key",
     )
@@ -173,7 +177,7 @@ def c5_record_policies() -> Broken:
 def c5_record_policy_is_root(root_id: str) -> Broken:
     return Broken(
         SharedKey.C5,
-        f"{DIALS_FILE}: {_ns()}.record_policies names the root policy '{echoed(root_id)}', which governs"
+        f"{_file()}: {_ns()}.record_policies names the root policy '{echoed(root_id)}', which governs"
         " policies, never decision records",
         "name the policy that governs decision records instead; if there is none yet, write that"
         " policy first",

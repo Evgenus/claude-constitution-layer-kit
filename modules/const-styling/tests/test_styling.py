@@ -27,7 +27,6 @@ from pathlib import Path
 import pytest
 import yaml
 from acceptance import broken_first_line, check_case, expect, failure_of, item
-from constitution_layer_kit import identity
 from consumer import BASE_MARKDOWN, Consumer
 from harness import Case, Harness, Result, Write, bash_json, red_lines
 from styling_gate import messages, start
@@ -38,7 +37,7 @@ SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 PLUGIN_ROOT = SCRIPTS.parent
 MODULE_ROOT = PLUGIN_ROOT.parent
 
-identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
+IDENTITY = start.GATE  # declared for the whole session by conftest; the expected messages read it
 # — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
 H = Harness(SCRIPTS, "check-style.sh", "check-style.py", start.GATE.namespace, scan_only=True)
 NAMESPACE = start.GATE.namespace
@@ -902,9 +901,10 @@ CLOSING = "until then no document is scanned for style"
 def test_t20() -> None:
     """Every install-failure line closes with this gate's own clause, never the write gates' "until then
     Markdown writes pass unchecked": C1 (no python3, the POSIX entry), C2 (PyYAML missing, in the scan),
-    C14 (an interpreter below the floor, run by a version it is told it has) and C15 (a copy without the
-    shared code), each first line typed whole; and the entry files' source holds the clause exactly three
-    times, once per entry text (C1, C14, C15), and "Markdown writes" nowhere."""
+    C14 (an interpreter below the floor, run by a version it is told it has) and C15 (the shared package
+    missing for python3), each first line typed whole; and the entry files' source holds the clause exactly
+    four times, once per entry text (C1, C14, C15) and once as the clause the Python entry file hands to
+    the version check of the shared package (C16, C17), and "Markdown writes" nowhere."""
     root = prepared()
     args = ["--scan", str(root)]
     problems: list[str] = []
@@ -943,23 +943,19 @@ def test_t20() -> None:
         "BROKEN: const-styling needs Python 3.12 or newer, found 3.11 — fix: install a current Python 3"
         f" (https://www.python.org/downloads/) and put it first on PATH — {CLOSING}",
     )
-    plugin = H.scratch_dir() / "plugin"  # an install that dropped the link to the shared code
-    shutil.copytree(
-        SCRIPTS, plugin / "scripts", symlinks=True, ignore=shutil.ignore_patterns("constitution_layer_kit")
-    )
     line_of(
         "C15",
-        H.run_gate("", args, command=[H.sh, str(plugin / "scripts" / H.wrapper.name)]),
-        "BROKEN: const-styling is installed without its shared code (scripts/constitution_layer_kit is"
-        " missing or is"
-        " not a directory) — fix: install the plugin from its marketplace, or load it from a full checkout"
-        " of the repository it comes from; a copy of the plugin's folder must be made with links followed"
-        f" (cp -RL) — {CLOSING}",
+        H.run_gate(  # the harness's shared folder left out, and no site-packages
+            "", args, env={"PYTHONPATH": ""}, command=[sys.executable, "-S", str(H.entry)], shared=False
+        ),
+        "BROKEN: const-styling needs the Python package constitution-layer-kit 1.0.0 or a later 1.x release,"
+        " and python3 cannot import it — fix: install it for python3 as"
+        f" {PLUGIN_ROOT / 'INSTALL.md'} says — {CLOSING}",
     )
     sources = "".join((SCRIPTS / name).read_text(encoding="utf-8") for name in (H.wrapper.name, H.entry.name))
-    if sources.count(CLOSING) != 3 or "Markdown writes" in sources:
+    if sources.count(CLOSING) != 4 or "Markdown writes" in sources:
         problems.append(
-            f"entry files: the clause {sources.count(CLOSING)} times, wanted 3; or Markdown writes"
+            f"entry files: the clause {sources.count(CLOSING)} times, wanted 4; or Markdown writes"
         )
     assert not problems, "; ".join(problems)
 

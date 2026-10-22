@@ -32,7 +32,6 @@ import yaml
 from acceptance import broken_first_line, check_case, item
 from budgets_gate import messages, start
 from budgets_gate.model import Key, characters, rule_of_thumb
-from constitution_layer_kit import identity
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.model import Finding
 from consumer import Consumer
@@ -43,7 +42,7 @@ SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 PLUGIN_ROOT = SCRIPTS.parent
 MODULE_ROOT = PLUGIN_ROOT.parent
 
-identity.declare(start.GATE)  # the shared texts the items compare are built for this gate's name
+IDENTITY = start.GATE  # declared for the whole session by conftest; the expected messages read it
 H = Harness(SCRIPTS, "check-budgets.sh", "check-budgets.py", start.GATE.namespace)
 SESSION = Harness(SCRIPTS, "session-start.sh", "session-start.py", start.GATE.namespace)
 NAMESPACE = start.GATE.namespace
@@ -1174,7 +1173,7 @@ def test_t19() -> None:
 
 @item(20, "session start: malformed dials, an argument, PyYAML and python3 missing")
 def test_t20() -> None:
-    """The printer's failures: the shared code dropped from a copy is C15 and git missing is C3; malformed
+    """The printer's failures: the shared package missing for python3 is C15 and git missing is C3; malformed
     dials exit 1 with C4 first and nothing on stdout; a ceiling at error on 14 days is this module's C5; an
     argument is a misinvocation; PyYAML missing is C2 and python3 missing is C1, each with the printer's
     clause."""
@@ -1217,19 +1216,18 @@ def test_t20() -> None:
         "BROKEN: const-doc-budgets needs python3 — fix: install Python 3.12 or newer"
         " (https://www.python.org/downloads/) — until then the gate's state is not said at session start",
     )
-    copy = H.scratch_dir() / "scripts"
-    shutil.copytree(SCRIPTS, copy, symlinks=True, ignore=shutil.ignore_patterns("__pycache__", ".mypy_cache"))
-    (copy / "constitution_layer_kit").unlink()  # an install that dropped the link to the shared code
+    # the shared package missing for python3: the harness's shared folder left out and no site-packages
     no_shared = SESSION.run_gate(
-        session_json(prepared()), command=[SESSION.sh, str(copy / "session-start.sh")]
+        session_json(prepared()),
+        env={"PYTHONPATH": ""},
+        command=[sys.executable, "-S", str(SESSION.entry)],
+        shared=False,
     )
     broken_first_line(
         no_shared,
-        "BROKEN: const-doc-budgets is installed without its shared code (scripts/constitution_layer_kit is"
-        " missing or is"
-        " not a directory) — fix: install the plugin from its marketplace, or load it from a full checkout of"
-        " the repository it comes from; a copy of the plugin's folder must be made with links followed"
-        " (cp -RL) — until then the gate's state is not said at session start",
+        "BROKEN: const-doc-budgets needs the Python package constitution-layer-kit 1.0.0 or a later 1.x"
+        " release, and python3 cannot import it — fix: install it for python3 as"
+        f" {PLUGIN_ROOT / 'INSTALL.md'} says — until then the gate's state is not said at session start",
     )
     no_git_bin = H.scratch_dir()
     for tool in ("sh", "dirname"):

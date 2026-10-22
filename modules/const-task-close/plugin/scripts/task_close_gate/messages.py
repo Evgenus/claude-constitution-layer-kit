@@ -15,7 +15,7 @@ from collections.abc import Callable, Sequence
 
 from constitution_layer_kit import identity
 from constitution_layer_kit.messages import echoed, escaped
-from constitution_layer_kit.model import DIALS_FILE, Broken, Finding, SharedKey
+from constitution_layer_kit.model import Broken, Finding, SharedKey
 
 from .model import (
     DEFAULT_KEY,
@@ -37,6 +37,10 @@ _PAIR_FULL = (
 
 def _ns() -> str:
     return identity.current().namespace
+
+
+def _file() -> str:
+    return identity.dials_file()
 
 
 def _some(items: Sequence[str], limit: int, show: Callable[[str], str] = escaped) -> str:
@@ -150,7 +154,7 @@ def f9_scan_tail_empty() -> str:
 def x1_document_missing(pair: str, path: str, head_short: str) -> Broken:
     return Broken(
         Key.X1,
-        f"{DIALS_FILE}: {_ns()}.coverage[{pair}] names the document {escaped(path)}, which does not exist at"
+        f"{_file()}: {_ns()}.coverage[{pair}] names the document {escaped(path)}, which does not exist at"
         f" HEAD ({head_short})",
         "correct the path, or create the document; a pair whose document is gone describes nothing",
     )
@@ -159,7 +163,7 @@ def x1_document_missing(pair: str, path: str, head_short: str) -> Broken:
 def x2_document_is_directory(pair: str, path: str, head_short: str) -> Broken:
     return Broken(
         Key.X2,
-        f"{DIALS_FILE}: {_ns()}.coverage[{pair}] names {escaped(path)}, which is a directory at HEAD"
+        f"{_file()}: {_ns()}.coverage[{pair}] names {escaped(path)}, which is a directory at HEAD"
         f" ({head_short})",
         "name the document file; a change names files, so a directory can never count as updated",
     )
@@ -168,7 +172,7 @@ def x2_document_is_directory(pair: str, path: str, head_short: str) -> Broken:
 def c5_coverage_not_a_list() -> Broken:
     return Broken(
         SharedKey.C5,
-        f"{DIALS_FILE}: {_ns()}.coverage must be a list of pairs",
+        f"{_file()}: {_ns()}.coverage must be a list of pairs",
         f"write it as coverage: [{_PAIR}]",
     )
 
@@ -176,7 +180,7 @@ def c5_coverage_not_a_list() -> Broken:
 def c5_pair(position: int, detail: str) -> Broken:
     return Broken(
         SharedKey.C5,
-        f"{DIALS_FILE}: {_ns()}.coverage[{position}] {detail}",
+        f"{_file()}: {_ns()}.coverage[{position}] {detail}",
         f"write the pair as {_PAIR_FULL}",
     )
 
@@ -215,7 +219,7 @@ def pair_docs_directory(path: str) -> str:
 def c5_trunk() -> Broken:
     return Broken(
         SharedKey.C5,
-        f"{DIALS_FILE}: {_ns()}.trunk must be a non-empty string",
+        f"{_file()}: {_ns()}.trunk must be a non-empty string",
         f"set trunk: <the branch changes land on>, or remove the line for {DEFAULT_TRUNK}",
     )
 
@@ -223,7 +227,7 @@ def c5_trunk() -> Broken:
 def c5_trunk_remote() -> Broken:
     return Broken(
         SharedKey.C5,
-        f"{DIALS_FILE}: {_ns()}.trunk_remote must be a remote's name: one word, not beginning with a dash",
+        f"{_file()}: {_ns()}.trunk_remote must be a remote's name: one word, not beginning with a dash",
         "set trunk_remote: <the remote that holds the trunk, as git remote lists it>, or remove the line for"
         f" {DEFAULT_REMOTE}",
     )
@@ -232,7 +236,7 @@ def c5_trunk_remote() -> Broken:
 def c5_declaration_key() -> Broken:
     return Broken(
         SharedKey.C5,
-        f"{DIALS_FILE}: {_ns()}.declaration_key must be a trailer key: letters, digits and hyphens",
+        f"{_file()}: {_ns()}.declaration_key must be a trailer key: letters, digits and hyphens",
         f"set declaration_key: {DEFAULT_KEY}, or remove the line",
     )
 
@@ -240,7 +244,7 @@ def c5_declaration_key() -> Broken:
 def c5_working_files() -> Broken:
     return Broken(
         SharedKey.C5,
-        f"{DIALS_FILE}: {_ns()}.working_files must be a list of patterns",
+        f"{_file()}: {_ns()}.working_files must be a list of patterns",
         "write it as working_files: [<gitignore patterns>], or remove the line",
     )
 

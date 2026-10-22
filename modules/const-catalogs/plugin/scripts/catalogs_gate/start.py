@@ -20,6 +20,7 @@ GATE = Identity(
     namespace=NAMESPACE,
     gate="check-catalog-item",
     plugin_root=PLUGIN_ROOT,
+    dials_file="constitution.yaml",
     hook_seconds=HOOK_SECONDS,
     skills={Mode.HOOK: "catalog-item", Mode.SCAN: "catalog-item"},  # the skill a red names (F10)
 )
@@ -27,6 +28,7 @@ SESSION = Identity(
     namespace=NAMESPACE,
     gate="session-start",
     plugin_root=PLUGIN_ROOT,
+    dials_file="constitution.yaml",
     hook_seconds=HOOK_SECONDS,
     until_installed="until then the gate's state is not said at session start",
 )

@@ -32,7 +32,6 @@ from acceptance import item as acceptance_item
 from catalogs_gate import messages, start
 from catalogs_gate.history import HOOK_SECONDS
 from catalogs_gate.model import Advice, Catalog, NameToTake, Reach, Read
-from constitution_layer_kit import identity
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.envelope import yaml_error_line
 from constitution_layer_kit.model import Broken, EnvelopeState, Finding
@@ -44,7 +43,7 @@ SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 PLUGIN_ROOT = SCRIPTS.parent
 MODULE_ROOT = PLUGIN_ROOT.parent
 
-identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
+IDENTITY = start.GATE  # declared for the whole session by conftest; the expected messages read it
 # — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
 H = Harness(SCRIPTS, "check-catalog-item.sh", "check-catalog-item.py", start.GATE.namespace)
 SESSION = Harness(SCRIPTS, "session-start.sh", "session-start.py", start.GATE.namespace)
@@ -350,7 +349,9 @@ def test_not_an_item() -> None:
     expect(long_result, 0, line, "stdout")
 
 
-NO_POLICIES = yaml.safe_dump(catalogs(entry()), sort_keys=False)  # a dials file with no root_policy at all
+NO_POLICIES = yaml.safe_dump(  # a dials file with no root_policy at all
+    {"module_prefix": "const-", **catalogs(entry())}, sort_keys=False
+)
 
 
 @acceptance_item(17, "no policies at all, red half: the dial alone numbers a project's documents")
@@ -386,7 +387,7 @@ def test_inside_a_policys_territory() -> None:
 def test_territory_by_alias() -> None:
     """One territory written once and used twice, by YAML's own alias: the policy's and the catalog's."""
     raw = (
-        f"root_policy: {ROOT_POLICY}\n"
+        f"module_prefix: const-\nroot_policy: {ROOT_POLICY}\n"
         "root-policy: {territory: ['docs/policies/**']}\n"
         "notes-policy:\n  territory: &notes ['docs/notes/**']\n"
         f"{NAMESPACE}:\n  catalogs:\n    - {{prefix: note, territory: *notes}}\n"

@@ -11,7 +11,10 @@ property, a count, a log line), are plain tests; `acceptance` holds the checks t
 
 The tests that import this file reach the shared package and the module's own packages through
 links in their own folder, which pytest puts first on the import path: no Python file of a
-module edits the import path of its own process, the tests included.
+module edits the import path of its own process, the tests included. A gate is a process of its own, and
+no plugin holds the shared package: `run_gate` puts the folder that holds it, `SHARED`, on the PYTHONPATH
+of every gate it runs, so that the gate under test imports the shared code of its own commit and never a
+release installed for the developer's python3.
 """
 
 from __future__ import annotations
@@ -28,8 +31,13 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
+import constitution_layer_kit
 from constitution_layer_kit.model import Finding
 from consumer import Consumer
+
+# The folder that holds the shared package, as the tests' link resolves: the source folder `shared/`, whatever
+# module's tests run. A path of a link is not read as it stands, since it leads through the module's folder.
+SHARED = Path(constitution_layer_kit.__file__).resolve().parent.parent
 
 
 @dataclass(frozen=True)
@@ -192,6 +200,20 @@ class Harness:
         self.unclocked.mkdir()
         (self.unclocked / "sitecustomize.py").write_text(UNCLOCKED_GIT, encoding="utf-8")
 
+    def environment(self, env: Mapping[str, str] | None = None, shared: bool = True) -> dict[str, str]:
+        """The environment a gate runs in: the runner's own, less the platform's data directory, with `env`
+        over it. The shared package comes from `SHARED`, put on PYTHONPATH after any folder the test puts
+        there, so that a folder of the test's own can hide or replace it for the gate; `shared=False` leaves
+        it out, for the items that prove the gate without it. The gate asks git with no clock
+        (`UNCLOCKED_GIT`, last on PYTHONPATH) unless a `sitecustomize` the test puts before it sets the
+        clocks. A test that starts an entry point itself, outside `run_gate`, takes this environment."""
+        merged = dict(os.environ)
+        merged.pop("CLAUDE_PLUGIN_DATA", None)
+        merged.update(env or {})
+        folders = [merged.get("PYTHONPATH"), str(SHARED) if shared else None, str(self.unclocked)]
+        merged["PYTHONPATH"] = os.pathsep.join(filter(None, folders))
+        return merged
+
     def run_gate(
         self,
         stdin: str,
@@ -199,15 +221,12 @@ class Harness:
         env: Mapping[str, str] | None = None,
         command: Sequence[str] | None = None,
         cwd: Path | None = None,
+        shared: bool = True,
     ) -> Result:
         """`cwd` is where the entry point runs — a generator that locates the repository from where it
         stands is run inside a consumer; a gate, which reads the path from its event, runs anywhere. The
-        gate asks git with no clock (`UNCLOCKED_GIT`, last on PYTHONPATH) unless a `sitecustomize` the test
-        puts before it sets the clocks."""
-        merged = dict(os.environ)
-        merged.pop("CLAUDE_PLUGIN_DATA", None)
-        merged.update(env or {})
-        merged["PYTHONPATH"] = os.pathsep.join(filter(None, [merged.get("PYTHONPATH"), str(self.unclocked)]))
+        environment is `environment(env, shared)`."""
+        merged = self.environment(env, shared)
         argv = [*(command or [self.sh, str(self.wrapper)]), *args]
         if self.bound is not None:
             return self.run_bounded(argv, stdin, merged, cwd, self.bound)

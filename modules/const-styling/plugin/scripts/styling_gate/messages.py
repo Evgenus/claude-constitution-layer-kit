@@ -12,13 +12,17 @@ from __future__ import annotations
 
 from constitution_layer_kit import identity
 from constitution_layer_kit.messages import echoed, escaped
-from constitution_layer_kit.model import DIALS_FILE, Broken, Finding, SharedKey
+from constitution_layer_kit.model import Broken, Finding, SharedKey
 
 from .model import KEY_OF, Departure, Hit, Signature
 
 
 def _ns() -> str:
     return identity.current().namespace
+
+
+def _file() -> str:
+    return identity.dials_file()
 
 
 AMENDED = (
@@ -31,7 +35,7 @@ def _allow(signature: Signature, what: str, *, default: bool = False) -> str:
     """The second half of every fix: how a departure is declared, with the reason it needs. For a
     signature that holds a shipped default, it adds how a project that changed the default says so."""
     return (
-        f"or declare the departure with its reason: add to {_ns()}.departures in {DIALS_FILE} an entry"
+        f"or declare the departure with its reason: add to {_ns()}.departures in {_file()} an entry"
         f" {{paths: [<the file, or a pattern of the documents that depart>], allow: [{signature.value}],"
         f" reason: <{what}>}}" + (AMENDED if default else "")
     )
@@ -217,7 +221,7 @@ def f9_tail(documents: int, signatures: int, departures: int, scanned: int) -> s
 
 
 def _c5(detail: str, fix: str) -> Broken:
-    return Broken(SharedKey.C5, f"{DIALS_FILE}: {detail}", fix)
+    return Broken(SharedKey.C5, f"{_file()}: {detail}", fix)
 
 
 def c5_territories() -> Broken:

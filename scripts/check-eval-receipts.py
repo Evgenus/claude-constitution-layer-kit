@@ -7,7 +7,9 @@ throwaway container on the subscription token of the person who runs the evals; 
 file, the eval hash and the model pin. For each module folder, the check is red when:
   the module has no entry;
   the entry's hash is not the module's eval hash now, a file a session loads, or a case, having changed since
-  the run;
+  the run: the module's own files, the files git tracks in the shared package,
+  `shared/constitution_layer_kit/`, named once beside them whether a plugin links them or not
+  (`kit_evals.shared_files`), and the eval image's Dockerfile;
   the entry's Claude Code version is not the one scripts/claude-code.version pins;
   the entry's model is not the one scripts/eval-model names;
   the entry's last attempt did not pass, or there is none.
@@ -18,12 +20,20 @@ module whose receipt is stale owes a local run before the merge, `python3 script
 
 Modes:  no arguments   check the kit;
         --self-test    prove the check on throwaway kits: a current receipt green; an edit of a skill, of a
-                       script, of a case, of the eval image's Dockerfile and of a file a link leads to each a
-                       finding; an edit of MODULE.md, README.md, INSTALL.md, a test and a tracked result left
-                       out, green; a missing entry, an entry for no module, another version, another model, no
-                       attempt, a failed last attempt and a last attempt that ran no case each a finding; the
-                       report of one finding as literal lines with exit 2; a receipts file that is no JSON, a
-                       model file that is no model id and a link that leads out of the kit each a BROKEN line.
+                       script, of a case, of the eval image's Dockerfile and of a file of the shared package
+                       each a finding, and so is a new tracked file there; a receipt made with a plugin's
+                       link to the shared package green once the link is gone; a plugin's links to a file and
+                       a folder of two files of the kit outside the shared package followed, each edit of
+                       what they lead to, of the folder's first file too, and a new tracked file in the
+                       folder a finding; the hash, over a toy kit, the
+                       digest of the module's files, the shared package's files once and the Dockerfile, in
+                       that order, typed by hand; an edit of MODULE.md, README.md, INSTALL.md, a test, a
+                       tracked result, a file of shared/ outside the package and an untracked file of the
+                       package left out, green; a missing entry, an entry for no module, another version,
+                       another model, no attempt, a failed last attempt and a last attempt that ran no case
+                       each a finding; the report of one finding as literal lines with exit 2; a receipts
+                       file that is no JSON, a model file that is no model id and a link that leads out of
+                       the kit each a BROKEN line.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -31,6 +41,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import hashlib
 import io
 import os
 import subprocess
@@ -175,6 +186,7 @@ def make_kit(tmp: Path) -> Path:
         "modules/const-x/tests/test_x.py": "pass\n",
         "modules/const-x/evals/load/case.yaml": "name: load\n",
         "shared/constitution_layer_kit/core.py": "x = 1\n",
+        "shared/pyproject.toml": "[project]\n",
         "scripts/eval-model": "claude-opus-5-5\n",
         "scripts/eval-container/Dockerfile": "FROM base\n",
         CLAUDE_PIN: "2.1.282\n",
@@ -203,6 +215,45 @@ def make_kit(tmp: Path) -> Path:
 def edit(path: str, text: str = "changed\n") -> Act:
     def act(root: Path) -> None:
         (root / path).write_text(text, encoding="utf-8")
+
+    return act
+
+
+def add(path: str, text: str = "y = 2\n") -> Act:
+    """Write a file and track it."""
+
+    def act(root: Path) -> None:
+        (root / path).write_text(text, encoding="utf-8")
+        git_quiet(root, "add", path)
+
+    return act
+
+
+def drop_link(root: Path) -> None:
+    """Remove the plugin's link to the shared package, the receipt having been made with it."""
+    (root / "modules/const-x/plugin/scripts/constitution_layer_kit").unlink()
+    git_quiet(root, "add", "-A")
+
+
+def link_kit_files(then: Act) -> Act:
+    """Link from the plugin a file and a folder of two files of the kit outside the shared package, make the
+    receipt anew for the files as they are, then do `then`: the hash follows a link to what it leads to."""
+
+    def act(root: Path) -> None:
+        (root / "docs/d").mkdir(parents=True)
+        (root / "docs/f.txt").write_text("f\n", encoding="utf-8")
+        (root / "docs/d/a.txt").write_text("a\n", encoding="utf-8")
+        # a second file, so that a link to a folder is held as its files and not as one name
+        (root / "docs/d/c.txt").write_text("c\n", encoding="utf-8")
+        scripts = root / "modules/const-x/plugin/scripts"
+        (scripts / "linked-file").symlink_to("../../../../docs/f.txt")
+        (scripts / "linked-folder").symlink_to("../../../../docs/d")
+        git_quiet(root, "add", "-A")
+        passing = Attempt("2026-10-16T00:00:00Z", 1, 1, 1.0)
+        write_receipts(
+            root, {"const-x": Receipt(eval_hash(root, "const-x"), "2.1.282", "claude-opus-5-5", (passing,))}
+        )
+        then(root)
 
     return act
 
@@ -248,9 +299,39 @@ def self_test() -> int:
         "a current receipt is green": (edit("modules/const-x/plugin/scripts/start.sh", "echo rule\n"), []),
         "an edited skill is a finding": (edit("modules/const-x/plugin/skills/s/SKILL.md"), ["const-x"]),
         "an edited script is a finding": (edit("modules/const-x/plugin/scripts/start.sh"), ["const-x"]),
-        "an edited file behind a link is a finding": (
+        "an edited file of the shared package is a finding": (
             edit("shared/constitution_layer_kit/core.py"),
             ["const-x"],
+        ),
+        "a new tracked file of the shared package is a finding": (
+            add("shared/constitution_layer_kit/new.py"),
+            ["const-x"],
+        ),
+        "a receipt made with a plugin's link to the shared package is green once the link is gone": (
+            drop_link,
+            [],
+        ),
+        "a receipt made with a plugin's links to a file and a folder of the kit, outside the shared package,"
+        " is green": (link_kit_files(lambda root: None), []),
+        "an edit of the file a plugin's link leads to is a finding": (
+            link_kit_files(edit("docs/f.txt")),
+            ["const-x"],
+        ),
+        "an edit of a file in the folder a plugin's link leads to is a finding": (
+            link_kit_files(edit("docs/d/a.txt")),
+            ["const-x"],
+        ),
+        "a new tracked file in the folder a plugin's link leads to is a finding": (
+            link_kit_files(add("docs/d/b.txt")),
+            ["const-x"],
+        ),
+        "an untracked file of the shared package is left out, green": (
+            edit("shared/constitution_layer_kit/untracked.py"),
+            [],
+        ),
+        "an edited file of shared/ outside the package is left out, green": (
+            edit("shared/pyproject.toml"),
+            [],
         ),
         "an edited case is a finding": (edit("modules/const-x/evals/load/case.yaml"), ["const-x"]),
         "an edited eval image is a finding": (edit("scripts/eval-container/Dockerfile"), ["const-x"]),
@@ -281,6 +362,27 @@ def self_test() -> int:
         print(f"[{'ok' if ok else 'FAIL'}] {name}")
         if not ok:
             print(f"        got {got}")
+    with tempfile.TemporaryDirectory() as tmp:
+        root = make_kit(Path(tmp))
+        digest = hashlib.sha256()
+        for name, text in (  # typed by hand: the module's files, the shared package's once, the image last
+            ("evals/load/case.yaml", "name: load\n"),
+            ("plugin/scripts/start.sh", "echo rule\n"),
+            ("plugin/skills/s/SKILL.md", "skill\n"),
+            ("<kit>/shared/constitution_layer_kit/core.py", "x = 1\n"),
+            ("<kit>/scripts/eval-container/Dockerfile", "FROM base\n"),
+        ):
+            data = text.encode("utf-8")
+            digest.update(name.encode("utf-8") + b"\0" + str(len(data)).encode("ascii") + b"\0" + data)
+        got_hash = eval_hash(root, "const-x")
+    ok = got_hash == f"sha256:{digest.hexdigest()}"
+    failed += 0 if ok else 1
+    print(
+        f"[{'ok' if ok else 'FAIL'}] the hash, with a plugin linking the shared package, is the digest of the"
+        " module's files, the package's files once and the image, in that order"
+    )
+    if not ok:
+        print(f"        got {got_hash}")
     with tempfile.TemporaryDirectory() as tmp:
         root = make_kit(Path(tmp))
         with_receipt(model="claude-haiku-5-5")(root)
@@ -318,7 +420,7 @@ def self_test() -> int:
                 ok = said in str(broken) and "fix:" in str(broken)
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {name} is a teaching BROKEN line")
-    total = len(cases) + 1 + len(broken_cases)
+    total = len(cases) + 2 + len(broken_cases)
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 

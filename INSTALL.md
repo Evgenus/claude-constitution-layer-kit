@@ -16,9 +16,9 @@ Every module is a draft at manifest version `0.0.x` until Phase D of the [rollou
 
 1. Claude Code installed and authenticated (`claude --version`).
 2. Read access to the kit's GitHub repository, `Evgenus/claude-constitution-layer-kit`, from which the modules are installed: git clones it with your own credentials while the repository is private. And a local clone of it, for example at `~/dev/claude-constitution-layer-kit`: the commands below take the module names, the kernel, the scans and the fixtures from it.
-3. git, and Python 3.12 or newer as `python3` with PyYAML, for every gate. pytest is needed only to run a module's fixtures, which is optional; no module's `requirements.txt` names pytest or pytest-xdist, since no gate needs them:
+3. git, and Python 3.12 or newer as `python3` with the shared distribution `constitution-layer-kit`, for every gate. No plugin carries its package, `constitution_layer_kit`: each gate imports it from the `python3` your hooks run, so install the distribution there once. It brings PyYAML with it. pip clones the kit's repository with git and your own credentials and builds the distribution at the release tag. The tag is made after the change that introduced the package merges ([step 10a of the rollout plan](docs/rollout-plan.md#s10a)); until then install from your clone of prerequisite 2, `python3 -m pip install ~/dev/claude-constitution-layer-kit/shared`. A module that needs a later release says so on its first line and points at its own `INSTALL.md`: install that tag then. pytest is needed only to run a module's fixtures, which is optional; no module's `requirements.txt` names pytest or pytest-xdist, since no gate needs them:
    ```bash check=none
-   python3 -m pip install 'PyYAML>=6.0'
+   python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
    python3 -m pip install pytest   # optional, for the fixtures
    ```
 4. Vale 3.23.0 or newer for [`const-language`](docs/requirements.md#const-language), and lychee 0.24.2 or newer for [`const-referencing`](docs/requirements.md#const-referencing):
@@ -54,6 +54,7 @@ The modules are loaded first, so that no governed document is ever written witho
    ```yaml check=dials
    # constitution.yaml
    root_policy: docs/policies/root-policy.md
+   module_prefix: const-
    root-policy:
      territory: ["docs/policies/**"]
    kernel-policy:
@@ -94,7 +95,7 @@ The modules are loaded first, so that no governed document is ever written witho
 <a id="s3"></a>
 ## Install one module
 
-Each module is one plugin named `const-<aspect>`; it works with its defaults alone, and the steps after loading it are optional calibration.
+Each module is one plugin named `const-<aspect>`; it works with its defaults alone once `constitution.yaml` names `module_prefix`, as step 6 of [§2](#s2) shows, and the steps after loading it are optional calibration.
 
 1. **Load the plugin**, by one of four paths.
    - **Development.** For one session, from your clone: `claude --plugin-dir ~/dev/claude-constitution-layer-kit/modules/const-<aspect>/plugin`, the flag once per module. This reads the clone in place, so after an edit in the kit `/reload-plugins` in the session takes it. Do not point `--plugin-dir` at the `modules/` folder: on Claude Code below 2.1.265 that loads nothing and prints nothing; check your version with `claude --version`.
@@ -110,7 +111,7 @@ Each module is one plugin named `const-<aspect>`; it works with its defaults alo
        }
      }
      ```
-2. **Calibrate.** Add the module's namespace, which equals the plugin's name, to `constitution.yaml`; the module reads nothing else, and its defaults apply while the namespace is absent. Three dials switch a check on: `record_policies` of [`const-decision-records`](docs/requirements.md#const-decision-records), `catalogs` of [`const-catalogs`](docs/requirements.md#const-catalogs), and `coverage` for the range check of [`const-task-close`](docs/requirements.md#const-task-close); each gate says so on every run until its dial is written. The module's `INSTALL.md` lists its dials.
+2. **Calibrate.** Add the module's namespace, which equals the plugin's name, to `constitution.yaml`, the file that names `module_prefix` (step 6 of [§2](#s2) shows it); the module's defaults apply while its own namespace is absent. Three dials switch a check on: `record_policies` of [`const-decision-records`](docs/requirements.md#const-decision-records), `catalogs` of [`const-catalogs`](docs/requirements.md#const-catalogs), and `coverage` for the range check of [`const-task-close`](docs/requirements.md#const-task-close); each gate says so on every run until its dial is written. The module's `INSTALL.md` lists its dials.
 3. **The `CLAUDE.md` pointer.** Only if the module's `MODULE.md` declares one: the single line its `INSTALL.md` gives, never more than one line per module.
 4. **Verify.** `/plugin list` shows the module enabled, its skills appear as `/const-<aspect>:<skill>` under `/help`, and its scan, as its `INSTALL.md` names it, exits 0 from the project's root. Optionally, its fixtures are green when run from your clone, at the commit the install records or, for a module loaded from the clone, as it is: `python3 -m pytest ~/dev/claude-constitution-layer-kit/modules/const-<aspect>/tests -p no:cacheprovider`.
 5. **Commit** `constitution.yaml`, `.claude/settings.json` and any `CLAUDE.md` line, the install noted in the message: routine, no record. With [`const-task-close`](docs/requirements.md#const-task-close) loaded, a turn that ends with uncommitted changes is reported once and the model is asked to commit; a change that touches code named in `coverage` updates the paired document or carries a `No-Doc-Impact: <pair> — <reason>` trailer on one of its commits.
@@ -130,6 +131,8 @@ A draft keeps its version across changes (decision [dec-0053-drafts-keep-their-v
 for m in ~/dev/claude-constitution-layer-kit/modules/const-*; do claude plugin uninstall "$(basename "$m")@claude-constitution-layer-kit" --scope project && claude plugin install "$(basename "$m")@claude-constitution-layer-kit" --scope project; done
 ```
 
+The shared package updates apart from the plugins. A plugin that needs a later release than the one installed stops its gates with a line that names the release and the plugin's own `INSTALL.md`: run the command of [prerequisite 3](#s1) at that tag.
+
 <a id="s5"></a>
 ## Uninstall
 
@@ -142,4 +145,4 @@ for m in ~/dev/claude-constitution-layer-kit/modules/const-*; do claude plugin u
 <a id="s6"></a>
 ## What the kit does not install
 
-The kit's own tooling ships in no module: the branch-first commit hook, the agents under `.claude/agents/`, the carry audit and the checks under `scripts/` serve the kit's own development. A project gets only what the plugins carry, each module's `plugin/` folder: never its tests, eval cases, `MODULE.md` or `README.md`. A module carries its license in its manifest alone: `LICENSE` and `NOTICE` stand at the kit's root, and whoever passes a module's folder, or its `plugin/` folder, on alone takes both from there. `profiles/`, prewritten dials files to copy instead of writing dials by hand, are planned for [step 10 of the rollout plan](docs/rollout-plan.md#s10).
+The kit's own tooling ships in no module: the branch-first commit hook, the agents under `.claude/agents/`, the carry audit and the checks under `scripts/` serve the kit's own development. A project gets only what the plugins carry, each module's `plugin/` folder: never its tests, eval cases, `MODULE.md` or `README.md`. Beside the plugins a project installs the shared package of [prerequisite 3](#s1), which no plugin carries. A module carries its license in its manifest alone: `LICENSE` and `NOTICE` stand at the kit's root, and whoever passes a module's folder, or its `plugin/` folder, on alone takes both from there. `profiles/`, prewritten dials files to copy instead of writing dials by hand, are planned for [step 10 of the rollout plan](docs/rollout-plan.md#s10).

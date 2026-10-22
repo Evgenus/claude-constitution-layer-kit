@@ -46,12 +46,19 @@ Output:   hook, block: findings on stderr; hook, warn: one JSON object on stdout
           platform names in the environment variable CLAUDE_PLUGIN_DATA, else nowhere.
 
 This file stays parseable by any Python 3 so that an interpreter below the floor gets the
-teaching message rather than a syntax error; the code lives in the package beside it.
+teaching message rather than a syntax error. It states the release of the Python package
+constitution-layer-kit that it needs, `REQUIRES`, and imports `cli` from the package that pip
+installed for python3: when that fails, it prints the teaching line, which names the plugin's own
+INSTALL.md, and the closing line, and exits 1; when `cli.version_failure` finds the installed release
+below `REQUIRES` or of another major, it does the same with its line. Only then does it import the
+package beside it, which holds the code.
 """
 
+import os
 import sys
 
 FLOOR = (3, 12)
+REQUIRES = "1.0.0"  # the release of the Python package constitution-layer-kit this file needs
 
 # Percent formatting on purpose: this file must parse on any Python 3, and f-strings do not.
 TOO_OLD = (
@@ -65,23 +72,32 @@ if sys.version_info < FLOOR:
     sys.stderr.write(TOO_OLD % (FLOOR + tuple(sys.version_info[:2])))  # noqa: UP031
     sys.exit(1)
 
-# The shared code is a directory beside this file. An install that dropped it must say so
-# in words, not in a traceback: only the first stderr line reaches the user.
+# The shared code is the Python package constitution-layer-kit, which pip installs for python3. An
+# environment without it must say so in words, not in a traceback: only the first stderr line reaches
+# the user. The line names the install note of this plugin, the folder above this file's: its path is
+# shown with a backslash and a line break escaped, by hand, since nothing can be imported to do it.
+GUIDE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "INSTALL.md")
 NO_SHARED_CODE = (
-    "BROKEN: const-referencing is installed without its shared code (scripts/constitution_layer_kit is"
-    " missing"
-    " or is not a directory) — fix: install the plugin from its marketplace, or load it from a"
-    " full checkout of the repository it comes from; a copy of the plugin's folder must be made"
-    " with links followed (cp -RL) — until then Markdown writes pass unchecked\n"
+    "BROKEN: const-referencing needs the Python package constitution-layer-kit %s or a later %s.x release,"
+    " and python3 cannot import it — fix: install it for python3 as %s says"
+    " — until then Markdown writes pass unchecked\n"
     "BROKEN: the check could not run — 0 documents examined\n"
 )
 
 try:
-    from constitution_layer_kit import (
-        cli,  # noqa: E402, F401  (after the floor check; an empty directory fails here too)
-    )
+    from constitution_layer_kit import cli  # noqa: E402  (after the floor check)
 except ImportError:
-    sys.stderr.write(NO_SHARED_CODE)
+    shown = GUIDE.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r")
+    sys.stderr.write(NO_SHARED_CODE % (REQUIRES, REQUIRES.partition(".")[0], shown))  # noqa: UP031
+    sys.exit(1)
+
+# The release installed must serve this entry file, whatever it is: one older or newer than the one it
+# was written for.
+failure = cli.version_failure(
+    "const-referencing", REQUIRES, GUIDE, "until then Markdown writes pass unchecked"
+)
+if failure is not None:
+    sys.stderr.write(failure + "\n" + NO_SHARED_CODE.partition("\n")[2])
     sys.exit(1)
 
 from referencing_gate import start  # noqa: E402

@@ -18,7 +18,6 @@ from pathlib import Path
 import pytest
 import yaml
 from acceptance import broken_first_line, check_case, expect, item
-from constitution_layer_kit import identity
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.envelope import parse_envelope, yaml_error_line
 from constitution_layer_kit.model import Match, MetaType
@@ -30,7 +29,7 @@ from test_shared_items import NO_ENVELOPE, Subject
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 
-identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
+IDENTITY = start.GATE  # declared for the whole session by conftest; the expected messages read it
 # — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
 H = Harness(SCRIPTS, "check-governed-document.sh", "check-governed-document.py", start.GATE.namespace)
 NAMESPACE = start.GATE.namespace
@@ -375,9 +374,11 @@ def test_severity_warn_with_note() -> None:
     assert ok, "stdout parses as one JSON object; the note travels inside additionalContext"
 
 
-def _scan(bad: bool, void_key: str = "ghost") -> Result:
+def _scan(bad: bool, void_key: str = "ghost", prefix: str | None = None) -> Result:
     consumer = H.fresh_consumer()
     consumer.dials.update({**own(severity="warn"), void_key: {"territory": ["nowhere/**"]}})
+    if prefix is not None:
+        consumer.dials["module_prefix"] = prefix
     consumer.build()
     consumer.write(NOTE_A, NO_ENVELOPE if bad else envelope("note-a"))
     return H.run_gate("", args=["--scan", str(consumer.root)])
@@ -411,6 +412,13 @@ def test_scan_green() -> None:
         " the root policy's territory; it claims nothing until that policy exists"
     )
     assert note in result.stdout and wide_note in wide.stdout, result.stdout + wide.stdout
+    # a namespace that starts with the prefix the file declares is a module's, so it is no void one and earns
+    # no note; the prefix is the file's: declared as `const-meta-`, the same namespace is a void one
+    other = messages.n2_note_void_namespace("const-other")
+    modules = _scan(bad=False, void_key="const-other")
+    narrowed = _scan(bad=False, void_key="const-other", prefix="const-meta-")
+    ok = other not in modules.stdout and other in narrowed.stdout and narrowed.code == modules.code == 0
+    assert ok, modules.stdout + narrowed.stdout
 
 
 @item(25, "scan: 300 documents in under 15 s, the green line whole")

@@ -1,26 +1,39 @@
-"""Which gate this process is, and how long its hook may run.
+"""Which gate this run is, the name of the dials file it reads, and how long its hook may run.
 
-The shared code serves several plugins, and each hook process runs exactly one of them.
-The plugin's entry point declares itself once, before anything is printed; from then on
-every message, the log and the dials reader ask here for the name. The guard declares the
-mode of the run beside it, in the same declaration, for the code that behaves differently in
-a hook than in a scan or an act: the git calls' budget and the hook's one deadline.
+The shared code serves several plugins, and each hook process runs exactly one of them. The gate
+declares itself for the length of one guarded run, through the context manager `declared`: inside its
+scope every message, the log and the dials reader ask here for the gate's name and for the name of the
+dials file, and outside every scope they ask in vain. The guard opens the scope around everything it does,
+with the mode of the run beside the identity, in the same declaration, for the code that behaves
+differently in a hook than in a scan or an act: the git calls' budget and the hook's one deadline.
 
-A hook run has one deadline, `hook_seconds` of the identity from the moment of the declaration,
-and every wait of the run takes the smaller of its own cap and what is left of it (`remaining`, and
-`left_of` for a wait no verdict depends on); a scan, an act and a process declared with no mode
-have no deadline. The handler's timeout in the plugin's hooks file stays `hook_seconds` and
-`LEFT_FOR_THE_REST` above it, so that a spent deadline ends with the gate's own line before the
-platform cuts the hook.
+The declaration is held in one context variable of this package, with no default. The variable is the one
+module-level name involved, and it holds no declaration of its own: only a scope sets it, and no code
+assigns or patches the declaration otherwise. A read of the identity or of the dials file's name outside
+every scope is a defect of the caller, a `RuntimeError` and never a repository's failure; there the mode
+reads as none and no wait has a deadline. An identity whose dials file is empty, or empty once stripped of
+whitespace, names no file: opening a scope with it is the same defect, and the name is otherwise read as
+written. A scope
+opened inside another shadows the outer declaration until it closes, and the outer one holds again after it:
+a second declaration is no defect, whether it differs or not. A gate of another kit names its own dials
+file in its identity, and the package reads nothing else.
 
-It is the package's one global of its own; the output module also switches off a process-wide flag
-of `logging`.
+A hook run has one deadline, `hook_seconds` of the identity from the moment its scope opens, and every wait
+of the run takes the smaller of its own cap and what is left of it (`remaining`, and `left_of` for a wait no
+verdict depends on); a scan, an act and a scope opened with no mode have no deadline. The handler's timeout
+in the plugin's hooks file stays `hook_seconds` and `LEFT_FOR_THE_REST` above it, so that a spent deadline
+ends with the gate's own line before the platform cuts the hook.
+
+No state of a gate lives in a module-level name of this package; the output module still switches off a
+process-wide flag of `logging`.
 """
 
 from __future__ import annotations
 
+import contextvars
 import time
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -28,8 +41,8 @@ from . import messages
 from .errors import ConfigurationFailure
 from .model import Broken, Mode
 
-# The seconds one hook run may take in all, from its declaration: the default of `Identity.hook_seconds`,
-# and the handlers' 30 s less `LEFT_FOR_THE_REST`.
+# The seconds one hook run may take in all, from the opening of its scope: the default of
+# `Identity.hook_seconds`, and the handlers' 30 s less `LEFT_FOR_THE_REST`.
 HOOK_SECONDS: float = 25
 # The seconds a handler's timeout keeps over a hook's budget, for the interpreter's start, which the
 # deadline does not count, and for the reads and writes after the last wait.
@@ -41,6 +54,9 @@ class Identity:
     namespace: str  # the plugin's name: its dials namespace, its name in every message, its log
     gate: str  # the entry point's name, as the log and the usage line show it
     plugin_root: Path  # where the plugin's requirements file lies
+    # The name of the dials file the gate reads, relative to the repository's top. No default: a gate that
+    # names no file reads none, never some file that a kit happened to name first.
+    dials_file: str
     libraries: Mapping[str, str] = field(
         default_factory=dict
     )  # distribution -> module, beyond the shared ones
@@ -52,9 +68,8 @@ class Identity:
     # The skill of the plugin that teaches a mode's rule and its fix, by mode, named in the line that
     # follows a red verdict of that mode (F10); a mode without one, no line.
     skills: Mapping[Mode, str] = field(default_factory=dict)
-    # The seconds one hook run of this gate may take in all, from its declaration: every wait of the run
-    # takes what is left of them (`remaining`). Part of the identity, so a second declaration with
-    # another number is a defect like any other difference.
+    # The seconds one hook run of this gate may take in all, from the opening of its scope: every wait of
+    # the run takes what is left of them (`remaining`).
     hook_seconds: float = HOOK_SECONDS
 
 
@@ -62,50 +77,67 @@ class Identity:
 class _Declaration:
     identity: Identity
     mode: Mode | None  # None: declared without a mode, as a test runner does — no mode-bound behaviour
-    # On the monotonic clock: set in hook mode alone, the moment of the declaration plus `hook_seconds`;
-    # no part of the comparison of two declarations, since the clock moves between them.
-    deadline: float | None = field(default=None, compare=False)
+    # On the monotonic clock: set in hook mode alone, the moment the scope opened plus `hook_seconds`.
+    deadline: float | None = None
 
 
-_declared: _Declaration | None = None
+# The declaration of the run in progress, in one context variable. No default: a read outside every scope is
+# a defect of the caller, never a silent read of some gate that a kit happened to name first.
+_declaration: contextvars.ContextVar[_Declaration] = contextvars.ContextVar("declaration")
 
 
-def declare(identity: Identity, mode: Mode | None = None) -> None:
-    """Declares the gate and the mode of the run, once. In hook mode it also starts the run's one
-    deadline, `identity.hook_seconds` from now; a scan, an act and a declaration with no mode have none.
-    A second declaration that is the same keeps the first's deadline; one that differs is a defect."""
-    global _declared
+@contextmanager
+def declared(identity: Identity, mode: Mode | None = None) -> Iterator[None]:
+    """Declares the gate and the mode of the run for the length of the scope. In hook mode the opening
+    also starts the run's one deadline, `identity.hook_seconds` from now; a scan, an act and a scope with no
+    mode have none. Closing the scope, normally or by an exception, resets the variable to what it was: a
+    scope opened inside another shadows the outer declaration until it closes, and the outer one holds
+    again after. An identity whose dials file is empty, or empty once stripped of whitespace, names no file:
+    a defect of the entry point, raised as the scope opens, that declares nothing."""
+    if not identity.dials_file.strip():
+        raise RuntimeError(
+            "a process reads one dials file: an empty name is no file, a defect of the entry point"
+        )
     deadline = time.monotonic() + identity.hook_seconds if mode is Mode.HOOK else None
-    now = _Declaration(identity, mode, deadline)
-    if _declared is not None and _declared != now:
-        raise RuntimeError("a process is one gate: a second, different declaration is a defect")
-    if _declared is None:
-        _declared = now
+    token = _declaration.set(_Declaration(identity, mode, deadline))
+    try:
+        yield
+    finally:
+        _declaration.reset(token)
 
 
 def current() -> Identity:
-    if _declared is None:  # a defect of the entry point, never of the repository
-        raise RuntimeError("the entry point did not declare which gate it is")
-    return _declared.identity
+    """The identity declared by the scope in progress."""
+    try:
+        return _declaration.get().identity
+    except LookupError:  # a defect of the caller, never of the repository
+        raise RuntimeError("the entry point did not declare which gate it is") from None
+
+
+def dials_file() -> str:
+    """The name of the dials file the declared identity reads, relative to the repository's top."""
+    return current().dials_file
 
 
 def declared_mode() -> Mode | None:
-    """The mode the run was declared in, or None where none was declared — never a failure: a
-    caller that asks for it behaves as it did before there was one."""
-    return None if _declared is None else _declared.mode
+    """The mode the run was declared in, or None where none was declared, or no scope is open — never a
+    failure: a caller that asks for it behaves as it did before there was one."""
+    declaration = _declaration.get(None)
+    return None if declaration is None else declaration.mode
 
 
 def remaining(cap: float, before: str) -> float:
     """The seconds a wait of a hook run may take: the smaller of its own `cap` and what is left of the
-    run's deadline. Where the run has no deadline — a scan, an act, a process declared with no mode —
+    run's deadline. Where the run has no deadline — a scan, an act, a scope opened with no mode, or no scope —
     the cap, unchanged. Where nothing is left, a configuration failure that names the wait it ended
     before (`before`, e.g. "git ls-files answered"): the hook's budget is spent, and the gate says so
     ahead of the platform's cut, which says nothing. The caller asks at the moment it begins to wait."""
-    if _declared is None or _declared.deadline is None:
+    declaration = _declaration.get(None)
+    if declaration is None or declaration.deadline is None:
         return cap
-    left = _declared.deadline - time.monotonic()
+    left = declaration.deadline - time.monotonic()
     if left <= 0:
-        raise ConfigurationFailure(messages.c12_hook_budget(_declared.identity.hook_seconds, before))
+        raise ConfigurationFailure(messages.c12_hook_budget(declaration.identity.hook_seconds, before))
     return min(cap, left)
 
 
@@ -114,9 +146,10 @@ def left_of(cap: float) -> float:
     `cap` and what is left of the run's deadline, zero where nothing is left, the cap itself where the
     run has no deadline. It never raises: a wait for advice that the deadline cuts ends the advice, and
     the verdict stands. `remaining` serves a wait that a verdict does wait for."""
-    if _declared is None or _declared.deadline is None:
+    declaration = _declaration.get(None)
+    if declaration is None or declaration.deadline is None:
         return cap
-    return max(min(cap, _declared.deadline - time.monotonic()), 0.0)
+    return max(min(cap, declaration.deadline - time.monotonic()), 0.0)
 
 
 def ran_out(given: float, cap: float, before: str, own: Broken) -> ConfigurationFailure:
@@ -124,6 +157,7 @@ def ran_out(given: float, cap: float, before: str, own: Broken) -> Configuration
     the whole cap, the wait was slow by itself and `own` is its line. Given less, the run's deadline cut it,
     and the line is the shared C12.14 naming the wait (`before`, as `remaining` was asked): the line `own`
     would print the shortened number as the most the check waits. A scan and an act give the cap."""
-    if given < cap and _declared is not None:
-        return ConfigurationFailure(messages.c12_hook_budget(_declared.identity.hook_seconds, before))
+    declaration = _declaration.get(None)
+    if given < cap and declaration is not None:
+        return ConfigurationFailure(messages.c12_hook_budget(declaration.identity.hook_seconds, before))
     return ConfigurationFailure(own)

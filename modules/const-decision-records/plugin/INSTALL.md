@@ -5,16 +5,22 @@ Requires: git, Python 3.12 or newer as `python3`, and the libraries in `requirem
 start and on the first `Write` or `Edit` of any file, with the fix on the first line; nothing is silently
 skipped.
 
+The shared code is the Python package `constitution-layer-kit`, which brings PyYAML with it. A project
+installs it once, for the `python3` its hooks run:
+```bash
+python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
+```
+Until that tag exists, install from a clone of the kit: `python3 -m pip install <the kit's clone>/shared`.
+A line that starts `BROKEN: const-decision-records needs the Python package constitution-layer-kit`,
+`BROKEN: const-decision-records needs constitution-layer-kit` or
+`BROKEN: const-decision-records was written for constitution-layer-kit` points here.
+
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). Two hooks. At every session start — startup, resume, clear, compaction, fork — the
    plugin prints one line into the model's context while `record_policies` names nothing, saying so
    (the transcript does not show it), and nothing once a record policy is named. The write-time hook
    fires on every `Write` and `Edit`; it examines Markdown files governed by a record policy and
    nothing else.
-   A copy of this plugin's folder made outside the repository it comes from must follow links
-   (`cp -RL`): `scripts/constitution_layer_kit` is a link to code the plugin shares with its siblings, and an install from the marketplace copies what it points at. A checkout made without symlink support leaves one-line text files in
-   their place (`git config core.symlinks true`, then check out again). A plugin without it says so on
-   the first `Write` or `Edit` and checks nothing until repaired.
 2. **Switch the check on: name the record policy.** A document is a decision record because
    a policy for decision records governs it. The module ships no policy and guesses none:
    until `record_policies` names one, every run prints `0 documents examined` and says why.

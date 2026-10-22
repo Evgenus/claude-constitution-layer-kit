@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
-"""Kit check: every copy of the Python floor names the floor's one minor, and each entry's three
-first lines close with its Identity's clause.
+"""Kit check: every copy of the Python floor names the floor's one minor, the `requires-python` of the
+shared distribution is that floor, each entry's three first lines close with its Identity's clause, its C15
+reads as the page of the shared code gives it, and the release of the shared package it requires is one the
+package serves and its module's install note names.
 
 The floor's one source is `FLOOR` in `shared/constitution_layer_kit/preflight.py`, read here by `ast` and
 never imported: a module-level assignment, the last one, plain or annotated, of a tuple of two integer
@@ -24,6 +26,19 @@ version under which a fixture runs an entry to see its refusal, and each must na
 minus one: `found 3.N` and `an interpreter of 3.N`, not followed by a digit nor by `.<digit>`, and
 `version_info = (3, N, 0`. A mention that names another minor is RED, with its path and line, the value
 found, the source, why a floor copied apart drifts and the fix.
+
+The distribution `constitution-layer-kit` holds a floor of its own that no form above can tell, since
+pip reads it, not a person: `requires-python` under `[project]` in `shared/pyproject.toml`, read here by
+`tomllib` and never matched as text. It must be the string `>=3.<minor>` with the source's minor, and no
+other form: a `requires-python` of any other minor is RED, with its path and the line of the key, the value
+found, the source, a why of its own (pip reads this key and no entry file: below the floor it installs the
+code on an interpreter the gates refuse, above it it refuses one the gates support) and the fix. The line
+is that of the key under `[project]`, bare or quoted, or written as the dotted key `project.requires-python`
+before the first table: a key of that name under another table, written first, is not it, and a line
+not found is line 1. A file that is missing, unreadable, no TOML or not UTF-8, one with no
+`requires-python` under `[project]`, one whose value is no string, and a string of another form, such as
+a range `>=3.<minor>,<4`, a patch `>=3.<minor>.1`, `>3.<minor>` or `~=3.<minor>`, are BROKEN with the fix:
+a floor in a form this check does not read could move unseen.
 
 Not read: a symbolic link, mode 120000, whatever it points at, a dangling one too, since its target is
 read through its own listing, once; a submodule, mode 160000; `docs/decisions/` and `docs/research/` at
@@ -57,8 +72,42 @@ at all, a missing `.sh`, no or two Identities for a gate, a clause that is no st
 every Identity names its own clause, a text that is missing or no string constant, a `TOO_OLD` with
 no second line or an empty one, a first line with no ` — fix: ` part, and a file that is not Python.
 
+C15 and what prints it are held whole, not by the clause alone. The page of the shared code,
+`shared/GATE.md`, gives it in its table of shared messages: the row `C15`, the first code span after the
+key, a text with the placeholders `{module}`, `{required}`, `{major}`, `{guide}` and, at its end, ` —
+{clause}`. An entry's `NO_SHARED_CODE` first line, up to the clause, must be that text with `{module}`
+replaced by the entry's module and the other three each by `%s`, which the entry fills with its `REQUIRES`,
+that version's major and the path of its install note (a generator's has no clause, and the text ends before
+it). A first line that reads otherwise is RED, with the text the row gives; its clause is held as before. A
+page that is missing, one with no such row, a row with no code span or one that does not end in ` —
+{clause}` are BROKEN, with the fix.
+
+The code that prints C15, C16 and C17 is one text for every entry, and a fixture can run it only for the
+entry of a module's harness, so it is held by `PREAMBLE`, the kit's form of it. Four statements of the
+entry, each found at the top level by what it is — the assignment of `GUIDE`, the first `try`, the
+assignment of `failure` and the `if` that tests it — must equal those of `PREAMBLE` in the syntax tree,
+comments and line breaks aside, with the entry's namespace and its clause (a generator's is empty) put in:
+the guide's path, the import of `cli` with the C15 line printed by hand and the escape of the path, and the
+version check with its closing line and its exit. A statement that is missing or differs is RED at its line,
+a version check that differs in its clause alone being the clause's finding, as for C1, C14 and C15; so is
+an order other than those four, then the entry's import of its own package, a name ending in `_gate`.
+
+The release of the shared package is held in two places. Each entry states the release it requires as
+`REQUIRES`, a string constant at the top level of the entry file, the last assignment: it must be
+major.minor.patch, three decimal integers without a leading zero (nothing else is a version, as
+`cli.version_failure` reads one), at or below `__version__` of `shared/constitution_layer_kit/__init__.py`,
+the package's one source of its version, read by `ast`, and of the same major: a version above it can be
+served by no release, and a lower major stops every entry at C17. A `REQUIRES` that is missing or no string
+constant, and a `__version__` that is missing, no string constant or no version, are BROKEN. And each
+module's `plugin/INSTALL.md` must give the exact command that installs the package, `python3 -m pip install
+"git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v<version>#subdirectory=shared"`,
+at the tag of the highest `REQUIRES` among the module's entries, since C15, C16 and C17 send the user to
+that note for the command: a note that has none, or only another tag, is RED at its first line that names
+the package, else at line 1; a note that is missing is BROKEN.
+
 Findings are sorted by path, then line, then column, whatever order git lists the files in. The green
-line gives the mentions and the number of files that hold them, and the entries read.
+line gives the mentions and the number of files that hold them, the entries read, the version of the
+package and the install notes read.
 
 Modes:  no arguments   check the kit;
         --self-test    prove the check on a throwaway repository: a baseline of four entry pairs, their
@@ -72,17 +121,37 @@ Modes:  no arguments   check the kit;
                        UTF-8, git
                        missing and no repository, each a literal BROKEN line; the source moved with
                        every copy left, red on each of them; the order of the findings under an
-                       adversarial listing; the misinvocation. The clauses, over the four kinds of entry,
-                       a gate on the default clause, a gate with its own, a session-start printer and a
-                       generator: each of the three texts of each kind changed alone red, the whole set
-                       in one loop, with literal reports; an Identity's clause changed alone red three
-                       times, a generator's green; the default of `identity.py` changed red for the
-                       gates on it alone, the keyword and the default read wherever each stands among
-                       others; the first echo that needs python3 read as C1, a tab after `echo` too, and
-                       a line whose fix dash has no space before it no fix part; the shell files executable,
-                       as the kit's are; two Identities, none, no `.sh`, a text missing, no string
-                       constant, one line, no fix part and the other BROKEN cases as literal lines;
-                       entries outside any module's plugin/scripts/ not read.
+                       adversarial listing; the misinvocation. The `requires-python` of the shared
+                       distribution, in a baseline of its own: right green with its line in the report,
+                       one minor above and one below red with literal lines, with its own why, at the line
+                       of its key, also past another table's key of that name, quoted, under a quoted
+                       table header, dotted and past an array of tables, the
+                       source moved up with it left red, a comment naming another minor not read, and each
+                       file or value that cannot be read as the form `>=3.<minor>` a literal BROKEN
+                       line. The clauses, over the four kinds of entry, a gate on the default clause, a
+                       gate with its own, a session-start printer and a generator: each of the three
+                       texts of each kind changed alone red, the whole set in one loop, with literal
+                       reports; an Identity's clause changed alone red three times, a generator's green;
+                       the default of `identity.py` changed red for the gates on it alone, the keyword
+                       and the default read wherever each stands among others; the first echo that
+                       needs python3 read as C1, a tab after `echo` too, and a line whose fix dash has
+                       no space before it no fix part; the shell files executable, as the kit's are;
+                       two Identities, none, no `.sh`, a text missing, no string constant, one line, no
+                       fix part and the other BROKEN cases as literal lines; entries outside any
+                       module's plugin/scripts/ not read. C15, over the four kinds of entry: each part of
+                       its text changed alone,
+                       the old text, a module named by another's name, the page's row changed with every
+                       entry left, each red with a literal report; the page missing, without the row,
+                       without a code span and without the clause placeholder BROKEN. The lines that print
+                       C15, C16 and C17, in each of the four statements of `PREAMBLE`: a statement missing,
+                       changed in a word, the namespace, the clause, the escape of the path, the exit or the
+                       argument of the call, and the order broken, each red once, for the four kinds of
+                       entry. REQUIRES: the package's version, a later minor, patch and numbers read as
+                       numbers green; a version above, a later major, an earlier major, a malformed one in a
+                       dozen shapes red, and one missing or no string BROKEN; `__version__` missing, no
+                       string or no version BROKEN. The install notes: the command at the tag green, another
+                       tag, another address, none and a note with the command of a lower tag red with
+                       literal reports, the highest of two entries held, a missing note BROKEN.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -97,6 +166,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import tomllib
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -106,6 +176,16 @@ from kit_module_doc import DocumentError, module_folders
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 SOURCE = "shared/constitution_layer_kit/preflight.py"
+THIS_FILE = "scripts/check-copies.py"
+PROJECT = "shared/pyproject.toml"  # the shared distribution; its requires-python holds a floor
+REQUIRES = re.compile(r"^>=3\.(\d+)$")  # the one form of requires-python this check reads
+# Where the key stands, for the line of a finding: the key written bare or quoted, a table header `[name]` or
+# `[[name]]` on a line of its own (a name holds no bracket, comma or equal sign, so the line of an array of
+# two or more elements is none; `requires_line` states the limit of an array of fewer than two).
+KEY_NAME = r"""(?:requires-python|"requires-python"|'requires-python')"""
+TABLE_HEADER = re.compile(r"^\s*\[\[?\s*([^\[\],=]*?)\s*\]\]?\s*(?:#.*)?$")
+REQUIRES_KEY = re.compile(rf"^\s*{KEY_NAME}\s*=")
+REQUIRES_DOTTED = re.compile(rf"""^\s*(?:project|"project"|'project')\s*\.\s*{KEY_NAME}\s*=""")
 NOT_READ = ("docs/decisions/", "docs/research/")  # records and frozen comparisons keep their words
 REGULAR = ("100644", "100755")  # a symbolic link (120000) and a submodule (160000) are never read
 GIT_BINARY = 8000  # git's own test: a NUL byte among the first 8000 bytes
@@ -113,8 +193,62 @@ WHY = (
     "a floor copied apart drifts, and the entry file that drifts prints a traceback where its designed"
     " teaching line should stand (law 6 of CLAUDE.md)"
 )
+WHY_REQUIRES = (
+    "pip reads requires-python and no entry file: a value below the floor lets pip install the shared code on"
+    " an interpreter the gates refuse, and a value above it makes pip refuse an interpreter the gates support"
+)
+WHY_C15 = (
+    "the row of the shared page is the text every entry prints when python3 cannot import the package, so a"
+    " line worded apart tells the user something the page does not say (law 6 of CLAUDE.md)"
+)
+WHY_ABOVE = (
+    "no release carries a version the package's source has not reached, so an entry that requires one stops"
+    " every run of the kit's own sessions at C16 until the source is raised"
+)
+WHY_MAJOR = (
+    "an entry written for an earlier major than the package's is stopped at C17 by the release the kit's own"
+    " sessions install"
+)
+WHY_FORM = (
+    "cli.version_failure reads a version as three decimal integers and refuses any other text as a defect of"
+    " the module, so an entry with another form exits 1 in a traceback instead of its designed line"
+)
+WHY_INSTALL = (
+    "C15, C16 and C17 send the user to the module's install note for the command, so a note without the"
+    " command at the tag of the release the entry requires leaves that user with no fix"
+)
+WHY_PREAMBLE = (
+    "the lines that print C15, C16 and C17 are written once for every entry and cannot be run apart with a"
+    " path that holds a line break, so a copy that drifts shows its defect to the user and to no fixture"
+)
+# What every entry does between the text of its C15 and the import of its own package, as the kit writes it:
+# the guide, the import of `cli` with C15 printed by hand when it fails, and the version check with C16 and
+# C17 printed when it finds a line. `@MODULE@` and `@CLAUSE@` stand for the entry's namespace and clause.
+PREAMBLE = r"""
+GUIDE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "INSTALL.md")
+try:
+    from constitution_layer_kit import cli
+except ImportError:
+    shown = GUIDE.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r")
+    sys.stderr.write(NO_SHARED_CODE % (REQUIRES, REQUIRES.partition(".")[0], shown))
+    sys.exit(1)
+failure = cli.version_failure(@MODULE@, REQUIRES, GUIDE, @CLAUSE@)
+if failure is not None:
+    sys.stderr.write(failure + "\n" + NO_SHARED_CODE.partition("\n")[2])
+    sys.exit(1)
+"""
+PREAMBLE_PARTS = ("GUIDE assignment", "import of cli", "version check", "test of its result")
 GUARD = r"(?!\d|\.\d)"  # not followed by a digit nor `.<digit>`: a longer minor, or a measured `3.N.M`
 IDENTITY = "shared/constitution_layer_kit/identity.py"  # the default clause's source
+GATE_PAGE = "shared/GATE.md"  # the page of the shared code: its table of messages holds the row C15
+PACKAGE_INIT = "shared/constitution_layer_kit/__init__.py"  # the package's `__version__`, its one source
+C15_ROW = re.compile(r"^\| C15 \| `([^`\n]+)`", re.MULTILINE)  # the row's first code span
+CLAUSE_TAIL = " — {clause}"  # how the row's text ends; a generator's entry text ends before it
+VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")  # fullmatch, [0-9] and no \d
+INSTALL_COMMAND = (  # the command of the install note; `{version}` is the highest REQUIRES of the module
+    'python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit'
+    '@constitution-layer-kit-v{version}#subdirectory=shared"'
+)
 ENTRY_FLOOR = re.compile(
     r"^FLOOR = \(3, ", re.MULTILINE
 )  # what makes a `.py` of a module's plugin/scripts/ an entry
@@ -189,6 +323,8 @@ class Result:
     mentions: int
     files: int  # the files that hold a mention
     entries: int  # the entries whose clauses were read
+    version: str  # the package's `__version__`
+    notes: int  # the install notes read
 
 
 def listed(root: Path) -> list[tuple[str, str]]:
@@ -257,6 +393,67 @@ def floor_of(root: Path) -> int:
             f" those of Python 3 — fix: {shape}"
         )
     return numbers[1]
+
+
+def is_project_table(name: str) -> bool:
+    return name in ("project", '"project"', "'project'")
+
+
+def requires_line(text: str) -> int:
+    """The line of the `requires-python` key that belongs to the table `[project]`, bare or quoted, or
+    written as a dotted key `project.requires-python` before the first table; line 1 where none is found. A
+    key of the same name under another table is not it. A line reader that is no parser has two limits.
+    A line inside a multi-line string that reads like a header or a key is not told apart. A nested array of
+    fewer than two elements alone on a line, such as `  ["b"]` with no comma after it or an empty `  []`,
+    reads as a table header.
+    A file that tomllib has parsed, with its key under [project], is the premise."""
+    in_project = False
+    in_root = True
+    for number, line in enumerate(text.splitlines(), 1):
+        header = TABLE_HEADER.match(line)
+        if header:
+            in_project, in_root = is_project_table(header[1]), False
+        elif in_project and REQUIRES_KEY.match(line):
+            return number
+        elif in_root and REQUIRES_DOTTED.match(line):
+            return number
+    return 1
+
+
+def requires_floor(root: Path) -> tuple[int, int, str]:
+    """The minor, the line of the key and the value of `requires-python` under `[project]` in the shared
+    distribution's pyproject.toml, which must read `>=3.<minor>`, else BROKEN with the fix."""
+    shape = 'write it as `requires-python = ">=3.<minor>"` under [project]'
+    try:
+        text = (root / PROJECT).read_text(encoding="utf-8")
+        data = tomllib.loads(text)
+    except FileNotFoundError as missing:
+        raise Broken(
+            f"{PROJECT} is missing — fix: restore the shared distribution's description, whose"
+            " requires-python holds a copy of the floor"
+        ) from missing
+    except OSError as bad:
+        raise Broken(f"{PROJECT} cannot be read ({bad.strerror}) — fix: make it readable") from bad
+    except (tomllib.TOMLDecodeError, UnicodeDecodeError) as bad:
+        raise Broken(f"{PROJECT} cannot be read as TOML ({bad}) — fix: repair the file") from bad
+    project = data.get("project")
+    value = project.get("requires-python") if isinstance(project, dict) else None
+    line = requires_line(text)
+    if not isinstance(value, str):
+        raise Broken(f"{PROJECT} has no requires-python under [project] as a string — fix: {shape}")
+    found = REQUIRES.match(value)
+    if found is None:
+        raise Broken(
+            f"requires-python in {PROJECT}:{line} is '{value}', and this check reads the form >=3.<minor>"
+            f" alone — fix: {shape}"
+        )
+    return int(found[1]), line, value
+
+
+def requires_finding(found: int, line: int, value: str, minor: int) -> Finding:
+    what = f"requires-python = '{value}' names 3.{found}, the floor is 3.{minor} ({SOURCE})"
+    fix = f"write >=3.{minor}, or move the floor in {SOURCE} and every copy together"
+    return Finding(PROJECT, line, 1, what, WHY_REQUIRES, fix)
 
 
 def mentions(text: str) -> list[Mention]:
@@ -354,6 +551,55 @@ def string_constant(tree: ast.Module, name: str) -> tuple[str, int] | None:
                 else None
             )
     return found
+
+
+def parse_version(text: str) -> tuple[int, int, int] | None:
+    """`major.minor.patch` as numbers, or None: three decimal integers, no leading zero, nothing else."""
+    found = VERSION.fullmatch(text)
+    return None if found is None else (int(found[1]), int(found[2]), int(found[3]))
+
+
+def package_version(root: Path) -> str:
+    """The `__version__` of the shared package: the last top-level assignment of a string constant, else
+    BROKEN with the fix; it must be a version."""
+    if not (root / PACKAGE_INIT).is_file():
+        raise Broken(
+            f"{PACKAGE_INIT} is missing — fix: restore the shared package, whose __version__ is its version"
+        )
+    found = string_constant(parse(root, PACKAGE_INIT), "__version__")
+    if found is None:
+        raise Broken(
+            f"{PACKAGE_INIT} has no __version__ as a string constant at the top level — fix: write"
+            ' __version__ = "<major.minor.patch>", the version of the package'
+        )
+    if parse_version(found[0]) is None:
+        raise Broken(
+            f"__version__ of {PACKAGE_INIT}:{found[1]} is '{found[0]}', not major.minor.patch — fix: write"
+            " three decimal integers without a leading zero, such as '1.0.0'"
+        )
+    return found[0]
+
+
+def c15_text(root: Path) -> str:
+    """The text of the row C15 of the shared page, with its placeholders, up to its clause: BROKEN, with the
+    fix, when the page or the row is missing, the row holds no code span or its text lacks the clause."""
+    if not (root / GATE_PAGE).is_file():
+        raise Broken(
+            f"{GATE_PAGE} is missing — fix: restore the page of the shared code, whose table holds C15"
+        )
+    page = contents(root, GATE_PAGE)
+    row = None if page is None else C15_ROW.search(page)
+    if row is None:
+        raise Broken(
+            f"{GATE_PAGE} has no row `| C15 | `<text>` ... |` — fix: restore the row of C15 in the table of"
+            " shared messages, its text in a code span right after the key"
+        )
+    if not row[1].endswith(CLAUSE_TAIL):
+        raise Broken(
+            f"the text of the C15 row of {GATE_PAGE} does not end in '{CLAUSE_TAIL}' — fix: end it so, since"
+            " a generator's entry prints the text without its clause"
+        )
+    return row[1].removesuffix(CLAUSE_TAIL)
 
 
 def entries_of(root: Path, tracked: list[str]) -> list[Entry]:
@@ -511,7 +757,139 @@ def clause_finding(
     return Finding(path, line, 1, what, why, fix)
 
 
-def entry_findings(root: Path, tracked: list[str], entry: Entry, default: Clause) -> list[Finding]:
+def requires_findings(entry: Entry, text: str, line: int, version: str) -> list[Finding]:
+    """What the release an entry requires must be: major.minor.patch, at or below the package's version and
+    of its major."""
+    needed, have = parse_version(text), parse_version(version)
+    assert have is not None  # package_version() held it
+    shown = f"REQUIRES of {entry.stem} is {text!r}"  # as Python writes it, a line break and all
+    if needed is None:
+        what = f"{shown}, not major.minor.patch"
+        fix = "write three decimal integers without a leading zero, such as '1.0.0'"
+        return [Finding(entry.path, line, 1, what, WHY_FORM, fix)]
+    if needed > have:
+        what = f"{shown}, above the package's version '{version}' ({PACKAGE_INIT})"
+        fix = (
+            "write the version of the release that carries the names the entry uses, or raise __version__ in"
+            f" {PACKAGE_INIT} in the same change"
+        )
+        return [Finding(entry.path, line, 1, what, WHY_ABOVE, fix)]
+    if needed[0] < have[0]:
+        what = f"{shown}, of an earlier major than the package's version '{version}' ({PACKAGE_INIT})"
+        fix = f"bring the entry to major {have[0]} and write the release it was written for"
+        return [Finding(entry.path, line, 1, what, WHY_MAJOR, fix)]
+    return []
+
+
+def c15_finding(entry: Entry, line: int, got: str, wanted: str) -> Finding:
+    """The first line of an entry's C15, up to its clause, against the row of the shared page."""
+    what = (
+        f"C15, NO_SHARED_CODE of {entry.stem} reads '{got}', and the C15 row of {GATE_PAGE} gives"
+        f" '{wanted}' for this module, %s standing for the required version, its major and the guide"
+    )
+    fix = (
+        f"write the first line as '{wanted}' followed by the clause, or change the row of {GATE_PAGE} and"
+        " every entry together"
+    )
+    return Finding(entry.path, line, 1, what, WHY_C15, fix)
+
+
+def top_level(tree: ast.Module, test: Callable[[ast.stmt], bool]) -> tuple[int, ast.stmt] | None:
+    """The first top-level statement of the module that `test` takes, with its place among them."""
+    return next(((at, node) for at, node in enumerate(tree.body) if test(node)), None)
+
+
+def assigns(name: str) -> Callable[[ast.stmt], bool]:
+    """A test for the statement that assigns to `name`."""
+    return lambda node: (
+        isinstance(node, ast.Assign)
+        and any(isinstance(target, ast.Name) and target.id == name for target in node.targets)
+    )
+
+
+def call_clause(node: ast.stmt) -> str | None:
+    """The fourth argument of the call of `failure = cli.version_failure(...)`, when it is a string."""
+    call = node.value if isinstance(node, ast.Assign) else None
+    if isinstance(call, ast.Call) and len(call.args) == 4:
+        clause = call.args[3]
+        if isinstance(clause, ast.Constant) and isinstance(clause.value, str):
+            return clause.value
+    return None
+
+
+def call_finding(entry: Entry, line: int, handed: str, declared: Clause, generator: bool) -> Finding:
+    """The clause the version check hands, which C16 and C17 close with, against the Identity's."""
+    if generator:
+        what = (
+            f"C16 and C17, the version check of {entry.stem} hands the clause '{handed}', and a generator's"
+            f" entry lines carry none: its Identity's clause, '{declared.text}' ({declared.where}), closes C2"
+            " alone"
+        )
+        fix = "hand an empty clause to the version check"
+    else:
+        got = "no clause" if handed == "" else f"the clause '{handed}'"
+        what = (
+            f"C16 and C17, the version check of {entry.stem} hands {got}, and its Identity names"
+            f" '{declared.text}' ({declared.where})"
+        )
+        fix = (
+            f"hand '{declared.text}' to the version check, or change the Identity's until_installed and"
+            f" every entry line of {entry.stem} together"
+        )
+    return Finding(entry.path, line, 1, what, WHY_CLAUSE, fix)
+
+
+def preamble_text(entry: Entry, clause: str) -> list[ast.stmt]:
+    """The four statements of `PREAMBLE` for the entry's namespace and `clause`."""
+    return ast.parse(PREAMBLE.replace("@MODULE@", repr(entry.module)).replace("@CLAUSE@", repr(clause))).body
+
+
+def preamble_findings(entry: Entry, tree: ast.Module, declared: Clause, generator: bool) -> list[Finding]:
+    """What an entry does between the text of its C15 and the import of its own package, as `PREAMBLE` writes
+    it for its namespace and its clause, the Identity's for a gate and none for a generator: each of its four
+    statements, found by what it is, equals the kit's in the syntax tree, comments and line breaks aside, and
+    they come in that order, ahead of the import of the module's own package. A version check that differs in
+    the clause alone is the clause's finding, as for C1, C14 and C15."""
+    guide, attempt, check, test = preamble_text(entry, "" if generator else declared.text)
+    assert isinstance(test, ast.If)
+    located = [
+        top_level(tree, assigns("GUIDE")),
+        top_level(tree, lambda node: isinstance(node, ast.Try)),
+        top_level(tree, assigns("failure")),
+        top_level(tree, lambda node: isinstance(node, ast.If) and ast.dump(node.test) == ast.dump(test.test)),
+    ]
+    found: list[Finding] = []
+    fix = "write it as the other entries of the kit do, or as PREAMBLE in scripts/check-copies.py has it"
+    for part, wanted, here in zip(PREAMBLE_PARTS, (guide, attempt, check, test), located, strict=True):
+        if here is None:
+            what = (
+                f"{entry.stem} has no {part}, which the kit's entries write between C15 and their own import"
+            )
+            found.append(Finding(entry.path, 1, 1, what, WHY_PREAMBLE, fix))
+        elif ast.dump(here[1]) != ast.dump(wanted):
+            handed = call_clause(here[1]) if part == "version check" else None
+            if handed is not None and ast.dump(here[1]) == ast.dump(preamble_text(entry, handed)[2]):
+                found.append(call_finding(entry, here[1].lineno, handed, declared, generator))
+                continue
+            what = f"the {part} of {entry.stem} differs from the kit's, which PREAMBLE in {THIS_FILE} writes"
+            found.append(Finding(entry.path, here[1].lineno, 1, what, WHY_PREAMBLE, fix))
+    places = [here[0] for here in located if here is not None]
+    own = top_level(
+        tree, lambda node: isinstance(node, ast.ImportFrom) and (node.module or "").endswith("_gate")
+    )
+    if places != sorted(places) or (own is not None and located[3] is not None and own[0] < located[3][0]):
+        what = (
+            f"{entry.stem} does not keep the order of the kit's entries: GUIDE, the import of cli, the"
+            " version check, its test, then the import of the module's own package"
+        )
+        found.append(Finding(entry.path, 1, 1, what, WHY_PREAMBLE, fix))
+    return found
+
+
+def entry_findings(
+    root: Path, tracked: list[str], entry: Entry, default: Clause, c15: str, version: str
+) -> tuple[list[Finding], str | None]:
+    """The findings of one entry, and the release it requires when that is a version."""
     declared = identity_clause(root, tracked, entry, default)
     if entry.shell not in tracked:
         raise Broken(
@@ -545,15 +923,56 @@ def entry_findings(root: Path, tracked: list[str], entry: Entry, default: Clause
     closing = None if lines[1].startswith(CLOSINGS) else lines[1]  # not C11 nor S1: a generator's
     wanted = declared.text if closing is None else None
     found: list[Finding] = []
+    line_shared = constants["NO_SHARED_CODE"][1]
+    first_shared = constants["NO_SHARED_CODE"][0].split("\n")[0]
     for name, path, line, first in (
         ("C1", entry.shell, shell.count("\n", 0, c1.start()) + 1, c1[1]),
         ("C14", entry.path, line_old, lines[0]),
-        ("C15", entry.path, constants["NO_SHARED_CODE"][1], constants["NO_SHARED_CODE"][0].split("\n")[0]),
+        ("C15", entry.path, line_shared, first_shared),
     ):
         clause = first_clause(LABELS[name], path, line, first)
         if clause != wanted:
             found.append(clause_finding(entry, name, path, line, clause, declared, closing))
-    return found
+    got = FIX_PART.match(first_shared)
+    assert got is not None  # first_clause() read it above
+    text = c15.replace("{module}", entry.module)
+    for placeholder in ("{required}", "{major}", "{guide}"):
+        text = text.replace(placeholder, "%s")
+    if got[1] != text:
+        found.append(c15_finding(entry, line_shared, got[1], text))
+    required = string_constant(tree, "REQUIRES")
+    if required is None:
+        raise Broken(
+            f"{entry.path} has no REQUIRES as a string constant at the top level — fix: write"
+            ' REQUIRES = "<major.minor.patch>", the release of the shared package the entry needs'
+        )
+    needed, line_needed = required
+    found += requires_findings(entry, needed, line_needed, version)
+    found += preamble_findings(entry, tree, declared, closing is not None)
+    return found, needed if parse_version(needed) is not None else None
+
+
+def install_findings(root: Path, tracked: list[str], module: str, release: str) -> list[Finding]:
+    """The install note of a module gives the command at the tag of `release`, the highest release an entry
+    of the module requires."""
+    path = f"modules/{module}/plugin/INSTALL.md"
+    if path not in tracked:
+        raise Broken(
+            f"{path} is missing — fix: restore the module's install note, which C15, C16 and C17 send the"
+            " user to for the command"
+        )
+    text = contents(root, path)
+    if text is None:
+        raise Broken(f"{path} is binary, and the check reads it as text — fix: restore the file")
+    command = INSTALL_COMMAND.format(version=release)
+    if command in text:
+        return []
+    named = [number for number, line in enumerate(text.splitlines(), 1) if "constitution-layer-kit" in line]
+    what = f"the note gives no command '{command}', the tag of the release its entries require, {release}"
+    fix = (
+        f"write the command, as a line, where the note lists what the module needs, for the release {release}"
+    )
+    return [Finding(path, named[0] if named else 1, 1, what, WHY_INSTALL, fix)]
 
 
 def check_kit(root: Path, listing: Lister = listed) -> Result:
@@ -569,13 +988,25 @@ def check_kit(root: Path, listing: Lister = listed) -> Result:
         total += len(found)
         holding += 1 if found else 0
         findings.extend(finding(path, m, minor) for m in found if m.found != minor - m.below)
+    required, key_line, required_text = requires_floor(root)
+    if required != minor:
+        findings.append(requires_finding(required, key_line, required_text, minor))
     tracked = sorted(path for mode, path in files if mode in REGULAR)
     entries = entries_of(root, tracked)
     default = default_clause(root)
+    c15 = c15_text(root)
+    version = package_version(root)
+    highest: dict[str, tuple[int, int, int]] = {}  # the highest release an entry of a module requires
     for entry in entries:
-        findings.extend(entry_findings(root, tracked, entry, default))
+        held, release = entry_findings(root, tracked, entry, default, c15, version)
+        findings.extend(held)
+        parsed = None if release is None else parse_version(release)
+        if parsed is not None:
+            highest[entry.module] = max(highest.get(entry.module, parsed), parsed)
+    for module, parsed in sorted(highest.items()):
+        findings.extend(install_findings(root, tracked, module, ".".join(map(str, parsed))))
     findings.sort(key=lambda f: (f.path, f.line, f.column))
-    return Result(findings, minor, total, holding, len(entries))
+    return Result(findings, minor, total, holding, len(entries), version, len(highest))
 
 
 def report(result: Result) -> int:
@@ -589,8 +1020,12 @@ def report(result: Result) -> int:
         )
         return EXIT_RED
     print(
-        f"GREEN: every copy of the Python floor names 3.{result.minor} ({SOURCE}) — {counts}, and each of"
-        f" {result.entries} entries' C1, C14 and C15 closes with its Identity's clause"
+        f"GREEN: every copy of the Python floor names 3.{result.minor} ({SOURCE}) — {counts}, requires-python"
+        f" of {PROJECT} is >=3.{result.minor}, each of {result.entries} entries' C1, C14 and C15 closes with"
+        f" its Identity's clause, C15 reads as {GATE_PAGE} gives it, the lines that print it and C16 and C17"
+        f" are the kit's, each REQUIRES is at or below the package's version {result.version} in its major,"
+        f" and each of {result.notes} install notes gives the command at the tag of its module's highest"
+        " REQUIRES"
     )
     return EXIT_GREEN
 
@@ -638,6 +1073,11 @@ OWN_CLAUSE = "until then shell commands pass unchecked"
 PRINTER_CLAUSE = "until then the gate's state is not said at session start"
 GENERATOR_CLAUSE = "until then nothing is made"
 CHANGED = "until then it is changed"  # a clause that no Identity of the fixture names
+PACKAGE_VERSION = "1.4.0"  # the fixture package's `__version__`
+C15_ROW_TEXT = (  # the row C15 of the fixture's page, as the shared page gives it
+    "BROKEN: {module} needs the Python package constitution-layer-kit {required} or a later {major}.x"
+    " release, and python3 cannot import it — fix: install it for python3 as {guide} says — {clause}"
+)
 GATE_CLOSING = "BROKEN: the check could not run — 0 documents examined"
 SESSION_CLOSING = "BROKEN: the session-start line could not be printed — the gate's state is unknown"
 GENERATOR_CLOSING = "BROKEN: the thing could not be made — nothing was written"
@@ -652,6 +1092,7 @@ class Spec:
     clause: str | None  # what its entry lines close with; None: a generator's carry none
     identity: str | None  # the until_installed of its Identity; None: the keyword is left out
     closing: str  # the closing line of its entry files
+    requires: str = "1.0.0"  # the release its entry file requires
 
     @property
     def package(self) -> str:
@@ -664,16 +1105,44 @@ class Spec:
 
 SPECS = (
     Spec("const-a", "check-a", DEFAULT_CLAUSE, None, GATE_CLOSING),  # a gate on the default clause
-    Spec("const-b", "check-b", OWN_CLAUSE, OWN_CLAUSE, GATE_CLOSING),  # a gate with its own clause
-    Spec("const-c", "session-start", PRINTER_CLAUSE, PRINTER_CLAUSE, SESSION_CLOSING),  # a printer
+    Spec("const-b", "check-b", OWN_CLAUSE, OWN_CLAUSE, GATE_CLOSING, "1.2.0"),  # a gate with its own clause
+    Spec(
+        "const-c", "session-start", PRINTER_CLAUSE, PRINTER_CLAUSE, SESSION_CLOSING, PACKAGE_VERSION
+    ),  # a printer
     Spec("const-d", "make-thing", None, GENERATOR_CLAUSE, GENERATOR_CLOSING),  # a generator
 )
 
 
-def entry_python(module: str, minor: int, old: str | None, shared: str | None, closing: str) -> str:
-    """An entry file as the kit's entries are written: the floor, then two texts of concatenated
-    literals, each a first line and a closing line; `old` and `shared` are the clauses of TOO_OLD and
-    NO_SHARED_CODE, None for none."""
+def c15_first(module: str) -> str:
+    """The first line of `NO_SHARED_CODE` up to its clause, as the page's row gives it for `module`: the
+    required version, its major and the guide are each a `%s` the entry fills."""
+    row = C15_ROW_TEXT.removesuffix(" — {clause}").replace("{module}", module)
+    return row.replace("{required}", "%s").replace("{major}", "%s").replace("{guide}", "%s")
+
+
+def install_command(version: str) -> str:
+    """The command of an install note, typed out for `version`."""
+    return (
+        'python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit'
+        f'@constitution-layer-kit-v{version}#subdirectory=shared"'
+    )
+
+
+def entry_python(
+    module: str,
+    minor: int,
+    old: str | None,
+    shared: str | None,
+    closing: str,
+    requires: str = "1.0.0",
+    c15: str | None = None,
+    after: str | None = None,
+) -> str:
+    """An entry file as the kit's entries are written: the floor and the release it requires, then two texts
+    of concatenated literals, each a first line and a closing line; `old` and `shared` are the clauses of
+    TOO_OLD and NO_SHARED_CODE, None for none; `c15` is the first line of NO_SHARED_CODE up to its clause,
+    the row's text for `module` unless given. Then what the kit's entries do after their texts, `after`:
+    the preamble for `module` and the clause of `shared`, with the import of the module's own package."""
     texts = []
     for name, first, clause in (
         (
@@ -681,11 +1150,7 @@ def entry_python(module: str, minor: int, old: str | None, shared: str | None, c
             f"BROKEN: {module} needs Python %d.%d or newer, found %d.%d — fix: install a Python",
             old,
         ),
-        (
-            "NO_SHARED_CODE",
-            f"BROKEN: {module} is installed without its shared code — fix: install it",
-            shared,
-        ),
+        ("NO_SHARED_CODE", c15_first(module) if c15 is None else c15, shared),
     ):
         first += "" if clause is None else f" — {clause}"
         cut = len(first) // 2  # the first line stands in two literals, the cut inside it
@@ -693,7 +1158,32 @@ def entry_python(module: str, minor: int, old: str | None, shared: str | None, c
             f"{name} = (\n    {first[:cut]!r}\n    {(first[cut:] + chr(10))!r}\n"
             f"    {(closing + chr(10))!r}\n)\n"
         )
-    return f'"""An entry file."""\n\nimport sys\n\nFLOOR = (3, {minor})\n\n' + "\n".join(texts)
+    return (
+        f'"""An entry file."""\n\nimport sys\n\nFLOOR = (3, {minor})\nREQUIRES = {requires!r}\n\n'
+        + "\n".join(texts)
+        + (preamble_for(module, shared) if after is None else after)
+    )
+
+
+def preamble_for(module: str, clause: str | None) -> str:
+    """What the kit's entries write after their texts, typed here as they write it: the guide, the import of
+    `cli` with C15 printed by hand when it fails, the version check, and the import of the module's own
+    package. The check holds an entry's to its own form, `PREAMBLE`; this is the fixture's copy."""
+    package = module.removeprefix("const-") + "_gate"
+    return (
+        "\nGUIDE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'INSTALL.md')\n"
+        "try:\n"
+        "    from constitution_layer_kit import cli  # noqa: E402\n"
+        "except ImportError:\n"
+        '    shown = GUIDE.replace("\\\\", "\\\\\\\\").replace("\\n", "\\\\n").replace("\\r", "\\\\r")\n'
+        '    sys.stderr.write(NO_SHARED_CODE % (REQUIRES, REQUIRES.partition(".")[0], shown))\n'
+        "    sys.exit(1)\n"
+        f"failure = cli.version_failure({module!r}, REQUIRES, GUIDE, {clause or ''!r})\n"
+        "if failure is not None:\n"
+        '    sys.stderr.write(failure + "\\n" + NO_SHARED_CODE.partition("\\n")[2])\n'
+        "    sys.exit(1)\n"
+        f"\nfrom {package} import start  # noqa: E402\n"
+    )
 
 
 def entry_shell(module: str, stem: str, minor: int, clause: str | None, closing: str) -> str:
@@ -709,11 +1199,29 @@ def entry_shell(module: str, stem: str, minor: int, clause: str | None, closing:
     )
 
 
-def put_entry(root: Path, spec: Spec, minor: int = BASE, given: dict[str, str | None] | None = None) -> None:
+def put_entry(
+    root: Path,
+    spec: Spec,
+    minor: int = BASE,
+    given: dict[str, str | None] | None = None,
+    requires: str | None = None,
+    c15: str | None = None,
+    after: str | None = None,
+) -> None:
     """The entry pair of `spec`, its three texts closing with its clause but for those `given`, by `sh`,
-    `too_old` and `no_shared`."""
+    `too_old` and `no_shared`; it requires `requires` and prints `c15` up to the clause, else its own; what
+    follows its texts is `after`, else the kit's, with the clause of `spec` handed to the version check."""
     clauses = {"sh": spec.clause, "too_old": spec.clause, "no_shared": spec.clause} | (given or {})
-    python = entry_python(spec.module, minor, clauses["too_old"], clauses["no_shared"], spec.closing)
+    python = entry_python(
+        spec.module,
+        minor,
+        clauses["too_old"],
+        clauses["no_shared"],
+        spec.closing,
+        spec.requires if requires is None else requires,
+        c15,
+        preamble_for(spec.module, spec.clause) if after is None else after,
+    )
     put(root, spec.file("too_old"), python)
     put(root, spec.file("sh"), entry_shell(spec.module, spec.stem, minor, clauses["sh"], spec.closing))
     (root / spec.file("sh")).chmod(0o755)  # the kit's entry files are executable: git lists them as 100755
@@ -753,17 +1261,50 @@ def remove(root: Path, path: str) -> None:
     subprocess.run(["git", "rm", "-q", "-f", path], cwd=root, check=True, capture_output=True)
 
 
+REQUIRES_LINE = 6  # the line of requires-python in the fixture's shared pyproject.toml
+
+
+def gate_page(c15: str) -> str:
+    """The shared page of the fixture: a table of messages whose row C15 has the text `c15`, with the rows
+    around it that are not it: C14, and keys that only start like C15."""
+    return (
+        "# The code every gate shares\n\n| key | text |\n|---|---|\n"
+        "| C14 | `BROKEN: {module} needs an interpreter — fix: install one` (printed by the entry file) |\n"
+        f"| C15 | `{c15}` (printed by the entry file, for the same reason as C14) |\n"
+        "| C15.1 | `BROKEN: another key that starts like it` |\n"
+        "| C150 | `BROKEN: and another` |\n"
+    )
+
+
+def install_note(minor: int, release: str) -> str:
+    """A module's install note of the fixture: the floor, and the command at the tag of `release`."""
+    return (
+        f"Install it. Python 3.{minor} or newer.\n\nThe shared code is a Python package:\n"
+        f"```bash\n{install_command(release)}\n```\n"
+    )
+
+
+def requires_toml(value: str) -> str:
+    """The shared distribution's pyproject.toml of the fixture, its requires-python at REQUIRES_LINE."""
+    return (
+        f'[build-system]\nrequires = ["setuptools"]\n\n[project]\nname = "x"\nrequires-python = "{value}"\n'
+    )
+
+
 def fresh(root: Path, minor: int = BASE, floor: int | None = None) -> None:
     """A throwaway kit whose every copy of the floor names `minor`, the source `floor` (default the
     same): four modules, each with its document, install note, entry pair and Identity, and the shared
-    identity; the root install note, the tool configuration, the workflow, a record and a comparison
-    that name another minor."""
+    identity and distribution, whose requires-python is `>=3.<minor>`; the root install note, the tool
+    configuration, the workflow, a record and a comparison that name another minor."""
     try:
         subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
     except (OSError, subprocess.CalledProcessError) as failed:
         raise Broken(f"git init failed in {root} — fix: install git, then run the self-test") from failed
     put(root, SOURCE, f'"""The preflight."""\n\nFLOOR = (3, {minor if floor is None else floor})\n')
     put(root, IDENTITY, identity_source(DEFAULT_CLAUSE))
+    put(root, PROJECT, requires_toml(f">=3.{minor}"))
+    put(root, PACKAGE_INIT, f'"""The package."""\n\n__version__ = "{PACKAGE_VERSION}"\n')
+    put(root, GATE_PAGE, gate_page(C15_ROW_TEXT))
     put(root, "INSTALL.md", f"# Install\n\nNeeds Python 3.{minor} or newer.\n")
     put(
         root,
@@ -779,7 +1320,7 @@ def fresh(root: Path, minor: int = BASE, floor: int | None = None) -> None:
             f"modules/{spec.module}/MODULE.md",
             f"A module: needs git, Python 3.{minor}. The floor (3.{minor}).\n",
         )
-        put(root, f"modules/{spec.module}/plugin/INSTALL.md", f"Install it. Python 3.{minor} or newer.\n")
+        put(root, f"modules/{spec.module}/plugin/INSTALL.md", install_note(minor, spec.requires))
         put_entry(root, spec, minor)
         put_identity(root, spec, spec.identity)
     put(  # the forms that name one minor below the floor, where a runner fakes the interpreter
@@ -874,8 +1415,12 @@ def self_test() -> int:
             == [
                 f"GREEN: every copy of the Python floor names 3.{BASE}"
                 " (shared/constitution_layer_kit/preflight.py)"
-                f" — {BASE_MENTIONS} mention(s) in {BASE_FILES} file(s) examined, and each of"
-                f" {BASE_ENTRIES} entries' C1, C14 and C15 closes with its Identity's clause"
+                f" — {BASE_MENTIONS} mention(s) in {BASE_FILES} file(s) examined, requires-python of"
+                f" shared/pyproject.toml is >=3.{BASE}, each of {BASE_ENTRIES} entries' C1, C14 and C15"
+                " closes with its Identity's clause, C15 reads as shared/GATE.md gives it, the lines that"
+                " print it and C16 and C17 are the kit's, each REQUIRES is at or below the package's version"
+                f" {PACKAGE_VERSION} in its major, and each of {BASE_ENTRIES} install notes gives the command"
+                " at the tag of its module's highest REQUIRES"
             ],
             "the baseline is green, with its literal line",
         )
@@ -884,10 +1429,12 @@ def self_test() -> int:
     self_test_guards(cases)
     self_test_not_read(cases)
     self_test_broken(cases)
+    self_test_requires(cases)
     self_test_clauses(cases)
     self_test_clause_reports(cases)
     self_test_identities(cases)
     self_test_clause_broken(cases)
+    self_test_package(cases)
     self_test_entry_scope(cases)
     self_test_order(cases)
     print(f"{cases.total - cases.failed}/{cases.total} cases green")
@@ -930,7 +1477,7 @@ def self_test_reds(cases: Cases) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         fresh(root)
-        write(root, "modules/const-c/plugin/INSTALL.md", f"Install it. Python 3.{OVER} or newer.\n")
+        write(root, "modules/const-c/plugin/INSTALL.md", install_note(OVER, SPECS[2].requires))
         code, lines = run_report(root)
         cases.check(
             code == EXIT_RED
@@ -964,12 +1511,13 @@ def self_test_reds(cases: Cases) -> None:
         result = check_kit(root)
         paths = {f.path for f in result.findings}
         cases.check(
-            len(result.findings) == BASE_MENTIONS - 1  # the source's own literal names the new floor
+            len(result.findings) == BASE_MENTIONS - 1 + 1  # the source's own literal names the new floor
             and result.minor == OVER
             and SOURCE not in paths
-            and len(paths) == BASE_FILES - 1,
+            and PROJECT in paths
+            and len(paths) == BASE_FILES - 1 + 1,
             f"the source moved up with every copy left: red on each of the other {BASE_MENTIONS - 1}"
-            f" mentions, in each of their {BASE_FILES - 1} files",
+            f" mentions, in each of their {BASE_FILES - 1} files, and on requires-python of {PROJECT}",
         )
 
 
@@ -1242,13 +1790,177 @@ def self_test_broken(cases: Cases) -> None:
     )
 
 
+def with_project(text: str) -> Build:
+    """A change to a fresh tree that gives the shared pyproject.toml this text."""
+    return lambda root: put(root, PROJECT, text)
+
+
+def self_test_requires(cases: Cases) -> None:
+    """The `requires-python` of the shared distribution, held to the source's floor."""
+    why = (
+        "  why: pip reads requires-python and no entry file: a value below the floor lets pip install the"
+        " shared code on an interpreter the gates refuse, and a value above it makes pip refuse an"
+        " interpreter the gates support"
+    )
+    counts = (
+        f"{BASE_MENTIONS} mention(s) in {BASE_FILES} file(s) examined and {BASE_ENTRIES} entries read,"
+        f" the floor 3.{BASE} (shared/constitution_layer_kit/preflight.py)"
+    )
+    move = "or move the floor in shared/constitution_layer_kit/preflight.py and every copy together"
+    for word, found in (("above", OVER), ("below", OLD), ("far above, a longer minor", int(f"{BASE}0"))):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            write(root, PROJECT, requires_toml(f">=3.{found}"))
+            code, lines = run_report(root)
+        cases.check(
+            code == EXIT_RED
+            and lines
+            == [
+                f"RED: shared/pyproject.toml:{REQUIRES_LINE}: requires-python = '>=3.{found}' names"
+                f" 3.{found}, the floor is 3.{BASE} (shared/constitution_layer_kit/preflight.py)",
+                why,
+                f"  fix: write >=3.{BASE}, {move}",
+                f"RED: 1 finding(s) — {counts}",
+            ],
+            f"a requires-python {word} the floor is red, with its literal lines",
+        )
+    right = f">=3.{BASE}"
+    bad = f'requires-python = ">=3.{OVER}"'  # the key that is wrong
+    stray = f'requires-python = ">=3.{OLD}"'  # a key of that name that the distribution does not read
+    for name, text, line in (
+        (
+            "a comment that names another minor, above the key: the key is the one at its own line",
+            f'# was ">=3.{OLD}"\n[project]\nname = "x"\nrequires-python = ">=3.{OVER}"\n',
+            4,
+        ),
+        (
+            "the key among others, in single quotes and with no space before the equal sign",
+            f"[project]\nname = 'x'\ndependencies = []\nrequires-python='>=3.{OVER}'\n",
+            4,
+        ),
+        (
+            "a key of that name under another table, written first: the key under [project] is the one",
+            f'[tool.x]\n{stray}\n\n[project]\nname = "x"\n{bad}\n',
+            6,
+        ),
+        ("the key quoted", f'[project]\nname = "x"\n"requires-python" = ">=3.{OVER}"\n', 3),
+        (
+            "the key in single quotes, under a quoted table header",
+            f"[tool.x]\n{stray}\n\n['project']  # the table\n'requires-python' = '>=3.{OVER}'\n",
+            5,
+        ),
+        (
+            "the key past a list in lines, an array of tables and another table of the project",
+            f'[project]\ndependencies = [\n  "a",\n  ["b"],\n]\n{bad}\n\n[[tool.x.y]]\n{stray}\n'
+            f"\n[project.urls]\n{stray}\n",
+            6,
+        ),
+        (
+            "the dotted key before the first table, past a comment and a blank line",
+            f'# the floor\n\nproject.requires-python = ">=3.{OVER}"\n\n[tool.x]\n{stray}\n',
+            3,
+        ),
+        (
+            "a dotted key of the same name under another table, written first: the key under [project]",
+            f'[tool.x]\nproject.requires-python = ">=3.{OLD}"\n\n[project]\nname = "x"\n{bad}\n',
+            6,
+        ),
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            write(root, PROJECT, text)
+            result = check_kit(root)
+        cases.check(
+            [(f.path, f.line, f.column) for f in result.findings] == [(PROJECT, line, 1)],
+            f"{name}: red once, at line {line}",
+        )
+    for name, text in (
+        (
+            "a comment that names another minor, below the right key",
+            f'# was ">=3.{OLD}"\n' + requires_toml(right),
+        ),
+        ("the right value in single quotes", f"[project]\nrequires-python = '{right}'\n"),
+        (
+            "the right key after other tables and keys",
+            f'[tool.x]\nrequires-python = ">=3.{OLD}"\n\n[project]\nrequires-python = "{right}"\n',
+        ),
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            write(root, PROJECT, text)
+            result = check_kit(root)
+        cases.check(result.findings == [] and result.mentions == BASE_MENTIONS, f"{name} is green")
+    shape = 'write it as `requires-python = ">=3.<minor>"` under [project]'
+    no_key = f"{PROJECT} has no requires-python under [project] as a string — fix: {shape}"
+    for name, text, expected in (
+        ("a table with no [project]", '[build-system]\nrequires = ["setuptools"]\n', no_key),
+        ("a [project] with no requires-python", '[project]\nname = "x"\n', no_key),
+        ("a requires-python under another table", f'[tool.x]\nrequires-python = "{right}"\n', no_key),
+        ("a requires-python that is a list", f'[project]\nrequires-python = ["{right}"]\n', no_key),
+        ("a requires-python that is a number", f"[project]\nrequires-python = {BASE}\n", no_key),
+        (
+            "an empty file",
+            "",
+            no_key,
+        ),
+    ):
+        cases.check(
+            broken_with(with_project(text)) == expected,
+            f"{name} is its literal BROKEN line",
+        )
+    for form in (
+        f">=3.{BASE},<4",
+        f">=3.{BASE}.1",
+        f">3.{BASE}",
+        f"~=3.{BASE}",
+        f"<=3.{BASE}",
+        f"== 3.{BASE}",
+        f">= 3.{BASE}",
+        ">=3",
+        "",
+    ):
+        cases.check(
+            broken_with(with_project(requires_toml(form))) == f"requires-python in {PROJECT}:"
+            f"{REQUIRES_LINE} is '{form}', and this check reads the form >=3.<minor> alone — fix: {shape}",
+            f"a requires-python of the form '{form}' is its literal BROKEN line",
+        )
+    said = broken_with(lambda r: put(r, PROJECT, "requires-python = \n"))
+    cases.check(
+        said.startswith(f"{PROJECT} cannot be read as TOML (") and said.endswith(") — fix: repair the file"),
+        "a shared pyproject.toml that is no TOML is a teaching BROKEN line",
+    )
+    cases.check(
+        broken_with(lambda r: remove(r, PROJECT))
+        == f"{PROJECT} is missing — fix: restore the shared distribution's description, whose requires-python"
+        " holds a copy of the floor",
+        "a missing shared pyproject.toml is its literal BROKEN line",
+    )
+    with tempfile.TemporaryDirectory() as tmp:  # the file git does not list, so the loop never reads it
+        root = Path(tmp).resolve()
+        fresh(root)
+        subprocess.run(["git", "rm", "--cached", "-q", PROJECT], cwd=root, check=True, capture_output=True)
+        put(root, PROJECT, b"\xff\xfe")
+        said = broken_line(root)
+        cases.check(
+            said.startswith(f"{PROJECT} cannot be read as TOML (")
+            and "invalid start byte" in said
+            and said.endswith(") — fix: repair the file"),
+            "a shared pyproject.toml that git does not list and that is no UTF-8 is a teaching BROKEN line",
+        )
+
+
 def write_plain(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
 
 
 # the clauses' cases name their lines and labels by hand: the line of each text in the fixture's entry files
-TEXT_LINES = {"sh": 4, "too_old": 7, "no_shared": 13}
+TEXT_LINES = {"sh": 4, "too_old": 8, "no_shared": 14}
+# and the lines of the statements the kit's entries write after their texts, in the fixture's entry files
+PREAMBLE_LINES = {"guide": 20, "import": 21, "call": 27, "check": 28, "own": 32}
 TEXT_LABELS = {
     "sh": "C1, the shell entry's line",
     "too_old": "C14, TOO_OLD",
@@ -1322,7 +2034,7 @@ def self_test_clauses(cases: Cases) -> None:
         )
         right = check_kit(root).findings
     cases.check(
-        wrong == [(SPECS[0].file("too_old"), 18)] and right == [],
+        wrong == [(SPECS[0].file("too_old"), text.count("\n") + 1)] and right == [],
         "TOO_OLD assigned twice: the last assignment is the text",
     )
     with tempfile.TemporaryDirectory() as tmp:  # the kit's entry files are executable, mode 100755
@@ -1383,7 +2095,7 @@ def self_test_clause_reports(cases: Cases) -> None:
             "too_old",
             None,
             [
-                "RED: modules/const-c/plugin/scripts/session-start.py:7: C14, TOO_OLD of session-start ends"
+                "RED: modules/const-c/plugin/scripts/session-start.py:8: C14, TOO_OLD of session-start ends"
                 " in no"
                 f" clause, and its Identity names '{PRINTER_CLAUSE}' ({printer_where})",
                 why,
@@ -1398,7 +2110,7 @@ def self_test_clause_reports(cases: Cases) -> None:
             "no_shared",
             CHANGED,
             [
-                "RED: modules/const-d/plugin/scripts/make-thing.py:13: C15, NO_SHARED_CODE of make-thing ends"
+                "RED: modules/const-d/plugin/scripts/make-thing.py:14: C15, NO_SHARED_CODE of make-thing ends"
                 " in"
                 f" the clause '{CHANGED}', and a generator's entry lines carry none: its Identity's clause,"
                 f" '{GENERATOR_CLAUSE}' ({generator_where}), closes C2 alone",
@@ -1429,9 +2141,14 @@ def self_test_identities(cases: Cases) -> None:
         where = f"modules/{spec.module}/plugin/scripts/{spec.package}/start.py:{UNTIL_LINE}"
         cases.check(
             [(f.path, f.line) for f in result.findings]
-            == [(spec.file("too_old"), 7), (spec.file("no_shared"), 13), (spec.file("sh"), 4)]
+            == [
+                (spec.file("too_old"), TEXT_LINES["too_old"]),
+                (spec.file("no_shared"), TEXT_LINES["no_shared"]),
+                (spec.file("too_old"), PREAMBLE_LINES["call"]),
+                (spec.file("sh"), TEXT_LINES["sh"]),
+            ]
             and all(f"names '{CHANGED}' ({where})" in f.what for f in result.findings),
-            f"{kind}: its Identity's clause changed alone is red three times, naming where it is",
+            f"{kind}: its Identity's clause changed alone is red four times, naming where it is",
         )
     with tempfile.TemporaryDirectory() as tmp:  # a generator's Identity clause closes C2 alone
         root = Path(tmp).resolve()
@@ -1448,11 +2165,16 @@ def self_test_identities(cases: Cases) -> None:
         result = check_kit(root)
     cases.check(
         [(f.path, f.line) for f in result.findings]
-        == [(SPECS[0].file("too_old"), 7), (SPECS[0].file("no_shared"), 13), (SPECS[0].file("sh"), 4)]
+        == [
+            (SPECS[0].file("too_old"), TEXT_LINES["too_old"]),
+            (SPECS[0].file("no_shared"), TEXT_LINES["no_shared"]),
+            (SPECS[0].file("too_old"), PREAMBLE_LINES["call"]),
+            (SPECS[0].file("sh"), TEXT_LINES["sh"]),
+        ]
         and all(
             f"(the default of until_installed, {IDENTITY}:{IDENTITY_LINE})" in f.what for f in result.findings
         ),
-        "the default of identity.py changed is red three times, for the gate on the default alone",
+        "the default of identity.py changed is red four times, for the gate on the default alone",
     )
     other = SPECS[1]
     builds: list[tuple[str, Build]] = [
@@ -1846,6 +2568,775 @@ def self_test_clause_broken(cases: Cases) -> None:
         )
 
 
+ENTRY_REQUIRES_LINE = 6  # the line of REQUIRES in the fixture's entry files
+SUMMARY_BASE = (
+    f"RED: 1 finding(s) — {BASE_MENTIONS} mention(s) in {BASE_FILES} file(s) examined and {BASE_ENTRIES}"
+    f" entries read, the floor 3.{BASE} (shared/constitution_layer_kit/preflight.py)"
+)
+
+
+def findings_of(root: Path) -> list[Finding]:
+    """The findings of a fixture tree after its new files are staged."""
+    stage(root)
+    return check_kit(root).findings
+
+
+def require(root: Path, spec: Spec, release: str) -> None:
+    """The entry of `spec` requires `release`, and its module's install note gives the command for it."""
+    put_entry(root, spec, requires=release)
+    put(root, f"modules/{spec.module}/plugin/INSTALL.md", install_note(BASE, release))
+
+
+def with_version(root: Path, version: str) -> None:
+    """The fixture's package states `version`, with every entry that requires another left as it is."""
+    put(root, PACKAGE_INIT, f'"""The package."""\n\n__version__ = {version!r}\n')
+
+
+def self_test_package(cases: Cases) -> None:
+    """C15 held whole against the page's row, the release each entry requires, and the install notes."""
+    self_test_c15(cases)
+    self_test_c15_broken(cases)
+    self_test_preamble(cases)
+    self_test_releases(cases)
+    self_test_releases_broken(cases)
+    self_test_notes(cases)
+
+
+def self_test_c15(cases: Cases) -> None:
+    """The first line of an entry's C15, up to its clause, is the row's text for its module."""
+    variants: dict[str, Callable[[str], str]] = {
+        "the text of an install without its shared code": lambda m: (
+            f"BROKEN: {m} is installed without its shared code (scripts/constitution_layer_kit is missing)"
+            " — fix: install the plugin from its marketplace"
+        ),
+        "a word dropped": lambda m: c15_first(m).replace("the Python package", "the package"),
+        "the guide left out": lambda m: c15_first(m).replace("as %s says", "as its note says"),
+        "the major left out": lambda m: c15_first(m).replace("a later %s.x release", "a later release"),
+        "the major written by hand": lambda m: c15_first(m).replace("a later %s.x", "a later 1.x"),
+        "the fix reworded": lambda m: c15_first(m).replace("install it for python3", "install it"),
+        "another module's name": lambda m: c15_first("const-zz"),
+    }
+    for kind, spec in KINDS:
+        for change, text in variants.items():
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp).resolve()
+                fresh(root)
+                put_entry(root, spec, c15=text(spec.module))
+                found = findings_of(root)
+            cases.check(
+                [
+                    (f.path, f.line, f.what.startswith(f"C15, NO_SHARED_CODE of {spec.stem} reads"))
+                    for f in found
+                ]
+                == [(spec.file("no_shared"), TEXT_LINES["no_shared"], True)],
+                f"{kind}: its C15 with {change} is red, once, at its own line",
+            )
+    for kind, spec in KINDS:  # the clause alone is the clause check's, never the text's second finding
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            put_entry(root, spec, given={"no_shared": CHANGED})
+            found = findings_of(root)
+        cases.check(
+            [(f.path, f.what.split(" of ")[0]) for f in found]
+            == [(spec.file("no_shared"), "C15, NO_SHARED_CODE")]
+            and "reads" not in found[0].what,
+            f"{kind}: its C15 with only the clause changed is the clause's finding, not the text's",
+        )
+    rewrites: list[tuple[str, Spec, Callable[[str], str], str]] = [
+        (
+            "a gate, a word dropped",
+            SPECS[0],
+            lambda m: c15_first(m).replace("the Python package", "the package"),
+            "BROKEN: const-a needs the Python package constitution-layer-kit %s or a later %s.x release, and"
+            " python3 cannot import it — fix: install it for python3 as %s says",
+        ),
+        (
+            "a generator, the major written by hand",
+            SPECS[3],
+            lambda m: c15_first(m).replace("a later %s.x", "a later 1.x"),
+            "BROKEN: const-d needs the Python package constitution-layer-kit %s or a later %s.x release, and"
+            " python3 cannot import it — fix: install it for python3 as %s says",
+        ),
+    ]
+    for name, spec, rewrite, wanted in rewrites:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            put_entry(root, spec, c15=rewrite(spec.module))
+            stage(root)
+            code, lines = run_report(root)
+        got = rewrite(spec.module)
+        cases.check(
+            code == EXIT_RED
+            and lines
+            == [
+                f"RED: {spec.file('no_shared')}:{TEXT_LINES['no_shared']}: C15, NO_SHARED_CODE of {spec.stem}"
+                f" reads '{got}', and the C15 row of shared/GATE.md gives '{wanted}' for this module, %s"
+                " standing for the required version, its major and the guide",
+                "  why: the row of the shared page is the text every entry prints when python3 cannot import"
+                " the package, so a line worded apart tells the user something the page does not say (law 6"
+                " of CLAUDE.md)",
+                f"  fix: write the first line as '{wanted}' followed by the clause, or change the row of"
+                " shared/GATE.md and every entry together",
+                SUMMARY_BASE,
+            ],
+            f"{name} is its literal report, exit 2",
+        )
+    with tempfile.TemporaryDirectory() as tmp:  # the row is the source: changed with every entry left
+        root = Path(tmp).resolve()
+        fresh(root)
+        put(root, GATE_PAGE, gate_page(C15_ROW_TEXT.replace("the Python package", "the package")))
+        found = findings_of(root)
+    cases.check(
+        [(f.path, f.line) for f in found]
+        == [(spec.file("no_shared"), TEXT_LINES["no_shared"]) for spec in SPECS],
+        "the row changed with every entry left is red once for each entry, at its own line",
+    )
+    with (
+        tempfile.TemporaryDirectory() as tmp
+    ):  # a row with its clause worded as a gate's, a generator reads the cut
+        root = Path(tmp).resolve()
+        fresh(root)
+        put(
+            root,
+            GATE_PAGE,
+            "| C14 | `x` |\n" + gate_page(C15_ROW_TEXT).split("| C14", 1)[1].join(["| C14", ""]),
+        )
+        found = findings_of(root)
+    cases.check(found == [], "a page that holds the row among other rows and text is read: green")
+
+
+def self_test_c15_broken(cases: Cases) -> None:
+    """A page the row cannot be read from is the BROKEN line that teaches."""
+    no_row = (
+        "shared/GATE.md has no row `| C15 | `<text>` ... |` — fix: restore the row of C15 in the table of"
+        " shared messages, its text in a code span right after the key"
+    )
+    broken_pages: list[tuple[str, Build, str]] = [
+        (
+            "no page",
+            lambda r: remove(r, GATE_PAGE),
+            "shared/GATE.md is missing — fix: restore the page of the shared code, whose table holds C15",
+        ),
+        (
+            "a page without the row",
+            lambda r: put(r, GATE_PAGE, "| C14 | `x` |\n| C15.1 | `y` |\n| C150 | `z` |\n"),
+            no_row,
+        ),
+        ("a row without a code span", lambda r: put(r, GATE_PAGE, "| C15 | no code here |\n"), no_row),
+        (
+            "a row that does not start its line",
+            lambda r: put(r, GATE_PAGE, "see | C15 | `BROKEN: x — {clause}` |\n"),
+            no_row,
+        ),
+        (
+            "a row whose text ends without the clause",
+            lambda r: put(
+                r, GATE_PAGE, "| C15 | `" + C15_ROW_TEXT.removesuffix(" — {clause}") + "` (printed) |\n"
+            ),
+            "the text of the C15 row of shared/GATE.md does not end in ' — {clause}' — fix: end it so, since"
+            " a generator's entry prints the text without its clause",
+        ),
+        (
+            "a row whose clause is written out",
+            lambda r: put(
+                r,
+                GATE_PAGE,
+                "| C15 | `"
+                + C15_ROW_TEXT.replace("{clause}", "until then Markdown writes pass unchecked")
+                + "` |\n",
+            ),
+            "the text of the C15 row of shared/GATE.md does not end in ' — {clause}' — fix: end it so, since"
+            " a generator's entry prints the text without its clause",
+        ),
+    ]
+    for name, build, said in broken_pages:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            build(root)
+            stage(root)
+            cases.check(broken_line(root) == said, f"{name} is a teaching BROKEN line")
+
+
+def swapped(text: str, old: str, new: str) -> str:
+    """`text` with `old` replaced by `new`, which must be there: a change that is none proves nothing."""
+    assert old in text, old
+    return text.replace(old, new)
+
+
+def preamble_variants(spec: Spec) -> dict[str, tuple[Callable[[str], str], list[tuple[int, str]]]]:
+    """The changes to an entry's preamble the self-test makes, each with the findings it must earn: the line
+    of the statement, and the words its headline opens with after the entry's name."""
+    call = f"cli.version_failure({spec.module!r}, REQUIRES, GUIDE, {spec.clause or ''!r})"
+    name = spec.stem
+    own = f"from {spec.package} import start  # noqa: E402\n"
+    at = PREAMBLE_LINES
+    return {
+        "the namespace of the version check another's": (
+            lambda s: swapped(s, call, call.replace(repr(spec.module), "'const-zz'")),
+            [(at["call"], f"the version check of {name} differs")],
+        ),
+        "the release of the version check written out": (
+            lambda s: swapped(s, call, call.replace("REQUIRES", repr("1.0.0"), 1)),
+            [(at["call"], f"the version check of {name} differs")],
+        ),
+        "the guide of the version check another name": (
+            lambda s: swapped(s, call, call.replace("GUIDE", "'INSTALL.md'")),
+            [(at["call"], f"the version check of {name} differs")],
+        ),
+        "the version check given a fifth argument": (
+            lambda s: swapped(s, call, call[:-1] + ", None)"),
+            [(at["call"], f"the version check of {name} differs")],
+        ),
+        "the guide of another file": (
+            lambda s: swapped(s, "'INSTALL.md')", "'README.md')"),
+            [(at["guide"], f"the GUIDE assignment of {name} differs")],
+        ),
+        "the escape of the path dropped": (
+            lambda s: swapped(
+                s,
+                'GUIDE.replace("\\\\", "\\\\\\\\").replace("\\n", "\\\\n").replace("\\r", "\\\\r")',
+                "GUIDE",
+            ),
+            [(at["import"], f"the import of cli of {name} differs")],
+        ),
+        "the line feed left unescaped": (
+            lambda s: swapped(s, '.replace("\\n", "\\\\n")', ""),
+            [(at["import"], f"the import of cli of {name} differs")],
+        ),
+        "the exit of the failed import dropped": (
+            lambda s: swapped(s, "    sys.exit(1)\nfailure", "    pass\nfailure"),
+            [(at["import"], f"the import of cli of {name} differs")],
+        ),
+        "the C15 line written without its arguments": (
+            lambda s: swapped(
+                s, 'NO_SHARED_CODE % (REQUIRES, REQUIRES.partition(".")[0], shown)', "NO_SHARED_CODE"
+            ),
+            [(at["import"], f"the import of cli of {name} differs")],
+        ),
+        "the closing line left out of the version check": (
+            lambda s: swapped(s, '+ "\\n" + NO_SHARED_CODE.partition("\\n")[2]', ""),
+            [(at["check"], f"the test of its result of {name} differs")],
+        ),
+        "the exit of the version check dropped": (
+            lambda s: swapped(s, "    sys.exit(1)\n\nfrom", "    pass\n\nfrom"),
+            [(at["check"], f"the test of its result of {name} differs")],
+        ),
+        "the test of the result another": (
+            lambda s: swapped(s, "if failure is not None:", "if failure:"),
+            [(1, f"{name} has no test of its result")],
+        ),
+        "the import of cli missing": (
+            lambda s: swapped(
+                s,
+                "try:\n    from constitution_layer_kit import cli  # noqa: E402\nexcept ImportError:\n",
+                "if True:\n",
+            ),
+            [(1, f"{name} has no import of cli")],
+        ),
+        "the guide missing": (
+            lambda s: swapped(s, "GUIDE = os.path", "GUIDEX = os.path"),
+            [(1, f"{name} has no GUIDE assignment")],
+        ),
+        "the version check missing": (
+            lambda s: swapped(s, "failure = " + call + "\n", ""),
+            [(1, f"{name} has no version check")],
+        ),
+        "the version check after the import of the module's own package": (
+            lambda s: swapped(swapped(s, "\n" + own, ""), "GUIDE = ", own + "GUIDE = "),
+            [(1, f"{name} does not keep the order")],
+        ),
+        "the import of the module's own package between the check and its test": (
+            lambda s: swapped(s, "if failure is not None:", own + "if failure is not None:"),
+            [(1, f"{name} does not keep the order")],
+        ),
+        "quotes, comments and blank lines changed": (
+            lambda s: swapped(
+                swapped(s, "'INSTALL.md'", '"INSTALL.md"'), "failure = ", "# the check\n\nfailure = "
+            ),
+            [],
+        ),
+    }
+
+
+def self_test_preamble(cases: Cases) -> None:
+    """The lines that print C15, C16 and C17 are the kit's, for each kind of entry: every change of a
+    statement is red once, at its line, and a change that leaves the syntax tree alone is green."""
+    for kind, spec in KINDS:
+        for name, (edit, wanted) in preamble_variants(spec).items():
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp).resolve()
+                fresh(root)
+                path = spec.file("too_old")
+                put(root, path, edit((root / path).read_text(encoding="utf-8")))
+                found = findings_of(root)
+            cases.check(
+                [(f.path, f.line) for f in found] == [(path, line) for line, _ in wanted]
+                and all(f.what.startswith(words) for f, (_, words) in zip(found, wanted, strict=True)),
+                f"{kind}: {name} is " + ("red once, at its statement" if wanted else "green"),
+            )
+    for (
+        kind,
+        spec,
+    ) in KINDS:  # a clause the version check hands that is not the Identity's: the clause's finding
+        for change, handed in (("another", CHANGED), ("dropped", None)):
+            if spec.clause is None and handed is None:
+                continue  # a generator's hands none already
+            call = f"cli.version_failure({spec.module!r}, REQUIRES, GUIDE, {spec.clause or ''!r})"
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp).resolve()
+                fresh(root)
+                path = spec.file("too_old")
+                text = (root / path).read_text(encoding="utf-8")
+                put(
+                    root, path, swapped(text, call, call.replace(repr(spec.clause or ""), repr(handed or "")))
+                )
+                found = findings_of(root)
+            cases.check(
+                [(f.path, f.line, f.why == WHY_CLAUSE) for f in found]
+                == [(path, PREAMBLE_LINES["call"], True)]
+                and found[0].what.startswith(f"C16 and C17, the version check of {spec.stem} hands "),
+                f"{kind}: a version check that hands {change} clause is the clause's finding, once",
+            )
+    for name, spec, handed, expected in (  # the clause's report, literal, for a gate and for a generator
+        (
+            "a gate, another clause",
+            SPECS[1],
+            CHANGED,
+            [
+                f"RED: {SPECS[1].file('too_old')}:{PREAMBLE_LINES['call']}: C16 and C17, the version check of"
+                f" check-b hands the clause '{CHANGED}', and its Identity names '{OWN_CLAUSE}'"
+                f" (modules/const-b/plugin/scripts/b_gate/start.py:{UNTIL_LINE})",
+                "  why: one gate's failure lines say one consequence, so a clause reworded in one place tells"
+                " the user two things (law 6 of CLAUDE.md)",
+                f"  fix: hand '{OWN_CLAUSE}' to the version check, or change the Identity's until_installed"
+                " and every entry line of check-b together",
+                SUMMARY_BASE,
+            ],
+        ),
+        (
+            "a generator, a clause",
+            SPECS[3],
+            CHANGED,
+            [
+                f"RED: {SPECS[3].file('too_old')}:{PREAMBLE_LINES['call']}: C16 and C17, the version check of"
+                f" make-thing hands the clause '{CHANGED}', and a generator's entry lines carry none: its"
+                f" Identity's clause, '{GENERATOR_CLAUSE}' (modules/const-d/plugin/scripts/d_gate/start.py:"
+                f"{UNTIL_LINE}), closes C2 alone",
+                "  why: one gate's failure lines say one consequence, so a clause reworded in one place tells"
+                " the user two things (law 6 of CLAUDE.md)",
+                "  fix: hand an empty clause to the version check",
+                SUMMARY_BASE,
+            ],
+        ),
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            path = spec.file("too_old")
+            text = (root / path).read_text(encoding="utf-8")
+            call = f"cli.version_failure({spec.module!r}, REQUIRES, GUIDE, {spec.clause or ''!r})"
+            put(root, path, swapped(text, call, call.replace(repr(spec.clause or ""), repr(handed))))
+            stage(root)
+            code, lines = run_report(root)
+        cases.check(
+            code == EXIT_RED and lines == expected,
+            f"{name} handed to the version check is its literal report",
+        )
+    with (
+        tempfile.TemporaryDirectory() as tmp
+    ):  # the statement lines of the fixture are the ones the cases name
+        root = Path(tmp).resolve()
+        fresh(root)
+        lines = (root / SPECS[0].file("too_old")).read_text(encoding="utf-8").splitlines()
+    cases.check(
+        [lines[PREAMBLE_LINES[key] - 1].split(" ")[0] for key in ("guide", "import", "call", "check", "own")]
+        == ["GUIDE", "try:", "failure", "if", "from"],
+        "the lines the preamble cases name are the lines of the fixture's statements",
+    )
+
+
+def self_test_releases(cases: Cases) -> None:
+    """The release an entry requires: which are served, and which are red, each at its REQUIRES line."""
+    for name, version, release in (
+        ("the package's own version", PACKAGE_VERSION, PACKAGE_VERSION),
+        ("an earlier minor", "1.4.0", "1.3.0"),
+        ("an earlier patch", "1.4.2", "1.4.1"),
+        ("an earlier minor with a later patch", "1.4.0", "1.3.9"),
+        ("an earlier release, numbers read as numbers", "1.10.0", "1.9.0"),
+        ("the release itself, numbers read as numbers", "1.10.0", "1.10.0"),
+        ("a major of two digits", "10.2.0", "10.1.5"),
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            with_version(root, version)
+            for spec in SPECS[1:]:  # the others require the package's own version, so that they stand green
+                require(root, spec, version)
+            require(root, SPECS[0], release)
+            found = findings_of(root)
+        cases.check(found == [], f"{name} is served: {release} against a package at {version} is green")
+    for name, version, release, shown in (
+        ("a later minor", "1.4.0", "1.5.0", "above"),
+        ("a later patch", "1.4.0", "1.4.1", "above"),
+        ("a later major", "1.4.0", "2.0.0", "above"),
+        ("a later release, numbers read as numbers", "1.9.0", "1.10.0", "above"),
+        ("an earlier major", "2.0.0", "1.9.9", "earlier major"),
+        ("an earlier major of one digit against two", "10.0.0", "9.9.9", "earlier major"),
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            with_version(root, version)
+            for spec in SPECS[1:]:  # the others require the package's own version, so that they stand green
+                require(root, spec, version)
+            require(root, SPECS[0], release)
+            found = findings_of(root)
+        cases.check(
+            [(f.path, f.line) for f in found] == [(SPECS[0].file("too_old"), ENTRY_REQUIRES_LINE)]
+            and f"REQUIRES of check-a is '{release}', " in found[0].what
+            and (shown == "above") == ("above the package's version" in found[0].what),
+            f"{name} is red: {release} against a package at {version}, once, at its REQUIRES line",
+        )
+    forms = (
+        "1.0",
+        "1",
+        "1.0.0.0",
+        "v1.0.0",
+        "01.0.0",
+        "1.00.0",
+        "1.0.00",
+        "1.0.0 ",
+        " 1.0.0",
+        "1.0.0\n",
+        "1.0.0-rc1",
+        "1.0.0+local",
+        "",
+        "+1.0.0",
+        "-1.0.0",
+        "1.x.0",
+        "1,0,0",
+        "\u0661.0.0",  # an Arabic-Indic digit, which `\d` would take
+        "1.0.1\u0661",  # one after an ASCII digit, which `[1-9]\d*` would take
+        "1\u20240\u20240",  # a one-dot leader, which is no dot
+    )
+    for form in forms:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            put_entry(root, SPECS[0], requires=form)
+            found = findings_of(root)
+        cases.check(
+            [(f.path, f.line) for f in found] == [(SPECS[0].file("too_old"), ENTRY_REQUIRES_LINE)]
+            and found[0].what == f"REQUIRES of check-a is {form!r}, not major.minor.patch"
+            and "\n" not in found[0].what
+            and found[0].why.startswith("cli.version_failure reads a version as three decimal integers"),
+            f"a REQUIRES of {form!r} is red: not major.minor.patch, once, at its REQUIRES line",
+        )
+    with tempfile.TemporaryDirectory() as tmp:  # the last of two assignments is the release
+        root = Path(tmp).resolve()
+        fresh(root)
+        path = SPECS[0].file("too_old")
+        text = (root / path).read_text(encoding="utf-8")
+        put(root, path, text + 'REQUIRES = "1.0.0"\n')
+        right = findings_of(root)
+        put(root, path, text.replace("REQUIRES = '1.0.0'", 'REQUIRES = "9.0.0"') + 'REQUIRES = "1.0.0"\n')
+        later = findings_of(root)
+        put(root, path, text + 'REQUIRES = "9.0.0"\n')
+        wrong = [(f.path, f.line) for f in findings_of(root) if f.path == path]  # and the note, for 9.0.0
+    cases.check(
+        right == [] and later == [] and wrong == [(path, text.count("\n") + 1)],
+        "REQUIRES assigned twice: the last assignment is the release",
+    )
+    with tempfile.TemporaryDirectory() as tmp:  # the report of a release above the package, literal
+        root = Path(tmp).resolve()
+        fresh(root)
+        for spec in SPECS[1:]:
+            require(root, spec, spec.requires)
+        require(root, SPECS[0], "1.5.0")
+        stage(root)
+        code, lines = run_report(root)
+    cases.check(
+        code == EXIT_RED
+        and lines
+        == [
+            f"RED: {SPECS[0].file('too_old')}:{ENTRY_REQUIRES_LINE}: REQUIRES of check-a is '1.5.0', above"
+            f" the package's version '{PACKAGE_VERSION}' (shared/constitution_layer_kit/__init__.py)",
+            "  why: no release carries a version the package's source has not reached, so an entry that"
+            " requires one stops every run of the kit's own sessions at C16 until the source is raised",
+            "  fix: write the version of the release that carries the names the entry uses, or raise"
+            " __version__ in shared/constitution_layer_kit/__init__.py in the same change",
+            SUMMARY_BASE,
+        ],
+        "a release above the package is its literal report, exit 2",
+    )
+    with tempfile.TemporaryDirectory() as tmp:  # an earlier major, literal
+        root = Path(tmp).resolve()
+        fresh(root)
+        with_version(root, "2.0.0")
+        for spec in SPECS[1:]:
+            require(root, spec, "2.0.0")
+        stage(root)
+        code, lines = run_report(root)
+    cases.check(
+        code == EXIT_RED
+        and lines
+        == [
+            f"RED: {SPECS[0].file('too_old')}:{ENTRY_REQUIRES_LINE}: REQUIRES of check-a is '1.0.0', of an"
+            " earlier major than the package's version '2.0.0' (shared/constitution_layer_kit/__init__.py)",
+            "  why: an entry written for an earlier major than the package's is stopped at C17 by the release"
+            " the kit's own sessions install",
+            "  fix: bring the entry to major 2 and write the release it was written for",
+            SUMMARY_BASE,
+        ],
+        "an earlier major than the package's is its literal report, exit 2",
+    )
+
+
+def self_test_releases_broken(cases: Cases) -> None:
+    """What the release cannot be read from, as the BROKEN line that teaches."""
+    entry = SPECS[0].file("too_old")
+    no_requires = (
+        f"{entry} has no REQUIRES as a string constant at the top level — fix: write"
+        ' REQUIRES = "<major.minor.patch>", the release of the shared package the entry needs'
+    )
+    init = PACKAGE_INIT
+    no_version = (
+        f"{init} has no __version__ as a string constant at the top level — fix: write"
+        ' __version__ = "<major.minor.patch>", the version of the package'
+    )
+    broken_releases: list[tuple[str, Build, str]] = [
+        (
+            "an entry without REQUIRES",
+            lambda r: put(
+                r, entry, (r / entry).read_text(encoding="utf-8").replace("REQUIRES = '1.0.0'\n", "")
+            ),
+            no_requires,
+        ),
+        (
+            "a REQUIRES that is a number",
+            lambda r: put(
+                r,
+                entry,
+                (r / entry).read_text(encoding="utf-8").replace("REQUIRES = '1.0.0'", "REQUIRES = 1"),
+            ),
+            no_requires,
+        ),
+        (
+            "a REQUIRES that is two literals added",
+            lambda r: put(
+                r,
+                entry,
+                (r / entry)
+                .read_text(encoding="utf-8")
+                .replace("REQUIRES = '1.0.0'", "REQUIRES = '1.0' + '.0'"),
+            ),
+            no_requires,
+        ),
+        (
+            "a REQUIRES that is an f-string",
+            lambda r: put(
+                r,
+                entry,
+                (r / entry)
+                .read_text(encoding="utf-8")
+                .replace("REQUIRES = '1.0.0'", "REQUIRES = f'1.{0}.0'"),
+            ),
+            no_requires,
+        ),
+        (
+            "a REQUIRES that is last assigned a number",
+            lambda r: put(r, entry, (r / entry).read_text(encoding="utf-8") + "REQUIRES = 1\n"),
+            no_requires,
+        ),
+        (
+            "a REQUIRES inside a function",
+            lambda r: put(
+                r,
+                entry,
+                (r / entry)
+                .read_text(encoding="utf-8")
+                .replace("REQUIRES = '1.0.0'", "def f():\n    REQUIRES = '1.0.0'"),
+            ),
+            no_requires,
+        ),
+        (
+            "a package without its file",
+            lambda r: remove(r, init),
+            f"{init} is missing — fix: restore the shared package, whose __version__ is its version",
+        ),
+        ("a package without __version__", lambda r: put(r, init, '"""x"""\nOTHER = "1.0.0"\n'), no_version),
+        ("a __version__ that is a number", lambda r: put(r, init, "__version__ = 1\n"), no_version),
+        (
+            "a __version__ that is an f-string",
+            lambda r: put(r, init, "__version__ = f'1.{0}.0'\n"),
+            no_version,
+        ),
+        (
+            "a __version__ inside a function",
+            lambda r: put(r, init, "def f():\n    __version__ = '1.0.0'\n"),
+            no_version,
+        ),
+        (
+            "a __version__ that is no version",
+            lambda r: put(r, init, '__version__ = "1.0"\n'),
+            f"__version__ of {init}:1 is '1.0', not major.minor.patch — fix: write three decimal integers"
+            " without a leading zero, such as '1.0.0'",
+        ),
+        (
+            "a __version__ with a leading zero",
+            lambda r: put(r, init, 'X = 1\n__version__ = "1.04.0"\n'),
+            f"__version__ of {init}:2 is '1.04.0', not major.minor.patch — fix: write three decimal integers"
+            " without a leading zero, such as '1.0.0'",
+        ),
+    ]
+    for name, build, said in broken_releases:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            build(root)
+            stage(root)
+            cases.check(broken_line(root) == said, f"{name} is a teaching BROKEN line")
+    with tempfile.TemporaryDirectory() as tmp:  # the last of two assignments is the version
+        root = Path(tmp).resolve()
+        fresh(root)
+        put(root, PACKAGE_INIT, f'__version__ = "9.9.9"\n__version__ = "{PACKAGE_VERSION}"\n')
+        found = findings_of(root)
+        version = check_kit(root).version
+    cases.check(
+        found == [] and version == PACKAGE_VERSION,
+        "__version__ assigned twice: the last assignment is the version",
+    )
+
+
+def self_test_notes(cases: Cases) -> None:
+    """The install note of a module gives the command at the tag of the highest release its entries
+    require."""
+    note = "modules/const-b/plugin/INSTALL.md"  # const-b requires 1.2.0
+    command = install_command("1.2.0")
+    named = 5  # the line of the command in the fixture's note
+    for name, text, line in (
+        ("none", f"Install it. Python 3.{BASE} or newer.\n", 1),
+        ("the command of another tag", install_note(BASE, "1.0.0"), named),
+        (
+            "a command at another address",
+            install_note(BASE, "1.2.0").replace("Evgenus", "Someone"),
+            named,
+        ),
+        (
+            "a command without its quotes",
+            install_note(BASE, "1.2.0").replace('"', ""),
+            named,
+        ),
+        (
+            "a command to another subdirectory",
+            install_note(BASE, "1.2.0").replace("subdirectory=shared", "subdirectory=other"),
+            named,
+        ),
+        (
+            "the tag without the command",
+            f"Install it. Python 3.{BASE} or newer.\nconstitution-layer-kit-v1.2.0\n",
+            2,
+        ),
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            put(root, note, text)
+            found = findings_of(root)
+        cases.check(
+            [(f.path, f.line) for f in found] == [(note, line)]
+            and f"gives no command '{command}'" in found[0].what,
+            f"a note with {name} is red, once, at its line {line}",
+        )
+    for name, text in (
+        ("the command in a sentence", f"Run {command} once. Python 3.{BASE} or newer.\n"),
+        ("the command of a lower tag beside it", install_note(BASE, "1.0.0") + f"\n{command}\n"),
+        ("the command after other text", f"Install it. Python 3.{BASE} or newer.\n\n    {command}\n"),
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            put(root, note, text)
+            found = findings_of(root)
+        cases.check(found == [], f"a note with {name} is green")
+    with tempfile.TemporaryDirectory() as tmp:  # the report, literal
+        root = Path(tmp).resolve()
+        fresh(root)
+        put(root, note, install_note(BASE, "1.0.0"))
+        stage(root)
+        code, lines = run_report(root)
+    cases.check(
+        code == EXIT_RED
+        and lines
+        == [
+            f"RED: {note}:{named}: the note gives no command '{command}', the tag of the release its entries"
+            " require, 1.2.0",
+            "  why: C15, C16 and C17 send the user to the module's install note for the command, so a note"
+            " without the command at the tag of the release the entry requires leaves that user with no fix",
+            "  fix: write the command, as a line, where the note lists what the module needs, for the release"
+            " 1.2.0",
+            SUMMARY_BASE,
+        ],
+        "a note with another tag is its literal report, exit 2",
+    )
+    with tempfile.TemporaryDirectory() as tmp:  # a module's note is held to the highest of its entries
+        root = Path(tmp).resolve()
+        fresh(root)
+        second = Spec("const-b", "check-b2", OWN_CLAUSE, OWN_CLAUSE, GATE_CLOSING, "1.3.0")
+        put_entry(root, second)
+        put_identity(root, second, second.clause, "second.py")
+        low = findings_of(root)
+        put(root, note, install_note(BASE, "1.3.0"))
+        high = findings_of(root)
+        put(root, note, install_note(BASE, "1.3.0") + f"\n{command}\n")
+        both = findings_of(root)
+    cases.check(
+        [(f.path, f.line) for f in low] == [(note, named)]
+        and "check-b2" not in low[0].what
+        and "1.3.0" in low[0].what,
+        "a module with entries of 1.2.0 and 1.3.0 and a note at 1.2.0 is red for 1.3.0, the highest",
+    )
+    cases.check(
+        high == [] and both == [],
+        "the note at 1.3.0 is green, with the command of the lower tag beside it too",
+    )
+    with (
+        tempfile.TemporaryDirectory() as tmp
+    ):  # an entry with a malformed release leaves the module to the others
+        root = Path(tmp).resolve()
+        fresh(root)
+        bad = Spec("const-b", "check-b2", OWN_CLAUSE, OWN_CLAUSE, GATE_CLOSING, "oops")
+        put_entry(root, bad)
+        put_identity(root, bad, bad.clause, "second.py")
+        found = findings_of(root)
+    cases.check(
+        [(f.path, f.line) for f in found] == [(bad.file("too_old"), ENTRY_REQUIRES_LINE)],
+        "a module with a malformed release in one entry is held to the other: one finding, in the entry",
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        fresh(root)
+        remove(root, note)
+        said = broken_line(root)
+    cases.check(
+        said == f"{note} is missing — fix: restore the module's install note, which C15, C16 and C17 send the"
+        " user to for the command",
+        "a missing install note is a teaching BROKEN line",
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        fresh(root)
+        write(root, note, b"\x00binary")
+        said = broken_line(root)
+    cases.check(
+        said == f"{note} is binary, and the check reads it as text — fix: restore the file",
+        "a binary install note is a teaching BROKEN line",
+    )
+
+
 def self_test_entry_scope(cases: Cases) -> None:
     """What is no entry: only a `.py` directly under `plugin/scripts/` of a module folder, with the floor line
     at a line's start, is read."""
@@ -1914,6 +3405,7 @@ def self_test_entry_scope(cases: Cases) -> None:
         fresh(root)
         extra = Spec("const-e", "check-e", DEFAULT_CLAUSE, None, GATE_CLOSING)
         put(root, "modules/const-e/MODULE.md", "A module.\n")
+        put(root, "modules/const-e/plugin/INSTALL.md", install_note(BASE, extra.requires))
         put_entry(root, extra, given={"too_old": CHANGED})
         put_identity(root, extra, None)
         stage(root)
@@ -1941,9 +3433,10 @@ def self_test_order(cases: Cases) -> None:
         }
     expected = sorted(orders["as git lists them"])
     cases.check(
-        len(set(expected)) == len(expected) == BASE_MENTIONS - 1 + 3
+        len(set(expected)) == len(expected) == BASE_MENTIONS - 1 + 3 + 1  # the last 1: requires-python
         and expected[0][0] == ".github/workflows/gates.yml"
-        and expected[-1][0] == "pyproject.toml"
+        and expected[-2][0] == "pyproject.toml"
+        and expected[-1] == ("shared/pyproject.toml", REQUIRES_LINE, 1)
         and [o for o in expected if o[0] == "docs/two.md"]
         == [("docs/two.md", 1, 7), ("docs/two.md", 2, 1), ("docs/two.md", 2, 17)],
         "the findings are sorted by path, line and column, with the first and last typed by hand",
