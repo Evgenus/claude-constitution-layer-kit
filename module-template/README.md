@@ -25,4 +25,4 @@ One paragraph per tool the module ships, each opening with a bold label. Each ho
 <a id="a5"></a>
 ## Get it
 
-The install line for one session, `claude --plugin-dir <path to this module>/plugin`, and the marketplace form. The module's own scan command, `sh <plugin root>/scripts/<entry>.sh --scan`, or the command for a module with no scan. One closing line: the full install procedure and every dial in [INSTALL.md](plugin/INSTALL.md), the complete description in [MODULE.md](MODULE.md).
+For a module with a Python entry file, one opening sentence: install the shared Python package first, with the command in the module's [install note](plugin/INSTALL.md), since its scripts import it and stop without it. The install line for one session, `claude --plugin-dir <path to this module>/plugin`, and the marketplace form. The module's own scan command, `sh <plugin root>/scripts/<entry>.sh --scan`, or the command for a module with no scan. One closing line: the full install procedure and every dial in [INSTALL.md](plugin/INSTALL.md), the complete description in [MODULE.md](MODULE.md).

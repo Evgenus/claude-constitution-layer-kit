@@ -29,6 +29,11 @@ declared scan:
   - one such entry stands in the module's own job, the entries `--names <module>` prints for a job
     `--json` names, never in `kit` or another module's job, where a red would name no module or the
     wrong one;
+  - every entry that runs it puts `PYTHONPATH="$PWD/shared"` before the command on the same line, as the
+    list's `scan` function prints it, since a plugin holds no shared code (decision
+    dec-0099-shared-code-installed-as-a-pip-package, R7) and a scan run without the kit's `shared/` on
+    the path imports a release a person installed, or none; the setting after the command, in a comment,
+    on another line of the entry, or another value, holds nothing;
   - the CI list is every entry of that script, when the lines of `.github/workflows/gates.yml`,
     comments aside — a whole comment line, or a `#` after a space or a tab — call
     `sh scripts/gate-list.sh --json` and `sh scripts/gate-list.sh --run`; a workflow that does not
@@ -136,10 +141,15 @@ Modes:  no arguments   check the kit;
                        from the gate list, or from a workflow that does not read the list, red; a
                        scan in both green; an extra entry no gate; a span with a flag after `--scan`
                        and the words no scan; a scan whose entry falls into `kit` or another
-                       module's job red; a module folder the list leaves out, and a listed module
-                       with no folder, red, its fix offering to restore the folder only to a name
-                       `const-<aspect>`; an `--item` in the list or the workflow red, and one in
-                       a comment green; a word that names pytest — `-m pytest`, a path, `py.test`,
+                       module's job red; a scan whose command lacks `PYTHONPATH="$PWD/shared"`
+                       before it on its line red, also when the setting stands after the command, in
+                       a comment, on another line, with another value or as the end of a longer
+                       name, and green after other commands on the line, one finding for the entry
+                       that lacks it when two run the scan; a module folder the list leaves out,
+                       and a listed module with no folder, red, its fix offering to restore the
+                       folder only to a name `const-<aspect>`; an `--item` in the list or the
+                       workflow red, and one in a comment green; a word that names pytest —
+                       `-m pytest`, a path, `py.test`,
                        `-mpytest`, an unpinned install or a range pin — PYTEST_ADDOPTS and an
                        addopts line of a configuration file in the kit's folders a module's run
                        reads red, one in another folder green, an exact pin,
@@ -226,6 +236,12 @@ OF_MODULE = re.compile(rf"({'|'.join(KINDS)})-(.+)")
 WHY = "a scan the kit does not run holds nothing, and the lists are where the kit says what it runs"
 WHY_JOB = (
     "a module's scan runs in that module's job, so a red CI line names the module whose rule the tree broke"
+)
+SHARED_SETTING = 'PYTHONPATH="$PWD/shared"'  # what the list's `scan` function puts before a module's scan
+SHARED_SET = re.compile(r"(?<!\w)" + re.escape(SHARED_SETTING) + r"(?=\s)")  # the setting as a word
+WHY_PATH = (
+    "a plugin holds no shared code, so a scan run without the kit's shared/ first on PYTHONPATH imports a"
+    " release a person installed, or none, and the gate list would not check the change's own code"
 )
 WHY_MISSING = "a module the list leaves out is never installed, run, linted or typed in CI"
 WHY_STRAY = (
@@ -410,6 +426,7 @@ class Where(StrEnum):
     GATE = "gate list"
     CI = "CI list"
     JOB = "module's job"
+    PATH = "scan's PYTHONPATH"
     MISSING = "list's modules"
     STRAY = "module folders"
     FILTER = "test selection"
@@ -537,14 +554,15 @@ class Finding:
             return self.registry()
         if self.where in COVERAGE_WHERE:
             return self.coverage()
-        if self.where in (Where.GATE, Where.CI, Where.JOB):
+        if self.where in (Where.GATE, Where.CI, Where.JOB, Where.PATH):
             return self.scan_parts()
         if self.where in (Where.DIALS_KEY, Where.GUIDE_ADD, Where.GUIDE_DROP, Where.TYPES_PATH):
             return self.file_parts()
         return self.list_parts()
 
     def scan_parts(self) -> tuple[str, str, str]:
-        """What, why and fix of a declared scan that the gate list, the CI list or the module's job lacks."""
+        """What, why and fix of a declared scan that the gate list, the CI list or the module's job lacks, or
+        whose command in the gate list does not put the kit's shared/ on PYTHONPATH."""
         if self.where is Where.GATE:
             run = (
                 f"python3 modules/{self.module}/plugin/scripts/{self.entry} --scan"
@@ -552,7 +570,18 @@ class Finding:
                 else f"sh modules/{self.module}/plugin/scripts/{self.entry}.sh --scan"
             )
             what = f"its scan `{self.entry} --scan` is not in the {self.where}"
-            return what, WHY, f"add an entry to the gate group of {GATE_LIST} that runs `{run}`"
+            fix = f"add an entry to the gate group of {GATE_LIST} that runs `{SHARED_SETTING} {run}`"
+            return what, WHY, fix
+        if self.where is Where.PATH:
+            what = (
+                f"its scan `{self.entry} --scan`, the entry `{self.runner}`, runs without {SHARED_SETTING}"
+                " before its command"
+            )
+            fix = (
+                f"in the `{self.runner}` arm of commands() in {GATE_LIST}, write the scan as"
+                f" `scan <command>`, which prints {SHARED_SETTING} before the command"
+            )
+            return what, WHY_PATH, fix
         if self.where is Where.CI:
             what = f"its scan `{self.entry} --scan` is not in the {self.where}"
             fix = (
@@ -961,6 +990,16 @@ def item_filters(root: Path) -> list[Finding]:
     ]
 
 
+def unpathed(runs: re.Pattern[str], commands: str) -> bool:
+    """Whether a code line of `commands`, comments aside, runs the scan that `runs` matches without
+    SHARED_SETTING as a word before it on that line."""
+    for line in map(code_of, commands.splitlines()):
+        found = runs.search(line)
+        if found is not None and SHARED_SET.search(line[: found.start()]) is None:
+            return True
+    return False
+
+
 def check_scan(
     module: str, entry: str, gates: dict[str, str], jobs: dict[str, str], ci: bool
 ) -> list[Finding]:
@@ -972,6 +1011,7 @@ def check_scan(
         findings.append(Finding(module, Where.GATE, entry))
     elif all(jobs.get(name) != module for name in runners):
         findings.append(Finding(module, Where.JOB, entry, runners[0], jobs.get(runners[0], "")))
+    findings += [Finding(module, Where.PATH, entry, name) for name in runners if unpathed(runs, gates[name])]
     if not ci:
         findings.append(Finding(module, Where.CI, entry))
     return findings
@@ -1452,7 +1492,8 @@ def report(findings: list[Finding], modules: int, scans: int, checks: int, plugi
         print(f"RED: {len(findings)} finding(s) — {counts}")
         return EXIT_RED
     print(
-        "GREEN: every declared scan stands in the gate list, the CI list and its module's job, the list's "
+        "GREEN: every declared scan stands in the gate list, the CI list and its module's job and runs with "
+        "the kit's shared/ first on PYTHONPATH, the list's "
         "modules are the module folders, each named const-<aspect> and by its manifest, listed once in the "
         "marketplace and enabled in the kit's settings, which declare the marketplace, neither list, "
         "comments aside, names pytest save in an exact pin, passes --item or names PYTEST_ADDOPTS, no pytest "
@@ -2420,7 +2461,7 @@ def guide_case(scan: str, module_text: str, guide: str | None) -> Case:
     the install guide is `guide`."""
     p_text = module_text.replace("check-x", "check-p").replace("`check-p --scan`", "`check-p.py --scan`")
     return Case(
-        {"x": scan, "p": "python3 modules/const-p/plugin/scripts/check-p.py --scan"},
+        {"x": scan, "p": f"{SHARED_SETTING} python3 modules/const-p/plugin/scripts/check-p.py --scan"},
         jobs={"p": "const-p"},
         folders=("const-x", "const-quiet", "const-p"),
         documents={"const-p": p_text},
@@ -3104,7 +3145,8 @@ QUIET_TEXT = (
     '<a id="t10"></a>\n'
 )
 
-SCAN = "sh modules/const-x/plugin/scripts/check-x.sh --scan"
+SCAN_COMMAND = "sh modules/const-x/plugin/scripts/check-x.sh --scan"
+SCAN = f"{SHARED_SETTING} {SCAN_COMMAND}"  # as the list's `scan` function prints it
 
 
 def scans_of(text: str) -> list[str]:
@@ -3392,6 +3434,42 @@ def cases_gate_list(tally: Tally) -> None:
         "a second entry runs the scan in its module's job": (
             Case({"x": SCAN, "again": SCAN}, jobs={"x": "kit", "again": "const-x"}),
             [],
+        ),
+        "the scan's command without the shared code on PYTHONPATH is a finding": (
+            Case({"x": SCAN_COMMAND}),
+            [Where.PATH],
+        ),
+        "the setting after the command holds nothing": (
+            Case({"x": f"{SCAN_COMMAND} {SHARED_SETTING}"}),
+            [Where.PATH],
+        ),
+        "the setting in a trailing comment holds nothing": (
+            Case({"x": f"{SCAN_COMMAND}  # {SHARED_SETTING} sh"}),
+            [Where.PATH],
+        ),
+        "the setting on another line of the entry holds nothing for the line that runs the scan": (
+            Case({"x": f"{SHARED_SETTING} true\n{SCAN_COMMAND}"}),
+            [Where.PATH],
+        ),
+        'another value, PYTHONPATH="$PWD/other", holds nothing': (
+            Case({"x": f'PYTHONPATH="$PWD/other" {SCAN_COMMAND}'}),
+            [Where.PATH],
+        ),
+        "the setting stuck to a longer name (XPYTHONPATH) holds nothing": (
+            Case({"x": f"X{SHARED_SETTING} {SCAN_COMMAND}"}),
+            [Where.PATH],
+        ),
+        "the setting after other commands on the scan's line holds": (
+            Case({"x": f"cd . && {SHARED_SETTING} {SCAN_COMMAND}"}),
+            [],
+        ),
+        "two entries run the scan, the second without the setting: one finding, for the second": (
+            Case({"x": SCAN, "again": SCAN_COMMAND}, jobs={"again": "const-x"}),
+            [Where.PATH],
+        ),
+        "the scan's entry in `kit` and without the setting gives both findings, the job's first": (
+            Case({"x": SCAN_COMMAND}, jobs={"x": "kit"}),
+            [Where.JOB, Where.PATH],
         ),
         "the list's modules leave a module folder out": (
             Case({"x": SCAN}, listed=("const-x",)),
@@ -3795,9 +3873,8 @@ def cases_scan_readers(tally: Tally) -> None:
         ok = check_kit(root)[0] == []
     tally.judge(ok, "a scan declared as `<entry>.py --scan` is held by its python3 line")
     ok = scans_of(MODULE_TEXT) == ["check-x"] and scans_of(QUIET_TEXT) == []
-    ok = ok and "runs `python3 modules/const-y/plugin/scripts/check-y.py --scan`" in (
-        Finding("const-y", Where.GATE, "check-y.py").render()
-    )
+    taught = 'runs `PYTHONPATH="$PWD/shared" python3 modules/const-y/plugin/scripts/check-y.py --scan`'
+    ok = ok and taught in Finding("const-y", Where.GATE, "check-y.py").render()
     ok = ok and scans_of(MODULE_TEXT.replace("`check-x --scan`", "`check-x.py --scan`")) == ["check-x.py"]
     tally.judge(ok, "a span with more after the flag is no scan; a .py entry is taught by python3")
     last_section = '## 9 <a id="t9"></a> is prose here\n\n<a id="t9"></a>\n| E1 | `check-x --scan` |\n'
@@ -3840,6 +3917,16 @@ def reports_by_kind(tally: Tally) -> None:
         "  why: a scan the kit does not run holds nothing, and the lists are where the kit says what it runs",
         f"  fix: let {WORKFLOW} build its jobs from `{READS_LIST[0]}` and run each with"
         f" `{READS_LIST[1]} <job>`",
+        "RED: 1 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
+    ]
+    unpathed_lines = [
+        'RED: const-x: its scan `check-x --scan`, the entry `x`, runs without PYTHONPATH="$PWD/shared" before'
+        " its command",
+        "  why: a plugin holds no shared code, so a scan run without the kit's shared/ first on PYTHONPATH"
+        " imports a release a person installed, or none, and the gate list would not check the change's"
+        " own code",
+        "  fix: in the `x` arm of commands() in scripts/gate-list.sh, write the scan as `scan <command>`,"
+        ' which prints PYTHONPATH="$PWD/shared" before the command',
         "RED: 1 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
     ]
     placed_lines = [
@@ -4007,6 +4094,7 @@ def reports_by_kind(tally: Tally) -> None:
             two_lines,
         ),
         ("one finding", Case({"x": SCAN}, workflow="jobs: {}\n"), report_lines),
+        ("a scan run without the shared code on the path", Case({"x": SCAN_COMMAND}), unpathed_lines),
         ("the findings of a table the check cannot read", Case({"x": SCAN}, document=form_text), form_lines),
         (
             "the job and module findings",
@@ -4100,7 +4188,8 @@ def report_of_a_green_kit(tally: Tally) -> None:
         with contextlib.redirect_stdout(printed):
             code = report(*check_kit(root))
     green_line = (
-        "GREEN: every declared scan stands in the gate list, the CI list and its module's job, the list's "
+        "GREEN: every declared scan stands in the gate list, the CI list and its module's job and runs with "
+        "the kit's shared/ first on PYTHONPATH, the list's "
         "modules are the module folders, each named const-<aspect> and by its manifest, listed once in the "
         "marketplace and enabled in the kit's settings, which declare the marketplace, neither list, "
         "comments aside, names pytest save in an exact pin, passes --item or names PYTEST_ADDOPTS, no pytest "
@@ -4125,11 +4214,11 @@ def reports_in_order(tally: Tally) -> None:
         "RED: const-x: its scan `check-x --scan` is not in the gate list",
         scan_why,
         "  fix: add an entry to the gate group of scripts/gate-list.sh that runs"
-        " `sh modules/const-x/plugin/scripts/check-x.sh --scan`",
+        ' `PYTHONPATH="$PWD/shared" sh modules/const-x/plugin/scripts/check-x.sh --scan`',
         "RED: const-y: its scan `check-w --scan` is not in the gate list",
         scan_why,
         "  fix: add an entry to the gate group of scripts/gate-list.sh that runs"
-        " `sh modules/const-y/plugin/scripts/check-w.sh --scan`",
+        ' `PYTHONPATH="$PWD/shared" sh modules/const-y/plugin/scripts/check-w.sh --scan`',
         *(
             line
             for m in ("x", "y", "z")
@@ -4637,7 +4726,8 @@ def self_test() -> int:
     with one finding each and green once listed and read;
     an extra entry is no gate; a span with a flag after `--scan` and the words is no scan; a module
     with no scan needs no entry; a scan whose entry falls into `kit` or into another module's job is
-    red; a module folder the list's modules leave out, and a listed module with no folder, are red; a
+    red, and so is one whose command lacks `PYTHONPATH="$PWD/shared"` before it; a module folder the
+    list's modules leave out, and a listed module with no folder, are red; a
     tracked kit check no entry of the gate group runs is red; the forms of the enforcement table are
     held by `form_probes`; the report of each kind of finding is its literal text with exit 2; a list
     script that fails, jobs that are no JSON list, a module document without its enforcement anchor

@@ -1946,8 +1946,9 @@ def test_t31() -> None:
     no_dials = SESSION.run_gate(session_json(root))
     no_dials_line = (
         f"const-interaction: no constitution.yaml in {root} — the destructive-command gate examines nothing"
-        " there until the file exists (an empty mapping, {} is enough for the default list)"
-    ).replace("{} is", "{}, is")
+        " there until the file exists (a file that holds only module_prefix: const- is enough for the"
+        " default list)"
+    )
     verbosity = (
         "const-interaction: verbosity is triggered — the assumption block and the restatement appear only"
         " when triggered, never as an empty ritual\n"
@@ -1984,8 +1985,8 @@ def test_t31() -> None:
     )
     weird_dials_ok = weird_no_dials.stdout == RULES + verbosity + (
         f"const-interaction: no constitution.yaml in {weird_parent}/" + WEIRD_DIR_SHOWN + " — the"
-        " destructive-command gate examines nothing there until the file exists (an empty mapping, {}, is"
-        " enough for the default list)\n"
+        " destructive-command gate examines nothing there until the file exists (a file that holds only"
+        " module_prefix: const- is enough for the default list)\n"
     )
     weird_repo_ok = weird_no_repo.stdout == RULES + verbosity + (
         f"const-interaction: {weird_parent}/l" + WEIRD_DIR_SHOWN + " is not inside a git repository — the"

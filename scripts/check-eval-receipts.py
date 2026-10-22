@@ -23,8 +23,9 @@ Modes:  no arguments   check the kit;
                        script, of a case, of the eval image's Dockerfile and of a file of the shared package
                        each a finding, and so is a new tracked file there; a receipt made with a plugin's
                        link to the shared package green once the link is gone; a plugin's links to a file and
-                       a folder of the kit outside the shared package followed, each edit of what they lead
-                       to and a new tracked file in the folder a finding; the hash, over a toy kit, the
+                       a folder of two files of the kit outside the shared package followed, each edit of
+                       what they lead to, of the folder's first file too, and a new tracked file in the
+                       folder a finding; the hash, over a toy kit, the
                        digest of the module's files, the shared package's files once and the Dockerfile, in
                        that order, typed by hand; an edit of MODULE.md, README.md, INSTALL.md, a test, a
                        tracked result, a file of shared/ outside the package and an untracked file of the
@@ -235,13 +236,15 @@ def drop_link(root: Path) -> None:
 
 
 def link_kit_files(then: Act) -> Act:
-    """Link from the plugin a file and a folder of the kit outside the shared package, make the receipt anew
-    for the files as they are, then do `then`: the hash follows a link to what it leads to."""
+    """Link from the plugin a file and a folder of two files of the kit outside the shared package, make the
+    receipt anew for the files as they are, then do `then`: the hash follows a link to what it leads to."""
 
     def act(root: Path) -> None:
         (root / "docs/d").mkdir(parents=True)
         (root / "docs/f.txt").write_text("f\n", encoding="utf-8")
         (root / "docs/d/a.txt").write_text("a\n", encoding="utf-8")
+        # a second file, so that a link to a folder is held as its files and not as one name
+        (root / "docs/d/c.txt").write_text("c\n", encoding="utf-8")
         scripts = root / "modules/const-x/plugin/scripts"
         (scripts / "linked-file").symlink_to("../../../../docs/f.txt")
         (scripts / "linked-folder").symlink_to("../../../../docs/d")

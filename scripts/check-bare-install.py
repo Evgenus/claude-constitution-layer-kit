@@ -65,7 +65,8 @@ For the module named, in throwaway folders that the check removes:
      repository and branch, `<owner>/<repo>#<branch>` — a pull request's head repository and branch, or the
      kit's main on a push to it — the copy a consumer's install writes; a fork the job's token cannot read
      fails; git clones it with the machine's own credentials, which a private remote needs. The working
-     folder, a local-directory marketplace, gives a copy no session runs (shared/GATE.md, limit 3).
+     folder, a local-directory marketplace, gives a copy no session runs (the platform facts of limit 3 of
+     shared/GATE.md §4).
      The install's result is the last non-empty line of its standard output, one JSON object: an
      `outcome` of "failed" is a refusal, which carries the result's `failureCode` and `message`; "ok" with
      the exit 0 names the `scope` it wrote. The copy is the one entry of `claude plugin list --json`, run
@@ -253,7 +254,9 @@ Modes:  --module <name> [--from <source>]  check one module of the kit;
                          the package, a python3 whose venv fails, a `.pth` file that cannot be written, a
                          package that cannot be imported and a PYTHONPATH that puts another copy first
                          each a BROKEN line with its fix; the check run under a virtual environment, whose
-                         packages the new environment sees; and a plugin with no link to the shared code,
+                         packages the new environment sees, a release of the shared package there standing
+                         behind the kit's own, which the new environment imports and the outer python3 does
+                         not; and a plugin with no link to the shared code,
                          whose hook and scan import it, green with the environment's PATH and red without
                          it, the hook and the scan each exiting 1; and a copy that holds a folder, a link, a
                          dangling link or a file at scripts/constitution_layer_kit, whatever its source holds
@@ -688,8 +691,8 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
         fix = (
             "replace the link inside the plugin with the file it points at"
             if inside
-            else "the install must carry what it runs — fire the fallback of limit 3 of"
-            " shared/GATE.md §4, links replaced by copies"
+            else "replace the link with a copy of the file or folder it points at, so that the plugin folder"
+            " carries what it runs as real files (the platform facts of limit 3 of shared/GATE.md §4)"
         )
         if link_at(place) or not there(place):
             state = "left a link" if link_at(place) else "missing"
@@ -1325,6 +1328,12 @@ def link_cases(tally: Tally) -> None:
         if change == "inner-link":
             fixes = [f.fix for f in fixture_findings(change)]
             ok = ok and fixes[:1] == ["replace the link inside the plugin with the file it points at"]
+        if change == "link-left":  # a link that leads out of the plugin: the fix is a copy, typed by hand
+            fixes = [f.fix for f in fixture_findings(change)]
+            ok = ok and fixes[:1] == [
+                "replace the link with a copy of the file or folder it points at, so that the plugin folder"
+                " carries what it runs as real files (the platform facts of limit 3 of shared/GATE.md §4)"
+            ]
         tally.failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {name}")
         if not ok:

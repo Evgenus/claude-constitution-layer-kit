@@ -19,6 +19,7 @@ import os
 import re
 import shlex
 import shutil
+import site
 import subprocess
 import sys
 import tempfile
@@ -458,6 +459,34 @@ class SharedItems:
         assert text.count(stated) == 1, f"{init} does not state its version as {stated}"
         init.write_text(text.replace(stated, f'__version__ = "{version}"'), encoding="utf-8")
         return {"PYTHONPATH": str(folder)}
+
+    def installed_release(self) -> tuple[dict[str, str], Path, Path]:
+        """A release of the shared package where an install puts it, behind every folder of PYTHONPATH: the
+        site-packages of a new virtual environment, made as the kit's install check makes its own (from the
+        python3 the tests run under, with that python3's packages, PyYAML among them, named by a `.pth` file
+        of its own). The copy is of the working tree's version, which serves every module, and it is marked:
+        importing it creates the file `mark`. Returns the environment that puts the new environment's `bin`
+        first on PATH and leaves PYTHONPATH empty, that mark, and the copy's `__init__.py`."""
+        home = self.h.scratch_dir() / "installed"
+        made = [sys.executable, "-m", "venv", "--system-site-packages", "--without-pip", str(home)]
+        subprocess.run(made, capture_output=True, check=True)
+        python = home / "bin" / "python3"
+        where = subprocess.run(
+            [str(python), "-c", "import sysconfig; print(sysconfig.get_path('purelib'))"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        packages = Path(where.stdout.strip())
+        outer = [*site.getsitepackages(), site.getusersitepackages()]
+        (packages / "outer.pth").write_text("".join(f"{folder}\n" for folder in outer), encoding="utf-8")
+        copy = packages / PACKAGE
+        shutil.copytree(SHARED / PACKAGE, copy, ignore=shutil.ignore_patterns("__pycache__"))
+        mark = home / "imported"
+        with (copy / "__init__.py").open("a", encoding="utf-8") as init:
+            init.write(f"\nopen({str(mark)!r}, 'a', encoding='utf-8').close()  # the mark of this copy\n")
+        path = os.pathsep.join(filter(None, [str(home / "bin"), os.environ.get("PATH")]))
+        return {"PATH": path, "PYTHONPATH": ""}, mark, copy / "__init__.py"
 
     def valid_run(
         self, env: dict[str, str] | None = None, command: Sequence[str] | None = None
@@ -3423,3 +3452,34 @@ def test_shared_code_later_release(subject: Subject) -> None:
                 f"{found}: exit {result.code}, stdout {result.stdout.strip()}, stderr {result.stderr.strip()}"
             )
     assert not failed, "; ".join(failed)
+
+
+@item(187, "a release installed where pip puts it stands behind the shared code of the working tree")
+def test_installed_release_behind_the_working_tree(subject: Subject) -> None:
+    """A copy of the shared package at the working tree's version, which serves every module, in the
+    site-packages of a virtual environment whose python3 comes first on PATH, marked so that importing it
+    creates a file. Control: with the harness's own folder left out (`shared=False`), that python3 imports
+    the copy and the mark is made, so the copy is where an install puts it and the mark works. Then the
+    module's gate, run as the harness runs every gate, passes what it passes with no release installed
+    and never imports the copy: the harness puts the working tree's shared code on PYTHONPATH, ahead of
+    site-packages, since a fixture that ran an installed release would test no change of the shared
+    code."""
+    it = shared(subject, "installed_release_behind_the_working_tree")
+    env, mark, copy = it.installed_release()
+    program = "import constitution_layer_kit as m; print(m.__file__)"
+    control = it.h.run_gate("", command=["python3", "-c", program], env=env, shared=False)
+    imported = Path(control.stdout.strip()).resolve() if control.stdout.strip() else None
+    assert control.code == 0 and imported == copy.resolve() and mark.is_file(), (
+        f"the control: python3 without the harness's folder imported {imported} (exit {control.code},"
+        f" mark made: {mark.is_file()}), not the copy installed at {copy}: {control.stderr.strip()}"
+    )
+    mark.unlink()
+    result, green = it.valid_run(env=env)
+    assert result.code == 0 and green in result.stdout and "BROKEN" not in result.stderr, (
+        f"with a release installed: exit {result.code}, stdout {result.stdout.strip()},"
+        f" stderr {result.stderr.strip()}"
+    )
+    assert not mark.exists(), (
+        "the gate imported the release installed in site-packages, not the shared code of the working tree"
+        " the harness puts on PYTHONPATH"
+    )

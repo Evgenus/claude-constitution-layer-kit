@@ -43,6 +43,8 @@ The skill `ask-or-decide` loads before any message that puts a choice to the use
 <a id="a5"></a>
 ## Get it
 
+Install the shared Python package first, with the command in the module's [install note](plugin/INSTALL.md): the module's scripts import it and stop without it.
+
 For one session, from a clone of the kit:
 
 ```bash

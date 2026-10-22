@@ -1384,7 +1384,8 @@ def test_mover_without_dials() -> None:
     broken_first_line(
         mover(odd, OLD, NEW),
         f"BROKEN: no constitution.yaml in {parent}/{WEIRD_DIR_SHOWN}: the check that proves a move cannot run"
-        " — fix: create constitution.yaml at the repository's top — an empty mapping, {}, is enough",
+        " — fix: create constitution.yaml at the repository's top — a file that holds only module_prefix:"
+        " const- is enough",
     )
     assert (consumer.root / OLD).exists(), result.stdout + result.stderr
 

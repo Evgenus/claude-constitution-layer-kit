@@ -39,8 +39,9 @@ asks docker for the image. For each module, in turn:
      `.pth` file that names /shared, and puts its `bin` first on PATH, so that the python3 the case's hooks
      and scans start imports the mounted package; a python3 that does not import `constitution_layer_kit`
      from /shared and `yaml`, whether the folder lacks the package or another copy stands ahead of it, ends
-     the container with exit 5 and a line that says so with its one fix, the case not run; the runner's
-     BROKEN for that run is that line, with no fix of its own after it. The
+     the container with exit 5 after two lines, the case not run: the step it was in, with the last line
+     of that step's own output, and a line that says why with its one fix; the runner's BROKEN for that run
+     is the step's line in brackets and then the fix line, with no fix of its own after it. The
      image is unchanged for this: its Debian python3 makes the environment with no package of its own, and
      a virtual environment's `.pth` entries come before the system's folders on `sys.path`. Then it runs
      `claude plugin eval` on the copy, `--case
@@ -73,12 +74,15 @@ seccomp filter and the /proc mask lifted, the shared code mounted read-only besi
 guard, run under sh against a fake claude (the billing variables unset, the pinned version and a subscription
 login required, in that order); its command after the guard, run under sh (the shared code made importable:
 the python3 a fake claude starts imports a toy package from the mounted folder, the environment's `bin`
-first on its PATH, and a mounted folder without the package, or a second copy of it ahead on the python3's
-path, ends the container with exit 5, the case not run; the eval's exit code kept, each run's trace copied
+first on its PATH, and a mounted folder without the package, a second copy of it ahead on the python3's
+path, or a virtual environment that cannot be made, ends the container with exit 5, the case not run,
+after the line of the step it failed in; the eval's exit code kept, each run's trace copied
 whatever its folder, and mapped to the path the eval's result names); the shared code copied from a toy
 kit's tracked files alone, and a kit that tracks none a Broken with the fix; `run_module` against a fake
 docker: the folder mounted at /shared holds the copy when the container starts, a container that exits 5
-ends the run with its own line and one fix, and another exit keeps the run's fix; the environment of the
+after a stray line, the line of its step and its fix line ends the run with the step's line in brackets
+and the fix line, one fix, while one that exits 5 with the fix line alone or with no output, and another
+exit, keep the run's fix; the environment of the
 docker commands; the image's tag following the pin
 and the Dockerfile's text, and the image inspected and built under that tag, against a fake docker; a token
 file judged before docker is asked for an image; the Dockerfile's refusal of an architecture reaching the
@@ -151,22 +155,25 @@ CONTAINER_PLUGIN = "/plugin"  # where the module's copy is mounted, read-only
 CONTAINER_SHARED = "/shared"  # where the change's shared code is mounted, read-only, beside the module's copy
 CONTAINER_OUT = "/out"  # where the results folder is mounted, writable
 SHARED_ENV_EXIT = 5  # the exit of a container that could not make the shared code importable
-SHARED_ENV_SAID = (  # one line with one fix, which `run_case` prints whole: it fits every cause of the exit
+SHARED_ENV_SAID = (  # the container's last line, with its one fix, which `run_case` prints after the step's
     "the shared code cannot be made importable in the container, where a case must run the change's own"
-    " shared code and no release: a virtual environment of the image's python3, with its system packages and"
-    " a .pth file that names the mounted shared folder, did not give a python3 that imports"
-    " constitution_layer_kit from that folder and yaml — fix: from the kit's folder run"
-    f' `docker run --rm -it -v "$PWD/shared:{CONTAINER_SHARED}:ro" <an image that docker image ls {IMAGE}'
-    " lists> sh`, make the environment there with the commands of `shared_environment` in"
-    " scripts/run-evals.py, and read which step fails"
+    " shared code and no release — fix: correct the cause of the failed step, in"
+    " shared/constitution_layer_kit/ or in scripts/eval-container/Dockerfile, and run the evals again"
+)
+SHARED_STEPS = (  # what the container was doing when it failed, in the order of its steps
+    "making the virtual environment",
+    "writing the .pth file that names the mounted shared folder",
+    "importing constitution_layer_kit from the mounted shared folder, and yaml",
 )
 SHARED_PTH_WRITE = (  # run by the environment's python3: its .pth file, naming the mounted shared folder
     "import pathlib, sys, sysconfig; "
     "pathlib.Path(sysconfig.get_path('purelib'), 'kit-shared.pth').write_text(sys.argv[1] + '\\n')"
 )
-SHARED_PROBE = (  # run by the environment's python3: the package comes from the mounted shared folder
+SHARED_PROBE = (  # run by the environment's python3: the package comes from the mounted shared folder, else
+    # it says where from, as its last line
     "import constitution_layer_kit, sys, yaml; "
-    "sys.exit(0 if constitution_layer_kit.__file__.startswith(sys.argv[1] + '/') else 1)"
+    "sys.exit(0 if constitution_layer_kit.__file__.startswith(sys.argv[1] + '/') else "
+    '"constitution_layer_kit comes from " + constitution_layer_kit.__file__ + ", not from " + sys.argv[1])'
 )
 SUBSCRIPTION = (
     "oauth_token",
@@ -287,15 +294,19 @@ def shared_environment(shared: str = CONTAINER_SHARED, home: str = CONTAINER_HOM
     image's PyYAML) and no pip, whose site-packages holds a `.pth` file naming the mounted folder `shared`;
     then its `bin` first on PATH, for the `claude` the case runs and so for the python3 its hooks and scans
     start. The environment's python3 must import `constitution_layer_kit` from that folder and `yaml`, else
-    the container says why on its standard error and exits `SHARED_ENV_EXIT`, and the case does not run."""
+    the container exits `SHARED_ENV_EXIT`, the case not run, after two lines on its standard error: the step
+    it was in, `SHARED_STEPS`, with the last line of that step's own output, and `SHARED_ENV_SAID`."""
     env = f"{home}/.shared-env"
     python = shlex.quote(f"{env}/bin/python3")
+    making, writing, importing = (shlex.quote(step) for step in SHARED_STEPS)
+    venv = f"python3 -m venv --system-site-packages --without-pip {shlex.quote(env)}"
     return (
-        f"python3 -m venv --system-site-packages --without-pip {shlex.quote(env)} && "
-        f"{python} -c {shlex.quote(SHARED_PTH_WRITE)} {shlex.quote(shared)} && "
-        f'export PATH={shlex.quote(f"{env}/bin")}:"$PATH" && '
-        f"python3 -c {shlex.quote(SHARED_PROBE)} {shlex.quote(shared)} || "
-        f"{{ echo {shlex.quote(SHARED_ENV_SAID)} >&2; exit {SHARED_ENV_EXIT}; }}; "
+        f"step={making}; out=$({venv} 2>&1) && "
+        f"step={writing} && out=$({python} -c {shlex.quote(SHARED_PTH_WRITE)} {shlex.quote(shared)} 2>&1) && "
+        f'step={importing} && export PATH={shlex.quote(f"{env}/bin")}:"$PATH" && '
+        f"out=$(python3 -c {shlex.quote(SHARED_PROBE)} {shlex.quote(shared)} 2>&1) || "
+        '{ echo "failed while $step: $(printf \'%s\\n\' "$out" | tail -n 1)" >&2; '
+        f"echo {shlex.quote(SHARED_ENV_SAID)} >&2; exit {SHARED_ENV_EXIT}; }}; "
     )
 
 
@@ -407,8 +418,11 @@ def run_case(
     result = out / f"{case.name}.json"
     if not result.is_file():
         said = (done.stderr or done.stdout).strip().splitlines()
-        if done.returncode == SHARED_ENV_EXIT and said:  # the container's line carries its own fix
-            raise Broken(f"the eval of case {case.name} exited {done.returncode} with no result ({said[-1]})")
+        if done.returncode == SHARED_ENV_EXIT and len(said) > 1:  # its last two lines: the step, then the fix
+            step, fix = said[-2:]
+            raise Broken(
+                f"the eval of case {case.name} exited {done.returncode} with no result ({step}) — {fix}"
+            )
         raise Broken(
             f"the eval of case {case.name} exited {done.returncode} with no result"
             f" ({said[-1] if said else 'no output'})"
@@ -739,8 +753,8 @@ def fake_run_docker(folder: Path, log: Path, said: Path) -> dict[str, str]:
     """For the self-test: a `docker` in `folder` that runs no container. It appends to `log` what the folder
     mounted at /shared holds (the tracked file `core.py`, else a line saying it is missing) and then answers
     as the container would: a result for the case `load` in the folder mounted at /out; with
-    FAKE_DOCKER_EXIT=5 the line in `said` on its standard error and exit 5; with 3 a login refusal. The
-    environment that puts it first on PATH."""
+    FAKE_DOCKER_EXIT=5 the lines of `said` on its standard error and exit 5, with `5-alone` the last of them
+    alone, with `5-silent` no line; with 3 a login refusal. The environment that puts it first on PATH."""
     folder.mkdir()
     result = json.dumps(
         {"aggregates": {"casesTotal": 1, "casesPassed": 1, "overallScore": 1.0},
@@ -760,6 +774,8 @@ def fake_run_docker(folder: Path, log: Path, said: Path) -> dict[str, str]:
         'if [ -f "$core" ]; then cat "$core" >&3; else echo "no core.py at $shared" >&3; fi\n'
         'case "$FAKE_DOCKER_EXIT" in\n'
         f"  5) cat '{said}' >&2; exit 5 ;;\n"
+        f"  5-alone) tail -n 1 '{said}' >&2; exit 5 ;;\n"
+        "  5-silent) exit 5 ;;\n"
         "  3) echo 'not a subscription login: none' >&2; exit 3 ;;\n"
         "esac\n"
         f"printf '%s' '{result}' > \"$out/load.json\"\n",
@@ -772,16 +788,23 @@ def fake_run_docker(folder: Path, log: Path, said: Path) -> dict[str, str]:
 def run_module_cases(case: Callable[[str, bool], None], box: Box, tmp: Path, quiet: dict[str, str]) -> None:
     """For the self-test: `run_module` over a toy kit against a docker that runs no container, which notes
     what the folder mounted at /shared holds. The cases: the change's shared code is there when the
-    container starts and the case's result counts; a container that exits 5 ends the run with its own
-    line and that line's one fix; a container that exits otherwise keeps the run's fix."""
+    container starts and the case's result counts; a container that exits 5 after a stray traceback line,
+    the line of the failed step and its fix line ends the run with the step's line in brackets and then the
+    fix line, and no other fix after it; one that exits 5 with the fix line alone, or with no output, and
+    one that exits otherwise, keep the run's fix."""
     eval_kit = toy_eval_kit(tmp / "eval-kit", quiet)
     said_file, run_log = tmp / "shared-env-said.txt", tmp / "run-docker.log"
-    said_file.write_text(SHARED_ENV_SAID + "\n", encoding="utf-8")
+    stray = "Traceback (most recent call last):"  # typed by hand, the lines the container printed
+    step = (
+        "failed while importing constitution_layer_kit from the mounted shared folder, and yaml:"
+        " ModuleNotFoundError: No module named 'constitution_layer_kit'"
+    )
+    said_file.write_text(f"{stray}\n{step}\n{SHARED_ENV_SAID}\n", encoding="utf-8")
     run_env_of = fake_run_docker(tmp / "run-bin", run_log, said_file)
     exits: dict[str, str] = {}
     with mock.patch.dict(globals(), {"KIT": eval_kit}):
         ran = run_module("const-x", "m", run_env_of, box)
-        for exit_code in ("5", "3"):
+        for exit_code in ("5", "5-alone", "5-silent", "3"):
             try:
                 run_module("const-x", "m", run_env_of | {"FAKE_DOCKER_EXIT": exit_code}, box)
                 exits[exit_code] = "no Broken"
@@ -793,22 +816,33 @@ def run_module_cases(case: Callable[[str, bool], None], box: Box, tmp: Path, qui
         run_log.read_text(encoding="utf-8").splitlines()[:1] == ["x = 1"]
         and (ran.cases, ran.passed) == (1, 1),
     )
+    fix_line = (  # typed by hand: the container's last line, and the one fix of the run's Broken
+        "the shared code cannot be made importable in the container, where a case must run the change's own"
+        " shared code and no release — fix: correct the cause of the failed step, in"
+        " shared/constitution_layer_kit/ or in scripts/eval-container/Dockerfile, and run the evals again"
+    )
     case(
-        "a container that exits 5, the shared code not importable, ends the run with its own line and that"
-        " line's one fix, and no other 'fix:' after it",
-        SHARED_ENV_SAID.count("fix:") == 1
-        and "\n" not in SHARED_ENV_SAID
-        and exits["5"]
-        == f"the eval of case load exited {SHARED_ENV_EXIT} with no result ({SHARED_ENV_SAID})",
+        "a container that exits 5, the shared code not importable, ends the run with the line of the failed"
+        " step in brackets, not the line before it, and then the container's fix line, the only 'fix:'",
+        SHARED_ENV_SAID == fix_line
+        and exits["5"] == f"the eval of case load exited 5 with no result ({step}) — {fix_line}"
+        and exits["5"].count("fix:") == 1,
+    )
+    general = (  # typed by hand: the fix of the run for every exit but a container's line pair
+        " — fix: the line in brackets says why: for a version not the pinned one, run docker image rm img and"
+        " run again, which rebuilds it; for a login, save a token from claude setup-token in the token file"
+    )
+    case(
+        "a container that exits 5 with no output, or with its fix line alone and no step, keeps the fix of"
+        " the run after the line in brackets, or after 'no output'",
+        exits["5-silent"] == f"the eval of case load exited 5 with no result (no output){general}"
+        and exits["5-alone"] == f"the eval of case load exited 5 with no result ({fix_line}){general}",
     )
     case(
         "a container that exits otherwise with no result keeps the fix of the run: the line in brackets, the"
         " image to remove and the login",
-        exits["3"].startswith(
-            "the eval of case load exited 3 with no result (not a subscription login: none)"
-        )
-        and exits["3"].count("fix:") == 1
-        and "run docker image rm img and run again" in exits["3"],
+        exits["3"]
+        == f"the eval of case load exited 3 with no result (not a subscription login: none){general}",
     )
 
 
@@ -1104,13 +1138,34 @@ def self_test() -> int:
             )],
             env=box_env, capture_output=True, text=True, check=False,
         )  # fmt: skip
+        importing = "failed while importing constitution_layer_kit from the mounted shared folder, and yaml: "
         case(
-            "a mounted folder without the package ends the container with exit 5 and a line that says why,"
-            " the case not run",
+            "a mounted folder without the package ends the container with exit 5, the line of the step it"
+            " failed in with that step's last output line, then a line that says why, the case not run",
             refused.returncode == SHARED_ENV_EXIT
-            and "the shared code cannot be made importable in the container" in refused.stderr
+            and refused.stderr.splitlines()[-2:]
+            == [importing + "ModuleNotFoundError: No module named 'constitution_layer_kit'", SHARED_ENV_SAID]
             and not seen_file.exists()
             and not (box_root / "out" / "none-traces.txt").exists(),
+        )
+        (box_root / "a-file").write_text("", encoding="utf-8")
+        unmade = subprocess.run(
+            ["sh", "-c", then_for(
+                Path("const-x"), "unmade", ["claude", "plugin", "eval"], tmp=str(box_root / "tmp"),
+                out=str(box_root / "out"), plugin=str(box_root / "plugin"), home=str(box_root / "a-file"),
+                shared=str(box_root / "shared"),
+            )],
+            env=box_env, capture_output=True, text=True, check=False,
+        )  # fmt: skip
+        case(
+            "a virtual environment that cannot be made ends the container with exit 5, the line of that step"
+            " first, then the line that says why, the case not run",
+            unmade.returncode == SHARED_ENV_EXIT
+            and unmade.stderr.splitlines()[-2].startswith(
+                "failed while making the virtual environment: Error: [Errno 20] Not a directory"
+            )
+            and unmade.stderr.splitlines()[-1] == SHARED_ENV_SAID
+            and not (box_root / "out" / "unmade-traces.txt").exists(),
         )
         (box_root / "second" / "constitution_layer_kit").mkdir(parents=True)
         (box_root / "second" / "constitution_layer_kit" / "__init__.py").write_text("", encoding="utf-8")
@@ -1123,11 +1178,17 @@ def self_test() -> int:
             env=box_env | {"PYTHONPATH": str(box_root / "second")},
             capture_output=True, text=True, check=False,
         )  # fmt: skip
+        second = box_root / "second" / "constitution_layer_kit" / "__init__.py"
         case(
             "a second copy of the package ahead of the mounted folder on the python3's path ends the"
-            " container with exit 5 and a line that says why, the case not run",
+            " container with exit 5, the line of the step that says where the package came from, then a line"
+            " that says why, the case not run",
             crowded.returncode == SHARED_ENV_EXIT
-            and "the shared code cannot be made importable in the container" in crowded.stderr
+            and crowded.stderr.splitlines()[-2:]
+            == [
+                f"{importing}constitution_layer_kit comes from {second}, not from {box_root}/shared",
+                SHARED_ENV_SAID,
+            ]
             and not seen_file.exists()
             and not (box_root / "out" / "crowded-traces.txt").exists(),
         )

@@ -36,10 +36,12 @@ Two skills load on their own. `close-task` loads when a task, a branch or a pull
 
 **The two skills.** Procedures in prose. The module names them at session start, at each subagent's start and after every red Claude reads, of the hook or the scan, so they are loaded when their activity occurs.
 
-**Settings.** The module works with no configuration in a repository that has a `constitution.yaml`, even an empty one. The turn-end hook then judges the tree, and the range check examines zero pairs and says so. With no such file, the hook and the scan skip, and each says so. The coverage map switches the range check on. Other dials name the trunk branch and the remote whose copy of it is read. Two more name the key of the declaration line, and patterns of a task's working files. The scan lists such files while they are still tracked. Two dials are every gate's: how loud the turn-end finding is, and where the log goes.
+**Settings.** The module works with no configuration in a repository that has a `constitution.yaml` naming `module_prefix: const-` at least. The turn-end hook then judges the tree, and the range check examines zero pairs and says so. With no such file, the hook and the scan skip, and each says so. The coverage map switches the range check on. Other dials name the trunk branch and the remote whose copy of it is read. Two more name the key of the declaration line, and patterns of a task's working files. The scan lists such files while they are still tracked. Two dials are every gate's: how loud the turn-end finding is, and where the log goes.
 
 <a id="a5"></a>
 ## Get it
+
+Install the shared Python package first, with the command in the module's [install note](plugin/INSTALL.md): the module's scripts import it and stop without it.
 
 For one session, from a clone of the kit:
 

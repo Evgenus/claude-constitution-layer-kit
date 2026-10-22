@@ -503,5 +503,5 @@ def v5_no_root_policy() -> Broken:
 def v5_no_dials(root: str) -> Broken:
     return v5_refused(
         f"no {_file()} in {escaped(root)}: the check that proves a move cannot run",
-        f"create {_file()} at the repository's top — an empty mapping, {{}}, is enough",
+        f"create {_file()} at the repository's top — a file that holds only module_prefix: const- is enough",
     )

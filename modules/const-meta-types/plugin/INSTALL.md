@@ -18,7 +18,7 @@ A line that starts `BROKEN: const-meta-types needs the Python package constituti
    the territories declared in the repository's `constitution.yaml` and nothing else.
 2. Optional calibration in the project's `constitution.yaml`; defaults apply otherwise —
    the module works with zero configuration (with no `constitution.yaml`, or no
-   `root_policy` in it, nothing is claimed and nothing is checked):
+   `root_policy` in one that names `module_prefix`, nothing is claimed and nothing is checked):
    ```yaml
    const-meta-types:
      severity: block      # block (default) | warn — warn reports the finding and lets the write through

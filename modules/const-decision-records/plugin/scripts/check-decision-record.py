@@ -7,8 +7,8 @@ Modes:    no arguments  read one PreToolUse event on stdin, reconstruct the docu
           --scan [DIR]  judge every decision record of the repository containing DIR
                         (default: the current directory).
 Reads:    from the event: tool_name, tool_input.file_path, .content, .old_string,
-          .new_string, .replace_all, cwd, session_id. From constitution.yaml: root_policy,
-          territory_dialect, territory of every policy namespace, and this module's dials
+          .new_string, .replace_all, cwd, session_id. From constitution.yaml: module_prefix,
+          root_policy, territory_dialect, territory of every policy namespace, and this module's dials
           const-decision-records.record_policies (the ids of the policies that govern
           decision records), .severity (block | warn) and .log_dir.
 The check: a Markdown document governed by a record policy is a decision record, and its

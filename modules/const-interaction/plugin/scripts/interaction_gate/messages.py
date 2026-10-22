@@ -118,7 +118,7 @@ def z1_replaced(dial: ReaderDial, command: Sequence[str]) -> str:
 def z1_no_dials(root: str) -> str:
     return (
         f"{_ns()}: no {_file()} in {escaped(root)} — the destructive-command gate examines nothing there"
-        " until the file exists (an empty mapping, {}, is enough for the default list)"
+        " until the file exists (a file that holds only module_prefix: const- is enough for the default list)"
     )
 
 

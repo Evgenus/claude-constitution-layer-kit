@@ -16,8 +16,8 @@ Act:      --kind <policy id> --stem <stem> --title <text>
           The id is the stem, or name-<segment> for a free-segment kind — the fixed file name
           lower-cased — or --id.
           --dry-run prints the home and the template and writes nothing.
-Reads:    constitution.yaml — root_policy, territory_dialect and every policy's territory,
-          as every gate reads them; const-locations.templates for the template, .log_dir
+Reads:    constitution.yaml — module_prefix, root_policy, territory_dialect and every policy's
+          territory, as every gate reads them; const-locations.templates for the template, .log_dir
           for the log. With no constitution.yaml, or no root_policy, it refuses.
 Exit:     0 the document was created, or the dry run printed what a write would use;
           1 refused — every refusal is asked before anything is written — or it could
