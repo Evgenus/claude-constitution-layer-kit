@@ -14,13 +14,21 @@ receipt per module in `scripts/eval-receipts.json`, written by `scripts/run-eval
                  `evals/results/`. A link to a folder stands for
                  every file git tracks under the folder it leads to, each named through the link; a link to a
                  file, for that file. A link that leads outside the kit, or to nothing, is an `EvalError`.
-  `eval_hash`    `sha256:` and the hex digest over those files in name order, and last over the kit's
-                 scripts/eval-container/Dockerfile, named `<kit>/scripts/eval-container/Dockerfile`, when the
-                 kit has one, so that a change to the image every case runs in stales every receipt; each its
-                 name, a zero byte, its size in decimal, a zero byte and its bytes, as the working tree holds
-                 them.
-  `dirty`        the files of `eval_files`, and the eval image's Dockerfile, that differ from HEAD or that
-                 git does not track yet, read by
+                 A link that leads to the shared package, `shared/constitution_layer_kit/`, is not followed:
+                 `shared_files` names those files, once, whether a plugin links them or not.
+  `shared_files` the files of the shared package that a session loads (decision
+                 dec-0099-shared-code-installed-as-a-pip-package, R18): every file git tracks under
+                 `shared/constitution_layer_kit/`, each named `<kit>/shared/constitution_layer_kit/<path>`, in
+                 name order. A plugin holds no copy of the package and imports it from the `shared/` the
+                 eval container mounts, so the package is part of what a session loads whether or not a
+                 link to it stands in a plugin.
+  `eval_hash`    `sha256:` and the hex digest over `eval_files` in name order, then over `shared_files` in
+                 name order, and last over the kit's scripts/eval-container/Dockerfile, named
+                 `<kit>/scripts/eval-container/Dockerfile`, when the kit has one, so that a change to the
+                 image every case runs in stales every receipt; each its name, a zero byte, its size in
+                 decimal, a zero byte and its bytes, as the working tree holds them.
+  `dirty`        the files of `eval_files` and `shared_files`, and the eval image's Dockerfile, that differ
+                 from HEAD or that git does not track yet, read by
                  `git status`: a run is made only on committed files, so that its receipt names what CI sees.
   `read_receipts` / `write_receipts`  the receipts file: one JSON object, a key per module, each entry an
                  object with `hash`, `claude` (the version of `scripts/claude-code.version` the run used),
@@ -51,6 +59,7 @@ EVALS = "evals"
 EVAL_IMAGE = (
     "scripts/eval-container/Dockerfile"  # the image every case runs in; a change to it stales every receipt
 )
+SHARED = "shared/constitution_layer_kit"  # the shared package, whose tracked files every receipt names
 LEFT_OUT_FILES = ("MODULE.md", "README.md", "plugin/INSTALL.md")  # paths from the module's folder
 LEFT_OUT_FOLDERS = ("tests", "evals/results")
 MODEL = re.compile(r"[a-z0-9][a-z0-9.-]*")
@@ -132,8 +141,8 @@ def left_out(name: str) -> bool:
 
 
 def eval_files(root: Path, module: str) -> list[tuple[str, Path]]:
-    """Each file a session of the module loads, as (its name within the module, its path on disk), in
-    name order."""
+    """Each file of the module a session loads, as (its name within the module, its path on disk), in name
+    order; a link to the shared package is passed over, since `shared_files` names those files."""
     base = f"modules/{module}"
     kit = root.resolve()
     files: dict[str, Path] = {}
@@ -151,6 +160,8 @@ def eval_files(root: Path, module: str) -> list[tuple[str, Path]]:
                 f"{path} is a link to {target}, which is not a file or folder of the kit"
                 " — fix: point the link at the kit's own source"
             )
+        if target.is_relative_to(kit / SHARED):
+            continue  # the shared package is named once, by `shared_files`, and not through a plugin's link
         if target.is_file():
             files[name] = target
             continue
@@ -160,10 +171,20 @@ def eval_files(root: Path, module: str) -> list[tuple[str, Path]]:
     return sorted(files.items())
 
 
+def shared_files(root: Path) -> list[tuple[str, Path]]:
+    """Each file of the shared package a session loads, as (`<kit>/` and its path in the kit, its path on
+    disk), in name order: the files git tracks under `shared/constitution_layer_kit/`."""
+    return sorted((f"<kit>/{path}", root / path) for path in tracked(root, SHARED))
+
+
 def eval_hash(root: Path, module: str) -> str:
     digest = hashlib.sha256()
     image = root / EVAL_IMAGE
-    named = [*eval_files(root, module), *([(f"<kit>/{EVAL_IMAGE}", image)] if image.is_file() else [])]
+    named = [
+        *eval_files(root, module),
+        *shared_files(root),
+        *([(f"<kit>/{EVAL_IMAGE}", image)] if image.is_file() else []),
+    ]
     for name, path in named:
         data = path.read_bytes()
         digest.update(name.encode("utf-8") + b"\0" + str(len(data)).encode("ascii") + b"\0" + data)
@@ -173,7 +194,7 @@ def eval_hash(root: Path, module: str) -> str:
 def dirty(root: Path, module: str) -> list[str]:
     """The kit paths behind the module's eval files and the eval image that differ from HEAD or git lacks."""
     kit = root.resolve()
-    files = [path for _, path in eval_files(root, module)]
+    files = [path for _, path in [*eval_files(root, module), *shared_files(root)]]
     if (root / EVAL_IMAGE).is_file():
         files.append(root / EVAL_IMAGE)  # hashed too, so a run is made only on a committed image
     paths = sorted({path.resolve().relative_to(kit).as_posix() for path in files})

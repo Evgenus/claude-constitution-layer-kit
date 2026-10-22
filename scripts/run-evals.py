@@ -11,7 +11,8 @@ With no `--module`, every module folder. Every case runs in a throwaway containe
 scripts/eval-container/Dockerfile defines, built once through `docker` as kit-evalbox:<version>-<hash>, the
 Claude Code version scripts/claude-code.version pins and the Dockerfile's hash; no case runs on the host,
 so every receipt comes from one environment. The container holds no secret of the host: the module's copy
-is mounted read-only and a results folder of the run's own writable. It runs with Docker's seccomp filter
+is mounted read-only, beside it a copy of the change's shared code, read-only too, and a results folder of
+the run's own writable. It runs with Docker's seccomp filter
 and its /proc mask lifted
 (`--security-opt seccomp=unconfined --security-opt systempaths=unconfined`), which the eval's own Bash
 sandbox, bwrap, needs to start; under Docker's defaults every Bash command of a case fails before it runs.
@@ -21,13 +22,26 @@ token from `claude setup-token`, and must be readable by its owner alone, which 
 asks docker for the image. For each module, in turn:
   1. its eval files (`kit_evals.eval_files`) and the image's Dockerfile must all be committed
      (`kit_evals.dirty`), else the module is refused with the fix, so that the receipt names what CI checks;
-  2. its eval files are copied, links followed, into a temporary folder, a copy of the module's
-     eval files: its cases, and its `plugin/` save `INSTALL.md`, the plugin the cases load through their
-     `plugins:` line;
-  3. one container per case: its guard unsets the variables that would bill by usage (ANTHROPIC_API_KEY,
+  2. its eval files are copied, links followed, save a link to the shared package, into a temporary
+     folder, a copy of the module's eval files: its cases, and its `plugin/` save `INSTALL.md`, the plugin the
+     cases load through their `plugins:` line; and the files git tracks in the shared package,
+     `shared/constitution_layer_kit/`, the files the receipt's hash names with the module's
+     (`kit_evals.shared_files`, decision dec-0099-shared-code-installed-as-a-pip-package, R18), are copied
+     beside it as `shared/constitution_layer_kit/`, so that the container runs the change's shared code and
+     never a release installed on the host or in the image;
+  3. one container per case: the module's copy mounted read-only at /plugin and the copy of the shared code
+     read-only at /shared; its guard unsets the variables that would bill by usage (ANTHROPIC_API_KEY,
      ANTHROPIC_AUTH_TOKEN, CLAUDE_CODE_USE_BEDROCK, CLAUDE_CODE_USE_VERTEX, CLAUDE_CODE_USE_FOUNDRY), refuses
      to go on unless `claude --version` is the pinned version and `claude auth status` reports a
-     subscription login, `oauth_token` or `claude.ai`, then runs `claude plugin eval` on the copy, `--case
+     subscription login, `oauth_token` or `claude.ai`; then, at the run's start and in the way the checks of
+     `scripts/kit_install.py` do (`shared_environment`), it makes a virtual environment of the image's
+     python3, with its system packages (the image's PyYAML) and no pip, writes into its site-packages a
+     `.pth` file that names /shared, and puts its `bin` first on PATH, so that the python3 the case's hooks
+     and scans start imports the mounted package; a python3 that does not import `constitution_layer_kit`
+     from /shared and `yaml` ends the container with exit 5 and a line that says so, the case not run. The
+     image is unchanged for this: its Debian python3 makes the environment with no package of its own, and
+     a virtual environment's `.pth` entries come before the system's folders on `sys.path`. Then it runs
+     `claude plugin eval` on the copy, `--case
      <name>`, with `--model` from scripts/eval-model, `--runs 3 --threshold 1 --ablation none`,
      `--trust-plugin --no-publish --scaffold`, and `--allow-tools` granting those of Bash, Write and Edit
      that the case lists in its `allowed_tools` — a skill or command case lists Read, Glob, Grep, Write,
@@ -53,10 +67,14 @@ container's output as it comes, then for each run its verdict, the start hooks' 
 text of the model, and each grader's verdict with the eval's explanation (`scripts/kit_eval_report.py`).
 `--self-test` proves the guards without a model or docker: the token file's mode and a token file that does
 not exist; the container's options (the token as an env file, never its text, the copy read-only, the
-seccomp filter and the /proc mask lifted); its guard, run under sh against a fake claude (the billing
-variables unset, the pinned version and a subscription login required, in that order); its command after the
-guard, run under sh (the eval's exit code kept, each run's trace copied whatever its folder, and mapped to
-the path the eval's result names); the environment of the docker commands; the image's tag following the pin
+seccomp filter and the /proc mask lifted, the shared code mounted read-only beside the module's copy); its
+guard, run under sh against a fake claude (the billing variables unset, the pinned version and a subscription
+login required, in that order); its command after the guard, run under sh (the shared code made importable:
+the python3 a fake claude starts imports a toy package from the mounted folder, the environment's `bin`
+first on its PATH, and a mounted folder without the package ends the container with exit 5, the case not run;
+the eval's exit code kept, each run's trace copied whatever its folder, and mapped to the path the eval's
+result names); the shared code copied from a toy kit's tracked files alone, and a kit that tracks none a
+Broken with the fix; the environment of the docker commands; the image's tag following the pin
 and the Dockerfile's text, and the image inspected and built under that tag, against a fake docker; a token
 file judged before docker is asked for an image; the Dockerfile's refusal of an architecture reaching the
 person with its own fix, from BuildKit's log and from the legacy builder's coloured output, and a failed
@@ -106,6 +124,7 @@ from kit_evals import (
     eval_hash,
     eval_model,
     read_receipts,
+    shared_files,
     write_receipts,
 )
 from kit_module_doc import DocumentError, claude_env, module_folders, pinned_claude
@@ -123,7 +142,24 @@ SANDBOX_OPTIONS = (  # what the eval's own Bash sandbox, bwrap, needs to start i
 )
 CONTAINER_HOME = "/home/node"
 CONTAINER_PLUGIN = "/plugin"  # where the module's copy is mounted, read-only
+CONTAINER_SHARED = "/shared"  # where the change's shared code is mounted, read-only, beside the module's copy
 CONTAINER_OUT = "/out"  # where the results folder is mounted, writable
+SHARED_ENV_EXIT = 5  # the exit of a container that could not make the shared code importable
+SHARED_ENV_SAID = (
+    "the shared code cannot be made importable in the container: a virtual environment of the image's"
+    " python3, with its system packages and a .pth file that names the mounted shared folder, did not give a"
+    " python3 that imports constitution_layer_kit from that folder and yaml — fix: run docker image rm on the"
+    " eval image and run again, which rebuilds it; if it repeats, run `python3 -m venv"
+    " --system-site-packages --without-pip <folder>` in the image by hand and read why it fails"
+)
+SHARED_PTH_WRITE = (  # run by the environment's python3: its .pth file, naming the mounted shared folder
+    "import pathlib, sys, sysconfig; "
+    "pathlib.Path(sysconfig.get_path('purelib'), 'kit-shared.pth').write_text(sys.argv[1] + '\\n')"
+)
+SHARED_PROBE = (  # run by the environment's python3: the package comes from the mounted shared folder
+    "import constitution_layer_kit, sys, yaml; "
+    "sys.exit(0 if constitution_layer_kit.__file__.startswith(sys.argv[1] + '/') else 1)"
+)
 SUBSCRIPTION = (
     "oauth_token",
     "claude.ai",
@@ -236,6 +272,25 @@ def guard(pinned: str, then: str) -> str:
     )
 
 
+def shared_environment(shared: str = CONTAINER_SHARED, home: str = CONTAINER_HOME) -> str:
+    """The shell a container runs after its guard and before its case, to make the change's shared code
+    importable the way the kit's other checks do (decision dec-0099-shared-code-installed-as-a-pip-package,
+    R18): a virtual environment `<home>/.shared-env` of the image's python3, with its system packages (the
+    image's PyYAML) and no pip, whose site-packages holds a `.pth` file naming the mounted folder `shared`;
+    then its `bin` first on PATH, for the `claude` the case runs and so for the python3 its hooks and scans
+    start. The environment's python3 must import `constitution_layer_kit` from that folder and `yaml`, else
+    the container says why on its standard error and exits `SHARED_ENV_EXIT`, and the case does not run."""
+    env = f"{home}/.shared-env"
+    python = shlex.quote(f"{env}/bin/python3")
+    return (
+        f"python3 -m venv --system-site-packages --without-pip {shlex.quote(env)} && "
+        f"{python} -c {shlex.quote(SHARED_PTH_WRITE)} {shlex.quote(shared)} && "
+        f'export PATH={shlex.quote(f"{env}/bin")}:"$PATH" && '
+        f"python3 -c {shlex.quote(SHARED_PROBE)} {shlex.quote(shared)} || "
+        f"{{ echo {shlex.quote(SHARED_ENV_SAID)} >&2; exit {SHARED_ENV_EXIT}; }}; "
+    )
+
+
 def then_for(
     copy: Path,
     case: str,
@@ -244,12 +299,15 @@ def then_for(
     out: str = CONTAINER_OUT,
     plugin: str = CONTAINER_PLUGIN,
     home: str = CONTAINER_HOME,
+    shared: str = CONTAINER_SHARED,
 ) -> str:
-    """What a container runs after its guard: the eval, then each run's trace, which `--keep-temp` leaves in a
-    read-only folder under /tmp, copied to /out as <case>-trace<n>.jsonl, and a line `<n> <its path>` in
-    /out/<case>-traces.txt, the path the eval's result names for its run; the container exits with the eval's
-    code. The paths are the container's; the self-test passes its own."""
+    """What a container runs after its guard: the environment of the shared code (`shared_environment`), the
+    eval, then each run's trace, which `--keep-temp` leaves in a read-only folder under /tmp, copied to /out
+    as <case>-trace<n>.jsonl, and a line `<n> <its path>` in /out/<case>-traces.txt, the path the eval's
+    result names for its run; the container exits with the eval's code. The paths are the container's; the
+    self-test passes its own."""
     return (
+        f"{shared_environment(shared, home)}"
         f"cp -r {shlex.quote(plugin)} {shlex.quote(f'{home}/{copy.name}')} && cd {shlex.quote(home)} && "
         f"{shlex.join(argv)}; code=$?; "
         f": > {shlex.quote(f'{out}/{case}-traces.txt')}; "
@@ -260,12 +318,15 @@ def then_for(
     )
 
 
-def in_box(box: Box, copy: Path, out: Path, argv: list[str], case: str) -> list[str]:
-    """The `docker run` that runs `argv` in a throwaway container, after its guard."""
+def in_box(box: Box, copy: Path, out: Path, argv: list[str], case: str, shared: Path) -> list[str]:
+    """The `docker run` that runs `argv` in a throwaway container, after its guard: the module's copy
+    mounted read-only, and beside it, read-only too, the folder `shared` that holds the change's shared
+    package."""
     then = then_for(copy, case, argv)
     return [
         "docker", "run", "--rm", *SANDBOX_OPTIONS, "--env-file", str(box.token_file),
-        "-v", f"{copy}:{CONTAINER_PLUGIN}:ro", "-v", f"{out}:{CONTAINER_OUT}",
+        "-v", f"{copy}:{CONTAINER_PLUGIN}:ro", "-v", f"{shared}:{CONTAINER_SHARED}:ro",
+        "-v", f"{out}:{CONTAINER_OUT}",
         box.image, "sh", "-c", guard(box.pinned, then),
     ]  # fmt: skip
 
@@ -314,7 +375,9 @@ def run_case(
     out.mkdir(exist_ok=True)
     tools = granted([case / "case.yaml"])
     plugin = f"{CONTAINER_HOME}/{copy.name}"
-    argv = in_box(box, copy, out, eval_argv(plugin, case.name, model, CONTAINER_OUT, tools), case.name)
+    argv = in_box(
+        box, copy, out, eval_argv(plugin, case.name, model, CONTAINER_OUT, tools), case.name, tmp / "shared"
+    )
     timeout = RUNS * TURN_SECONDS + 300
     if verbose:
         print(f"── case {case.name}, {RUNS} runs on {model}", flush=True)
@@ -425,6 +488,21 @@ def token_file(given: str) -> Path:
     return path
 
 
+def copy_shared(kit: Path, into: Path) -> None:
+    """The files git tracks in the kit's shared package (`kit_evals.shared_files`) copied under `into`, as
+    `into/constitution_layer_kit/...`: the folder a container mounts as the change's shared code, holding
+    exactly the files the receipt's hash names. A kit that tracks none is a Broken."""
+    files = shared_files(kit)
+    if not files:
+        raise Broken(
+            "git tracks no file under shared/constitution_layer_kit/ — fix: run the command from a clone of"
+            " the kit, which holds the shared package"
+        )
+    for _, path in files:
+        (into / path.relative_to(kit / "shared")).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, into / path.relative_to(kit / "shared"))
+
+
 def run_module(module: str, model: str, env: dict[str, str], box: Box, verbose: bool = False) -> Outcome:
     root = KIT / "modules" / module
     cases = cases_of(root)
@@ -444,6 +522,7 @@ def run_module(module: str, model: str, env: dict[str, str], box: Box, verbose: 
         for name, path in eval_files(KIT, module):
             (copy / name).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(path, copy / name)
+        copy_shared(KIT, Path(tmp) / "shared")
         outcomes = [run_case(case, copy, model, env, Path(tmp), box, verbose) for case in cases]
     total = sum(o.cases for o in outcomes)
     score = sum(o.score * o.cases for o in outcomes) / total if total else 0.0
@@ -604,6 +683,22 @@ def report_story(folder: Path) -> list[str]:
     return case_preamble(folder / "case.yaml") + case_story(folder / "c.json", folder / "c-traces.txt")
 
 
+def shared_copy_said(kit: Path, scratch: Path, env: dict[str, str]) -> tuple[list[str], str]:
+    """For the self-test: the files `copy_shared` copies from the toy kit `kit` into `scratch/copied`, the
+    paths below it; and what it raises for a new git repository under `scratch` that tracks no shared
+    package."""
+    copied = scratch / "copied"
+    copy_shared(kit, copied)
+    empty = scratch / "no-shared-kit"
+    empty.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=empty, env=env, capture_output=True, check=True)
+    try:
+        copy_shared(empty, scratch / "none")
+    except Broken as nothing:
+        return sorted(str(f.relative_to(copied)) for f in copied.rglob("*") if f.is_file()), str(nothing)
+    return [], "no Broken"
+
+
 def recording_holds() -> bool:
     """Whether `recorded` keeps exactly the attempts that change a receipt's verdict, for the self-test."""
     good, bad, once = Attempt("t2", 2, 2, 1.0), Attempt("t2", 2, 1, 0.5), Attempt("t1", 2, 2, 1.0)
@@ -665,7 +760,14 @@ def self_test() -> int:
             case("a token file that does not exist is refused", "claude setup-token" in str(broken))
         token.chmod(0o600)
         box = Box("img", "2.1.282", token)
-        argv = in_box(box, Path(tmp) / "const-x", Path(tmp) / "out", ["claude", "plugin", "eval"], "case")
+        argv = in_box(
+            box,
+            Path(tmp) / "const-x",
+            Path(tmp) / "out",
+            ["claude", "plugin", "eval"],
+            "case",
+            Path(tmp) / "shared",
+        )
         case(
             "the container gets the token file as --env-file, never its text",
             argv[argv.index("--env-file") + 1] == str(token) and "probe-token-value" not in " ".join(argv),
@@ -679,6 +781,12 @@ def self_test() -> int:
         )
         case(
             "the container mounts the module's copy read-only", f"{Path(tmp) / 'const-x'}:/plugin:ro" in argv
+        )
+        case(
+            "the container mounts the change's shared code read-only beside the module's copy",
+            f"{Path(tmp) / 'shared'}:/shared:ro" in argv
+            and argv.index(f"{Path(tmp) / 'shared'}:/shared:ro")
+            == argv.index(f"{Path(tmp) / 'const-x'}:/plugin:ro") + 2,
         )
         case(
             "the container runs the guard before its case",
@@ -846,22 +954,50 @@ def self_test() -> int:
         box_root = Path(tmp) / "box root"  # a space, so that then_for's quoting is held
         for folder in ("tmp/claude-eval-a/out", "tmp/e-b/out", "out", "plugin", "home", "bin"):
             (box_root / folder).mkdir(parents=True)
+        (box_root / "shared" / "constitution_layer_kit").mkdir(parents=True)
+        (box_root / "shared" / "constitution_layer_kit" / "__init__.py").write_text("", encoding="utf-8")
         (box_root / "plugin" / "case.yaml").write_text("x\n", encoding="utf-8")
         (box_root / "bin" / "claude").write_text(
-            f"#!/bin/sh\necho 1 > '{box_root}/tmp/claude-eval-a/out/trace.jsonl'\n"
+            "#!/bin/sh\n"
+            "python3 -c 'import constitution_layer_kit as c; print(c.__file__)'"
+            f" > '{box_root}/seen.txt' 2>&1\n"
+            f"echo \"${{PATH%%:*}}\" > '{box_root}/first-on-path.txt'\n"
+            f"echo 1 > '{box_root}/tmp/claude-eval-a/out/trace.jsonl'\n"
             f"echo 2 > '{box_root}/tmp/e-b/out/trace.jsonl'\nexit 7\n",
             encoding="utf-8",
         )
         (box_root / "bin" / "claude").chmod(0o755)
+        box_env = {"PATH": f"{box_root / 'bin'}{os.pathsep}{os.environ['PATH']}"}
         script = then_for(
             Path("const-x"), "load", ["claude", "plugin", "eval"], tmp=str(box_root / "tmp"),
             out=str(box_root / "out"), plugin=str(box_root / "plugin"), home=str(box_root / "home"),
+            shared=str(box_root / "shared"),
         )  # fmt: skip
-        boxed = subprocess.run(
-            ["sh", "-c", script],
-            env={"PATH": f"{box_root / 'bin'}{os.pathsep}{os.environ['PATH']}"},
-            capture_output=True,
-            check=False,
+        boxed = subprocess.run(["sh", "-c", script], env=box_env, capture_output=True, check=False)
+        seen_file, first_file = box_root / "seen.txt", box_root / "first-on-path.txt"
+        case(
+            "the container makes the shared code importable for the case: the python3 its claude starts"
+            " imports the package from the mounted folder, the environment's bin first on its PATH",
+            seen_file.read_text(encoding="utf-8").strip()
+            == f"{box_root}/shared/constitution_layer_kit/__init__.py"
+            and first_file.read_text(encoding="utf-8").strip() == f"{box_root}/home/.shared-env/bin",
+        )
+        seen_file.unlink()
+        refused = subprocess.run(
+            ["sh", "-c", then_for(
+                Path("const-x"), "none", ["claude", "plugin", "eval"], tmp=str(box_root / "tmp"),
+                out=str(box_root / "out"), plugin=str(box_root / "plugin"), home=str(box_root / "home-2"),
+                shared=str(box_root / "nothing"),
+            )],
+            env=box_env, capture_output=True, text=True, check=False,
+        )  # fmt: skip
+        case(
+            "a mounted folder without the package ends the container with exit 5 and a line that says why,"
+            " the case not run",
+            refused.returncode == SHARED_ENV_EXIT
+            and "the shared code cannot be made importable in the container" in refused.stderr
+            and not seen_file.exists()
+            and not (box_root / "out" / "none-traces.txt").exists(),
         )
         copied = sorted(p.name for p in (box_root / "out").glob("load-trace*.jsonl"))
         case(
@@ -918,6 +1054,8 @@ def self_test() -> int:
         kit = Path(tmp) / "kit"
         (kit / "modules/const-x/plugin/skills/s").mkdir(parents=True)
         (kit / "modules/const-x/plugin/skills/s/SKILL.md").write_text("skill\n", encoding="utf-8")
+        (kit / "shared/constitution_layer_kit").mkdir(parents=True)
+        (kit / "shared/constitution_layer_kit/core.py").write_text("x = 1\n", encoding="utf-8")
         quiet = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull, "PATH": os.environ["PATH"]}
         for git_args in (
             ["init", "-q"],
@@ -925,6 +1063,19 @@ def self_test() -> int:
             ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "x"],
         ):
             subprocess.run(["git", *git_args], cwd=kit, env=quiet, capture_output=True, check=True)
+        (kit / "shared/constitution_layer_kit/untracked.py").write_text("y = 2\n", encoding="utf-8")
+        files, nothing = shared_copy_said(kit, Path(tmp), quiet)
+        case(
+            "the shared code is copied from the files git tracks alone, as constitution_layer_kit/ under the"
+            " folder a container mounts",
+            files == ["constitution_layer_kit/core.py"],
+        )
+        case(
+            "a kit that tracks no shared package is a Broken with the fix",
+            "git tracks no file under shared/constitution_layer_kit/" in nothing
+            and "fix: run the command from a clone of the kit" in nothing,
+        )
+        (kit / "shared/constitution_layer_kit/untracked.py").unlink()
         skill = kit / "modules/const-x/plugin/skills/s"
         (skill / "SKILL.md").rename(skill / "OTHER.md")  # a rename in the working tree, ` R` in porcelain
         subprocess.run(
@@ -936,6 +1087,12 @@ def self_test() -> int:
                 "a rename not committed, marked in the working tree's column, names its new path and no"
                 " fragment of its source",
                 dirty(kit, "const-x") == ["modules/const-x/plugin/skills/s/OTHER.md"],
+            )
+            (kit / "shared/constitution_layer_kit/core.py").write_text("x = 2\n", encoding="utf-8")
+            case(
+                "an edit of a file of the shared package, not committed, refuses the run too, since the"
+                " receipt's hash names it",
+                "shared/constitution_layer_kit/core.py" in dirty(kit, "const-x"),
             )
             image = kit / "scripts/eval-container/Dockerfile"
             image.parent.mkdir(parents=True)

@@ -29,6 +29,16 @@ one, the `gitCommitSha` of that entry, the one field read that no page documents
 only as a git object id. `claude plugin marketplace add` is read for its exit, and on a failure its last
 output line is quoted; `claude --version` is read for its first word.
 
+The shared code (decision dec-0099-shared-code-installed-as-a-pip-package, R17): a module's plugin holds no
+copy of `shared/constitution_layer_kit/`, and its hooks and scans import the package that `python3` finds. So
+that they find the change's own code and never a release a person installed, the check makes, right after the
+bare repository, the environment of `kit_install.shared_path` under the same throwaway folder: a virtual
+environment of the python3 the check runs under, with its system packages, whose `.pth` file names the working
+folder's `shared/`; nothing is built and nothing needs the network. The marketplace add, the install and the
+list of step 2, and every hook and scan of step 3, run with that environment's `bin` first on PATH. The
+`claude --version` command is asked before any folder exists and loads no plugin, so it keeps the person's
+PATH. A failure to make the environment is a configuration failure with the fix, as that function words it.
+
 For the module named, in throwaway folders that the check removes:
   1. a bare repository — `git init`, the kit's kernel copied to docs/constitution/ and committed,
      no constitution.yaml — and an empty Claude configuration folder (CLAUDE_CONFIG_DIR), which is the
@@ -228,7 +238,19 @@ Modes:  --module <name> [--from <source>]  check one module of the kit;
                          unrelated variable kept; the record read from the check's own configuration,
                          and the folders the variables name left empty; CONSTITUTION_KIT_ANY_CLAUDE and
                          CONSTITUTION_KIT_INSTALL_FROM still read with the four set; and the reports of
-                         a run off the pin, a finding's and a green one's, as literal lines.
+                         a run off the pin, a finding's and a green one's, as literal lines; and the shared
+                         code's environment, over a toy kit whose shared package says a mark: a run making
+                         it and handing its PATH to the marketplace add, the install, the list and the
+                         check of the hooks and scans, the person's PATH after it; the PATH the step
+                         returns with a PATH given, with none and with an empty one; its `.pth` file naming
+                         the kit's `shared/` alone, and its python3 importing the toy kit's package and
+                         PyYAML; a release in the user's site-packages never imported by it; a kit without
+                         the package, a python3 whose venv fails, a `.pth` file that cannot be written, a
+                         package that cannot be imported and a PYTHONPATH that puts another copy first
+                         each a BROKEN line with its fix; the check run under a virtual environment, whose
+                         packages the new environment sees; and a plugin with no link to the shared code,
+                         whose hook and scan import it, green with the environment's PATH and red without
+                         it, the hook and the scan each exiting 1.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -244,6 +266,7 @@ import os
 import re
 import shlex
 import shutil
+import site
 import stat
 import subprocess
 import sys
@@ -253,11 +276,14 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass, replace
 from functools import partial
 from pathlib import Path
+from typing import Any
 from unittest import mock
 
 import kit_install
 from kit_install import (
     FROM_ENV,
+    SHARED_ENV,
+    SHARED_PTH,
     Broken,
     Refused,
     bare_repository,
@@ -271,6 +297,7 @@ from kit_install import (
     link_at,
     listed_install,
     run,
+    shared_path,
     shown,
     there,
 )
@@ -704,8 +731,11 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
     return findings
 
 
-def check_installed(module: str, source: Path, plugin: Path, repo: Path, data: Path) -> list[Finding]:
-    """What the kit's source of the module promises, held in its installed copy on a bare repository; a
+def check_installed(
+    module: str, source: Path, plugin: Path, repo: Path, data: Path, path: str | None = None
+) -> list[Finding]:
+    """What the kit's source of the module promises, held in its installed copy on a bare repository, every
+    hook and scan run with `path` as its PATH when given, as `check_module` gives it; a
     failure that stops the check (a `Broken`) is raised in this order, the source's hooks file (`hooks_of`)
     and the copy's hooks-file lookup first, then the walks and lookups of the links, then the rest, so that
     a hooks folder that cannot be searched is named by its own lookup before a walk names it."""
@@ -721,11 +751,15 @@ def check_installed(module: str, source: Path, plugin: Path, repo: Path, data: P
         findings.append(
             Finding(module, "the installed copy has no hooks/hooks.json", "restore the hooks file")
         )
-    env = os.environ | {
-        "CLAUDE_PLUGIN_ROOT": str(plugin),
-        "CLAUDE_PROJECT_DIR": str(repo),
-        "CLAUDE_PLUGIN_DATA": str(data),
-    }
+    env = (
+        os.environ
+        | {
+            "CLAUDE_PLUGIN_ROOT": str(plugin),
+            "CLAUDE_PROJECT_DIR": str(repo),
+            "CLAUDE_PLUGIN_DATA": str(data),
+        }
+        | ({} if path is None else {"PATH": path})
+    )
     for hook in hooks:
         argv = [a.replace("${CLAUDE_PLUGIN_ROOT}", str(plugin)) for a in (hook.command, *hook.args)]
         shown = " ".join(argv[1:]).replace(str(plugin), "<plugin>")
@@ -863,8 +897,9 @@ def check_module(module: str, source: str, note: Note) -> tuple[list[Finding], s
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         repo = bare_repository(root)
+        path = shared_path(root)  # the PATH of every `claude` command, hook and scan below
         try:
-            plugin = install(module, root, repo, source, marketplace, note)
+            plugin = install(module, root, repo, source, marketplace, note, path=path)
         except Refused as refused:
             refusal_finding = Finding(
                 module,
@@ -878,7 +913,7 @@ def check_module(module: str, source: str, note: Note) -> tuple[list[Finding], s
         else:
             commit = installed_commit(root / "config", f"{module}@{marketplace}", plugin, note)
             kit_source = source_at(commit, module, root)
-        return check_installed(module, kit_source, plugin, repo, root / "data"), counted(kit_source)
+        return check_installed(module, kit_source, plugin, repo, root / "data", path), counted(kit_source)
 
 
 def report(module: str, findings: list[Finding], examined: str, note: str = "") -> int:
@@ -1359,10 +1394,12 @@ def marketplace_case(tally: Tally) -> None:
 # CLAUDE_CODE_PLUGIN_GIT_TIMEOUT_MS, CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE,
 # CLAUDE_CODE_SYNC_PLUGIN_INSTALL, CLAUDE_CODE_SYNC_PLUGIN_INSTALL_TIMEOUT_MS, FORCE_AUTOUPDATE_PLUGINS,
 # CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL and CLAUDE_CODE_PLUGIN_DIR_WATCH it holds
-# (`absent` when unset), each after a `|`; and it writes the record where the platform does, in
+# (`absent` when unset), each after a `|`; to FAKE_PATHS, when set, each command's first two words and the
+# first folder of its PATH, after a `|`; and it writes the record where the platform does, in
 # CLAUDE_CODE_PLUGIN_CACHE_DIR's folder when it is set, else in the configuration's plugins/
 FAKE_CLAUDE = (
     '#!/bin/sh\necho "$*" >> "${FAKE_LOG:-$CLAUDE_CONFIG_DIR/fake.log}"\n'
+    '[ -n "$FAKE_PATHS" ] && echo "$1 $2|${PATH%%:*}" >> "$FAKE_PATHS"\n'
     '[ -n "$FAKE_CALLS" ] && echo "$* | $PWD | $CLAUDE_CONFIG_DIR" >> "$FAKE_CALLS"\n'
     '[ "$1" = --version ] && [ -n "$FAKE_ENV" ] && echo "$CLAUDE_CONFIG_DIR|$DISABLE_AUTOUPDATER|'
     '$(ls -A "$CLAUDE_CONFIG_DIR" | wc -l | tr -d " ")|'
@@ -3360,7 +3397,9 @@ class StepTwo:
             fetched.append(at)
             return self.toy / "modules" / name / "plugin"
 
-        def installed_spy(name: str, src: Path, plugin: Path, repo: Path, data: Path) -> list[Finding]:
+        def installed_spy(
+            name: str, src: Path, plugin: Path, repo: Path, data: Path, path: str | None = None
+        ) -> list[Finding]:
             compared.append(str(plugin))
             return []
 
@@ -3412,9 +3451,22 @@ class StepTwo:
         return status, [unrecord(line) for line in printed_lines.getvalue().splitlines()]
 
 
+TOY_MARK = "toy-shared"  # what a toy kit's shared package says, so that no other copy passes for it
+
+
+def toy_shared(kit: Path, body: str = f'MARK = "{TOY_MARK}"\n') -> Path:
+    """The shared package of the toy kit `kit`, `shared/constitution_layer_kit/` with `body` as its
+    `__init__.py`, which every run of `shared_path` over the kit imports; the kit's `shared/` folder."""
+    package = kit / "shared" / "constitution_layer_kit"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text(body, encoding="utf-8")
+    return kit / "shared"
+
+
 def step_two_scene(base: Path) -> StepTwo:
     """The toy kit of step 2 under `base`: an installed copy, a folder that is not it, the fake claude."""
     toy, bin_dir, cache = base / "kit", base / "bin", base / "cache"
+    toy_shared(toy)
     (toy / ".claude-plugin").mkdir(parents=True)
     (toy / ".claude-plugin" / "marketplace.json").write_text('{"name": "toy-mp"}', encoding="utf-8")
     (toy / "scripts").mkdir()
@@ -4065,21 +4117,30 @@ def unreadable_file_cases(tally: Tally, step: StepTwo) -> None:
         )
 
 
+def unmade_path(root: Path, shared: Path | None = None, path: str | None = None) -> str:
+    """`shared_path` without the environment: the PATH it would put the environment's bin before. The cases of
+    the platform's replies and of the report run over it, since each makes a run and the environment of a run
+    is held by the cases of `shared_environment_cases` and `shared_path_run_case`."""
+    return os.environ.get("PATH", "") if path is None else path
+
+
 def step_two_cases(tally: Tally) -> None:
     """Step 2 over a toy kit, its marketplace named toy-mp, and a fake claude."""
     with tempfile.TemporaryDirectory() as tmp:
         step = step_two_scene(Path(tmp).resolve())
-        install_reply_cases(tally, step)
-        list_reply_cases(tally, step)
-        list_exit_cases(tally, step)
-        record_cases(tally, step)
-        person_values = person_variable_cases(tally, step)
-        record_entry_cases(tally, step)
-        record_form_cases(tally, step)
-        local_source_cases(tally, step)
-        step_report_cases(tally, step)
-        person_variable_run_case(tally, step, person_values)
-        unreadable_file_cases(tally, step)
+        with patched_globals({"shared_path": unmade_path}):
+            install_reply_cases(tally, step)
+            list_reply_cases(tally, step)
+            list_exit_cases(tally, step)
+            record_cases(tally, step)
+            person_values = person_variable_cases(tally, step)
+            record_entry_cases(tally, step)
+            record_form_cases(tally, step)
+            local_source_cases(tally, step)
+            step_report_cases(tally, step)
+            person_variable_run_case(tally, step, person_values)
+            unreadable_file_cases(tally, step)
+        shared_path_run_case(tally, step)
 
 
 def source_at_commit_case(tally: Tally) -> None:
@@ -4098,6 +4159,295 @@ def source_at_commit_case(tally: Tally) -> None:
         ok = ok and target.is_relative_to(root / "source" / "shared") and target.is_dir()
     tally.failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] the source at a commit is read from the kit's history")
+
+
+def shared_path_run_case(tally: Tally, step: StepTwo) -> None:
+    """A run over the toy kit makes the environment of its shared package, and gives its PATH to the three
+    `claude` commands of the install and to the check of the hooks and scans."""
+    paths_log = step.base / "paths.log"
+    handed: list[str | None] = []
+
+    def source_spy(at: str, name: str, root: Path) -> Path:
+        return step.toy / "modules" / name / "plugin"
+
+    def installed_spy(
+        name: str, src: Path, plugin: Path, repo: Path, data: Path, path: str | None = None
+    ) -> list[Finding]:
+        handed.append(path)
+        return []
+
+    scene = step.new_scene()
+    environment = step.environment(scene) | {"FAKE_PATHS": str(paths_log)}
+    with (
+        mock.patch.dict(os.environ, environment),
+        patched_globals({"KIT": step.toy, "source_at": source_spy, "check_installed": installed_spy}),
+    ):
+        check_module("const-x", "owner/repo", PIN_NOTE)
+    seen = [line.split("|") for line in paths_log.read_text(encoding="utf-8").splitlines()]
+    heads = {head for _, head in seen}
+    head = next(iter(heads))
+    version_case(
+        tally,
+        "a run makes the environment of the shared package, and the marketplace, the install and the list"
+        " run with its bin first on PATH, the hooks and scans with the same PATH, the person's after it",
+        [words for words, _ in seen] == ["plugin marketplace", "plugin install", "plugin list"]
+        and len(heads) == 1
+        and head.endswith(f"/{SHARED_ENV}/bin")
+        and handed == [f"{head}{os.pathsep}{environment['PATH']}"],
+        f"{seen} {handed}",
+    )
+
+
+def says_mark(python: Path, env: dict[str, str], cwd: Path) -> str:
+    """What `python` says for `import constitution_layer_kit, yaml`: the package's MARK, else the last line
+    of its error."""
+    done = subprocess.run(
+        [str(python), "-c", "import constitution_layer_kit as c, yaml; print(c.MARK)"],
+        cwd=cwd,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return done.stdout.strip() or last_line("", done.stderr.strip())
+
+
+def shared_made_cases(tally: Tally, base: Path, shared: Path) -> None:
+    """The environment `shared_path` makes over the toy kit's `shared/`: its PATH, its `.pth` file, what its
+    python3 imports, and a release in the user's site-packages that never comes first."""
+    work = base / "work"
+    work.mkdir()
+    root = work / "made"
+    root.mkdir()
+    bin_folder = root / SHARED_ENV / "bin"
+    given = shared_path(root, shared, "/where")
+    env = dict(os.environ)
+    pth = next((root / SHARED_ENV / "lib").glob(f"python3*/site-packages/{SHARED_PTH}"), None)
+    named = pth.read_text(encoding="utf-8") if pth else "no .pth file"
+    mark = says_mark(bin_folder / "python3", env, work)
+    version_case(
+        tally,
+        "the shared step: the PATH is the environment's bin first and the PATH given after it; its .pth file"
+        " names the kit's shared/ and nothing else; its python3 imports the kit's shared package and PyYAML",
+        given == f"{bin_folder}{os.pathsep}/where" and named == f"{shared}\n" and mark == TOY_MARK,
+        f"{given!r} {named!r} {mark!r}",
+    )
+    by_default_root, by_empty_root = work / "by-default", work / "by-empty"
+    by_default_root.mkdir()
+    by_empty_root.mkdir()
+    with mock.patch.dict(os.environ, {"PATH": "/x:/y"}):
+        by_default = shared_path(by_default_root, shared)
+    by_empty = shared_path(by_empty_root, shared, "")
+    version_case(
+        tally,
+        "the shared step: with no PATH given the person's is put after the bin, and an empty one leaves the"
+        " bin alone",
+        by_default == f"{by_default_root}/{SHARED_ENV}/bin{os.pathsep}/x:/y"
+        and by_empty == f"{by_empty_root}/{SHARED_ENV}/bin",
+        f"{by_default!r} {by_empty!r}",
+    )
+    user = base / "user"
+    asked = subprocess.run(
+        [sys.executable, "-c", "import site; print(site.getusersitepackages())"],
+        env=env | {"PYTHONUSERBASE": str(user)},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    release = Path(asked.stdout.strip()) / "constitution_layer_kit"
+    release.mkdir(parents=True)
+    (release / "__init__.py").write_text('MARK = "release"\n', encoding="utf-8")
+    with_release = env | {"PYTHONUSERBASE": str(user)}
+    own, inside = (
+        says_mark(Path(sys.executable), with_release, work),
+        says_mark(bin_folder / "python3", with_release, work),
+    )
+    version_case(
+        tally,
+        "the shared step: a release installed in the user's site-packages, which the python3 that runs the"
+        " check imports, is never imported by the environment's python3, the kit's shared/ comes first",
+        inside == TOY_MARK and (own == "release" or not site.ENABLE_USER_SITE),
+        f"environment {inside!r}, the check's own python3 {own!r}",
+    )
+
+
+def shared_failed_cases(tally: Tally, base: Path, shared: Path) -> None:
+    """Each way `shared_path` fails is one BROKEN line with its fix."""
+    work = base / "failures"
+    work.mkdir()
+
+    def fresh(name: str) -> Path:
+        (work / name).mkdir()
+        return work / name
+
+    empty = fresh("no-kit")
+    got = result_of(lambda: shared_path(empty, base / "bare-kit"))
+    version_case(
+        tally,
+        "the shared step: a kit with no shared/constitution_layer_kit/ is BROKEN, the fix a clone of the kit",
+        got
+        == f"BROKEN: the shared code is not at {base}/bare-kit/constitution_layer_kit — fix: run the check"
+        " from a clone of the kit, which holds shared/constitution_layer_kit/",
+        got,
+    )
+    root = fresh("no-venv")
+    broken_python = work / "python3"
+    broken_python.write_text("#!/bin/sh\necho 'venv is broken' >&2\nexit 3\n", encoding="utf-8")
+    broken_python.chmod(0o755)
+    with mock.patch.object(sys, "executable", str(broken_python)):
+        got = result_of(lambda: shared_path(root, shared))
+    version_case(
+        tally,
+        "the shared step: a python3 whose venv fails is BROKEN, the command, its exit and its last line"
+        " named, the fix to run it by hand",
+        got == f"BROKEN: {broken_python} -m venv --system-site-packages --without-pip {root}/{SHARED_ENV}"
+        " exited 3 (venv is broken) — fix: run that command by hand and read why it fails, then run the"
+        " check again",
+        got,
+    )
+    root = fresh("no-pth")
+    real_write = Path.write_text
+
+    def refuse(self: Path, *args: Any, **kwargs: Any) -> int:
+        if self.name == SHARED_PTH:
+            raise PermissionError(errno.EACCES, "Permission denied")
+        return real_write(self, *args, **kwargs)
+
+    with mock.patch.object(Path, "write_text", refuse):
+        got = result_of(lambda: shared_path(root, shared))
+    version_case(
+        tally,
+        "the shared step: a .pth file that cannot be written is BROKEN, the file named and the fix to make"
+        " the check's folder writable",
+        got.startswith(f"BROKEN: {root}/{SHARED_ENV}/lib/python3")
+        and f"/site-packages/{SHARED_PTH} could not be written (Permission denied) — fix: make the folder"
+        f" {root} writable, then run the check again"
+        in got,
+        got,
+    )
+    root = fresh("no-import")
+    unimportable = toy_shared(base / "unimportable-kit", 'raise ImportError("toy broken")\n')
+    got = result_of(lambda: shared_path(root, unimportable))
+    version_case(
+        tally,
+        "the shared step: a shared package the new environment cannot import is BROKEN, its error quoted, the"
+        " fix PyYAML for the python3 that runs the check and a run by hand",
+        got.startswith("BROKEN: the new environment cannot import the shared code and PyYAML (ImportError:")
+        and "toy broken) — fix: PyYAML must be installed for the python3 that runs the check" in got,
+        got,
+    )
+    other = base / "other-copy"
+    (other / "constitution_layer_kit").mkdir(parents=True)
+    (other / "constitution_layer_kit" / "__init__.py").write_text('MARK = "other"\n', encoding="utf-8")
+    root = fresh("other-first")
+    with mock.patch.dict(os.environ, {"PYTHONPATH": str(other)}):
+        got = result_of(lambda: shared_path(root, shared))
+    version_case(
+        tally,
+        "the shared step: another copy of the package first on sys.path, a PYTHONPATH's, is BROKEN, the copy"
+        " found and the shared/ expected named, the fix to unset PYTHONPATH",
+        got
+        == f"BROKEN: the new environment imports constitution_layer_kit from {other}/constitution_layer_kit,"
+        f" not from {shared}/constitution_layer_kit — fix: take the other copy off the way for this run:"
+        " unset PYTHONPATH, which puts a folder first, then run the check again",
+        got,
+    )
+
+
+def shared_outer_case(tally: Tally, base: Path, shared: Path) -> None:
+    """A check that runs under a virtual environment: the new environment sees that one's packages."""
+    outer = base / "outer"
+    done = subprocess.run(
+        [sys.executable, "-m", "venv", "--system-site-packages", "--without-pip", str(outer)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    site_packages = next((outer / "lib").glob("python3*/site-packages"), outer)
+    (site_packages / "outer_only.py").write_text("WHERE = 'outer'\n", encoding="utf-8")
+    root = base / "work" / "under-venv"
+    root.mkdir()
+    code = (
+        f"import sys; sys.path.insert(0, {str(Path(__file__).resolve().parent)!r}); import kit_install;"
+        f" from pathlib import Path; print(kit_install.shared_path(Path({str(root)!r}),"
+        f" Path({str(shared)!r}), ''))"
+    )
+    ran = subprocess.run(
+        [str(outer / "bin" / "python3"), "-c", code], cwd=base, capture_output=True, text=True, check=False
+    )
+    made = ran.stdout.strip()
+    seen = subprocess.run(
+        [str(Path(made) / "python3"), "-c", "import outer_only, constitution_layer_kit as c; print(c.MARK)"],
+        cwd=base,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    version_case(
+        tally,
+        "the shared step under a virtual environment: the new environment imports a package of that one,"
+        " where a plain venv would not, and the kit's shared package as before",
+        done.returncode == 0 and seen.stdout.strip() == TOY_MARK,
+        f"{done.stderr.strip()} {ran.stderr.strip()} {made} {seen.stderr.strip()}",
+    )
+
+
+def linkless_plugin(root: Path) -> Path:
+    """The plugin of a toy module whose hook and scan import the shared package and hold it to be the toy
+    kit's, with no link to the shared code beside them; the plugin folder."""
+    module = root / "module"
+    plugin = module / "plugin"
+    (plugin / "hooks").mkdir(parents=True)
+    (plugin / "scripts").mkdir()
+    script = (
+        f"import constitution_layer_kit\nassert constitution_layer_kit.MARK == {TOY_MARK!r}\nprint('rule')\n"
+    )
+    (plugin / "scripts" / "entry.py").write_text(script, encoding="utf-8")
+    (plugin / "scripts" / "check-p.py").write_text(script, encoding="utf-8")
+    hook = {"type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/entry.py"]}
+    (plugin / "hooks" / "hooks.json").write_text(
+        json.dumps({"hooks": {"SessionStart": [{"hooks": [hook]}]}}), encoding="utf-8"
+    )
+    (module / "MODULE.md").write_text(
+        '<a id="t9"></a>\n| E1 | `check-p.py --scan` | `gate` |\n<a id="t10"></a>\n', encoding="utf-8"
+    )
+    return plugin
+
+
+def shared_hook_cases(tally: Tally, base: Path, shared: Path) -> None:
+    """A hook and a scan that import the shared package with no link beside them pass only with the PATH of
+    the environment, the one `check_installed` is given: the red without it, the green with it."""
+    plugin = linkless_plugin(base / "linkless")
+    (base / "repo" / "docs").mkdir(parents=True)
+    (base / "data").mkdir()
+    root = base / "work" / "linkless-env"
+    root.mkdir()
+    path = shared_path(root, shared)
+    green = check_installed("const-x", plugin, plugin, base / "repo", base / "data", path)
+    red = check_installed("const-x", plugin, plugin, base / "repo", base / "data")
+    version_case(
+        tally,
+        "a hook and a scan that import the shared package, a plugin with no link to it, are green with the"
+        " environment's PATH, and red without it: the hook exits 1 and the scan exits 1",
+        green == []
+        and len(red) == 2
+        and "its SessionStart hook `<plugin>/scripts/entry.py` exits 1 on a bare repository" in red[0].what
+        and "its scan `check-p.py --scan` exits 1 on a bare repository" in red[1].what,
+        f"{green} {red}",
+    )
+
+
+def shared_environment_cases(tally: Tally) -> None:
+    """The shared step of `kit_install` (decision dec-0099-shared-code-installed-as-a-pip-package, R17) over a
+    toy kit: the environment it makes, each failure, a check under a virtual environment, and the red and
+    the green of a plugin that imports the shared package with no link."""
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp).resolve()
+        shared = toy_shared(base / "kit")
+        shared_made_cases(tally, base, shared)
+        shared_failed_cases(tally, base, shared)
+        shared_outer_case(tally, base, shared)
+        shared_hook_cases(tally, base, shared)
 
 
 def self_test() -> int:
@@ -4120,6 +4470,7 @@ def self_test() -> int:
     version_check_cases(tally)
     step_two_cases(tally)
     source_at_commit_case(tally)
+    shared_environment_cases(tally)
     total = len(LINK_CASES) + len(UNREADABLE_CASES) + 6 + tally.extra
     print(f"{total - tally.failed}/{total} cases green")
     return EXIT_GREEN if tally.failed == 0 else EXIT_RED

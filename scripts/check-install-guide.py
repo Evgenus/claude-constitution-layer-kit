@@ -37,6 +37,14 @@ folder, so a block that relies on a variable another block set fails on it, unse
 what `bash -eu` gives the sourcing: a block's last command decides it, and a command that fails
 inside an `&&` list earlier in the block, other than the list's last, stops no block, so what such a
 block does is held by the claims below, not by its exit.
+The shared code (decision dec-0099-shared-code-installed-as-a-pip-package, R17): a module's plugin holds no
+copy of `shared/constitution_layer_kit/`, and its hooks and scans import the package that `python3` finds. So
+that a run finds the change's own code and never a release a person installed, the check makes, once the
+kit is cloned, the environment of `kit_install.shared_path` in its throwaway folder: a virtual environment of
+the python3 the check runs under, with its system packages, whose `.pth` file names the clone's `shared/`,
+the kit as committed at HEAD, never an uncommitted edit; nothing is built and nothing needs the network. The
+environment's `bin` leads the PATH of every command the run starts, the blocks' and the `claude` commands of
+the claims. A failure to make it is a configuration failure with the fix, as that function words it.
 Beside every block's exit 0, the check holds at each name:
   new-repo     the block ends in a git repository: the project.
   marketplace  `claude plugin marketplace list --json`, run in the folder the block ended in, lists
@@ -203,6 +211,9 @@ Modes:  no arguments   check the kit's guide;
                        the carried helper reaching the run's git; the source taken from the environment,
                        from origin at the branch's HEAD, and a kit with no origin on GitHub, a detached
                        HEAD and an origin behind HEAD each a configuration failure.
+                       The shared code's environment: a block that imports the toy kit's shared package, the
+                       toy clone holding no link to it, green; the same guide run with the environment
+                       dropped, the PATH the person's, red, the block exiting 1.
                        The report of one finding as literal lines with exit 2.
                        The kit's modules, the folders of `kit_module_doc.module_folders` with their
                        manifest versions: a folder `.x` or `_x` and a plain file skipped, a name without
@@ -296,6 +307,8 @@ from pathlib import Path
 from unittest import mock
 
 import yaml
+from kit_install import Broken as InstallBroken
+from kit_install import shared_path
 from kit_module_doc import (
     PLUGIN_PLACE_ENV,
     PLUGINS_ROOT_ENV,
@@ -1273,10 +1286,17 @@ def cloned_kit(kit: Path, home: Path, env: dict[str, str]) -> Path:
 
 
 def prepared_run(scratch: Path, kit: Path, base_env: dict[str, str], source: str, note: Note) -> Run:
-    """The state of a run over a home folder and a clone of the kit made under `scratch`."""
+    """The state of a run over a home folder and a clone of the kit made under `scratch`, and the environment
+    of the shared code, `scratch/shared-env`, whose bin leads the PATH of every command the run starts: the
+    `shared/` it names is the clone's, the kit as committed at HEAD, so that what is not committed is not run
+    here either."""
     home = scratch / "home"
     env = home_env(home, base_env)
     clone = cloned_kit(kit, home, env)
+    try:
+        env["PATH"] = shared_path(scratch, clone / "shared", env.get("PATH", ""))
+    except InstallBroken as bad:
+        raise Broken(str(bad)) from bad
     try:
         marketplace = marketplace_name(clone)
     except DocumentError as bad:
@@ -1676,6 +1696,7 @@ else:
     sys.exit(3)
 '''
 
+TOY_MARK = "toy-shared"  # what the toy kit's shared package says, so that no other copy passes for it
 TOY_MP = "toy-mp"  # the toy kit's marketplace name, which its marketplace.json gives and the fake follows
 TOY_PIN = "2.1.282"  # the toy kit's pin of the Claude Code version, which the fake answers `--version` with
 TOY_DIALS = (
@@ -1684,6 +1705,12 @@ TOY_DIALS = (
     'records:\n  territory: ["docs/records/**"]\n'
     'const-catalogs:\n  catalogs:\n    - prefix: rec\n      width: 4\n      territory: ["docs/records/**"]\n'
 )
+
+
+def unmade_path(root: Path, shared: Path | None = None, path: str | None = None) -> str:
+    """`shared_path` without the environment: the PATH it would put the environment's bin before, for the case
+    that drops the environment."""
+    return os.environ.get("PATH", "") if path is None else path
 
 
 def toy_guide(**replace: str) -> str:
@@ -1735,6 +1762,10 @@ def toy_kit(root: Path, market: dict[str, object] | None = None) -> Path:
         (kit / name).write_text(f"toy {name}\n", encoding="utf-8")
     (kit / "shared" / "gate").mkdir(parents=True)
     (kit / "shared" / "gate" / "code.py").write_text("x = 1\n", encoding="utf-8")
+    (kit / "shared" / "constitution_layer_kit").mkdir()
+    (kit / "shared" / "constitution_layer_kit" / "__init__.py").write_text(
+        f'MARK = "{TOY_MARK}"\n', encoding="utf-8"
+    )
     for module in ("const-alpha", "const-beta"):
         (kit / "modules" / module / "plugin" / "scripts").mkdir(parents=True)
         (kit / "modules" / module / "plugin" / "scripts" / "gate").symlink_to("../../../../shared/gate")
@@ -2736,6 +2767,25 @@ class SelfTestRun:
                 " — fix: give the marketplace its name, at the top of the object"
             ),
             unnamed,
+        )
+        probe = f"python3 -c 'import constitution_layer_kit as c; assert c.MARK == \"{TOY_MARK}\"'"
+        shared_guide = toy_guide().replace(
+            "test -f constitution.yaml &&", f"{probe} && test -f constitution.yaml &&", 1
+        )
+        with_shared, _, _ = run_guide(shared_guide, toy.kit, toy.base)
+        self.case(
+            "a block that imports the kit's shared package, the toy kit's clone holding no link to it, runs"
+            " green: the run's PATH leads with the environment of the shared code",
+            not with_shared,
+            whats(with_shared),
+        )
+        with mock.patch.dict(globals(), {"shared_path": unmade_path}):
+            without_shared, _, _ = run_guide(shared_guide, toy.kit, toy.base)
+        self.case(
+            "the same guide run with the environment of the shared code dropped is red: the block exits 1",
+            len(without_shared) == 1
+            and without_shared[0].what.startswith("the block named check=scan exited 1 — "),
+            whats(without_shared),
         )
         return examined
 
