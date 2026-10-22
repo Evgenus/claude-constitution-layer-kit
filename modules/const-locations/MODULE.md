@@ -210,7 +210,7 @@ Numbered items in `test_locations.py`: the module's own from 1, the shared items
 
 **Depends on:** [kernel §1](../../kernel/CONVENTIONS.md#k1) (the envelope), [§3](../../kernel/CONVENTIONS.md#k3) (territory, policy, kind, resolution — the home is where the path binds the document to exactly one policy), [§6](../../kernel/CONVENTIONS.md#k6) (the dials file, the module's own namespace, the dialect, portability), [§7](../../kernel/CONVENTIONS.md#k7) (naming). Beside the kernel it needs the Python package `constitution-layer-kit`, which pip installs, as it needs Python and PyYAML. That package is the kit's shared gate code and no sibling ([law 3 of CLAUDE.md](../../CLAUDE.md#law-3)). Nothing else.
 
-**Kernel alone, with that package installed:** on a bare repository with no `constitution.yaml` the command refuses with L5.3 and the `new-kind` skill carries the procedure from zero — the dials file, the root policy, the first kind; with a dials file naming a root policy and one policy, every document of that kind is created at its home with the envelope alone, and the `templates` dial is the first calibration worth writing.
+**Kernel alone, with that package installed:** on a bare repository with no `constitution.yaml` the command refuses with L5.3 and the `new-kind` skill carries the procedure from zero — the dials file, the root policy, the first kind; with a dials file naming `module_prefix`, a root policy and one policy, every document of that kind is created at its home with the envelope alone, and the `templates` dial is the first calibration worth writing.
 
 **Optional enhancements:**
 

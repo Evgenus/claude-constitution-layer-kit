@@ -242,7 +242,7 @@ Runner: `python3 -m pytest tests` (needs git, Python 3.12, the declared librarie
 
 **Depends on:** [kernel §1](../../kernel/CONVENTIONS.md#k1) (the envelope's `id`, never reused, and the deletion rule that makes gaps legitimate), [§6](../../kernel/CONVENTIONS.md#k6) (the dials file, the module's own namespace, the territory dialect, portability), [§7](../../kernel/CONVENTIONS.md#k7) (naming: kebab-case ids and file names). Beside the kernel it needs the Python package `constitution-layer-kit`, which pip installs, as it needs Python and PyYAML. That package is the kit's shared gate code and no sibling ([law 3 of CLAUDE.md](../../CLAUDE.md#law-3)). Nothing else — not [§3](../../kernel/CONVENTIONS.md#k3): a catalog's territory says where numbering applies and binds no document to a policy.
 
-**Kernel alone, with that package installed:** on a bare repository with no `constitution.yaml` every write passes with a visible zero count, the session starts with the line naming the missing file, and the skill explains how a kind becomes numbered; with a dials file that lists a catalog — and nothing else in it — every Markdown write into that territory is checked for its name, its id and its number, and the scan runs.
+**Kernel alone, with that package installed:** on a bare repository with no `constitution.yaml` every write passes with a visible zero count, the session starts with the line naming the missing file, and the skill explains how a kind becomes numbered; with a dials file that lists a catalog — and nothing else but `module_prefix` — every Markdown write into that territory is checked for its name, its id and its number, and the scan runs.
 
 **Optional enhancements:**
 

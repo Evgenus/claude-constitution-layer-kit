@@ -80,9 +80,9 @@ after the line of the step it failed in; the eval's exit code kept, each run's t
 whatever its folder, and mapped to the path the eval's result names); the shared code copied from a toy
 kit's tracked files alone, and a kit that tracks none a Broken with the fix; `run_module` against a fake
 docker: the folder mounted at /shared holds the copy when the container starts, a container that exits 5
-after a stray line, the line of its step and its fix line ends the run with the step's line in brackets
-and the fix line, one fix, while one that exits 5 with the fix line alone or with no output, and another
-exit, keep the run's fix; the environment of the
+after a stray line, the line of its step and its fix line, or after those two lines alone, ends the run
+with the step's line in brackets and the fix line, one fix, while one that exits 5 with the fix line alone
+or with no output, and another exit, keep the run's fix; the environment of the
 docker commands; the image's tag following the pin
 and the Dockerfile's text, and the image inspected and built under that tag, against a fake docker; a token
 file judged before docker is asked for an image; the Dockerfile's refusal of an architecture reaching the
@@ -753,8 +753,9 @@ def fake_run_docker(folder: Path, log: Path, said: Path) -> dict[str, str]:
     """For the self-test: a `docker` in `folder` that runs no container. It appends to `log` what the folder
     mounted at /shared holds (the tracked file `core.py`, else a line saying it is missing) and then answers
     as the container would: a result for the case `load` in the folder mounted at /out; with
-    FAKE_DOCKER_EXIT=5 the lines of `said` on its standard error and exit 5, with `5-alone` the last of them
-    alone, with `5-silent` no line; with 3 a login refusal. The environment that puts it first on PATH."""
+    FAKE_DOCKER_EXIT=5 the lines of `said` on its standard error and exit 5, with `5-pair` the last two of
+    them, the two a real container prints, with `5-alone` the last of them alone, with `5-silent` no line;
+    with 3 a login refusal. The environment that puts it first on PATH."""
     folder.mkdir()
     result = json.dumps(
         {"aggregates": {"casesTotal": 1, "casesPassed": 1, "overallScore": 1.0},
@@ -774,6 +775,7 @@ def fake_run_docker(folder: Path, log: Path, said: Path) -> dict[str, str]:
         'if [ -f "$core" ]; then cat "$core" >&3; else echo "no core.py at $shared" >&3; fi\n'
         'case "$FAKE_DOCKER_EXIT" in\n'
         f"  5) cat '{said}' >&2; exit 5 ;;\n"
+        f"  5-pair) tail -n 2 '{said}' >&2; exit 5 ;;\n"
         f"  5-alone) tail -n 1 '{said}' >&2; exit 5 ;;\n"
         "  5-silent) exit 5 ;;\n"
         "  3) echo 'not a subscription login: none' >&2; exit 3 ;;\n"
@@ -790,8 +792,9 @@ def run_module_cases(case: Callable[[str, bool], None], box: Box, tmp: Path, qui
     what the folder mounted at /shared holds. The cases: the change's shared code is there when the
     container starts and the case's result counts; a container that exits 5 after a stray traceback line,
     the line of the failed step and its fix line ends the run with the step's line in brackets and then the
-    fix line, and no other fix after it; one that exits 5 with the fix line alone, or with no output, and
-    one that exits otherwise, keep the run's fix."""
+    fix line, and no other fix after it, and so does one that prints those two lines alone, as a real
+    container does; one that exits 5 with the fix line alone, or with no output, and one that exits
+    otherwise, keep the run's fix."""
     eval_kit = toy_eval_kit(tmp / "eval-kit", quiet)
     said_file, run_log = tmp / "shared-env-said.txt", tmp / "run-docker.log"
     stray = "Traceback (most recent call last):"  # typed by hand, the lines the container printed
@@ -804,7 +807,7 @@ def run_module_cases(case: Callable[[str, bool], None], box: Box, tmp: Path, qui
     exits: dict[str, str] = {}
     with mock.patch.dict(globals(), {"KIT": eval_kit}):
         ran = run_module("const-x", "m", run_env_of, box)
-        for exit_code in ("5", "5-alone", "5-silent", "3"):
+        for exit_code in ("5", "5-pair", "5-alone", "5-silent", "3"):
             try:
                 run_module("const-x", "m", run_env_of | {"FAKE_DOCKER_EXIT": exit_code}, box)
                 exits[exit_code] = "no Broken"
@@ -827,6 +830,11 @@ def run_module_cases(case: Callable[[str, bool], None], box: Box, tmp: Path, qui
         SHARED_ENV_SAID == fix_line
         and exits["5"] == f"the eval of case load exited 5 with no result ({step}) — {fix_line}"
         and exits["5"].count("fix:") == 1,
+    )
+    case(
+        "a container that exits 5 after exactly two lines, the step and its fix, as a real one does, ends the"
+        " run with the same line as one that printed a stray line before them",
+        exits["5-pair"] == f"the eval of case load exited 5 with no result ({step}) — {fix_line}",
     )
     general = (  # typed by hand: the fix of the run for every exit but a container's line pair
         " — fix: the line in brackets says why: for a version not the pinned one, run docker image rm img and"

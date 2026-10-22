@@ -10,6 +10,7 @@ installs it once, for the `python3` its hooks run:
 ```bash
 python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
 ```
+Until that tag exists, install from a clone of the kit: `python3 -m pip install <the kit's clone>/shared`.
 A line that starts `BROKEN: const-interaction needs the Python package constitution-layer-kit`,
 `BROKEN: const-interaction needs constitution-layer-kit` or
 `BROKEN: const-interaction was written for constitution-layer-kit` points here.
@@ -59,7 +60,7 @@ A line that starts `BROKEN: const-interaction needs the Python package constitut
      boundary_examples: []     # the project's own pairs, printed at session start: [{violates: "…", complies: "…"}]
      verbosity: triggered      # the one value: assumption and restatement lines only when triggered
      severity: block           # block (default) | warn
-     # log_dir: .gate-logs     # optional, and the directory must be git-ignored; see step 7
+     # log_dir: .gate-logs     # optional; see step 7
    ```
    `destructive` is a list of entries — `command` a list of words, `flags` optional, `teach` and
    `alternative` texts. A malformed entry is refused naming it. So is an entry whose words the
@@ -88,18 +89,18 @@ A line that starts `BROKEN: const-interaction needs the Python package constitut
    sh <plugin root>/scripts/check-destructive.sh --scan --command 'git push --force origin main'
    ```
 6. **Fallback** for a consumer that cannot run hooks: copy `scripts/rules.txt` into the project's
-   own `CLAUDE.md`. This is a manual step; the copy drifts on every version bump and the gate does
-   not run — say so in the copy.
+   own `CLAUDE.md`. The copy drifts on every version bump and the gate does not run — say so in
+   the copy.
 7. Output log: everything the hooks and the scans print is also appended, one JSON line per print
    (timestamp, module, gate, mode, session, stream, text), to `const-interaction.jsonl` — a
    prompt's reason and a denied command leave no trace in git. By default it lives in the
    platform's per-plugin data directory. Set `log_dir` to keep it inside the repository; the
    directory must be git-ignored, and the gate refuses to run otherwise.
-8. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-interaction/tests -p no:cacheprovider` — all green.
+8. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the commit the install records (`gitCommitSha` in `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-interaction/tests -p no:cacheprovider` — all green.
 9. CLAUDE.md pointer: none. The rules ride on the session-start hook; the gate on the shell hook.
 
-What this module does not check: a command given to the `PowerShell` tool, which no hook of this
-plugin sees, since the gate is wired to `Bash` alone; a destructive act the list does not name — an interpreter
+What this module does not check: a command given to the `PowerShell` tool, since the gate is wired
+to `Bash` alone; a destructive act the list does not name — an interpreter
 one-liner, a script file, a shell function or alias, a deletion through a file tool, a database
 statement inside a quoted argument; `git checkout -- .` and any pattern that needs an argument
 value; whether a reply matched its question's shape, listed its assumptions or softened a

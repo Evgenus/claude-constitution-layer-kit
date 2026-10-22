@@ -11,7 +11,7 @@ A line that starts `BROKEN: const-<aspect-name> needs the Python package constit
 `BROKEN: const-<aspect-name> was written for constitution-layer-kit` points here.
 
 1. Install the plugin (marketplace or `--plugin-dir`).
-2. Optional calibration: add a `const-<aspect-name>:` namespace to the project's `constitution.yaml`. Defaults apply otherwise — the module works with zero configuration.
+2. Optional calibration: add a `const-<aspect-name>:` namespace to the project's `constitution.yaml`. Defaults apply otherwise — the module works in a repository whose `constitution.yaml` names `module_prefix`.
 3. CLAUDE.md pointer (only if MODULE.md declares one, max one line):
    `<the line, or delete this section>`
 
