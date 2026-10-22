@@ -15,11 +15,15 @@ import shlex
 from collections.abc import Sequence
 
 from . import identity
-from .model import DIALECT, DIALECT_KEY, DIALS_FILE, ROOT_POLICY_KEY, Broken, FileTool, SharedKey
+from .model import DIALECT, DIALECT_KEY, ROOT_POLICY_KEY, Broken, FileTool, SharedKey
 
 
 def _ns() -> str:
     return identity.current().namespace
+
+
+def _file() -> str:
+    return identity.dials_file()
 
 
 SHOWN_MAX = 80
@@ -135,11 +139,11 @@ def g1_skip_no_repo(path: str) -> str:
 
 
 def g1_skip_no_dials(root: str) -> str:
-    return f"no {DIALS_FILE} in {escaped(root)}: nothing is claimed"
+    return f"no {_file()} in {escaped(root)}: nothing is claimed"
 
 
 def g1_skip_no_root() -> str:
-    return f"{DIALS_FILE} has no root_policy: nothing is claimed"
+    return f"{_file()} has no root_policy: nothing is claimed"
 
 
 def g1_skip_edit_unappliable(rel: str) -> str:
@@ -187,7 +191,7 @@ def c3_git_missing() -> Broken:
 def c4_dials_invalid_yaml(detail: str) -> Broken:
     return Broken(
         SharedKey.C4,
-        f"{DIALS_FILE} is not valid YAML ({escaped(detail)})",
+        f"{_file()} is not valid YAML ({escaped(detail)})",
         "repair the YAML at the place the message names; nothing is checked until the file parses",
     )
 
@@ -195,7 +199,7 @@ def c4_dials_invalid_yaml(detail: str) -> Broken:
 def c4b_dials_not_mapping() -> Broken:
     return Broken(
         SharedKey.C4B,
-        f"{DIALS_FILE} is not a mapping",
+        f"{_file()} is not a mapping",
         f"the file holds top-level keys: {ROOT_POLICY_KEY}, and {DIALECT_KEY} when the dialect is not"
         f" {DIALECT}, then one namespace per policy or module",
     )
@@ -204,7 +208,7 @@ def c4b_dials_not_mapping() -> Broken:
 def c5_root_policy_path() -> Broken:
     return Broken(
         SharedKey.C5,
-        f"{DIALS_FILE}: root_policy must be a repository-relative path",
+        f"{_file()}: root_policy must be a repository-relative path",
         "root_policy: <path of the root policy, relative to the repository root>",
     )
 
@@ -212,7 +216,7 @@ def c5_root_policy_path() -> Broken:
 def c5_dialect_empty() -> Broken:
     return Broken(
         SharedKey.C5,
-        f"{DIALS_FILE}: territory_dialect must be a non-empty string",
+        f"{_file()}: territory_dialect must be a non-empty string",
         f"remove the key, or set territory_dialect: {DIALECT} — the one dialect supported",
     )
 
@@ -220,8 +224,7 @@ def c5_dialect_empty() -> Broken:
 def c5_dialect_unsupported(dialect: str) -> Broken:
     return Broken(
         SharedKey.C5,
-        f"{DIALS_FILE}: territory_dialect '{echoed(dialect)}' is not supported by {_ns()}"
-        f" (supports: {DIALECT})",
+        f"{_file()}: territory_dialect '{echoed(dialect)}' is not supported by {_ns()} (supports: {DIALECT})",
         f"set territory_dialect: {DIALECT}, or remove the key",
     )
 
@@ -229,7 +232,7 @@ def c5_dialect_unsupported(dialect: str) -> Broken:
 def c5_namespace_not_mapping(key: str) -> Broken:
     return Broken(
         SharedKey.C5,
-        f"{DIALS_FILE}: namespace '{echoed(key)}' must be a mapping",
+        f"{_file()}: namespace '{echoed(key)}' must be a mapping",
         f"write it as {echoed(key)}: {{territory: [...]}}",
     )
 
@@ -237,7 +240,7 @@ def c5_namespace_not_mapping(key: str) -> Broken:
 def c5_own_namespace_not_mapping() -> Broken:
     return Broken(
         SharedKey.C5,
-        f"{DIALS_FILE}: namespace '{_ns()}' must be a mapping of this module's dials",
+        f"{_file()}: namespace '{_ns()}' must be a mapping of this module's dials",
         "write this module's dials under it as a mapping, or remove the key",
     )
 
@@ -246,7 +249,7 @@ def c5_territory_pattern(where: str, pattern: str) -> Broken:
     """`where` is the dial's whole path: `{policy id}.territory`, or a module's own dial."""
     return Broken(
         SharedKey.C5,
-        f"{DIALS_FILE}: {echoed(where)} holds a pattern git would not read as one: '{echoed(pattern)}'",
+        f"{_file()}: {echoed(where)} holds a pattern git would not read as one: '{echoed(pattern)}'",
         "a pattern may not start with '#' (a comment to git) nor contain a line break; "
         "escape a leading # as \\# bare or in single quotes, "
         "as \\\\# in double quotes, and remove a line break",
@@ -257,7 +260,7 @@ def c5_unknown_dial(key: str, known: Sequence[str]) -> Broken:
     """`key` is the name given, `known` the names this module reads, in the order it lists them."""
     return Broken(
         SharedKey.C5,
-        f"{DIALS_FILE}: {_ns()}.{echoed(key)} is no dial of this module",
+        f"{_file()}: {_ns()}.{echoed(key)} is no dial of this module",
         "a misspelt dial would be ignored in silence, so none is: write one of " + ", ".join(known),
     )
 
@@ -265,7 +268,7 @@ def c5_unknown_dial(key: str, known: Sequence[str]) -> Broken:
 def c5_territory_shape(key: str) -> Broken:
     return Broken(
         SharedKey.C5,
-        f"{DIALS_FILE}: {echoed(key)}.territory must be a list of non-empty strings",
+        f"{_file()}: {echoed(key)}.territory must be a list of non-empty strings",
         f'write it as {echoed(key)}: {{territory: ["<pattern>", ...]}}',
     )
 
@@ -273,7 +276,7 @@ def c5_territory_shape(key: str) -> Broken:
 def c5_severity() -> Broken:
     return Broken(
         SharedKey.C5,
-        f"{DIALS_FILE}: {_ns()}.severity must be block or warn",
+        f"{_file()}: {_ns()}.severity must be block or warn",
         f"under {_ns()}, set severity: block or severity: warn, or remove that line",
     )
 
@@ -281,7 +284,7 @@ def c5_severity() -> Broken:
 def c5_log_dir() -> Broken:
     return Broken(
         SharedKey.C5,
-        f"{DIALS_FILE}: {_ns()}.log_dir must be a repository-relative directory",
+        f"{_file()}: {_ns()}.log_dir must be a repository-relative directory",
         f"under {_ns()}, set log_dir: <a git-ignored directory>, or remove that line",
     )
 
@@ -289,7 +292,7 @@ def c5_log_dir() -> Broken:
 def c6_root_missing(path: str) -> Broken:
     return Broken(
         SharedKey.C6,
-        f"{DIALS_FILE} names root_policy '{escaped(path)}' but no such file exists",
+        f"{_file()} names root_policy '{escaped(path)}' but no such file exists",
         "create it, or point root_policy at the policy for policies",
     )
 
@@ -305,7 +308,7 @@ def c7_root_without_id(path: str) -> Broken:
 def c8_root_claims_nothing(root_id: str) -> Broken:
     return Broken(
         SharedKey.C8,
-        f"root policy '{escaped(root_id)}' claims no territory in {DIALS_FILE}",
+        f"root policy '{escaped(root_id)}' claims no territory in {_file()}",
         f"write {escaped(root_id)}: {{territory: [<where policies live, including the root itself>]}}"
         " — nothing is governed until then",
     )
@@ -340,7 +343,7 @@ def c12_check_ignore(detail: str) -> Broken:
     return Broken(
         SharedKey.C12,
         f"git check-ignore failed: {escaped(detail)}",
-        f"territory patterns must be gitignore syntax; check {DIALS_FILE}",
+        f"territory patterns must be gitignore syntax; check {_file()}",
     )
 
 
@@ -448,7 +451,7 @@ def c12_scan_path(path: str) -> Broken:
 
 
 def c12_dials_unreadable(detail: str) -> Broken:
-    return Broken(SharedKey.C12, f"{DIALS_FILE} cannot be read ({detail})", "check the file's permissions")
+    return Broken(SharedKey.C12, f"{_file()} cannot be read ({detail})", "check the file's permissions")
 
 
 def detail_not_json(error: str) -> str:
@@ -484,7 +487,7 @@ def detail_not_a_mapping() -> str:
 def c13_log_dir_not_ignored(log_dir: str) -> Broken:
     return Broken(
         SharedKey.C13,
-        f"{DIALS_FILE}: {_ns()}.log_dir '{escaped(log_dir)}' is not ignored by git",
+        f"{_file()}: {_ns()}.log_dir '{escaped(log_dir)}' is not ignored by git",
         "a log inside the working tree must be git-ignored, or every verdict dirties the tree;"
         " add the directory to .gitignore, or remove the key",
     )

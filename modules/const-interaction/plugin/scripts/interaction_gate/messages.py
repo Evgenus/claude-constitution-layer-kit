@@ -15,13 +15,17 @@ from collections.abc import Callable, Sequence
 
 from constitution_layer_kit import identity
 from constitution_layer_kit.messages import echoed, escaped
-from constitution_layer_kit.model import DIALS_FILE, Broken, Finding, SharedKey
+from constitution_layer_kit.model import Broken, Finding, SharedKey
 
 from .model import COMMAND_FLAG, Entry, Key, OptionFault, ReaderDial, ReaderField, Subcommand, Verbosity
 
 
 def _ns() -> str:
     return identity.current().namespace
+
+
+def _file() -> str:
+    return identity.dials_file()
 
 
 # ---------------------------------------------------------------- the findings
@@ -37,7 +41,7 @@ def d1_destructive(entry: Entry, subcommand: Subcommand, matched: str) -> Findin
         escaped(entry.teach),
         f"{escaped(entry.alternative)}; to run it as written, confirm at the prompt — where no prompt can be"
         " shown, get the user's yes in chat and run it again, one yes per command; to stop gating it,"
-        f" remove the entry from {_ns()}.destructive in {DIALS_FILE}",
+        f" remove the entry from {_ns()}.destructive in {_file()}",
     )
 
 
@@ -47,7 +51,7 @@ def l1_list_item(rel: str, line: int, text: str) -> Finding:
         f"{escaped(rel)}:{line}: list item without a handle — {echoed(text)}",
         "an item with no stable handle cannot be cited without quoting it, so a reader cannot point at one",
         "open the item with a handle — a number, a letter or a short key such as R1 or Q-a — or add the"
-        f" form the document uses to {_ns()}.handles in {DIALS_FILE}, or take the document out of"
+        f" form the document uses to {_ns()}.handles in {_file()}, or take the document out of"
         f" {_ns()}.territories by a negated pattern",
     )
 
@@ -87,7 +91,7 @@ def f9_lists_tail(documents: int, handles: int, scanned: int) -> str:
 
 
 def z1_empty() -> str:
-    return f"{_ns()}: no command is gated — {_ns()}.destructive is an empty list in {DIALS_FILE}"
+    return f"{_ns()}: no command is gated — {_ns()}.destructive is an empty list in {_file()}"
 
 
 def z1_dropped(dial: ReaderDial, command: Sequence[str]) -> str:
@@ -97,7 +101,7 @@ def z1_dropped(dial: ReaderDial, command: Sequence[str]) -> str:
     behind = "a command behind it" if dial is ReaderDial.WRAPPERS else "a command it is told to run"
     return (
         f"{_ns()}: the {kind} {escaped(' '.join(command))} is dropped, so {behind} is no longer examined —"
-        f" {_ns()}.{dial} in {DIALS_FILE} drops it"
+        f" {_ns()}.{dial} in {_file()} drops it"
     )
 
 
@@ -107,13 +111,13 @@ def z1_replaced(dial: ReaderDial, command: Sequence[str]) -> str:
     kind = "wrapper" if dial is ReaderDial.WRAPPERS else "shell"
     return (
         f"{_ns()}: the {kind} {escaped(' '.join(command))} is replaced, so its options are those written for"
-        f" it, not the defaults — {_ns()}.{dial} in {DIALS_FILE} replaces it"
+        f" it, not the defaults — {_ns()}.{dial} in {_file()} replaces it"
     )
 
 
 def z1_no_dials(root: str) -> str:
     return (
-        f"{_ns()}: no {DIALS_FILE} in {escaped(root)} — the destructive-command gate examines nothing there"
+        f"{_ns()}: no {_file()} in {escaped(root)} — the destructive-command gate examines nothing there"
         " until the file exists (an empty mapping, {}, is enough for the default list)"
     )
 
@@ -153,7 +157,7 @@ def z1_pairs_heading() -> str:
 
 
 def _c5(detail: str, fix: str) -> Broken:
-    return Broken(SharedKey.C5, f"{DIALS_FILE}: {detail}", fix)
+    return Broken(SharedKey.C5, f"{_file()}: {detail}", fix)
 
 
 def c5_territories() -> Broken:

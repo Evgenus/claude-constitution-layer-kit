@@ -10,7 +10,7 @@ from typing import NoReturn
 
 from constitution_layer_kit import cli, preflight
 from constitution_layer_kit.errors import ConfigurationFailure
-from constitution_layer_kit.identity import HOOK_SECONDS, Identity
+from constitution_layer_kit.identity import HOOK_SECONDS, Identity, declare_dials_file
 from constitution_layer_kit.model import MetaType, Mode
 from constitution_layer_kit.output import Output
 
@@ -64,4 +64,5 @@ def _body(argv: Sequence[str], output: Output) -> int:
 
 
 def main(argv: Sequence[str]) -> int:
+    declare_dials_file("constitution.yaml")
     return cli.guarded(GENERATOR, Mode.ACT, lambda output: _body(argv, output), messages.l4_nothing_written)

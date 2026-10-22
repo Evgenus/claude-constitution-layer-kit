@@ -7,7 +7,6 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-DIALS_FILE = "constitution.yaml"
 DECLARATION = "policy"  # the envelope field of the secondary binding
 DIALECT = "gitignore"
 ROOT_POLICY_KEY = "root_policy"  # the two kernel-owned top-level keys of the dials file

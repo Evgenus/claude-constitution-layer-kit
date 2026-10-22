@@ -18,7 +18,7 @@ import yaml
 from . import identity, messages
 from .envelope import yaml_error_line
 from .errors import ConfigurationFailure
-from .model import DIALECT, DIALECT_KEY, DIALS_FILE, KERNEL_KEYS, ROOT_POLICY_KEY, Dials, Namespace, Severity
+from .model import DIALECT, DIALECT_KEY, KERNEL_KEYS, ROOT_POLICY_KEY, Dials, Namespace, Severity
 
 SEVERITY_KEY = "severity"
 LOG_DIR_KEY = "log_dir"
@@ -28,8 +28,9 @@ MODULE_PREFIX = "const-"
 
 
 def load_dials(root: Path) -> Dials | None:
-    """None when the file is absent (nothing is claimed); ConfigurationFailure when malformed."""
-    path = root / DIALS_FILE
+    """None when the file the entry point declared is absent (nothing is claimed); ConfigurationFailure
+    when malformed."""
+    path = root / identity.dials_file()
     if not path.is_file():
         return None
     try:

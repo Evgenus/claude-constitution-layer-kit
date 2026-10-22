@@ -13,12 +13,22 @@ have no deadline. The handler's timeout in the plugin's hooks file stays `hook_s
 `LEFT_FOR_THE_REST` above it, so that a spent deadline ends with the gate's own line before the
 platform cuts the hook.
 
-It is the package's one global of its own; the output module also switches off a process-wide flag
-of `logging`.
+The identity is the package's one global of its own; the output module also switches off a process-wide
+flag of `logging`.
+
+The name of the dials file the gate reads is the second piece of process state beside the identity,
+and it is no global: a context variable of this package with no default. The entry point declares it
+once, through `declare_dials_file`, before its run; the dials reader opens that file and every shared
+message that names it asks `dials_file` at the moment it is built. As for the identity, a read before
+the declaration and a second declaration with another name are defects of the entry point, a
+`RuntimeError` and never a repository's failure; the same name twice is harmless. No module-level name
+holds the file's name and nothing patches one, so a gate of another kit declares its own file and the
+package reads nothing else.
 """
 
 from __future__ import annotations
 
+import contextvars
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -68,6 +78,9 @@ class _Declaration:
 
 
 _declared: _Declaration | None = None
+# The name of the dials file, declared once per process. No default: a read before the declaration is a
+# defect of the entry point, never a silent read of some file that a kit happened to name first.
+_dials_file: contextvars.ContextVar[str] = contextvars.ContextVar("dials_file")
 
 
 def declare(identity: Identity, mode: Mode | None = None) -> None:
@@ -87,6 +100,26 @@ def current() -> Identity:
     if _declared is None:  # a defect of the entry point, never of the repository
         raise RuntimeError("the entry point did not declare which gate it is")
     return _declared.identity
+
+
+def declare_dials_file(name: str) -> None:
+    """Declares the name of the dials file the gate reads, once. The same name again is harmless; another
+    is a defect, as a second, different identity is."""
+    try:
+        declared = _dials_file.get()
+    except LookupError:
+        _dials_file.set(name)
+        return
+    if declared != name:
+        raise RuntimeError("a process reads one dials file: a second, different declaration is a defect")
+
+
+def dials_file() -> str:
+    """The name of the dials file the entry point declared, relative to the repository's top."""
+    try:
+        return _dials_file.get()
+    except LookupError:  # a defect of the entry point, never of the repository
+        raise RuntimeError("the entry point did not declare which dials file it reads") from None
 
 
 def declared_mode() -> Mode | None:

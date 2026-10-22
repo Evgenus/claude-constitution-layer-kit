@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from constitution_layer_kit import cli
-from constitution_layer_kit.identity import HOOK_SECONDS, Identity
+from constitution_layer_kit.identity import HOOK_SECONDS, Identity, declare_dials_file
 
 from . import session
 from .model import COMMAND_FLAG
@@ -56,12 +56,15 @@ def load_list_modes() -> cli.Modes:
 
 
 def main(argv: Sequence[str]) -> int:
+    declare_dials_file("constitution.yaml")
     return cli.run(argv, GATE, load_modes, ARGUMENTS)
 
 
 def main_lists(argv: Sequence[str]) -> int:
+    declare_dials_file("constitution.yaml")
     return cli.run(argv, LISTS, load_list_modes)
 
 
 def main_session(argv: Sequence[str]) -> int:
+    declare_dials_file("constitution.yaml")
     return session.run(argv, SESSION)

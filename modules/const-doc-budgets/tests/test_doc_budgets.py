@@ -44,6 +44,7 @@ PLUGIN_ROOT = SCRIPTS.parent
 MODULE_ROOT = PLUGIN_ROOT.parent
 
 identity.declare(start.GATE)  # the shared texts the items compare are built for this gate's name
+identity.declare_dials_file("constitution.yaml")  # the expected messages name the file the gate reads
 H = Harness(SCRIPTS, "check-budgets.sh", "check-budgets.py", start.GATE.namespace)
 SESSION = Harness(SCRIPTS, "session-start.sh", "session-start.py", start.GATE.namespace)
 NAMESPACE = start.GATE.namespace

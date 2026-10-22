@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from constitution_layer_kit import identity
 from constitution_layer_kit.messages import echoed, escaped
-from constitution_layer_kit.model import DIALS_FILE, Broken, Finding, SharedKey
+from constitution_layer_kit.model import Broken, Finding, SharedKey
 
 from .model import VALE_FLOOR, Departure, Hit, Key, Level, Rule
 
@@ -24,6 +24,10 @@ def _ns() -> str:
     return identity.current().namespace
 
 
+def _file() -> str:
+    return identity.dials_file()
+
+
 def _floor() -> str:
     return ".".join(str(n) for n in VALE_FLOOR)
 
@@ -32,7 +36,7 @@ def _allow(rule: Rule) -> str:
     """The closing clause of a fix: how a document that must stand as it is written is declared."""
     return (
         f"; for a document that must stand as written, declare the departure with its reason: add to"
-        f" {_ns()}.departures in {DIALS_FILE} an entry {{paths: [<the file, or a pattern of the documents"
+        f" {_ns()}.departures in {_file()} an entry {{paths: [<the file, or a pattern of the documents"
         f" that stand>], allow: [{rule.value}], reason: <why they stand, in one line>}}"
     )
 
@@ -62,7 +66,7 @@ def l1_grade(rel: str, grade: float, ceiling: float) -> Finding:
         " and the grade rises with words per sentence and syllables per word",
         "split the long sentences and prefer short words in the prose outside headings, code and tables"
         f" until the grade is at or under {ceiling:g}; the ceiling for this repository is"
-        f" {_ns()}.grade_ceiling in {DIALS_FILE}" + _allow(Rule.GRADE),
+        f" {_ns()}.grade_ceiling in {_file()}" + _allow(Rule.GRADE),
     )
 
 
@@ -73,7 +77,7 @@ def l2_sentence(rel: str, line: int, words: int, limit: int, text: str) -> Findi
         "a sentence longer than the limit carries more than one idea, and a non-native reader loses the"
         " first before reaching the last",
         f"split it at a clause into sentences of at most {limit} words; the limit for this repository is"
-        f" {_ns()}.sentence_words in {DIALS_FILE}" + _allow(Rule.SENTENCE),
+        f" {_ns()}.sentence_words in {_file()}" + _allow(Rule.SENTENCE),
     )
 
 
@@ -84,7 +88,7 @@ def l3_forbidden(rel: str, line: int, text: str) -> Finding:
         "an idiom or a formal phrase says nothing a plain sentence does not, and a non-native reader must"
         " translate it before reading on",
         "say it in plain words, or drop it; a phrase this repository keeps on purpose is named in"
-        f" {_ns()}.exceptions in {DIALS_FILE}" + _allow(Rule.FORBIDDEN),
+        f" {_ns()}.exceptions in {_file()}" + _allow(Rule.FORBIDDEN),
     )
 
 
@@ -94,7 +98,7 @@ def l4_simpler(rel: str, line: int, text: str, plain: str) -> Finding:
         f"{escaped(rel)}:{line}: '{echoed(text)}' where the plain word is '{echoed(plain)}'",
         "a long or formal word costs a non-native reader a dictionary where the plain one does not",
         f"write '{escaped(plain)}'; a word this repository keeps on purpose is named in {_ns()}.exceptions in"
-        f" {DIALS_FILE}" + _allow(Rule.SIMPLER),
+        f" {_file()}" + _allow(Rule.SIMPLER),
     )
 
 
@@ -104,7 +108,7 @@ def l5_passive(rel: str, line: int, text: str) -> Finding:
         f"{escaped(rel)}:{line}: passive voice — '{echoed(text)}'",
         "the passive hides who acts, and a non-native reader must supply the actor to follow the sentence",
         "name who acts and put them first; a passive kept on purpose is a register the repository sets by"
-        f" {_ns()}.levels.passive in {DIALS_FILE}" + _allow(Rule.PASSIVE),
+        f" {_ns()}.levels.passive in {_file()}" + _allow(Rule.PASSIVE),
     )
 
 
@@ -115,7 +119,7 @@ def l6_vale_comment(rel: str, line: int, text: str) -> Finding:
         "a comment that switches a rule off is a mark in the document, which the gate blanks before it"
         " reads; what departs from a rule is declared in the dials file, where every reader sees it",
         "remove the comment; to change a rule for this repository set its level or threshold under"
-        f" {_ns()} in {DIALS_FILE}, or, for a document that must stand as written, declare the departure"
+        f" {_ns()} in {_file()}, or, for a document that must stand as written, declare the departure"
         f" with its reason in {_ns()}.departures there",
     )
 
@@ -231,7 +235,7 @@ def c12_event(event: str) -> Broken:
 
 
 def _c5(detail: str, fix: str) -> Broken:
-    return Broken(SharedKey.C5, f"{DIALS_FILE}: {detail}", fix)
+    return Broken(SharedKey.C5, f"{_file()}: {detail}", fix)
 
 
 def c5_territories() -> Broken:

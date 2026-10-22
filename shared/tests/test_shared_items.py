@@ -11,6 +11,7 @@ the module's Subject leaves out is skipped, the reason naming the flag, and its 
 from __future__ import annotations
 
 import ast
+import contextvars
 import inspect
 import json
 import os
@@ -31,7 +32,9 @@ from acceptance import broken_first_line, expect, item
 from constitution_layer_kit import __version__ as package_version
 from constitution_layer_kit import cli, identity, messages, pipeline, preflight, repository
 from constitution_layer_kit import envelope as envelope_reader
+from constitution_layer_kit.dials import load_dials
 from constitution_layer_kit.envelope import ID_RE, declared_policy, document_id, parse_envelope
+from constitution_layer_kit.errors import ConfigurationFailure
 from constitution_layer_kit.model import DECLARATION, DIALECT, Broken, EnvelopeState, Finding, SharedKey
 from constitution_layer_kit.output import ROTATE_AT, log_name
 from constitution_layer_kit.repository import list_markdown
@@ -2647,3 +2650,221 @@ def test_version_reads_the_package(subject: Subject) -> None:
     if parameters.return_annotation != (str | None):
         problems.append(f"the result is no longer a string or None: {parameters.return_annotation!r}")
     assert not problems, " | ".join(problems)
+
+
+# The name of the dials file, a context variable of the shared package with no default. The module's own
+# test file declares `constitution.yaml` at its top, in this process's context; an item that needs the
+# name undeclared, or declared otherwise, runs in a context of its own, `contextvars.Context().run`, which
+# starts empty and keeps whatever it declares to itself. Both defects' texts are typed by hand.
+UNDECLARED = "the entry point did not declare which dials file it reads"
+DIFFERENT = "a process reads one dials file: a second, different declaration is a defect"
+OTHER_FILE = "team.yaml"  # a name no kit of this repository uses
+
+
+def refused_with(text: str, body: Callable[[], object]) -> str | None:
+    """None when `body`, run in a context of its own, raises the RuntimeError whose text is `text`;
+    otherwise what happened instead."""
+    try:
+        done = contextvars.Context().run(body)
+    except RuntimeError as defect:
+        return None if str(defect) == text else f"RuntimeError({str(defect)!r})"
+    return f"returned {done!r}"
+
+
+@item(
+    174,
+    "the dials file's name has no default: a read before the declaration is a defect, in code and in text",
+)
+def test_dials_file_undeclared(subject: Subject) -> None:
+    """Where nothing was declared, the name, the dials reader and every shared message that names the
+    file raise `RuntimeError` and never read or print a file of some kit's — the reader even where a file
+    named `constitution.yaml` lies in the repository. And the shared code holds no name of the file at
+    all: its source says `constitution.yaml` nowhere, so that no module-level name can hold it."""
+    shared(subject, "dials_file_undeclared")
+    problems = []
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / "constitution.yaml").write_text(json.dumps({"root_policy": "docs/p.md"}), encoding="utf-8")
+        reads: dict[str, Callable[[], object]] = {
+            "identity.dials_file": identity.dials_file,
+            "dials.load_dials": lambda: load_dials(root),
+            "G1.4": lambda: messages.g1_skip_no_dials("/r"),
+            "G1.5": messages.g1_skip_no_root,
+            "C4b": messages.c4b_dials_not_mapping,
+            "C5.8": messages.c5_severity,
+            "C13": lambda: messages.c13_log_dir_not_ignored("logs"),
+        }
+        for label, read in reads.items():
+            if (refused := refused_with(UNDECLARED, read)) is not None:
+                problems.append(f"{label} before any declaration: {refused}")
+    source = Path(inspect.getsourcefile(identity) or "").resolve().parent
+    files = sorted(source.glob("*.py"))
+    if not files:
+        problems.append(f"no source of the shared package found beside {source}")
+    problems += [
+        f"{path.name} names constitution.yaml"
+        for path in files
+        if "constitution.yaml" in path.read_text(encoding="utf-8")
+    ]
+    assert not problems, "; ".join(problems)
+
+
+@item(175, "a second declaration of the dials file's name that differs is a defect, and the first stands")
+def test_dials_file_declared_twice_differently(subject: Subject) -> None:
+    """A process reads one dials file. A second declaration with another name raises `RuntimeError`,
+    whichever the names — a name and the same name in another case, a name and a path to it — and what
+    the process reads afterwards is still the first name."""
+    shared(subject, "dials_file_declared_twice_differently")
+
+    def declares_two(first: str, second: str) -> str:
+        identity.declare_dials_file(first)
+        try:
+            identity.declare_dials_file(second)
+        except RuntimeError as defect:
+            return identity.dials_file() if str(defect) == DIFFERENT else f"RuntimeError({str(defect)!r})"
+        return "no error"
+
+    problems = []
+    for first, second in [
+        (OTHER_FILE, "constitution.yaml"),
+        ("constitution.yaml", OTHER_FILE),
+        (OTHER_FILE, "Team.yaml"),
+        (OTHER_FILE, "./team.yaml"),
+        (OTHER_FILE, ""),
+    ]:
+        read = contextvars.Context().run(declares_two, first, second)
+        if read != first:
+            problems.append(f"declared {first!r}, then {second!r}: {read!r}, wanted the first, {first!r}")
+    assert not problems, "; ".join(problems)
+
+
+@item(176, "the same declaration of the dials file's name twice is harmless")
+def test_dials_file_declared_twice_alike(subject: Subject) -> None:
+    """A second declaration of the name already declared is no defect, however often it is made — the
+    entry point and a test's top may both declare it — and the name read is the declared one. Another
+    context starts empty: a declaration there leaves this process's own untouched."""
+    shared(subject, "dials_file_declared_twice_alike")
+
+    def declares_alike() -> list[str]:
+        identity.declare_dials_file(OTHER_FILE)
+        identity.declare_dials_file(OTHER_FILE)
+        identity.declare_dials_file(OTHER_FILE)
+        return [identity.dials_file()]
+
+    read = contextvars.Context().run(declares_alike)
+    assert read == [OTHER_FILE], f"after the same declaration three times the name is {read}"
+    assert identity.dials_file() == "constitution.yaml", (
+        f"a declaration in a context of its own changed this process's name to {identity.dials_file()!r}"
+    )
+
+
+@item(177, "every shared message that names the dials file names the declared one, and the reader opens it")
+def test_dials_file_name_is_the_declared_one(subject: Subject) -> None:
+    """With `team.yaml` declared, each of the nineteen shared texts that name the file says `team.yaml`
+    and none says `constitution.yaml`, each text typed by hand; `load_dials` opens `team.yaml` and
+    never `constitution.yaml`, reads no file where only `constitution.yaml` lies, and its failure on a
+    team.yaml that is no YAML names `team.yaml`."""
+    it = shared(subject, "dials_file_name_is_the_declared_one")
+    ns = it.ns
+
+    def built() -> dict[str, str]:
+        identity.declare_dials_file(OTHER_FILE)
+        return {
+            "G1.4": messages.g1_skip_no_dials("/r"),
+            "G1.5": messages.g1_skip_no_root(),
+            "C4": messages.c4_dials_invalid_yaml("at line 2").render(),
+            "C4b": messages.c4b_dials_not_mapping().render(),
+            "C5.1": messages.c5_root_policy_path().render(),
+            "C5.2": messages.c5_dialect_empty().render(),
+            "C5.3": messages.c5_dialect_unsupported("svn").render(),
+            "C5.4": messages.c5_namespace_not_mapping("k").render(),
+            "C5.5": messages.c5_own_namespace_not_mapping().render(),
+            "C5.6": messages.c5_territory_shape("k").render(),
+            "C5.7": messages.c5_territory_pattern("k.territory", "#x").render(),
+            "C5.8": messages.c5_severity().render(),
+            "C5.9": messages.c5_log_dir().render(),
+            "C5.10": messages.c5_unknown_dial("zz", ["a", "b"]).render(),
+            "C6": messages.c6_root_missing("docs/p.md").render(),
+            "C8": messages.c8_root_claims_nothing("pol").render(),
+            "C12.3": messages.c12_check_ignore("boom").render(),
+            "C12.7": messages.c12_dials_unreadable("denied").render(),
+            "C13": messages.c13_log_dir_not_ignored("logs").render(),
+        }
+
+    said = contextvars.Context().run(built)
+    wanted = {  # typed by hand
+        "G1.4": "no team.yaml in /r: nothing is claimed",
+        "G1.5": "team.yaml has no root_policy: nothing is claimed",
+        "C4": "BROKEN: team.yaml is not valid YAML (at line 2) — fix: repair the YAML at the place the"
+        " message names; nothing is checked until the file parses",
+        "C4b": "BROKEN: team.yaml is not a mapping — fix: the file holds top-level keys: root_policy, and"
+        " territory_dialect when the dialect is not gitignore, then one namespace per policy or module",
+        "C5.1": "BROKEN: team.yaml: root_policy must be a repository-relative path — fix: root_policy:"
+        " <path of the root policy, relative to the repository root>",
+        "C5.2": "BROKEN: team.yaml: territory_dialect must be a non-empty string — fix: remove the key, or"
+        " set territory_dialect: gitignore — the one dialect supported",
+        "C5.3": f"BROKEN: team.yaml: territory_dialect 'svn' is not supported by {ns} (supports: gitignore)"
+        " — fix: set territory_dialect: gitignore, or remove the key",
+        "C5.4": "BROKEN: team.yaml: namespace 'k' must be a mapping — fix: write it as k: {territory: [...]}",
+        "C5.5": f"BROKEN: team.yaml: namespace '{ns}' must be a mapping of this module's dials — fix: write"
+        " this module's dials under it as a mapping, or remove the key",
+        "C5.6": "BROKEN: team.yaml: k.territory must be a list of non-empty strings — fix: write it as k:"
+        ' {territory: ["<pattern>", ...]}',
+        "C5.7": "BROKEN: team.yaml: k.territory holds a pattern git would not read as one: '#x' — fix: a"
+        " pattern may not start with '#' (a comment to git) nor contain a line break; escape a leading #"
+        " as \\# bare or in single quotes, as \\\\# in double quotes, and remove a line break",
+        "C5.8": f"BROKEN: team.yaml: {ns}.severity must be block or warn — fix: under {ns}, set severity:"
+        " block or severity: warn, or remove that line",
+        "C5.9": f"BROKEN: team.yaml: {ns}.log_dir must be a repository-relative directory — fix: under"
+        f" {ns}, set log_dir: <a git-ignored directory>, or remove that line",
+        "C5.10": f"BROKEN: team.yaml: {ns}.zz is no dial of this module — fix: a misspelt dial would be"
+        " ignored in silence, so none is: write one of a, b",
+        "C6": "BROKEN: team.yaml names root_policy 'docs/p.md' but no such file exists — fix: create it, or"
+        " point root_policy at the policy for policies",
+        "C8": "BROKEN: root policy 'pol' claims no territory in team.yaml — fix: write pol: {territory:"
+        " [<where policies live, including the root itself>]} — nothing is governed until then",
+        "C12.3": "BROKEN: git check-ignore failed: boom — fix: territory patterns must be gitignore syntax;"
+        " check team.yaml",
+        "C12.7": "BROKEN: team.yaml cannot be read (denied) — fix: check the file's permissions",
+        "C13": f"BROKEN: team.yaml: {ns}.log_dir 'logs' is not ignored by git — fix: a log inside the"
+        " working tree must be git-ignored, or every verdict dirties the tree; add the directory to"
+        " .gitignore, or remove the key",
+    }
+    problems = [
+        f"{key}: wanted {line!r}, got {said.get(key)!r}"
+        for key, line in wanted.items()
+        if said.get(key) != line
+    ]
+    problems += [
+        f"{key} still names constitution.yaml: {line!r}"
+        for key, line in said.items()
+        if "constitution.yaml" in line
+    ]
+    problems += [f"a text is missing: {key}" for key in said if key not in wanted]
+
+    def reads() -> list[str]:
+        identity.declare_dials_file(OTHER_FILE)
+        seen: list[str] = []
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "constitution.yaml").write_text(json.dumps({"root_policy": "kit.md"}), encoding="utf-8")
+            alone = load_dials(root)  # only constitution.yaml lies here: this reader opens team.yaml
+            seen.append("no file, nothing claimed" if alone is None else f"read {alone.root_policy!r}")
+            (root / OTHER_FILE).write_text(json.dumps({"root_policy": "docs/p.md"}), encoding="utf-8")
+            both = load_dials(root)  # JSON is YAML: the file the entry point declared wins
+            seen.append("nothing" if both is None else f"read {both.root_policy!r}")
+            (root / OTHER_FILE).write_text("[unbalanced", encoding="utf-8")
+            try:
+                load_dials(root)
+            except ConfigurationFailure as failure:
+                seen.append(failure.broken.render().split(" (", 1)[0])
+        return seen
+
+    wanted_reads = [
+        "no file, nothing claimed",
+        "read 'docs/p.md'",
+        "BROKEN: team.yaml is not valid YAML",
+    ]
+    if (got := contextvars.Context().run(reads)) != wanted_reads:
+        problems.append(f"the reader: wanted {wanted_reads}, got {got}")
+    assert not problems, "; ".join(problems)

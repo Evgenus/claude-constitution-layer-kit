@@ -39,6 +39,7 @@ PLUGIN_ROOT = SCRIPTS.parent
 MODULE_ROOT = PLUGIN_ROOT.parent
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
+identity.declare_dials_file("constitution.yaml")  # the expected messages name the file the gate reads
 # — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
 H = Harness(SCRIPTS, "check-style.sh", "check-style.py", start.GATE.namespace, scan_only=True)
 NAMESPACE = start.GATE.namespace

@@ -14,7 +14,7 @@ from collections.abc import Sequence
 
 from constitution_layer_kit import identity
 from constitution_layer_kit.messages import echoed, escaped
-from constitution_layer_kit.model import DIALS_FILE, Broken, EnvelopeState, Finding, SharedKey
+from constitution_layer_kit.model import Broken, EnvelopeState, Finding, SharedKey
 
 from .model import DEFAULT_WIDTH, MAX_WIDTH, Advice, Catalog, Key, NameToTake, Reach, Read
 
@@ -26,6 +26,10 @@ _ENTRY = (
 
 def _ns() -> str:
     return identity.current().namespace
+
+
+def _file() -> str:
+    return identity.dials_file()
 
 
 def _declaration() -> str:
@@ -202,7 +206,7 @@ def _reach(reach: Reach) -> str:
 def g1_skip_no_catalog() -> str:
     return (
         f"{_ns()}.catalogs lists no catalog, so no document is known to be numbered — to declare"
-        f" one, write {_declaration()} in {DIALS_FILE}"
+        f" one, write {_declaration()} in {_file()}"
     )
 
 
@@ -214,12 +218,12 @@ def g1_skip_not_an_item(rel: str, catalogs: Sequence[Catalog]) -> str:
 
 
 def z1_empty() -> str:
-    return f"{_ns()}: no document is examined — {_ns()}.catalogs is an empty list in {DIALS_FILE}"
+    return f"{_ns()}: no document is examined — {_ns()}.catalogs is an empty list in {_file()}"
 
 
 def z1_no_dials(root: str) -> str:
     return (
-        f"{_ns()}: no {DIALS_FILE} in {escaped(root)} — the catalog gate examines nothing there until"
+        f"{_ns()}: no {_file()} in {escaped(root)} — the catalog gate examines nothing there until"
         f" the file lists a catalog in {_ns()}.catalogs"
     )
 
@@ -242,7 +246,7 @@ def z1_could_not_run() -> str:
 def c5_catalogs_not_a_list() -> Broken:
     return Broken(
         SharedKey.C5,
-        f"{DIALS_FILE}: {_ns()}.catalogs must be a list of catalogs",
+        f"{_file()}: {_ns()}.catalogs must be a list of catalogs",
         f"write it as {_declaration()}, or remove the key",
     )
 
@@ -250,7 +254,7 @@ def c5_catalogs_not_a_list() -> Broken:
 def c5_catalog_entry(position: int, what: str) -> Broken:
     return Broken(
         SharedKey.C5,
-        f"{DIALS_FILE}: entry {position} of {_ns()}.catalogs {what}",
+        f"{_file()}: entry {position} of {_ns()}.catalogs {what}",
         f"write the entry as {_ENTRY}",
     )
 
@@ -281,7 +285,7 @@ def entry_width() -> str:
 def c5_prefix_listed_twice(prefix: str) -> Broken:
     return Broken(
         SharedKey.C5,
-        f"{DIALS_FILE}: {_ns()}.catalogs lists prefix '{prefix}' twice",
+        f"{_file()}: {_ns()}.catalogs lists prefix '{prefix}' twice",
         "one prefix names one catalog, or a number would cite two kinds: join the two entries'"
         " territories in one entry, or give one of them another prefix — before it has items, since"
         " an id never changes",

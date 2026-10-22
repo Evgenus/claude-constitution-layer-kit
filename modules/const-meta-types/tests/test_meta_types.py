@@ -31,6 +31,7 @@ from test_shared_items import NO_ENVELOPE, Subject
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
+identity.declare_dials_file("constitution.yaml")  # the expected messages name the file the gate reads
 # — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
 H = Harness(SCRIPTS, "check-governed-document.sh", "check-governed-document.py", start.GATE.namespace)
 NAMESPACE = start.GATE.namespace

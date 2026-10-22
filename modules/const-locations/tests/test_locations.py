@@ -36,6 +36,7 @@ from test_shared_items import Subject
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 
 identity.declare(start.GENERATOR)  # the expected messages are built by the same functions the generator uses
+identity.declare_dials_file("constitution.yaml")  # the expected messages name the file the gate reads
 # — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
 H = Harness(SCRIPTS, "new-document.sh", "new-document.py", start.GENERATOR.namespace)
 NAMESPACE = start.GENERATOR.namespace

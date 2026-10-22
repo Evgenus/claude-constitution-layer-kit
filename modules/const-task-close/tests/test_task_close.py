@@ -40,6 +40,7 @@ from test_shared_items import PatternDial, Subject, git_patch
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 
 identity.declare(start.GATE)  # the messages not typed by hand are built by the functions the gate uses
+identity.declare_dials_file("constitution.yaml")  # the expected messages name the file the gate reads
 H = Harness(SCRIPTS, "check-task-close.sh", "check-task-close.py", start.GATE.namespace)
 NS = start.GATE.namespace
 KEY = "No-Doc-Impact"

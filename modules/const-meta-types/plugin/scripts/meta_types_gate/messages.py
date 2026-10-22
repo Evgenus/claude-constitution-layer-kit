@@ -14,7 +14,7 @@ from collections.abc import Sequence
 
 from constitution_layer_kit import identity
 from constitution_layer_kit.messages import echoed, escaped, patterns
-from constitution_layer_kit.model import DECLARATION, DIALS_FILE, Broken, Finding, Match, MetaType, Status
+from constitution_layer_kit.model import DECLARATION, Broken, Finding, Match, MetaType, Status
 
 from .model import TITLE_MAX, Key
 
@@ -28,6 +28,10 @@ _STATUSES = " | ".join(s.value for s in Status)
 
 def _ns() -> str:
     return identity.current().namespace
+
+
+def _file() -> str:
+    return identity.dials_file()
 
 
 # The fix of F4 names only the fields its list names: each fragment under the key that opens
@@ -130,7 +134,7 @@ def f7_multi_policy(rel: str, matches: Sequence[Match]) -> Finding:
         Key.F7,
         f"{escaped(rel)}: matched by {len(matches)} policy territories: {_matches(matches)}",
         "a document resolves to exactly one governing policy, or two rule sets compete",
-        f"narrow one territory in {DIALS_FILE} so the patterns no longer overlap; during a move,"
+        f"narrow one territory in {_file()} so the patterns no longer overlap; during a move,"
         f" declare the intended one with '{DECLARATION}: <id>' in the envelope while an active"
         " task-record covers it",
     )
@@ -161,7 +165,7 @@ def f8b_contradiction_in_overlap(rel: str, declared: str, matches: Sequence[Matc
         f" {_matches(matches)}",
         _DECLARATION_WHY,
         "declare one of the policies that claim the path, or remove the declaration and narrow"
-        f" the territories in {DIALS_FILE}",
+        f" the territories in {_file()}",
     )
 
 
@@ -209,9 +213,9 @@ def f13_root_id_orphaned(rel: str, doc_id: str) -> Finding:
     return Finding(
         Key.F13,
         f"{escaped(rel)}: the root policy's id '{echoed(doc_id)}' has no territory under that id in"
-        f" {DIALS_FILE}",
+        f" {_file()}",
         "the root's namespace is where policies live; changing the id orphans every policy",
-        f"keep the id that has the namespace, or rename the namespace in {DIALS_FILE} in the same change",
+        f"keep the id that has the namespace, or rename the namespace in {_file()} in the same change",
     )
 
 

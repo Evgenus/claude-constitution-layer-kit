@@ -585,6 +585,7 @@ def main(argv: list[str]) -> int:
         print(COULD_NOT_RUN)
         return EXIT_BROKEN
     identity.declare(start.GATE)  # the shared reader asks which gate it serves
+    identity.declare_dials_file("constitution.yaml")  # ... and which file it opens
     try:
         if args.self_test:
             return self_test()

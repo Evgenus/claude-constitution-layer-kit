@@ -24,7 +24,7 @@ from collections.abc import Sequence
 
 from constitution_layer_kit import identity
 from constitution_layer_kit.messages import echoed, escaped
-from constitution_layer_kit.model import DIALS_FILE, Broken, MetaType, SharedKey
+from constitution_layer_kit.model import Broken, MetaType, SharedKey
 
 from .model import ActKey
 
@@ -35,6 +35,10 @@ _ENTRY = "{policy: <id>, template: <repository-relative path>}"
 
 def _ns() -> str:
     return identity.current().namespace
+
+
+def _file() -> str:
+    return identity.dials_file()
 
 
 # ---------------------------------------------------------------- the lines of a run
@@ -96,7 +100,7 @@ def l5_no_repository(directory: str) -> Broken:
 
 def l5_no_dials(root: str) -> Broken:
     return _refused(
-        f"no {DIALS_FILE} in {escaped(root)}: no kind is declared",
+        f"no {_file()} in {escaped(root)}: no kind is declared",
         "a document is created into a policy's territory; declare the root policy and the kind's"
         " policy first — the new-kind procedure",
     )
@@ -104,7 +108,7 @@ def l5_no_dials(root: str) -> Broken:
 
 def l5_no_root_policy() -> Broken:
     return _refused(
-        f"{DIALS_FILE} names no root_policy: no policy claims anything",
+        f"{_file()} names no root_policy: no policy claims anything",
         "set root_policy: <path of the policy for policies>",
     )
 
@@ -138,9 +142,9 @@ def l5_no_home(kind: str, patterns: Sequence[str]) -> Broken:
 
 def l5_no_territory(kind: str) -> Broken:
     return _refused(
-        f"{escaped(kind)} claims no territory: its namespace in {DIALS_FILE} has no territory, so no "
+        f"{escaped(kind)} claims no territory: its namespace in {_file()} has no territory, so no "
         "home follows",
-        f"under {escaped(kind)}: in {DIALS_FILE} write territory: ['<dir>/**'], <dir> being the directory its"
+        f"under {escaped(kind)}: in {_file()} write territory: ['<dir>/**'], <dir> being the directory its"
         " documents live in",
     )
 
@@ -191,7 +195,7 @@ def l5_two_policies(home: str, other: str, pattern: str) -> Broken:
     return _refused(
         f"{escaped(home)} would also lie in {echoed(other)}'s territory ('{echoed(pattern)}'): two policies"
         " would govern it",
-        f"territories never overlap; narrow one of them in {DIALS_FILE} before creating documents there",
+        f"territories never overlap; narrow one of them in {_file()} before creating documents there",
     )
 
 
@@ -283,7 +287,7 @@ def l5_could_not_write(home: str, error: str) -> Broken:
 
 
 def _c5(detail: str, fix: str) -> Broken:
-    return Broken(SharedKey.C5, f"{DIALS_FILE}: {detail}", fix)
+    return Broken(SharedKey.C5, f"{_file()}: {detail}", fix)
 
 
 def c5_severity_here() -> Broken:
