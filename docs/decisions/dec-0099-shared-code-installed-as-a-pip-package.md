@@ -28,7 +28,7 @@ How a project's `python3` gets the package.
   - **Cons:** pip takes no range here, so the module's own check holds it; each release is a tag pushed to GitHub, an outward act that needs the decider's go-ahead; pip builds from source on every install; another project's CI needs a token while the repository is private.
 - **B. Wheels found by `--find-links`, from a folder or a GitHub release.** CI builds a wheel on a release tag and attaches it to the release.
   - **Pros:** pip resolves a version range; nothing is built at install time; the command has the form a package index would use.
-  - **Cons:** a release workflow with write access; each release needs the decider's go-ahead; while the repository is private, pip cannot read a release's files, so a project first downloads them with a token; the most machinery of the five.
+  - **Cons:** a release workflow with write access; each release needs the decider's go-ahead; while the repository is private, pip cannot read a release's files, so a project first downloads them with a token.
 - **C. A local path from the kit's clone.** `python3 -m pip install ~/dev/claude-constitution-layer-kit/shared`.
   - **Pros:** no tag, no release, no token beyond the clone the install guide asks for; the guide's check would install the change's own code with no extra step.
   - **Cons:** the version is whatever the clone has checked out, and nothing in the command names it; another project's CI checks out this kit too.
@@ -82,7 +82,7 @@ The session first recommended B, as the cheaper path. The decider answered that 
   - **Pros:** nothing is built before a reader exists; a field added later is a compatible minor release.
   - **Cons:** the first release cannot serve another kit's own file.
 
-The session recommended A. Asked when the parameters help, it said only for another kit's gate that uses this package's pipeline with its own file, and changed its recommendation to C, since no such gate exists. Asked how one override could serve the whole package, and whether a gate needs both files, it said that each process runs one gate, so a setting for the package is one per process, and that a gate whose rule depends on the governing policy needs both files. The decider chose none of the three as put, in chat on 2026-10-22: the file's name becomes a context variable with no default, and no global variable is patched. The prefix followed, in sections 4 and 5. The session reads the choice as one file per gate, as in A, and keeps the two-file read of B deferred.
+The session recommended A. Asked when the parameters help, it said only for another kit's gate that uses this package's pipeline with its own file, and changed its recommendation to C, since no such gate exists. Asked how one override could serve the whole package, it said that each process runs one gate, and that a gate whose rule depends on the governing policy needs both files. The decider chose none of the three as put, in chat on 2026-10-22: the file's name becomes a context variable with no default, and no global variable is patched. The prefix followed, in sections 4 and 5. The session reads the choice as one file per gate, as in A, and keeps the two-file read of B deferred.
 
 <a id="r10"></a>**R10.** The name of the dials file a gate reads is a context variable of the shared package, with no default. Each process declares it once, through one shared function, before its run. A second, different declaration is a defect, and so is a read before the first, as for the identity. A gate reads all of its dials from that one file, the kernel keys included, and every shared message names the file declared. No module-level name holds the file's name and nothing patches one: `DIALS_FILE` leaves `model.py`. Each module of this kit declares `constitution.yaml`.
 
@@ -156,7 +156,7 @@ The session recommended A, for the replacement risk in one shared environment. T
   - **Pros:** one build, the same bytes in every job.
   - **Cons:** jobs depend on each other; local runs as in B.
 
-The session first put A with a build in each check. Asked why that needed the network, it explained that pip fetches `setuptools` to build, checked the `.pth` way offline and revised A. It recommended A. The decider chose A in chat on 2026-10-22.
+The session first put A with a build in each check. Asked why that needed the network, it revised A to the `.pth` way, checked offline. It recommended A. The decider chose A in chat on 2026-10-22.
 
 <a id="r17"></a>**R17.** The steps that the install and session checks share, in `scripts/kit_install.py`, and the install guide's check make a throwaway virtual environment from the `python3` they run under, with its system packages, whose `.pth` file names the change's own `shared/`. They put its `bin` first on `PATH` for every session and gate they start. Nothing is built, and nothing needs the network.
 
@@ -191,7 +191,7 @@ The session recommended A. The decider answered in chat on 2026-10-22 that a mod
 
 ## Applied
 
-The record was born `active`: its questions were decided one per message, and the change grew while it was applied, one commit per piece on the branch — the package's files, the version check, the dials file's name, the module prefix, the checks' environment, the plugins without their link, the documents, and four rounds of fixes of what each piece's verifier found. The commit that adds section 9 states R24 in its documents and sets the record `inactive`: every item has its home.
+The record was born `active`: its questions were decided one per message, and the change grew while it was applied, one commit per piece. The commit that adds section 9 states R24 in its documents and sets the record `inactive`: every item has its home.
 
 ## Carry list
 
