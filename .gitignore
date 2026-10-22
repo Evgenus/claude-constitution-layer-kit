@@ -10,3 +10,7 @@ __pycache__/
 
 # The pinned Claude Code that scripts/setup-claude.sh installs for local runs of the gate list, in a clone's main checkout.
 .claude-code-pinned/
+
+# What a developer's in-tree `python3 -m pip install ./shared` leaves in the shared code's folder (decision dec-0099-shared-code-installed-as-a-pip-package, R9).
+shared/build/
+shared/*.egg-info/

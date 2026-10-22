@@ -8,28 +8,37 @@ the one `[build-system] requires` names, installed once into a throwaway virtual
 is built there with pip's build isolation off: a failure to fetch the build tool is told apart from a
 failure of the build. The wheel is then installed into a second, fresh virtual environment, one with no
 system packages, and the environment's own Python, in isolated mode and from a folder that holds nothing,
-imports `constitution_layer_kit`. Three things are held, each a RED finding with the fix when it fails:
+imports `constitution_layer_kit` and walks it with `pkgutil`. Each of these is a RED finding, with what
+failed, why and the exact fix, when it fails:
   - the version the installed distribution reports, `importlib.metadata`'s, equals `__version__` of the
     package, the version's one source: two sources of one pin drift;
   - the package imports from the environment's site-packages and not from a source folder: an import
     that finds the source would hide a package the wheel left out;
-  - PyYAML is installed beside the package, which only its declared dependency can have put there.
-A `shared/pyproject.toml` that is no TOML or names no build requirements, a build that fails, a wheel
-that holds no importable package and a distribution of another name are RED too, each with its own text.
-This is the one check of the kit that needs the package index: pip fetches the build tool and the
-dependency from it. A Python without `venv` or `ensurepip`, a build tool or a dependency that pip cannot
-fetch, a child process that cannot start or runs longer than five minutes, and a missing
-`shared/pyproject.toml` are BROKEN with the fix, never a pass. Every folder the check makes is removed
-when it ends.
+  - PyYAML is installed beside the package, which only its declared dependency can have put there;
+  - the package carries its `py.typed` marker beside its `__init__.py`: without it a type checker in a
+    project outside this kit ignores the package's annotations;
+  - every submodule of the installed package, found by walking it with `pkgutil`, imports in the new
+    environment, each one that fails a finding of its own: a wheel that left a file out, or code that
+    needs a dependency the distribution does not declare, would stop a project at that import;
+  - a package that declares no `__version__`, a wheel that holds no importable package and a
+    distribution of another name, each with its own text.
+A `shared/pyproject.toml` that is no TOML or names no build requirements, and a build that fails, are RED
+too, each with its own text. This is the one check of the kit that needs the package index: pip fetches
+the build tool and the dependency from it. A Python without `venv` or `ensurepip`, a build tool or a
+dependency that pip cannot fetch, a child process that cannot start or runs longer than five minutes, and
+a missing `shared/pyproject.toml` are BROKEN with the fix, never a pass. Every folder the check makes is
+removed when it ends.
 
 Modes:  no arguments   check the distribution built from shared/ of the kit;
         --self-test    prove the check on toy distributions in throwaway folders, whose build tool is
-                       installed once and shared by their builds: a right one green with its literal line;
-                       a version the metadata names that differs from `__version__`, one with no PyYAML
-                       among its dependencies, and one with the package left out of its wheel, each red
-                       with its literal lines; a `pyproject.toml` that is no TOML, one with no build
-                       requirements and a build that fails, red; each judgment of the installed facts
-                       alone, the origin of the import among them; a Python without `venv`, a build tool
+                       installed once and shared by their builds: a right one green with its literal line,
+                       a subpackage among its modules; a version the metadata names that differs from
+                       `__version__`, one with no PyYAML among its dependencies, one with the package left
+                       out of its wheel, one with no `py.typed` in its wheel and one with a submodule and
+                       a module of a subpackage that fail to import, each red with its literal lines; a
+                       `pyproject.toml` that is no TOML, one with no build requirements and a build that
+                       fails, red; each judgment of the installed facts alone, the origin of the import,
+                       the marker and the submodules among them; a Python without `venv`, a build tool
                        and a dependency that pip cannot fetch, a missing `pyproject.toml` and a
                        misinvocation, BROKEN with literal lines; every folder removed after a green, a red
                        and a BROKEN run.
@@ -51,9 +60,10 @@ import subprocess
 import sys
 import tempfile
 import tomllib
-from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Any
 
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
@@ -84,8 +94,11 @@ CLOSING = "BROKEN: the check could not run — no distribution was examined"
 # Run by the environment's own Python, isolated, from a folder that holds nothing: what the installed
 # package and its metadata say, as one JSON object.
 PROBE = """
+import importlib
 import importlib.metadata
 import json
+import os
+import pkgutil
 import sysconfig
 
 facts = {"purelib": sysconfig.get_path("purelib"), "platlib": sysconfig.get_path("platlib")}
@@ -96,6 +109,25 @@ except Exception as bad:
 else:
     facts["file"] = package.__file__
     facts["dunder"] = getattr(package, "__version__", None)
+    facts["typed"] = os.path.isfile(os.path.join(os.path.dirname(package.__file__), "py.typed"))
+    failed = {}
+
+    def refused(name, bad):
+        failed[name] = f"{type(bad).__name__}: {bad}"
+
+    def walk_failed(name):  # a package the walk could not enter: the import below says why
+        try:
+            importlib.import_module(name)
+        except (Exception, SystemExit) as bad:
+            refused(name, bad)
+
+    walk = pkgutil.walk_packages(package.__path__, prefix="constitution_layer_kit.", onerror=walk_failed)
+    for module in walk:
+        try:
+            importlib.import_module(module.name)
+        except (Exception, SystemExit) as bad:
+            refused(module.name, bad)
+    facts["unimportable"] = sorted(failed.items())
 for key, name in (("version", "constitution-layer-kit"), ("pyyaml", "PyYAML")):
     try:
         facts[key] = importlib.metadata.version(name)
@@ -140,6 +172,8 @@ class Facts:
     dunder: str | None  # `__version__` of the package
     version: str | None  # the version `importlib.metadata` reports for the distribution
     pyyaml: str | None  # the version of PyYAML installed in the environment
+    typed: bool | None  # the marker py.typed lies beside the package's __init__.py; None: no import
+    unimportable: tuple[tuple[str, str], ...]  # (submodule, why) of each that did not import, by name
 
 
 @dataclass(frozen=True)
@@ -286,6 +320,18 @@ def text_of(data: dict[str, object], key: str) -> str | None:
     return value if isinstance(value, str) else None
 
 
+def failures_of(data: dict[str, object]) -> tuple[tuple[str, str], ...]:
+    """The submodules the probe could not import, as (name, why) pairs."""
+    value = data.get("unimportable")
+    pairs = value if isinstance(value, list) else []
+    return tuple((str(each[0]), str(each[1])) for each in pairs if isinstance(each, list) and len(each) == 2)
+
+
+def flag_of(data: dict[str, object], key: str) -> bool | None:
+    value = data.get(key)
+    return value if isinstance(value, bool) else None
+
+
 def probe(python: Path, folder: Path) -> Facts:
     folder.mkdir()
     done = run([python, "-I", "-c", PROBE], cwd=folder)
@@ -311,6 +357,8 @@ def probe(python: Path, folder: Path) -> Facts:
         dunder=text_of(data, "dunder"),
         version=text_of(data, "version"),
         pyyaml=text_of(data, "pyyaml"),
+        typed=flag_of(data, "typed"),
+        unimportable=failures_of(data),
     )
 
 
@@ -380,6 +428,29 @@ def judge(facts: Facts) -> list[Finding]:
                 f'declare `dependencies = ["{DEPENDENCY}>=6.0"]` under [project] in {PROJECT}',
             )
         )
+    if facts.typed is False:
+        found.append(
+            Finding(
+                f"the installed package {PACKAGE} carries no py.typed marker beside its __init__.py",
+                "without the marker a type checker in a project outside this kit treats the package as"
+                " untyped (PEP 561) and ignores its annotations, so the typed interface a module is checked"
+                " against is lost to that project",
+                f"keep an empty file py.typed in {PACKAGE}/ and list it as"
+                f' `{PACKAGE} = ["py.typed"]` under [tool.setuptools.package-data] in {PROJECT}',
+            )
+        )
+    for name, error in facts.unimportable:
+        found.append(
+            Finding(
+                f"the installed submodule {name} does not import in the new environment ({error})",
+                "a project outside this kit imports the shared code from the installed package alone, so a"
+                " submodule that fails there — a file the wheel left out, or a dependency the distribution"
+                " does not declare — stops it at that import",
+                "repair what the error names: declare the missing dependency under `dependencies` in"
+                f" [project] of {PROJECT}, or list the package that holds the file under [tool.setuptools]"
+                " packages there",
+            )
+        )
     return found
 
 
@@ -418,7 +489,8 @@ def report(verdict: Verdict) -> int:
     version = verdict.facts.version if verdict.facts else None
     print(
         f"GREEN: {DISTRIBUTION} {version} builds, installs into a fresh virtual environment and imports"
-        f" from its site-packages there, with {DEPENDENCY} installed as its dependency"
+        f" from its site-packages there, every submodule included, with its py.typed marker and {DEPENDENCY}"
+        " installed as its dependency"
     )
     return EXIT_GREEN
 
@@ -453,8 +525,11 @@ dependencies = {dependencies}
 
 [tool.setuptools]
 packages = {packages}
-{dynamic}"""
+{dynamic}{package_data}"""
 DYNAMIC = '[tool.setuptools.dynamic]\nversion = {attr = "constitution_layer_kit.__version__"}\n'
+PACKAGE_DATA = '\n[tool.setuptools.package-data]\nconstitution_layer_kit = ["py.typed"]\n'
+SUBPACKAGE = "constitution_layer_kit.sub"
+RIGHT_MODULES = {"helper.py": "HELPER = 1\n", "sub/__init__.py": "", "sub/leaf.py": "LEAF = 1\n"}
 
 
 def toy(
@@ -463,16 +538,29 @@ def toy(
     version: str = 'dynamic = ["version"]',
     dynamic: str = DYNAMIC,
     dependencies: str = '["PyYAML>=6.0"]',
-    packages: str = '["constitution_layer_kit"]',
+    packages: str = f'["{PACKAGE}", "{SUBPACKAGE}"]',
+    typed: bool = True,
     dunder: str = VERSION,
+    modules: Mapping[str, str] = RIGHT_MODULES,
 ) -> Path:
-    """A toy distribution: the package folder named as the real one, its pyproject.toml filled by the
+    """A toy distribution: the package folder named as the real one, with the marker py.typed unless
+    `typed` is false and the `modules` beside its `__init__.py`, its pyproject.toml filled by the
     keywords."""
     (root / PACKAGE).mkdir(parents=True)
     (root / PACKAGE / "__init__.py").write_text(f'__version__ = "{dunder}"\n', encoding="utf-8")
-    (root / PACKAGE / "py.typed").write_text("", encoding="utf-8")
+    if typed:
+        (root / PACKAGE / "py.typed").write_text("", encoding="utf-8")
+    for name, text in modules.items():
+        (root / PACKAGE / name).parent.mkdir(parents=True, exist_ok=True)
+        (root / PACKAGE / name).write_text(text, encoding="utf-8")
     (root / "pyproject.toml").write_text(
-        BASE_PYPROJECT.format(version=version, dynamic=dynamic, dependencies=dependencies, packages=packages),
+        BASE_PYPROJECT.format(
+            version=version,
+            dynamic=dynamic,
+            dependencies=dependencies,
+            packages=packages,
+            package_data=PACKAGE_DATA,
+        ),
         encoding="utf-8",
     )
     return root
@@ -485,27 +573,22 @@ def printed(verdict: Verdict) -> tuple[int, list[str]]:
     return code, out.getvalue().splitlines()
 
 
-def facts_of(**given: str | None) -> Facts:
+RIGHT_FACTS = Facts(
+    purelib="/env/lib/site-packages",
+    platlib="/env/lib/site-packages",
+    import_error=None,
+    file="/env/lib/site-packages/constitution_layer_kit/__init__.py",
+    dunder=VERSION,
+    version=VERSION,
+    pyyaml="6.0.2",
+    typed=True,
+    unimportable=(),
+)
+
+
+def facts_of(**given: Any) -> Facts:
     """Facts of a right installation, with the keywords changed."""
-    right: dict[str, str | None] = {
-        "purelib": "/env/lib/site-packages",
-        "platlib": "/env/lib/site-packages",
-        "import_error": None,
-        "file": "/env/lib/site-packages/constitution_layer_kit/__init__.py",
-        "dunder": VERSION,
-        "version": VERSION,
-        "pyyaml": "6.0.2",
-    }
-    merged = right | given
-    return Facts(
-        purelib=merged["purelib"] or "",
-        platlib=merged["platlib"] or "",
-        import_error=merged["import_error"],
-        file=merged["file"],
-        dunder=merged["dunder"],
-        version=merged["version"],
-        pyyaml=merged["pyyaml"],
-    )
+    return replace(RIGHT_FACTS, **given)
 
 
 def self_test() -> int:
@@ -526,7 +609,7 @@ def self_test_judgments(cases: Cases) -> None:
     """Each hold on the facts of an installation alone, no build: right is green, each wrong one red."""
     cases.check(judge(facts_of()) == [], "the facts of a right installation are green")
     right_folder = "/env/lib/site-packages"
-    wrong: list[tuple[str, dict[str, str | None], list[str]]] = [
+    wrong: list[tuple[str, dict[str, Any], list[str]]] = [
         (
             "an installed version that differs from __version__",
             {"version": "2.0.0"},
@@ -564,7 +647,11 @@ def self_test_judgments(cases: Cases) -> None:
         ),
         (
             "a package that does not import",
-            {"import_error": "ModuleNotFoundError: No module named 'constitution_layer_kit'", "file": None},
+            {
+                "import_error": "ModuleNotFoundError: No module named 'constitution_layer_kit'",
+                "file": None,
+                "typed": None,
+            },
             [
                 "RED: the installed distribution cannot import constitution_layer_kit"
                 " (ModuleNotFoundError: No module named 'constitution_layer_kit')",
@@ -587,6 +674,38 @@ def self_test_judgments(cases: Cases) -> None:
             ],
         ),
         (
+            "a package with no py.typed marker",
+            {"typed": False},
+            [
+                "RED: the installed package constitution_layer_kit carries no py.typed marker beside its"
+                " __init__.py",
+                "  why: without the marker a type checker in a project outside this kit treats the package as"
+                " untyped (PEP 561) and ignores its annotations, so the typed interface a module is checked"
+                " against is lost to that project",
+                "  fix: keep an empty file py.typed in constitution_layer_kit/ and list it as"
+                ' `constitution_layer_kit = ["py.typed"]` under [tool.setuptools.package-data] in'
+                " shared/pyproject.toml",
+            ],
+        ),
+        (
+            "a submodule that does not import",
+            {
+                "unimportable": (
+                    ("constitution_layer_kit.cli", "ModuleNotFoundError: No module named 'yaml'"),
+                )
+            },
+            [
+                "RED: the installed submodule constitution_layer_kit.cli does not import in the new"
+                " environment (ModuleNotFoundError: No module named 'yaml')",
+                "  why: a project outside this kit imports the shared code from the installed package alone,"
+                " so a submodule that fails there — a file the wheel left out, or a dependency the"
+                " distribution does not declare — stops it at that import",
+                "  fix: repair what the error names: declare the missing dependency under `dependencies` in"
+                " [project] of shared/pyproject.toml, or list the package that holds the file under"
+                " [tool.setuptools] packages there",
+            ],
+        ),
+        (
             "a distribution of another name",
             {"version": None},
             [
@@ -606,6 +725,34 @@ def self_test_judgments(cases: Cases) -> None:
     cases.check(
         [item.what.split(" ")[0] for item in both] == ["the", "PyYAML"],
         "two wrong facts are two findings, in a fixed order: the version, then PyYAML",
+    )
+    many = judge(
+        facts_of(
+            pyyaml=None,
+            typed=False,
+            unimportable=(
+                ("constitution_layer_kit.a", "ImportError: one"),
+                ("constitution_layer_kit.sub.b", "SyntaxError: two"),
+            ),
+        )
+    )
+    cases.check(
+        [item.what for item in many]
+        == [
+            "PyYAML was not installed with the distribution",
+            "the installed package constitution_layer_kit carries no py.typed marker beside its __init__.py",
+            "the installed submodule constitution_layer_kit.a does not import in the new environment"
+            " (ImportError: one)",
+            "the installed submodule constitution_layer_kit.sub.b does not import in the new environment"
+            " (SyntaxError: two)",
+        ],
+        "PyYAML, the marker, then each submodule that does not import, one finding each, in a fixed order",
+    )
+    nothing = judge(facts_of(import_error="ModuleNotFoundError: x", file=None, typed=None))
+    cases.check(
+        [item.what for item in nothing]
+        == ["the installed distribution cannot import constitution_layer_kit (ModuleNotFoundError: x)"],
+        "a package that does not import is one finding: no marker or submodule is judged without it",
     )
     climbing = judge(
         facts_of(file="/env/lib/site-packages/../../elsewhere/constitution_layer_kit/__init__.py")
@@ -694,9 +841,10 @@ def self_test_toys(cases: Cases, root: Path, build_python: Path) -> None:
         and lines
         == [
             f"GREEN: constitution-layer-kit {VERSION} builds, installs into a fresh virtual environment and"
-            " imports from its site-packages there, with PyYAML installed as its dependency"
+            " imports from its site-packages there, every submodule included, with its py.typed marker and"
+            " PyYAML installed as its dependency"
         ],
-        "a right distribution is green, with its literal line",
+        "a right distribution, with a subpackage among its modules, is green, with its literal line",
     )
     code, lines = printed(
         check_source(
@@ -734,9 +882,58 @@ def self_test_toys(cases: Cases, root: Path, build_python: Path) -> None:
         and len(lines) == 4,
         "a package left out of the wheel is red: the import fails in the new environment",
     )
+    code, lines = printed(
+        check_source(toy(root / "untyped", typed=False), build_python, parent=parent),
+    )
+    cases.check(
+        code == EXIT_RED
+        and lines
+        == [
+            "RED: the installed package constitution_layer_kit carries no py.typed marker beside its"
+            " __init__.py",
+            "  why: without the marker a type checker in a project outside this kit treats the package as"
+            " untyped (PEP 561) and ignores its annotations, so the typed interface a module is checked"
+            " against is lost to that project",
+            "  fix: keep an empty file py.typed in constitution_layer_kit/ and list it as"
+            ' `constitution_layer_kit = ["py.typed"]` under [tool.setuptools.package-data] in'
+            " shared/pyproject.toml",
+            summary,
+        ],
+        "a package folder with no py.typed is red, with its literal lines, though pyproject.toml lists it",
+    )
+    missing = "ModuleNotFoundError: No module named 'constitution_layer_kit_missing"
+    code, lines = printed(
+        check_source(
+            toy(
+                root / "unimportable",
+                modules=RIGHT_MODULES
+                | {
+                    "broken.py": "import constitution_layer_kit_missing_one\n",
+                    "sub/deep.py": "import constitution_layer_kit_missing_two\n",
+                },
+            ),
+            build_python,
+            parent=parent,
+        )
+    )
+    cases.check(
+        code == EXIT_RED
+        and [line for line in lines if line.startswith("RED: the")]
+        == [
+            "RED: the installed submodule constitution_layer_kit.broken does not import in the new"
+            f" environment ({missing}_one')",
+            "RED: the installed submodule constitution_layer_kit.sub.deep does not import in the new"
+            f" environment ({missing}_two')",
+        ]
+        and lines[-1] == "RED: 2 finding(s) — the distribution of shared/ is not as owed"
+        and len(lines) == 7
+        and lines[2].startswith("  fix: repair what the error names: declare the missing dependency under")
+        and lines[2] == lines[5],
+        "a submodule that does not import, one of them in a subpackage, is a finding each, in name order",
+    )
     cases.check(
         sorted(parent.iterdir()) == [],
-        "every folder of a green and of two red runs is removed",
+        "every folder of a green and of four red runs is removed",
     )
 
 

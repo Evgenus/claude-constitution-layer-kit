@@ -527,7 +527,8 @@ def c17_module_too_old(namespace: str, required: str, found: str, guide: str, un
     """The module requires a major below the installed one: the module is too old for that major."""
     return Broken(
         SharedKey.C17,
-        f"{namespace} was written for constitution-layer-kit {_major(required)}.x, found {found}",
+        f"{namespace} was written for constitution-layer-kit {required}, a {_major(required)}.x release,"
+        f" found {found}",
         f"update the plugin to a release written for {_major(found)}.x, or install a {_major(required)}.x"
         f" release of constitution-layer-kit for python3 as {escaped(guide)} says" + _clause(until),
     )

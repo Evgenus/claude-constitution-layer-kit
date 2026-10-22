@@ -1,4 +1,4 @@
-"""Which gate this process is, and how long its hook may run.
+"""Which gate this process is, how long its hook may run, and the name of the dials file it reads.
 
 The shared code serves several plugins, and each hook process runs exactly one of them.
 The plugin's entry point declares itself once, before anything is printed; from then on
@@ -21,9 +21,9 @@ and it is no global: a context variable of this package with no default. The ent
 once, through `declare_dials_file`, before its run; the dials reader opens that file and every shared
 message that names it asks `dials_file` at the moment it is built. As for the identity, a read before
 the declaration and a second declaration with another name are defects of the entry point, a
-`RuntimeError` and never a repository's failure; the same name twice is harmless. No module-level name
-holds the file's name and nothing patches one, so a gate of another kit declares its own file and the
-package reads nothing else.
+`RuntimeError` and never a repository's failure, and so is an empty name; the same name twice is
+harmless. No module-level name holds the file's name and nothing patches one, so a gate of another kit
+declares its own file and the package reads nothing else.
 """
 
 from __future__ import annotations
@@ -104,7 +104,12 @@ def current() -> Identity:
 
 def declare_dials_file(name: str) -> None:
     """Declares the name of the dials file the gate reads, once. The same name again is harmless; another
-    is a defect, as a second, different identity is."""
+    is a defect, as a second, different identity is, and so is an empty name, which names no file: a
+    defect of the entry point, declared first or second, that leaves the process as it was."""
+    if not name:
+        raise RuntimeError(
+            "a process reads one dials file: an empty name is no file, a defect of the entry point"
+        )
     try:
         declared = _dials_file.get()
     except LookupError:

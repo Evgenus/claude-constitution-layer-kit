@@ -29,7 +29,11 @@ The distribution `constitution-layer-kit` holds a floor of its own that no form 
 pip reads it, not a person: `requires-python` under `[project]` in `shared/pyproject.toml`, read here by
 `tomllib` and never matched as text. It must be the string `>=3.<minor>` with the source's minor, and no
 other form: a `requires-python` of any other minor is RED, with its path and the line of the key, the value
-found, the source, why and the fix. A file that is missing, unreadable, no TOML or not UTF-8, one with no
+found, the source, a why of its own (pip reads this key and no entry file: below the floor it installs the
+code on an interpreter the gates refuse, above it it refuses one the gates support) and the fix. The line
+is that of the key under `[project]`, bare or quoted, or written as the dotted key `project.requires-python`
+before the first table: a key of that name under another table, written first, is not it, and a line
+not found is line 1. A file that is missing, unreadable, no TOML or not UTF-8, one with no
 `requires-python` under `[project]`, one whose value is no string, and a string of another form, such as
 a range `>=3.<minor>,<4`, a patch `>=3.<minor>.1`, `>3.<minor>` or `~=3.<minor>`, are BROKEN with the fix:
 a floor in a form this check does not read could move unseen.
@@ -83,7 +87,9 @@ Modes:  no arguments   check the kit;
                        every copy left, red on each of them; the order of the findings under an
                        adversarial listing; the misinvocation. The `requires-python` of the shared
                        distribution, in a baseline of its own: right green with its line in the report,
-                       one minor above and one below red with literal lines, at the line of its key, the
+                       one minor above and one below red with literal lines, with its own why, at the line
+                       of its key, also past another table's key of that name, quoted, under a quoted
+                       table header, dotted and past an array of tables, the
                        source moved up with it left red, a comment naming another minor not read, and each
                        file or value that cannot be read as the form `>=3.<minor>` a literal BROKEN
                        line. The clauses, over the four kinds of entry, a gate on the default clause, a
@@ -123,13 +129,22 @@ EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 SOURCE = "shared/constitution_layer_kit/preflight.py"
 PROJECT = "shared/pyproject.toml"  # the shared distribution; its requires-python holds a floor
 REQUIRES = re.compile(r"^>=3\.(\d+)$")  # the one form of requires-python this check reads
-REQUIRES_KEY = re.compile(r"^requires-python\s*=", re.MULTILINE)  # where the key stands, for the line
+# Where the key stands, for the line of a finding: the key written bare or quoted, a table header `[name]` or
+# `[[name]]` on a line of its own (a name holds no bracket, comma or equal sign, so an array's line is none).
+KEY_NAME = r"""(?:requires-python|"requires-python"|'requires-python')"""
+TABLE_HEADER = re.compile(r"^\s*\[\[?\s*([^\[\],=]*?)\s*\]\]?\s*(?:#.*)?$")
+REQUIRES_KEY = re.compile(rf"^\s*{KEY_NAME}\s*=")
+REQUIRES_DOTTED = re.compile(rf"""^\s*(?:project|"project"|'project')\s*\.\s*{KEY_NAME}\s*=""")
 NOT_READ = ("docs/decisions/", "docs/research/")  # records and frozen comparisons keep their words
 REGULAR = ("100644", "100755")  # a symbolic link (120000) and a submodule (160000) are never read
 GIT_BINARY = 8000  # git's own test: a NUL byte among the first 8000 bytes
 WHY = (
     "a floor copied apart drifts, and the entry file that drifts prints a traceback where its designed"
     " teaching line should stand (law 6 of CLAUDE.md)"
+)
+WHY_REQUIRES = (
+    "pip reads requires-python and no entry file: a value below the floor lets pip install the shared code on"
+    " an interpreter the gates refuse, and a value above it makes pip refuse an interpreter the gates support"
 )
 GUARD = r"(?!\d|\.\d)"  # not followed by a digit nor `.<digit>`: a longer minor, or a measured `3.N.M`
 IDENTITY = "shared/constitution_layer_kit/identity.py"  # the default clause's source
@@ -277,6 +292,29 @@ def floor_of(root: Path) -> int:
     return numbers[1]
 
 
+def is_project_table(name: str) -> bool:
+    return name in ("project", '"project"', "'project'")
+
+
+def requires_line(text: str) -> int:
+    """The line of the `requires-python` key that belongs to the table `[project]`, bare or quoted, or
+    written as a dotted key `project.requires-python` before the first table; line 1 where none is found. A
+    key of the same name under another table is not it. A line inside a multi-line string that reads like
+    a header or a key is not told apart: a file that tomllib has parsed, with its key under [project], is
+    the premise."""
+    in_project = False
+    in_root = True
+    for number, line in enumerate(text.splitlines(), 1):
+        header = TABLE_HEADER.match(line)
+        if header:
+            in_project, in_root = is_project_table(header[1]), False
+        elif in_project and REQUIRES_KEY.match(line):
+            return number
+        elif in_root and REQUIRES_DOTTED.match(line):
+            return number
+    return 1
+
+
 def requires_floor(root: Path) -> tuple[int, int, str]:
     """The minor, the line of the key and the value of `requires-python` under `[project]` in the shared
     distribution's pyproject.toml, which must read `>=3.<minor>`, else BROKEN with the fix."""
@@ -295,8 +333,7 @@ def requires_floor(root: Path) -> tuple[int, int, str]:
         raise Broken(f"{PROJECT} cannot be read as TOML ({bad}) — fix: repair the file") from bad
     project = data.get("project")
     value = project.get("requires-python") if isinstance(project, dict) else None
-    key = REQUIRES_KEY.search(text)
-    line = 1 if key is None else text.count("\n", 0, key.start()) + 1
+    line = requires_line(text)
     if not isinstance(value, str):
         raise Broken(f"{PROJECT} has no requires-python under [project] as a string — fix: {shape}")
     found = REQUIRES.match(value)
@@ -311,7 +348,7 @@ def requires_floor(root: Path) -> tuple[int, int, str]:
 def requires_finding(found: int, line: int, value: str, minor: int) -> Finding:
     what = f"requires-python = '{value}' names 3.{found}, the floor is 3.{minor} ({SOURCE})"
     fix = f"write >=3.{minor}, or move the floor in {SOURCE} and every copy together"
-    return Finding(PROJECT, line, 1, what, WHY, fix)
+    return Finding(PROJECT, line, 1, what, WHY_REQUIRES, fix)
 
 
 def mentions(text: str) -> list[Mention]:
@@ -1323,8 +1360,9 @@ def with_project(text: str) -> Build:
 def self_test_requires(cases: Cases) -> None:
     """The `requires-python` of the shared distribution, held to the source's floor."""
     why = (
-        "  why: a floor copied apart drifts, and the entry file that drifts prints a traceback where its"
-        " designed teaching line should stand (law 6 of CLAUDE.md)"
+        "  why: pip reads requires-python and no entry file: a value below the floor lets pip install the"
+        " shared code on an interpreter the gates refuse, and a value above it makes pip refuse an"
+        " interpreter the gates support"
     )
     counts = (
         f"{BASE_MENTIONS} mention(s) in {BASE_FILES} file(s) examined and {BASE_ENTRIES} entries read,"
@@ -1350,6 +1388,8 @@ def self_test_requires(cases: Cases) -> None:
             f"a requires-python {word} the floor is red, with its literal lines",
         )
     right = f">=3.{BASE}"
+    bad = f'requires-python = ">=3.{OVER}"'  # the key that is wrong
+    stray = f'requires-python = ">=3.{OLD}"'  # a key of that name that the distribution does not read
     for name, text, line in (
         (
             "a comment that names another minor, above the key: the key is the one at its own line",
@@ -1360,6 +1400,28 @@ def self_test_requires(cases: Cases) -> None:
             "the key among others, in single quotes and with no space before the equal sign",
             f"[project]\nname = 'x'\ndependencies = []\nrequires-python='>=3.{OVER}'\n",
             4,
+        ),
+        (
+            "a key of that name under another table, written first: the key under [project] is the one",
+            f'[tool.x]\n{stray}\n\n[project]\nname = "x"\n{bad}\n',
+            6,
+        ),
+        ("the key quoted", f'[project]\nname = "x"\n"requires-python" = ">=3.{OVER}"\n', 3),
+        (
+            "the key in single quotes, under a quoted table header",
+            f"[tool.x]\n{stray}\n\n['project']  # the table\n'requires-python' = '>=3.{OVER}'\n",
+            5,
+        ),
+        (
+            "the key past a list in lines, an array of tables and another table of the project",
+            f'[project]\ndependencies = [\n  "a",\n  ["b"],\n]\n{bad}\n\n[[tool.x.y]]\n{stray}\n'
+            f"\n[project.urls]\n{stray}\n",
+            6,
+        ),
+        (
+            "the dotted key before the first table, past a comment and a blank line",
+            f'# the floor\n\nproject.requires-python = ">=3.{OVER}"\n\n[tool.x]\n{stray}\n',
+            3,
         ),
     ):
         with tempfile.TemporaryDirectory() as tmp:

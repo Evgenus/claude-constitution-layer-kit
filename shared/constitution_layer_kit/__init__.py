@@ -10,7 +10,8 @@ Modules, in reading order: ``identity``, ``model`` (enums and dataclasses), ``me
 ``errors``, ``preflight``, ``output`` (screen plus log), ``repository`` (git and files),
 ``territory`` (pattern matching through git), ``envelope``, ``dials``, ``events`` (the hook
 payload), ``index`` (policies and claims), ``resolution``, ``pipeline`` (event to target,
-findings to verdict), ``cli`` (argparse and the single guard).
+findings to verdict), ``cli`` (argparse, the single guard, and ``version_failure``, the check of the
+installed release).
 """
 
 # The package's version, major.minor.patch, and the one source of it: the distribution's metadata reads

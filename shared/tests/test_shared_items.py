@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import ast
 import contextvars
+import importlib
 import inspect
 import json
 import os
@@ -1029,6 +1030,8 @@ class SharedItems:
             "C12.10": messages.c12_unreadable(path),
             "C12.11": messages.c12_unexpected("ValueError: " + "v" * 100),
             "C13": messages.c13_log_dir_not_ignored(path),
+            "C16": messages.c16_shared_too_old(self.ns, "1.0.1", "1.0.0", path, VERSION_UNTIL),
+            "C17": messages.c17_module_too_old(self.ns, "1.4.2", "2.0.0", path, VERSION_UNTIL),
         }
         wanted = {
             "C4 detail whole": f"BROKEN: constitution.yaml is not valid YAML (at {'w' * 100}\\\\x) — fix: "
@@ -1079,6 +1082,11 @@ class SharedItems:
             "C13": f"BROKEN: constitution.yaml: {self.ns}.log_dir '{esc}' is not ignored by git — fix: a log"
             " inside the working tree must be git-ignored, or every verdict dirties the tree; add the"
             " directory to .gitignore, or remove the key",
+            "C16": f"BROKEN: {self.ns} needs constitution-layer-kit 1.0.1 or a later 1.x release, found 1.0.0"
+            f" — fix: install one for python3 as {esc} says — until then Markdown writes pass unchecked",
+            "C17": f"BROKEN: {self.ns} was written for constitution-layer-kit 1.4.2, a 1.x release, found"
+            " 2.0.0 — fix: update the plugin to a release written for 2.x, or install a 1.x release of"
+            f" constitution-layer-kit for python3 as {esc} says — until then Markdown writes pass unchecked",
         }
         rendered = [
             ("escaped keeps a path whole", messages.escaped("p" * 200), "p" * 200),
@@ -2479,19 +2487,19 @@ def test_version_shared_too_old(subject: Subject, monkeypatch: pytest.MonkeyPatc
     assert not failed, "; ".join(failed)
 
 
-@item(170, "C17: a required major below the installed one is a line naming both majors")
+@item(170, "C17: a required major below the installed one is a line naming the version required and found")
 def test_version_module_too_old(subject: Subject, monkeypatch: pytest.MonkeyPatch) -> None:
     """The module is too old for the installed major, whatever its minor and patch (a required 1.9.9 is
-    below an installed 2.0.0), the majors read as numbers (9 is below 10); the line names the major the
-    module was written for, the major found, and both ways out, each line typed by hand."""
+    below an installed 2.0.0), the majors read as numbers (9 is below 10); the line names the version the
+    module requires and its major, the version found, and both ways out, each line typed by hand."""
     shared(subject, "version_module_too_old")
     written = "const-x was written for constitution-layer-kit"
     cases = [  # (installed, required, headline, the major to update the plugin to, the one to install)
-        ("2.0.0", "1.4.2", f"{written} 1.x, found 2.0.0", "2.x", "1.x"),
-        ("2.0.0", "1.9.9", f"{written} 1.x, found 2.0.0", "2.x", "1.x"),
-        ("3.1.4", "1.0.0", f"{written} 1.x, found 3.1.4", "3.x", "1.x"),
-        ("1.0.0", "0.9.9", f"{written} 0.x, found 1.0.0", "1.x", "0.x"),
-        ("10.2.3", "9.9.9", f"{written} 9.x, found 10.2.3", "10.x", "9.x"),
+        ("2.0.0", "1.4.2", f"{written} 1.4.2, a 1.x release, found 2.0.0", "2.x", "1.x"),
+        ("2.0.0", "1.9.9", f"{written} 1.9.9, a 1.x release, found 2.0.0", "2.x", "1.x"),
+        ("3.1.4", "1.0.0", f"{written} 1.0.0, a 1.x release, found 3.1.4", "3.x", "1.x"),
+        ("1.0.0", "0.9.9", f"{written} 0.9.9, a 0.x release, found 1.0.0", "1.x", "0.x"),
+        ("10.2.3", "9.9.9", f"{written} 9.9.9, a 9.x release, found 10.2.3", "10.x", "9.x"),
     ]
     failed = []
     for installed, required, headline, update_to, install in cases:
@@ -2516,9 +2524,9 @@ def test_version_clause_and_guide(subject: Subject, monkeypatch: pytest.MonkeyPa
         " — fix: install one for python3 as /p/plugin/INSTALL.md says"
     )
     bare_17 = (  # installed 2.0.0, required 1.4.2, no clause
-        "BROKEN: const-x was written for constitution-layer-kit 1.x, found 2.0.0 — fix: update the plugin"
-        " to a release written for 2.x, or install a 1.x release of constitution-layer-kit for python3 as"
-        " /p/plugin/INSTALL.md says"
+        "BROKEN: const-x was written for constitution-layer-kit 1.4.2, a 1.x release, found 2.0.0 — fix:"
+        " update the plugin to a release written for 2.x, or install a 1.x release of constitution-layer-kit"
+        " for python3 as /p/plugin/INSTALL.md says"
     )
     odd = "/p/a\nb\rc\\d/INSTALL.md"  # a line feed, a carriage return and a backslash
     escaped_16 = (
@@ -2527,9 +2535,9 @@ def test_version_clause_and_guide(subject: Subject, monkeypatch: pytest.MonkeyPa
         " — until then Markdown writes pass unchecked"
     )
     escaped_17 = (
-        "BROKEN: const-x was written for constitution-layer-kit 1.x, found 2.0.0 — fix: update the plugin"
-        " to a release written for 2.x, or install a 1.x release of constitution-layer-kit for python3 as"
-        " /p/a\\nb\\rc\\\\d/INSTALL.md says — until then Markdown writes pass unchecked"
+        "BROKEN: const-x was written for constitution-layer-kit 1.4.2, a 1.x release, found 2.0.0 — fix:"
+        " update the plugin to a release written for 2.x, or install a 1.x release of constitution-layer-kit"
+        " for python3 as /p/a\\nb\\rc\\\\d/INSTALL.md says — until then Markdown writes pass unchecked"
     )
     checks = [  # (installed, required, guide, clause, the line)
         ("1.0.0", "1.0.1", VERSION_GUIDE, "", bare_16),
@@ -2634,9 +2642,9 @@ def test_version_reads_the_package(subject: Subject) -> None:
     if major >= 1:
         module_old = cli.version_failure("const-x", f"{major - 1}.0.0", VERSION_GUIDE, VERSION_UNTIL)
         wanted = (
-            f"BROKEN: const-x was written for constitution-layer-kit {major - 1}.x, found {package_version}"
-            f" — fix: update the plugin to a release written for {major}.x, or install a {major - 1}.x"
-            f" release of constitution-layer-kit {GUIDE_SAYS}"
+            f"BROKEN: const-x was written for constitution-layer-kit {major - 1}.0.0, a {major - 1}.x"
+            f" release, found {package_version} — fix: update the plugin to a release written for"
+            f" {major}.x, or install a {major - 1}.x release of constitution-layer-kit {GUIDE_SAYS}"
         )
         if module_old != wanted:
             problems.append(f"required {major - 1}.0.0: wanted {wanted!r}, got {module_old!r}")
@@ -2655,9 +2663,10 @@ def test_version_reads_the_package(subject: Subject) -> None:
 # The name of the dials file, a context variable of the shared package with no default. The module's own
 # test file declares `constitution.yaml` at its top, in this process's context; an item that needs the
 # name undeclared, or declared otherwise, runs in a context of its own, `contextvars.Context().run`, which
-# starts empty and keeps whatever it declares to itself. Both defects' texts are typed by hand.
+# starts empty and keeps whatever it declares to itself. The three defects' texts are typed by hand.
 UNDECLARED = "the entry point did not declare which dials file it reads"
 DIFFERENT = "a process reads one dials file: a second, different declaration is a defect"
+EMPTY = "a process reads one dials file: an empty name is no file, a defect of the entry point"
 OTHER_FILE = "team.yaml"  # a name no kit of this repository uses
 
 
@@ -2676,10 +2685,11 @@ def refused_with(text: str, body: Callable[[], object]) -> str | None:
     "the dials file's name has no default: a read before the declaration is a defect, in code and in text",
 )
 def test_dials_file_undeclared(subject: Subject) -> None:
-    """Where nothing was declared, the name, the dials reader and every shared message that names the
-    file raise `RuntimeError` and never read or print a file of some kit's — the reader even where a file
-    named `constitution.yaml` lies in the repository. And the shared code holds no name of the file at
-    all: its source says `constitution.yaml` nowhere, so that no module-level name can hold it."""
+    """Where nothing was declared, the name, the dials reader and five of the shared messages that name
+    the file (`G1.4`, `G1.5`, `C4b`, `C5.8`, `C13`) raise `RuntimeError` and never read or print a file of
+    some kit's — the reader even where a file named `constitution.yaml` lies in the repository. And the
+    shared code holds no name of the file at all: its source says `constitution.yaml` nowhere, so that no
+    module-level name can hold it."""
     shared(subject, "dials_file_undeclared")
     problems = []
     with tempfile.TemporaryDirectory() as tmp:
@@ -2709,36 +2719,63 @@ def test_dials_file_undeclared(subject: Subject) -> None:
     assert not problems, "; ".join(problems)
 
 
-@item(175, "a second declaration of the dials file's name that differs is a defect, and the first stands")
+@item(
+    175,
+    "a declaration of the dials file's name that is empty, or second and different, is a defect, and the"
+    " first stands",
+)
 def test_dials_file_declared_twice_differently(subject: Subject) -> None:
     """A process reads one dials file. A second declaration with another name raises `RuntimeError`,
     whichever the names — a name and the same name in another case, a name and a path to it — and what
-    the process reads afterwards is still the first name."""
+    the process reads afterwards is still the first name. An empty name is no file: declared first or
+    second, it raises `RuntimeError` of its own text, a first one leaves nothing declared — a read is
+    still the defect of S174 and a real name declared after it stands — and a second one leaves the first
+    name."""
     shared(subject, "dials_file_declared_twice_differently")
 
-    def declares_two(first: str, second: str) -> str:
+    def declares_two(first: str, second: str, text: str) -> str:
         identity.declare_dials_file(first)
         try:
             identity.declare_dials_file(second)
         except RuntimeError as defect:
-            return identity.dials_file() if str(defect) == DIFFERENT else f"RuntimeError({str(defect)!r})"
+            return identity.dials_file() if str(defect) == text else f"RuntimeError({str(defect)!r})"
         return "no error"
 
+    def declares_empty_first() -> str:
+        try:
+            identity.declare_dials_file("")
+        except RuntimeError as defect:
+            if str(defect) != EMPTY:
+                return f"RuntimeError({str(defect)!r})"
+        else:
+            return "no error"
+        try:
+            read = identity.dials_file()
+        except RuntimeError as defect:
+            if str(defect) != UNDECLARED:
+                return f"after the empty declaration, a read raised RuntimeError({str(defect)!r})"
+        else:
+            return f"after the empty declaration, a read gave {read!r}"
+        identity.declare_dials_file(OTHER_FILE)
+        return identity.dials_file()
+
     problems = []
-    for first, second in [
-        (OTHER_FILE, "constitution.yaml"),
-        ("constitution.yaml", OTHER_FILE),
-        (OTHER_FILE, "Team.yaml"),
-        (OTHER_FILE, "./team.yaml"),
-        (OTHER_FILE, ""),
+    for first, second, text in [
+        (OTHER_FILE, "constitution.yaml", DIFFERENT),
+        ("constitution.yaml", OTHER_FILE, DIFFERENT),
+        (OTHER_FILE, "Team.yaml", DIFFERENT),
+        (OTHER_FILE, "./team.yaml", DIFFERENT),
+        (OTHER_FILE, "", EMPTY),
     ]:
-        read = contextvars.Context().run(declares_two, first, second)
+        read = contextvars.Context().run(declares_two, first, second, text)
         if read != first:
             problems.append(f"declared {first!r}, then {second!r}: {read!r}, wanted the first, {first!r}")
+    if (read := contextvars.Context().run(declares_empty_first)) != OTHER_FILE:
+        problems.append(f"declared '' first, then {OTHER_FILE!r}: {read!r}, wanted {OTHER_FILE!r}")
     assert not problems, "; ".join(problems)
 
 
-@item(176, "the same declaration of the dials file's name twice is harmless")
+@item(176, "the same declaration of the dials file's name three times is harmless")
 def test_dials_file_declared_twice_alike(subject: Subject) -> None:
     """A second declaration of the name already declared is no defect, however often it is made — the
     entry point and a test's top may both declare it — and the name read is the declared one. Another
@@ -2867,4 +2904,61 @@ def test_dials_file_name_is_the_declared_one(subject: Subject) -> None:
     ]
     if (got := contextvars.Context().run(reads)) != wanted_reads:
         problems.append(f"the reader: wanted {wanted_reads}, got {got}")
+    assert not problems, "; ".join(problems)
+
+
+@item(
+    178,
+    "a module's own messages name the declared dials file: its _file() gives it, its source holds no name",
+)
+def test_module_messages_name_the_declared_file(subject: Subject) -> None:
+    """The module's own `messages.py` asks the package for the dials file's name when it builds a message,
+    as the shared texts do: with `team.yaml` declared in a context of its own, its `_file()` gives
+    `team.yaml`; and no string constant of that file, a docstring aside, contains `constitution.yaml`, so
+    that no message of the module can name the file without asking. The module's messages are found in
+    the one package beside its entry files that holds a `messages.py`, and imported as its tests do."""
+    it = shared(subject, "module_messages_name_the_declared_file")
+    packages = sorted(
+        folder
+        for folder in it.h.scripts.iterdir()
+        if folder.name != "constitution_layer_kit"
+        and (folder / "__init__.py").is_file()
+        and (folder / "messages.py").is_file()
+    )
+    found = [p.name for p in packages]
+    assert len(packages) == 1, (
+        f"wanted the one package of the module's own messages in {it.h.scripts}: {found}"
+    )
+    folder = packages[0]
+    own = importlib.import_module(f"{folder.name}.messages")
+    problems = []
+    file_of = getattr(own, "_file", None)
+    if not callable(file_of):
+        problems.append(f"{folder.name}.messages has no function _file")
+    else:
+
+        def declared() -> object:
+            identity.declare_dials_file(OTHER_FILE)
+            return file_of()
+
+        if (read := contextvars.Context().run(declared)) != OTHER_FILE:
+            problems.append(f"_file() gave {read!r} with {OTHER_FILE!r} declared")
+    tree = ast.parse((folder / "messages.py").read_text(encoding="utf-8"))
+    docstrings = {
+        id(node.body[0].value)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
+        and node.body
+        and isinstance(node.body[0], ast.Expr)
+        and isinstance(node.body[0].value, ast.Constant)
+        and isinstance(node.body[0].value.value, str)
+    }
+    problems += [
+        f"line {node.lineno} of {folder.name}/messages.py holds a string with constitution.yaml in it"
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and id(node) not in docstrings
+        and "constitution.yaml" in node.value
+    ]
     assert not problems, "; ".join(problems)

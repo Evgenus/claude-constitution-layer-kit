@@ -1,4 +1,4 @@
-"""The command line and the single guard.
+"""The command line, the single guard, and the check of the installed release.
 
 Parameters are parsed with argparse, whose own default is to exit 2 on bad usage; 2 is
 reserved for findings, so a misinvoked hook must not read as "blocked, here is the
@@ -7,6 +7,9 @@ instead, and carries no built-in help action: argparse's help prints and exits o
 own, past the guard and the log. The usage is one line, in the misinvocation message.
 The guard turns every configuration failure, and every unexpected exception, into
 exit 1 — never 0 — and flushes the log however the run ended.
+
+`version_failure` is the check every module's entry file calls right after it imports this module:
+whether the installed release serves the module, else the one line to print before it exits 1.
 """
 
 from __future__ import annotations
@@ -20,7 +23,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import NoReturn, TextIO
 
-from . import __version__, identity, messages, preflight
+from . import __version__ as __version__  # re-exported: the installed version `version_failure` compares
+from . import identity, messages, preflight
 from .errors import ConfigurationFailure
 from .identity import Identity
 from .model import EXIT_BROKEN, Mode
@@ -30,11 +34,11 @@ SCAN_FLAG = "--scan"
 
 # A version is major.minor.patch, three decimal integers written without a leading zero, and nothing else:
 # no prefix, no suffix, no space, no digit of another script (`[0-9]`, where `\d` takes them all).
-VERSION_SHAPE = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
+_VERSION_SHAPE = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
 
 
 def _version(text: str, whose: str) -> tuple[int, int, int]:
-    found = VERSION_SHAPE.fullmatch(text)
+    found = _VERSION_SHAPE.fullmatch(text)
     if found is None:
         raise ValueError(
             f"{whose} {text!r} is not major.minor.patch: three decimal integers without a leading zero,"
