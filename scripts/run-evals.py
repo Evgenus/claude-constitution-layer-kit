@@ -34,14 +34,25 @@ asks docker for the image. For each module, in turn:
      ANTHROPIC_AUTH_TOKEN, CLAUDE_CODE_USE_BEDROCK, CLAUDE_CODE_USE_VERTEX, CLAUDE_CODE_USE_FOUNDRY), refuses
      to go on unless `claude --version` is the pinned version and `claude auth status` reports a
      subscription login, `oauth_token` or `claude.ai`; then, at the run's start and in the way the checks of
-     `scripts/kit_install.py` do (`shared_environment`), it makes a virtual environment of the image's
-     python3, with its system packages (the image's PyYAML) and no pip, writes into its site-packages a
-     `.pth` file that names /shared, and puts its `bin` first on PATH, so that the python3 the case's hooks
-     and scans start imports the mounted package; a python3 that does not import `constitution_layer_kit`
+     `scripts/kit_install.py` do (`shared_environment`), it makes a virtual environment, at
+     /opt/kit-shared-env (`CONTAINER_SHARED_ENV`), of the image's python3, with its system packages (the
+     image's PyYAML) and no pip, writes into its site-packages a `.pth` file that names /shared, and
+     puts its `bin` first on PATH, so that the python3 the case's hooks and scans start imports the
+     mounted package; a python3 that does not import `constitution_layer_kit`
      from /shared and `yaml`, whether the folder lacks the package or another copy stands ahead of it, ends
      the container with exit 5 after two lines, the case not run: the step it was in, with the last line
      of that step's own output, and a line that says why with its one fix; the runner's BROKEN for that run
      is the step's line in brackets and then the fix line, with no fix of its own after it. The
+     environment lies on a Docker tmpfs (`--tmpfs`, owned by the image's user `node`) and not in the home:
+     the eval's own Bash sandbox replaces /home/node with an empty tmpfs, binding back only the plugin roots
+     and the environment's `bin`, and hides /tmp, /var/tmp, /dev/shm and /run/shm, so an environment in
+     any of them loses its pyvenv.cfg and its .pth file there, and the python3 a case runs through Bash, which
+     PYTHONPATH does not reach, starts as the image's own and prints C15 (found 2026-10-23 in the run of
+     2026-10-22: hooks and this check are not sandboxed and saw nothing). The runner therefore reads each
+     case's copied traces after the case and, when one holds the start of C15, C16 or C17 of shared/GATE.md
+     section 3 (`PACKAGE_FAILURE`), reports one BROKEN line naming the case, the trace, the line found and
+     the fix, and counts the attempt as failed, as a partial result is: a command of the case did not see the
+     change's shared code, so the receipt would not hold what it says (R18). The
      image is unchanged for this: its Debian python3 makes the environment with no package of its own, and
      a virtual environment's `.pth` entries come before the system's folders on `sys.path`. Then it runs
      `claude plugin eval` on the copy, `--case
@@ -70,14 +81,18 @@ container's output as it comes, then for each run its verdict, the start hooks' 
 text of the model, and each grader's verdict with the eval's explanation (`scripts/kit_eval_report.py`).
 `--self-test` proves the guards without a model or docker: the token file's mode and a token file that does
 not exist; the container's options (the token as an env file, never its text, the copy read-only, the
-seccomp filter and the /proc mask lifted, the shared code mounted read-only beside the module's copy); its
+seccomp filter and the /proc mask lifted, the shared code mounted read-only beside the module's copy, the
+tmpfs of the shared code's environment, which lies outside the home and the temporary folders the eval's
+Bash sandbox hides); its
 guard, run under sh against a fake claude (the billing variables unset, the pinned version and a subscription
 login required, in that order); its command after the guard, run under sh (the shared code made importable:
 the python3 a fake claude starts imports a toy package from the mounted folder, the environment's `bin`
 first on its PATH, and a mounted folder without the package, a second copy of it ahead on the python3's
 path, or a virtual environment that cannot be made, ends the container with exit 5, the case not run,
 after the line of the step it failed in; the eval's exit code kept, each run's trace copied
-whatever its folder, and mapped to the path the eval's result names); the shared code copied from a toy
+whatever its folder, and mapped to the path the eval's result names); the trace guard, red for a trace that
+holds the line of C15, C16 or C17, typed by hand, green for a clean trace, its fixed words held to the
+shared messages and the entry files; the shared code copied from a toy
 kit's tracked files alone, and a kit that tracks none a Broken with the fix; `run_module` against a fake
 docker: the folder mounted at /shared holds the copy when the container starts, a container that exits 5
 after a stray line, the line of its step and its fix line, or after those two lines alone, ends the run
@@ -153,6 +168,14 @@ SANDBOX_OPTIONS = (  # what the eval's own Bash sandbox, bwrap, needs to start i
 CONTAINER_HOME = "/home/node"
 CONTAINER_PLUGIN = "/plugin"  # where the module's copy is mounted, read-only
 CONTAINER_SHARED = "/shared"  # where the change's shared code is mounted, read-only, beside the module's copy
+# Where the virtual environment of the shared code stands. It must lie outside the home and the temporary
+# folders: the eval's own Bash sandbox (bwrap, Claude Code 2.1.282) replaces /home/node with an empty tmpfs,
+# binding back only the plugin roots and the environment's `bin`, and hides /tmp, /var/tmp, /dev/shm and
+# /run/shm, so an environment there loses its pyvenv.cfg and its .pth file inside the sandbox and the python3
+# a case runs through Bash cannot import the package. A Docker tmpfs, since the image's /opt is not
+# writable by `node`, uid 1000 in the image.
+CONTAINER_SHARED_ENV = "/opt/kit-shared-env"
+SHARED_ENV_TMPFS = f"{CONTAINER_SHARED_ENV}:exec,uid=1000,gid=1000,mode=755"
 CONTAINER_OUT = "/out"  # where the results folder is mounted, writable
 SHARED_ENV_EXIT = 5  # the exit of a container that could not make the shared code importable
 SHARED_ENV_SAID = (  # the container's last line, with its one fix, which `run_case` prints after the step's
@@ -174,6 +197,11 @@ SHARED_PROBE = (  # run by the environment's python3: the package comes from the
     "import constitution_layer_kit, sys, yaml; "
     "sys.exit(0 if constitution_layer_kit.__file__.startswith(sys.argv[1] + '/') else "
     '"constitution_layer_kit comes from " + constitution_layer_kit.__file__ + ", not from " + sys.argv[1])'
+)
+PACKAGE_FAILURE = re.compile(  # the fixed middles of C15, C16 and C17 of shared/GATE.md section 3, which the
+    # self-test holds to the shared messages and the entry files
+    r"BROKEN: [^\s\"\\]+ (?:needs the Python package constitution-layer-kit |needs constitution-layer-kit "
+    r"|was written for constitution-layer-kit ).{0,200}"
 )
 SUBSCRIPTION = (
     "oauth_token",
@@ -287,16 +315,16 @@ def guard(pinned: str, then: str) -> str:
     )
 
 
-def shared_environment(shared: str = CONTAINER_SHARED, home: str = CONTAINER_HOME) -> str:
+def shared_environment(shared: str = CONTAINER_SHARED, env: str = CONTAINER_SHARED_ENV) -> str:
     """The shell a container runs after its guard and before its case, to make the change's shared code
     importable the way the kit's other checks do (decision dec-0099-shared-code-installed-as-a-pip-package,
-    R18): a virtual environment `<home>/.shared-env` of the image's python3, with its system packages (the
+    R18): a virtual environment `env` (`CONTAINER_SHARED_ENV`, outside the home and the temporary folders that
+    the eval's Bash sandbox hides) of the image's python3, with its system packages (the
     image's PyYAML) and no pip, whose site-packages holds a `.pth` file naming the mounted folder `shared`;
     then its `bin` first on PATH, for the `claude` the case runs and so for the python3 its hooks and scans
     start. The environment's python3 must import `constitution_layer_kit` from that folder and `yaml`, else
     the container exits `SHARED_ENV_EXIT`, the case not run, after two lines on its standard error: the step
     it was in, `SHARED_STEPS`, with the last line of that step's own output, and `SHARED_ENV_SAID`."""
-    env = f"{home}/.shared-env"
     python = shlex.quote(f"{env}/bin/python3")
     making, writing, importing = (shlex.quote(step) for step in SHARED_STEPS)
     venv = f"python3 -m venv --system-site-packages --without-pip {shlex.quote(env)}"
@@ -319,6 +347,7 @@ def then_for(
     plugin: str = CONTAINER_PLUGIN,
     home: str = CONTAINER_HOME,
     shared: str = CONTAINER_SHARED,
+    env: str = CONTAINER_SHARED_ENV,
 ) -> str:
     """What a container runs after its guard: the environment of the shared code (`shared_environment`), the
     eval, then each run's trace, which `--keep-temp` leaves in a read-only folder under /tmp, copied to /out
@@ -326,7 +355,7 @@ def then_for(
     result names for its run; the container exits with the eval's code. The paths are the container's; the
     self-test passes its own."""
     return (
-        f"{shared_environment(shared, home)}"
+        f"{shared_environment(shared, env)}"
         f"cp -r {shlex.quote(plugin)} {shlex.quote(f'{home}/{copy.name}')} && cd {shlex.quote(home)} && "
         f"{shlex.join(argv)}; code=$?; "
         f": > {shlex.quote(f'{out}/{case}-traces.txt')}; "
@@ -340,12 +369,12 @@ def then_for(
 def in_box(box: Box, copy: Path, out: Path, argv: list[str], case: str, shared: Path) -> list[str]:
     """The `docker run` that runs `argv` in a throwaway container, after its guard: the module's copy
     mounted read-only, and beside it, read-only too, the folder `shared` that holds the change's shared
-    package."""
+    package, and the tmpfs that holds the shared code's virtual environment (`CONTAINER_SHARED_ENV`)."""
     then = then_for(copy, case, argv)
     return [
         "docker", "run", "--rm", *SANDBOX_OPTIONS, "--env-file", str(box.token_file),
         "-v", f"{copy}:{CONTAINER_PLUGIN}:ro", "-v", f"{shared}:{CONTAINER_SHARED}:ro",
-        "-v", f"{out}:{CONTAINER_OUT}",
+        "-v", f"{out}:{CONTAINER_OUT}", "--tmpfs", SHARED_ENV_TMPFS,
         box.image, "sh", "-c", guard(box.pinned, then),
     ]  # fmt: skip
 
@@ -382,6 +411,22 @@ def streamed(
                 print(f"  … running, {int(time.monotonic() - started)} s", flush=True)
         reader.join()
     return code, "".join(said)
+
+
+def package_failures(case: str, traces: list[Path]) -> tuple[str, ...]:
+    """One line for each of the case's copied `traces` that holds the start of a package failure, C15, C16 or
+    C17 of shared/GATE.md section 3 (`PACKAGE_FAILURE`): the case, the trace, the text found, and the fix.
+    A command a case ran printed it, so the eval's Bash sandbox did not see the change's shared code."""
+    lines = []
+    for trace in traces:
+        found = PACKAGE_FAILURE.search(trace.read_text(encoding="utf-8", errors="replace"))
+        if found:
+            lines.append(
+                f"BROKEN: case {case}: the trace {trace.name} holds the line {found.group(0)!r}, so a command"
+                " of the case could not import the shared package — fix: the eval's Bash sandbox does not see"
+                " the change's shared code: see step 3 in the docstring of scripts/run-evals.py"
+            )
+    return tuple(lines)
 
 
 def run_case(
@@ -440,7 +485,12 @@ def run_case(
     if verbose:
         for line in case_story(kept / result.name, kept / f"{case.name}-traces.txt"):
             print(line, flush=True)
-    return outcome_of(result)
+    outcome = outcome_of(result)
+    broken = package_failures(case.name, sorted(kept.glob(f"{case.name}-trace*.jsonl")))
+    if broken:  # as a partial result: the attempt counts as failed
+        passed = min(outcome.passed, outcome.cases - 1)
+        return Outcome(outcome.cases, passed, outcome.score, (*outcome.lines, *broken))
+    return outcome
 
 
 def image_name(pinned: str, recipe: Path = KIT / "scripts" / "eval-container" / "Dockerfile") -> str:
@@ -880,6 +930,70 @@ def recording_holds() -> bool:
     )  # fmt: skip
 
 
+def environment_cases(case: Callable[[str, bool], None], argv: list[str], tmp: Path) -> None:
+    """For the self-test: the tmpfs of the shared code's environment in the argv of `docker run`, its place
+    outside the folders the eval's Bash sandbox hides, and the trace guard on traces typed by hand."""
+    case(
+        "the container holds the shared code's virtual environment on a Docker tmpfs the container's user"
+        " owns, executable, in the argv of docker run before the image",
+        "--tmpfs" in argv
+        and argv[argv.index("--tmpfs") + 1] == "/opt/kit-shared-env:exec,uid=1000,gid=1000,mode=755"
+        and argv.index("--tmpfs") < argv.index("img"),
+    )
+    case(
+        "the shared code's environment lies under none of /home, /tmp, /var/tmp, /dev/shm and /run/shm,"
+        " the folders the eval's Bash sandbox replaces or hides, so that its pyvenv.cfg and .pth file are"
+        " seen by the python3 a case starts through Bash",
+        not any(
+            CONTAINER_SHARED_ENV == hidden or CONTAINER_SHARED_ENV.startswith(hidden + "/")
+            for hidden in ("/home", "/tmp", "/var/tmp", "/dev/shm", "/run/shm")
+        )
+        and shared_environment().count(CONTAINER_SHARED_ENV) >= 3,
+    )
+    holds = {  # typed by hand: the lines of C15, C16 and C17 as the traces of a case hold them
+        "c15": '{"output": "BROKEN: const-x needs the Python package constitution-layer-kit 1.0.0 or a'
+        " later 1.x release, and python3 cannot import it — fix: install it for python3 as /p/INSTALL.md"
+        ' says — until then Markdown writes pass unchecked\\n"}',
+        "c16": '{"output": "BROKEN: const-x needs constitution-layer-kit 1.2.0 or a later 1.x release,'
+        ' found 1.0.0 — fix: install one for python3 as /p/INSTALL.md says — nothing"}',
+        "c17": '{"output": "BROKEN: const-x was written for constitution-layer-kit 1.0.0, a 1.x release,'
+        ' found 2.0.0 — fix: update the plugin"}',
+        "clean": '{"output": "ok: 3 documents examined", "text": "the BROKEN line of the check is gone"}',
+    }
+    traces = tmp / "traces"
+    traces.mkdir()
+    said_of = {}
+    for key, text in holds.items():
+        (traces / f"{key}-trace1.jsonl").write_text(text + "\n", encoding="utf-8")
+        said_of[key] = package_failures("load", [traces / f"{key}-trace1.jsonl"])
+    case(
+        "a trace that holds the C15 line, typed by hand, is BROKEN in one line that names the case, the"
+        " trace, the line found and the fix; a C16 line and a C17 line likewise",
+        all(
+            len(said_of[k]) == 1
+            and said_of[k][0].startswith("BROKEN: case load: the trace ")
+            and f"{k}-trace1.jsonl" in said_of[k][0]
+            and "— fix: the eval's Bash sandbox" in said_of[k][0]
+            for k in ("c15", "c16", "c17")
+        )
+        and "needs the Python package constitution-layer-kit 1.0.0" in said_of["c15"][0]
+        and "needs constitution-layer-kit 1.2.0" in said_of["c16"][0],
+    )
+    case("a clean trace, one that only names BROKEN, is no finding", said_of["clean"] == ())
+    shared_text = (KIT / "shared" / "constitution_layer_kit" / "messages.py").read_text(encoding="utf-8")
+    entry_text = "".join(
+        f.read_text(encoding="utf-8", errors="replace")
+        for f in sorted((KIT / "modules").glob("*/plugin/scripts/*.py"))
+    )
+    case(
+        "the fixed middles of C15, C16 and C17 that the trace guard looks for stand in the shared messages"
+        " and the entry files",
+        "needs the Python package constitution-layer-kit " in entry_text
+        and "needs constitution-layer-kit " in shared_text
+        and "was written for constitution-layer-kit " in shared_text,
+    )
+
+
 def self_test() -> int:
     """The runner's guards, run without a model or docker: the token file's mode and its absence, the
     container's options, its guard and its command after the guard, each run under sh, the environment of
@@ -950,6 +1064,7 @@ def self_test() -> int:
             argv[-1]
             == guard("2.1.282", then_for(Path(tmp) / "const-x", "case", ["claude", "plugin", "eval"])),
         )
+        environment_cases(case, argv, Path(tmp))
         fake_bin = Path(tmp) / "bin"
         fake_bin.mkdir()
         (fake_bin / "claude").write_text(
@@ -1128,7 +1243,7 @@ def self_test() -> int:
         script = then_for(
             Path("const-x"), "load", ["claude", "plugin", "eval"], tmp=str(box_root / "tmp"),
             out=str(box_root / "out"), plugin=str(box_root / "plugin"), home=str(box_root / "home"),
-            shared=str(box_root / "shared"),
+            shared=str(box_root / "shared"), env=str(box_root / "env"),
         )  # fmt: skip
         boxed = subprocess.run(["sh", "-c", script], env=box_env, capture_output=True, check=False)
         seen_file, first_file = box_root / "seen.txt", box_root / "first-on-path.txt"
@@ -1137,13 +1252,13 @@ def self_test() -> int:
             " imports the package from the mounted folder, the environment's bin first on its PATH",
             seen_file.read_text(encoding="utf-8").strip()
             == f"{box_root}/shared/constitution_layer_kit/__init__.py"
-            and first_file.read_text(encoding="utf-8").strip() == f"{box_root}/home/.shared-env/bin",
+            and first_file.read_text(encoding="utf-8").strip() == f"{box_root}/env/bin",
         )
         seen_file.unlink()
         refused = subprocess.run(
             ["sh", "-c", then_for(
                 Path("const-x"), "none", ["claude", "plugin", "eval"], tmp=str(box_root / "tmp"),
-                out=str(box_root / "out"), plugin=str(box_root / "plugin"), home=str(box_root / "home-2"),
+                out=str(box_root / "out"), plugin=str(box_root / "plugin"), env=str(box_root / "env-2"),
                 shared=str(box_root / "nothing"),
             )],
             env=box_env, capture_output=True, text=True, check=False,
@@ -1162,8 +1277,8 @@ def self_test() -> int:
         unmade = subprocess.run(
             ["sh", "-c", then_for(
                 Path("const-x"), "unmade", ["claude", "plugin", "eval"], tmp=str(box_root / "tmp"),
-                out=str(box_root / "out"), plugin=str(box_root / "plugin"), home=str(box_root / "a-file"),
-                shared=str(box_root / "shared"),
+                out=str(box_root / "out"), plugin=str(box_root / "plugin"),
+                env=str(box_root / "a-file" / "env"), shared=str(box_root / "shared"),
             )],
             env=box_env, capture_output=True, text=True, check=False,
         )  # fmt: skip
@@ -1182,7 +1297,7 @@ def self_test() -> int:
         crowded = subprocess.run(
             ["sh", "-c", then_for(
                 Path("const-x"), "crowded", ["claude", "plugin", "eval"], tmp=str(box_root / "tmp"),
-                out=str(box_root / "out"), plugin=str(box_root / "plugin"), home=str(box_root / "home-3"),
+                out=str(box_root / "out"), plugin=str(box_root / "plugin"), env=str(box_root / "env-3"),
                 shared=str(box_root / "shared"),
             )],
             env=box_env | {"PYTHONPATH": str(box_root / "second")},
