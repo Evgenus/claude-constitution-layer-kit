@@ -10,9 +10,9 @@ installs it once, for the `python3` its hooks run:
 ```bash
 python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
 ```
-A line that starts `BROKEN: const-questions needs the Python package constitution-layer-kit` (`C15`),
-`BROKEN: const-questions needs constitution-layer-kit` (`C16`) or
-`BROKEN: const-questions was written for constitution-layer-kit` (`C17`) points here.
+A line that starts `BROKEN: const-questions needs the Python package constitution-layer-kit`,
+`BROKEN: const-questions needs constitution-layer-kit` or
+`BROKEN: const-questions was written for constitution-layer-kit` points here.
 
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). Two hooks. At every session start — after a resume, a compaction and a clear too — the shape
@@ -21,10 +21,10 @@ A line that starts `BROKEN: const-questions needs the Python package constitutio
    the instruction to load the skill before any choice is put. Before every `Write` and `Edit` of
    a Markdown file the document as it will be after the write is checked for open-question
    markers, and a finding blocks the write.
-2. **Zero configuration works** in a repository that has a `constitution.yaml` with no key of this
-   namespace: every Markdown file git lists is covered, and the markers looked for are `[decide:`, `TODO`,
-   `TBD` and `FIXME`. Without that file every run is a visible skip naming it; an empty mapping,
-   `{}`, is enough. A marker inside a code span or a fenced code block is a quotation and is never
+2. **Zero configuration works** in a repository whose `constitution.yaml` has `module_prefix`
+   and no key of this namespace: every Markdown file git lists is covered, and the markers looked for are `[decide:`, `TODO`,
+   `TBD` and `FIXME`. Without that file every run is a visible skip naming it; `module_prefix: const-`
+   alone is enough. A marker inside a code span or a fenced code block is a quotation and is never
    reported; a marker that begins or ends with a letter, a digit or an underscore counts only as a whole word,
    so `TODOs` and `TODO_LIST` pass; the match is case-sensitive. A deferred question written in
    prose carries no marker and is not seen: the skill's rule, not the gate's.

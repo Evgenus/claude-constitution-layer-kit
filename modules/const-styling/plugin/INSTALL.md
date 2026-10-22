@@ -9,9 +9,9 @@ installs it once, for the `python3` its hooks run:
 ```bash
 python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
 ```
-A line that starts `BROKEN: const-styling needs the Python package constitution-layer-kit` (`C15`),
-`BROKEN: const-styling needs constitution-layer-kit` (`C16`) or
-`BROKEN: const-styling was written for constitution-layer-kit` (`C17`) points here.
+A line that starts `BROKEN: const-styling needs the Python package constitution-layer-kit`,
+`BROKEN: const-styling needs constitution-layer-kit` or
+`BROKEN: const-styling was written for constitution-layer-kit` points here.
 
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). One skill, one scan, and two advisory hooks that name the skill. The skill, `style-defaults`, is offered to the model
@@ -29,10 +29,10 @@ A line that starts `BROKEN: const-styling needs the Python package constitution-
    guide's territory is a directory, name the shipped file as the template of the guide's policy in
    `const-locations.templates` and create the guide through its command; a territory of one path
    is created by hand, once.
-3. **Zero configuration works** in a repository that has a `constitution.yaml` with no key of this
-   namespace: the scan covers every Markdown file git lists, allows no departure, and reports the
+3. **Zero configuration works** in a repository whose `constitution.yaml` has `module_prefix`
+   and no key of this namespace: the scan covers every Markdown file git lists, allows no departure, and reports the
    twelve traces; the skill falls back to the shipped guide. Without that file every scan is a
-   visible skip naming it; an empty mapping, `{}`, is enough.
+   visible skip naming it; `module_prefix: const-` alone is enough.
 4. Calibration, all optional, in the project's `constitution.yaml`:
    ```yaml
    const-styling:

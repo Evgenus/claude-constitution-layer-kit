@@ -9,9 +9,9 @@ installs it once, for the `python3` its hooks run:
 ```bash
 python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
 ```
-A line that starts `BROKEN: const-doc-budgets needs the Python package constitution-layer-kit` (`C15`),
-`BROKEN: const-doc-budgets needs constitution-layer-kit` (`C16`) or
-`BROKEN: const-doc-budgets was written for constitution-layer-kit` (`C17`) points here.
+A line that starts `BROKEN: const-doc-budgets needs the Python package constitution-layer-kit`,
+`BROKEN: const-doc-budgets needs constitution-layer-kit` or
+`BROKEN: const-doc-budgets was written for constitution-layer-kit` points here.
 
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). One hook after every write, one line at session start while nothing is measured, one

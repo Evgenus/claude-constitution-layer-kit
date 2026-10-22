@@ -10,9 +10,9 @@ installs it once, for the `python3` its hooks run:
 ```bash
 python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
 ```
-A line that starts `BROKEN: const-catalogs needs the Python package constitution-layer-kit` (`C15`),
-`BROKEN: const-catalogs needs constitution-layer-kit` (`C16`) or
-`BROKEN: const-catalogs was written for constitution-layer-kit` (`C17`) points here.
+A line that starts `BROKEN: const-catalogs needs the Python package constitution-layer-kit`,
+`BROKEN: const-catalogs needs constitution-layer-kit` or
+`BROKEN: const-catalogs was written for constitution-layer-kit` points here.
 
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). Four hooks. At every session start — startup, resume, clear, compaction, fork — the
@@ -32,7 +32,7 @@ A line that starts `BROKEN: const-catalogs needs the Python package constitution
      severity: block      # block (default) | warn — warn reports the finding and lets the write through
      # log_dir: .gate-logs   # optional, and the directory must be git-ignored; see step 5
    ```
-   Nothing else is read: no policy, no `root_policy`. Where the kind also has a policy with
+   Nothing else is read but the file's `module_prefix`: no policy, no `root_policy`. Where the kind also has a policy with
    the same territory, write the patterns once and use YAML's own alias, so the two cannot
    drift apart:
    ```yaml

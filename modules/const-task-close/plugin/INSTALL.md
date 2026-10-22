@@ -10,9 +10,9 @@ installs it once, for the `python3` its hooks run:
 ```bash
 python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
 ```
-A line that starts `BROKEN: const-task-close needs the Python package constitution-layer-kit` (`C15`),
-`BROKEN: const-task-close needs constitution-layer-kit` (`C16`) or
-`BROKEN: const-task-close was written for constitution-layer-kit` (`C17`) points here.
+A line that starts `BROKEN: const-task-close needs the Python package constitution-layer-kit`,
+`BROKEN: const-task-close needs constitution-layer-kit` or
+`BROKEN: const-task-close was written for constitution-layer-kit` points here.
 
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). Two hooks print the pointer line, below, at session start and at each subagent's start. The third: at the end of every turn the working tree of the session's repository is
@@ -25,9 +25,9 @@ A line that starts `BROKEN: const-task-close needs the Python package constituti
    is the compound `git add -A && git commit …`, and a rule must match each part on its own, so
    both `Bash(git add *)` and `Bash(git commit *)` go in `permissions.allow` or `--allowedTools`;
    or set `severity: warn`.
-2. **Zero configuration works** in a repository that has a `constitution.yaml`, whatever it
-   says: the turn-end hook judges the tree, and the range check examines zero pairs and says so.
-   Without that file every run is a visible skip naming it; an empty mapping, `{}`, is enough.
+2. **Zero configuration works** in a repository whose `constitution.yaml` has `module_prefix`,
+   whatever else it says: the turn-end hook judges the tree, and the range check examines zero pairs and says so.
+   Without that file every run is a visible skip naming it; `module_prefix: const-` alone is enough.
 3. **Switch the range check on: write the coverage map.** A pair names code and the
    current-state documents that describe it; a change that touches the code updates one of the
    documents or declares no impact. In the project's `constitution.yaml`:

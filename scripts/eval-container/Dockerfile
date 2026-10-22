@@ -1,6 +1,10 @@
 # Kit tooling, never shipped in a module: the throwaway image scripts/run-evals.py runs every eval case in
 # (decision dec-0093-module-evals-with-local-receipts). It holds no secret of the host: the module's
-# copy is mounted read-only, the results folder writable, and the subscription token arrives as an env file.
+# copy is mounted read-only at /plugin, beside it a copy of the change's shared/ read-only too at /shared, the
+# results folder writable, and the subscription token arrives as an env file. The image carries no shared code
+# (decision dec-0099-shared-code-installed-as-a-pip-package, R18): before each case the runner makes a virtual
+# environment of the image's python3, with its system packages, whose .pth file names /shared, and puts its
+# bin first on PATH, so that a case's hooks and scans import the change's own package and no release.
 # The runner builds it as kit-evalbox:<version>-<hash>, the version scripts/claude-code.version pins and the
 # first twelve hexadecimal digits of this file's SHA-256, so that a changed file is always built again. Its
 # Debian release gives a Python at or above the floor of shared/constitution_layer_kit/preflight.py, which every module's

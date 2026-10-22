@@ -14,18 +14,18 @@ installs it once, for the `python3` its hooks and commands run:
 ```bash
 python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
 ```
-A line that starts `BROKEN: const-referencing needs the Python package constitution-layer-kit` (`C15`),
-`BROKEN: const-referencing needs constitution-layer-kit` (`C16`) or
-`BROKEN: const-referencing was written for constitution-layer-kit` (`C17`) points here.
+A line that starts `BROKEN: const-referencing needs the Python package constitution-layer-kit`,
+`BROKEN: const-referencing needs constitution-layer-kit` or
+`BROKEN: const-referencing was written for constitution-layer-kit` points here.
 
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). Three hooks: before every `Write` and `Edit` of a Markdown file the forms of its
    references are checked, and a finding blocks the write; after it the whole tree is checked
    and what the write broke is reported — this cannot block, the write has happened; and at
    session start two sentences about references in chat are added to the session's context.
-2. **Zero configuration works** in a repository that has a `constitution.yaml`, whatever it
-   says: every Markdown file git lists is covered. Without that file every run is a visible
-   skip naming it; an empty mapping, `{}`, is enough. Covered documents are checked for: a
+2. **Zero configuration works** in a repository whose `constitution.yaml` has `module_prefix`,
+   whatever else it says: every Markdown file git lists is covered. Without that file every run is a visible
+   skip naming it; `module_prefix: const-` alone is enough. Covered documents are checked for: a
    covered document's id in backticks outside a link; a link whose text is such an id and
    whose target is another file; a path on one machine (a path into a user's home directory as macOS, Linux and Windows lay it
    out, or a `file:` link; other absolute paths are not judged) — read

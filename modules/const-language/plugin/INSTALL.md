@@ -11,9 +11,9 @@ installs it once, for the `python3` its hooks run:
 ```bash
 python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
 ```
-A line that starts `BROKEN: const-language needs the Python package constitution-layer-kit` (`C15`),
-`BROKEN: const-language needs constitution-layer-kit` (`C16`) or
-`BROKEN: const-language was written for constitution-layer-kit` (`C17`) points here.
+A line that starts `BROKEN: const-language needs the Python package constitution-layer-kit`,
+`BROKEN: const-language needs constitution-layer-kit` or
+`BROKEN: const-language was written for constitution-layer-kit` points here.
 
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). One check hook, one scan, one skill, and two pointer hooks. The check hook runs after
@@ -32,10 +32,10 @@ A line that starts `BROKEN: const-language needs the Python package constitution
    switches a rule off. The check reads only the configuration it generates (`--config`,
    `--no-global`) and never a `.vale.ini` or a `StylesPath` of the repository, so Vale run by
    hand beside it sees a second configuration.
-3. **Zero configuration works** in a repository that has a `constitution.yaml` with no key of this
-   namespace: every Markdown file git lists is covered, the ceiling is grade 10, the limit 25
-   words, the four rules red and the passive a note. Without that file every run is a visible skip
-   naming it; an empty mapping, `{}`, is enough.
+3. **Zero configuration works** in a repository whose `constitution.yaml` has `module_prefix`
+   and no key of this namespace: every Markdown file git lists is covered, the ceiling is grade 10,
+   the limit 25 words, the four rules red and the passive a note. Without that file every run is a
+   visible skip naming it; `module_prefix: const-` alone is enough.
 4. Calibration, all optional, in the project's `constitution.yaml`:
    ```yaml
    const-language:

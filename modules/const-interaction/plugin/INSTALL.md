@@ -10,9 +10,9 @@ installs it once, for the `python3` its hooks run:
 ```bash
 python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
 ```
-A line that starts `BROKEN: const-interaction needs the Python package constitution-layer-kit` (`C15`),
-`BROKEN: const-interaction needs constitution-layer-kit` (`C16`) or
-`BROKEN: const-interaction was written for constitution-layer-kit` (`C17`) points here.
+A line that starts `BROKEN: const-interaction needs the Python package constitution-layer-kit`,
+`BROKEN: const-interaction needs constitution-layer-kit` or
+`BROKEN: const-interaction was written for constitution-layer-kit` points here.
 
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). Two hooks. At every session start — startup, resume, clear, compaction, fork — the plugin
@@ -24,13 +24,13 @@ A line that starts `BROKEN: const-interaction needs the Python package constitut
    reason — what matched, why the act is hard to reverse, the reversible alternative — labelled with
    the plugin's name; you confirm at the prompt, once per command. Where no prompt can be shown, in a
    headless session, the platform denies the command with that reason and the model waits.
-2. **Zero configuration works** in a repository that has a `constitution.yaml` with no key of this
-   namespace: the default list gates a forced push, a hard reset, a forced checkout, `git restore`,
+2. **Zero configuration works** in a repository whose `constitution.yaml` has `module_prefix`
+   and no key of this namespace: the default list gates a forced push, a hard reset, a forced checkout, `git restore`,
    `git clean -f`, `git branch -D` and `-f`, `git stash drop` and `clear`, `git rebase`, `git filter-branch`,
    `git filter-repo`, `git reflog expire`, `git gc --prune=now` and a recursive `rm`; the list scan
    covers every Markdown file git lists with the default handle forms. Without that file every run
-   is a visible skip naming it, and the session-start line says so; an empty mapping, `{}`, is
-   enough. The command is read as the platform reads it for its own rules: split on `&&`, `||`,
+   is a visible skip naming it, and the session-start line says so; `module_prefix: const-` alone
+   is enough. The command is read as the platform reads it for its own rules: split on `&&`, `||`,
    `;`, `|`, `&` and newlines outside quotes, the contents of `$(…)` and backticks and the string
    after the `-c` of a shell examined too, the wrappers of the dial `wrappers` stripped with their own
    options, a shell keyword stripped, a program path reduced to its name, the options between a

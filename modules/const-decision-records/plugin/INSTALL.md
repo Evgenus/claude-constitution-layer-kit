@@ -10,9 +10,9 @@ installs it once, for the `python3` its hooks run:
 ```bash
 python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
 ```
-A line that starts `BROKEN: const-decision-records needs the Python package constitution-layer-kit` (`C15`),
-`BROKEN: const-decision-records needs constitution-layer-kit` (`C16`) or
-`BROKEN: const-decision-records was written for constitution-layer-kit` (`C17`) points here.
+A line that starts `BROKEN: const-decision-records needs the Python package constitution-layer-kit`,
+`BROKEN: const-decision-records needs constitution-layer-kit` or
+`BROKEN: const-decision-records was written for constitution-layer-kit` points here.
 
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). Two hooks. At every session start — startup, resume, clear, compaction, fork — the
