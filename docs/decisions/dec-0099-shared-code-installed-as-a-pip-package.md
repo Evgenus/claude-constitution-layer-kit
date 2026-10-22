@@ -15,7 +15,7 @@ The code every gate shares has one source, `shared/constitution_layer_kit/`. Unt
 
 The decider plans such a reader: a separate kit with modules of its own, built on the constitution kernel, with a dials file of its own. Two names in the shared code belonged to this kit alone: `DIALS_FILE = "constitution.yaml"` in `model.py` and `MODULE_PREFIX = "const-"` in `dials.py`.
 
-Facts read on 2026-10-21 and 2026-10-22 with pip 24.0 and Python 3.12.4, in scratch folders. A copy of `shared/` beside a 12-line `pyproject.toml` installed from a `git+file:` URL pinned to a tag with `#subdirectory=shared`, from a wheel that `--find-links` found, and from a local path. An install from source fetches the build tool, `setuptools`, from the package index: with `--no-index` it failed, and the developer's Python had no `setuptools` of its own. A folder named by a `.pth` file in a virtual environment was imported with no build and no network. pip's parser accepts the line `constitution-layer-kit @ git+https://…@<tag>#subdirectory=shared` and refuses the same form with a `git+file:` URL. The kit's repository stays private until [step 10 of the rollout plan](../rollout-plan.md#s10).
+Facts read on 2026-10-21 and 2026-10-22 with pip 24.0 and Python 3.12.4, in scratch folders. A copy of `shared/` with a `pyproject.toml` installed from a `git+file:` URL pinned to a tag, from a wheel through `--find-links`, and from a local path. An install from source fetches the build tool, `setuptools`, from the package index: with `--no-index` it failed, and the developer's Python had no `setuptools` of its own. A folder named by a `.pth` file in a virtual environment was imported with no build and no network. pip's parser accepts the line `constitution-layer-kit @ git+https://…@<tag>#subdirectory=shared` and refuses the same form with a `git+file:` URL. The kit's repository stays private until [step 10 of the rollout plan](../rollout-plan.md#s10).
 
 The session put the questions to the decider one per message, in chat on 2026-10-21 and 2026-10-22. Sections 1 to 8 hold them in order, and section 9 holds one that the change's documents raised.
 
@@ -56,7 +56,7 @@ The session recommended A: one command names the exact version, the kit needs no
 ## 2. Where this kit's own modules get the code
 
 - **A. Each plugin imports the package, and only the tests link to the working tree.** `plugin/scripts/constitution_layer_kit` is removed; the links in `tests/` stay.
-  - **Pros:** every project gets the code one way; the version check guards every module for real; the kit's own sessions keep working gates while the working tree's shared code is broken in the middle of a change; fixtures and CI still test modules and shared code of one commit together; it matches the intent the decider stated on 2026-10-12, that the modules switch to the package one day.
+  - **Pros:** every project gets the code one way; the version check guards every module for real; the kit's own sessions keep working gates while the working tree's shared code is broken in the middle of a change; fixtures and CI still test modules and shared code of one commit together; it matches the decider's stated intent of 2026-10-12.
   - **Cons:** every project runs one more pip command before any gate works; a module in the working tree that needs a name not yet released fails in the kit's own sessions until a release is installed; CI installs the change's own package before the install, session and guide checks, and the eval container does too; the first tag must exist right after the merge; [law 3 of CLAUDE.md](../../CLAUDE.md#law-3), the link and install checks, `C15` and every entry file change.
 - **B. Each plugin keeps its link and carries the shared code, and the package serves only another kit's modules.**
   - **Pros:** projects install nothing new; the install, session and eval checks stay as they are; a module always runs the shared code of its own commit.
@@ -123,7 +123,7 @@ The session recommended A, since B's misreading would be a silent pass. The deci
   - **Pros:** no address in code; a rename touches only documents.
   - **Cons:** not the exact fix that [law 6 of CLAUDE.md](../../CLAUDE.md#law-6) asks for; the person opens a file to find the command, and a hook shows one line.
 
-The session recommended A, for the exact fix. The decider chose B in chat on 2026-10-22. The session said in chat that B gives where the command stands and not the command, and kept the pointer as concrete as the code allows: the path of the module's own install note, as `C2` gives the path of `requirements.txt`.
+The session recommended A, for the exact fix. The decider chose B in chat on 2026-10-22. The session said in chat that B gives where the command stands and not the command, and kept the pointer as concrete as the code allows: the path of the module's own install note.
 
 <a id="r14"></a>**R14.** `C15`, which the entry file prints when the package cannot be imported, and `C16` and `C17` of R5 name the package, the version the module requires, the version found where there is one, and the path of the module's own `INSTALL.md`, and close with the module's clause. A generator's three carry no clause, as its `C14` does. The texts stand in [§3 of kit-shared-gate-code](../../shared/GATE.md#g3).
 
@@ -156,7 +156,7 @@ The session recommended A, for the replacement risk in one shared environment. T
   - **Pros:** one build, the same bytes in every job.
   - **Cons:** jobs depend on each other; local runs as in B.
 
-The session first put A with a build in each check. Asked why that needed the network, it revised A to the `.pth` way, checked offline. It recommended A. The decider chose A in chat on 2026-10-22.
+The session first put A with a build in each check. Asked why that needed the network, it revised A to the `.pth` way, checked offline. It recommended A: only there does a local run check the code CI checks. The decider chose A in chat on 2026-10-22.
 
 <a id="r17"></a>**R17.** The steps that the install and session checks share, in `scripts/kit_install.py`, and the install guide's check make a throwaway virtual environment from the `python3` they run under, with its system packages, whose `.pth` file names the change's own `shared/`. They put its `bin` first on `PATH` for every session and gate they start. Nothing is built, and nothing needs the network.
 
@@ -176,7 +176,7 @@ The session first put A with a build in each check. Asked why that needed the ne
 
 ## 9. A module's version after a change to the shared code
 
-Writing the documents, the session found that rule 7 of [plc-0009-shared-code](../policies/plc-0009-shared-code.md#r7), step 4 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md) and rule 3 of [plc-0002-kernel](../policies/plc-0002-kernel.md#r3) said that a change to the shared code bumps the version of every published module that links it. No plugin links the code now, and nothing above ruled what takes the clause's place.
+Writing the documents, the session found that rule 7 of [plc-0009-shared-code](../policies/plc-0009-shared-code.md#r7), step 4 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md) and rule 3 of [plc-0002-kernel](../policies/plc-0002-kernel.md#r3) said that a change to the shared code bumps the version of every published module that links or requires it. No plugin links the code now, and nothing above ruled what takes the clause's place.
 
 - **A. A module's version moves only with its own files.** The package's `__version__` records the shared change, and a module that starts to need a later release raises its `REQUIRES`, which edits its entry files and so bumps it.
   - **Pros:** a module's version says what its plugin holds; no version moves when nothing installed changed; the package's version and the version check carry the shared change to a project.
@@ -185,7 +185,7 @@ Writing the documents, the session found that rule 7 of [plc-0009-shared-code](.
   - **Pros:** module versions keep tracking every change to what a gate runs; the texts barely change.
   - **Cons:** a version moves while none of the module's files changed; every shared fix means a release of every module beside the package's tag.
 
-The session recommended A. The decider answered in chat on 2026-10-22 that a module's version is bumped when the module loses its consistency with the earlier shared code, as an explicit act for that case and never an automatic one. The session reads that as A.
+The session recommended A: a module's version then says what its plugin holds. The decider answered in chat on 2026-10-22 that a module's version is bumped when the module loses its consistency with the earlier shared code, most likely as an explicit act for that edge case rather than an automatic one. The session reads that as A.
 
 <a id="r24"></a>**R24.** A change to the shared code bumps no module's version by itself. A module's version is bumped, as an explicit act of the change, when the module stops being consistent with the earlier shared code and raises the version it requires (R6). This replaces, for the shared code, the clause of R1 of [dec-0053-drafts-keep-their-versions](dec-0053-drafts-keep-their-versions.md#r1) that a change to the shared code bumps the version of every published module that links it; a draft still need not be bumped.
 

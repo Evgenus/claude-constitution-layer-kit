@@ -749,13 +749,13 @@ def toy_eval_kit(folder: Path, env: dict[str, str]) -> Path:
     return folder
 
 
-def fake_run_docker(folder: Path, log: Path, said: Path) -> dict[str, str]:
+def fake_run_docker(folder: Path, log: Path, said: Path, pair: Path) -> dict[str, str]:
     """For the self-test: a `docker` in `folder` that runs no container. It appends to `log` what the folder
     mounted at /shared holds (the tracked file `core.py`, else a line saying it is missing) and then answers
     as the container would: a result for the case `load` in the folder mounted at /out; with
-    FAKE_DOCKER_EXIT=5 the lines of `said` on its standard error and exit 5, with `5-pair` the last two of
-    them, the two a real container prints, with `5-alone` the last of them alone, with `5-silent` no line;
-    with 3 a login refusal. The environment that puts it first on PATH."""
+    FAKE_DOCKER_EXIT=5 the lines of `said` on its standard error and exit 5, with `5-pair` the lines of
+    `pair`, exactly the two a real container prints, with `5-alone` the last line of `said` alone, with
+    `5-silent` no line; with 3 a login refusal. The environment that puts it first on PATH."""
     folder.mkdir()
     result = json.dumps(
         {"aggregates": {"casesTotal": 1, "casesPassed": 1, "overallScore": 1.0},
@@ -775,7 +775,7 @@ def fake_run_docker(folder: Path, log: Path, said: Path) -> dict[str, str]:
         'if [ -f "$core" ]; then cat "$core" >&3; else echo "no core.py at $shared" >&3; fi\n'
         'case "$FAKE_DOCKER_EXIT" in\n'
         f"  5) cat '{said}' >&2; exit 5 ;;\n"
-        f"  5-pair) tail -n 2 '{said}' >&2; exit 5 ;;\n"
+        f"  5-pair) cat '{pair}' >&2; exit 5 ;;\n"
         f"  5-alone) tail -n 1 '{said}' >&2; exit 5 ;;\n"
         "  5-silent) exit 5 ;;\n"
         "  3) echo 'not a subscription login: none' >&2; exit 3 ;;\n"
@@ -803,7 +803,9 @@ def run_module_cases(case: Callable[[str, bool], None], box: Box, tmp: Path, qui
         " ModuleNotFoundError: No module named 'constitution_layer_kit'"
     )
     said_file.write_text(f"{stray}\n{step}\n{SHARED_ENV_SAID}\n", encoding="utf-8")
-    run_env_of = fake_run_docker(tmp / "run-bin", run_log, said_file)
+    pair_file = tmp / "shared-env-pair.txt"  # exactly the two lines a real container prints
+    pair_file.write_text(f"{step}\n{SHARED_ENV_SAID}\n", encoding="utf-8")
+    run_env_of = fake_run_docker(tmp / "run-bin", run_log, said_file, pair_file)
     exits: dict[str, str] = {}
     with mock.patch.dict(globals(), {"KIT": eval_kit}):
         ran = run_module("const-x", "m", run_env_of, box)
