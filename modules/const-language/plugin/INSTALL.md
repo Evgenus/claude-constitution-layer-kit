@@ -11,7 +11,6 @@ installs it once, for the `python3` its hooks run:
 ```bash
 python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
 ```
-Until that tag exists, install from a clone of the kit: `python3 -m pip install <the kit's clone>/shared`.
 A line that starts `BROKEN: const-language needs the Python package constitution-layer-kit`,
 `BROKEN: const-language needs constitution-layer-kit` or
 `BROKEN: const-language was written for constitution-layer-kit` points here.
