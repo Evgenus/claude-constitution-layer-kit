@@ -22,8 +22,9 @@ cache of a read-only seed; the third, a session load a plugin folder in place of
 read; the fourth, the install write a zip file where the claims read a folder. Every other variable reaches
 the version command and the run unchanged, CLAUDE_CODE_PLUGIN_PREFER_HTTPS, which the kit's CI sets for the
 clone of its private repository over HTTPS, and the kit's own CONSTITUTION_KIT_* ones included, save those
-the check sets itself, CLAUDE_CONFIG_DIR and DISABLE_AUTOUPDATER for both, HOME and GIT_CONFIG_GLOBAL for
-the run; the kit cloned from the working folder's HEAD to
+the check sets itself, CLAUDE_CONFIG_DIR and DISABLE_AUTOUPDATER for both, HOME, GIT_CONFIG_GLOBAL and, once
+the kit is cloned, PATH for the run (the `bin` of the shared code's environment first, as below; the version
+command, asked before the clone, keeps the person's PATH); the kit cloned from the working folder's HEAD to
 ~/dev/claude-constitution-layer-kit, so what is not committed is not run; the source the marketplace
 block registers pointed at the change: the argument of its `claude plugin marketplace add` replaced by the
 environment's CONSTITUTION_KIT_INSTALL_FROM, `<owner>/<repo>#<branch>` (the kit's CI names the change's GitHub

@@ -19,6 +19,8 @@ The gate, a plain run, reads the documents and runs nothing. It is red on:
     that no eval item names; a case two eval items name. A case folder is a folder of the module's
     `evals/` that holds a `case.yaml`, `evals/results/` and a folder holding a `prompt.md` alone being none
     (decision dec-0093-module-evals-with-local-receipts, R9);
+  - a fixture item whose handle is no runner number: a prefix other than `T` or `S`, or a suffix after
+    the number;
   - a `rows` cell that is empty, or holds anything but row links or the one word `none`;
   - a link to a row the matrix does not hold;
   - an item that names a row its module's rows section does not hold;

@@ -37,8 +37,8 @@ these keys, the JSON keys as written:
   code_lines,       the non-blank lines that are no comment and, in Python, no docstring, of the `.py` and
   test_lines        `.sh` files git tracks under plugin/scripts/ and plugin/hooks/ (code) and tests/
                     (tests), a symbolic link never read;
-  functions,        the functions of the module's own Python under plugin/scripts/ (links, and so the
-  cc_max,           shared constitution_layer_kit, never read) and their cyclomatic complexity, counted
+  functions,        the functions of the module's own Python under plugin/scripts/ (a link is never
+  cc_max,           read, and a plugin holds no shared code) and their cyclomatic complexity, counted
   cc_over_10        by this script from the syntax tree, not by ruff's C901: 1, plus 1 per if, for, while,
                     except, conditional expression, comprehension, assert and match case, plus n-1 per
                     boolean operation of n operands; a nested function is its own function and adds

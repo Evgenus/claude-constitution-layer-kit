@@ -172,8 +172,9 @@ def n1_note_policy_id_shared(first: str, second: str, doc_id: str) -> str:
 
 
 # ---------------------------------------------------------------- configuration failures
-# C1 (python3 missing) and C14 (interpreter below the floor) are printed by the POSIX entry
-# point and by the Python entry file, which must run on interpreters this package cannot.
+# C1 (python3 missing), C14 (interpreter below the floor) and C15 (this package cannot be imported)
+# are printed by the POSIX entry point and by the Python entry file, which must run where this
+# package cannot.
 
 
 def c2_library_missing(distribution: str, requirements_file: str) -> Broken:

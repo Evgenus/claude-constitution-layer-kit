@@ -1,8 +1,9 @@
 # Development tooling of the kit repository only (decision dec-0020-gate-script-rules).
 # Never shipped to consumers: modules carry no tool configuration of their own.
 #
-# The kit's whole list of checks is scripts/gate-list.sh; CI runs every entry, one job per module and one
-# job `kit` (.github/workflows/gates.yml):
+# The kit's whole list of checks is scripts/gate-list.sh; CI runs every entry, one job per module, one job
+# `install-guide` and one job `kit`, and a job `gates`, green only when every other job is
+# (.github/workflows/gates.yml):
 #   sh scripts/gate-list.sh --names       sh scripts/gate-list.sh --run <entry>|<job>
 # Run from the kit root before a module's scripts are reviewed:
 #   python3 -m ruff format --check modules scripts shared && python3 -m ruff check modules scripts shared
@@ -11,6 +12,7 @@
 #   (cd modules/<name>/plugin/scripts && MYPYPATH=../../../../shared mypy --strict *.py)   (the entry files beside the packages; no plugin holds the shared package, so MYPYPATH names the kit's shared/)
 #   (cd modules/<name>/tests && mypy --strict *.py)
 #   python3 scripts/check-shared-links.py && python3 scripts/check-shared-links.py --self-test   (no plugin holds the shared code; each runner reaches it by a link in tests/)
+#   python3 scripts/check-shared-package.py && python3 scripts/check-shared-package.py --self-test   (the shared code builds into the distribution `constitution-layer-kit`, which installs and imports in a fresh virtual environment; the one check that needs the package index)
 #   python3 scripts/check-carry-lists.py && python3 scripts/check-carry-lists.py --self-test
 #   python3 scripts/check-yaml-style.py && python3 scripts/check-yaml-style.py --self-test   (block style of constitution.yaml; --fix rewrites it)
 #   python3 scripts/check-module-links.py && python3 scripts/check-module-links.py --self-test   (a module linked outside module prose)

@@ -54,8 +54,10 @@ For the module named, in throwaway folders that the check removes:
      from a read-only seed folder and list the seed's marketplaces; the third, load plugin folders as
      `--plugin-dir` loads them, listed beside the install; the fourth, write the install as a zip file,
      where the check reads a folder. Every other variable reaches `claude` unchanged, save the
-     CLAUDE_CONFIG_DIR the check sets and, for the version command, the DISABLE_AUTOUPDATER it sets,
-     CLAUDE_CODE_PLUGIN_PREFER_HTTPS and the kit's own CONSTITUTION_KIT_* ones included;
+     CLAUDE_CONFIG_DIR the check sets, the PATH it sets for every `claude` command but the version command
+     (the `bin` of the shared code's environment first, as above) and, for the version command, the
+     DISABLE_AUTOUPDATER it sets, CLAUDE_CODE_PLUGIN_PREFER_HTTPS and the kit's own CONSTITUTION_KIT_* ones
+     included;
   2. `claude plugin marketplace add <source>` and `claude plugin install <module>@<marketplace> --json`,
      the platform's own install, which writes a copy of the plugin into the configuration's cache.
      The marketplace's name is the one the kit's own .claude-plugin/marketplace.json gives, read by

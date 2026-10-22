@@ -7,9 +7,9 @@ Modes:    no arguments  read one PreToolUse event on stdin, reconstruct the docu
           --scan [DIR]  judge every item of every catalog of the repository containing DIR
                         (default: the current directory) — the check for CI on a pull request.
 Reads:    from the event: tool_name, tool_input.file_path, .content, .old_string,
-          .new_string, .replace_all, cwd, session_id. From constitution.yaml: this module's
-          dials const-catalogs.catalogs (a list of {prefix, territory, width}), .severity
-          (block | warn) and .log_dir; the file as a whole is validated as every gate does.
+          .new_string, .replace_all, cwd, session_id. From constitution.yaml: module_prefix,
+          this module's dials const-catalogs.catalogs (a list of {prefix, territory, width}),
+          .severity (block | warn) and .log_dir; the file as a whole is validated as every gate does.
           No policy is read: a catalog is declared here, with its own territory.
 The check: each entry of the dial declares a numbered kind, and every Markdown document in its
           territory is an item of that catalog. An item's file name without .md is
