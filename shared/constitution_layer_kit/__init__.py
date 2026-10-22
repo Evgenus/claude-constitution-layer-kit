@@ -2,9 +2,11 @@
 file; territories, policies and resolution; the output log; the command line and its single
 guard; the texts of every shared message.
 
-The package has one source, and each plugin that uses it reaches it through the link
-`scripts/constitution_layer_kit`; an installed plugin carries the code. Nothing here knows which plugin
-it serves until the entry point declares it (``identity``).
+The package has one source, and no plugin carries a copy or a link of it: pip installs it for python3 as
+the distribution ``constitution-layer-kit``, and each entry file of a plugin imports ``cli`` from it and
+asks ``cli.version_failure`` whether the installed release serves the plugin, before it imports anything
+of its own. The tests of a module reach the source through links in their own folder. Nothing here knows
+which plugin it serves until the entry point declares it (``identity``).
 
 Modules, in reading order: ``identity``, ``model`` (enums and dataclasses), ``messages``,
 ``errors``, ``preflight``, ``output`` (screen plus log), ``repository`` (git and files),

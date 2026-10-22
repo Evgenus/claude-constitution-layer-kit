@@ -4,14 +4,20 @@ Requires: git, Python 3.12 or newer as `python3`, and the libraries in `requirem
 (`python3 -m pip install -r <plugin root>/requirements.txt`). A missing `python3` or library is
 reported by the check with the fix on its first line; nothing is silently skipped.
 
+The shared code is the Python package `constitution-layer-kit`, which brings PyYAML with it. A project
+installs it once, for the `python3` its hooks run:
+```bash
+python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
+```
+A line that starts `BROKEN: const-doc-budgets needs the Python package constitution-layer-kit` (`C15`),
+`BROKEN: const-doc-budgets needs constitution-layer-kit` (`C16`) or
+`BROKEN: const-doc-budgets was written for constitution-layer-kit` (`C17`) points here.
+
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). One hook after every write, one line at session start while nothing is measured, one
    scan, one history report, one skill. The hook runs after every `Write` and `Edit` of a Markdown
    document a ceiling holds and hands an excess back to the model; it never refuses a write. The
    skill, `set-ceilings`, is offered to the model when a ceiling is set and when a finding is read.
-   A copy of this plugin's folder made outside the repository it comes from must follow links
-   (`cp -RL`): `scripts/constitution_layer_kit` is a link to code the plugin shares with its siblings, and an install from the marketplace copies what it points at. A checkout made without symlink support leaves one-line
-   text files in their place (`git config core.symlinks true`, then check out again).
 2. **What is measured.** The length of a document in characters, as the project's conventions
    define one: Unicode code points of the file read as UTF-8, a CRLF counted as one, the whole
    file — envelope, code, tables and link targets — since a reader loads the whole file. Never

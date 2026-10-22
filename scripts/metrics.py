@@ -26,7 +26,9 @@ these keys, the JSON keys as written:
   skills,           the files plugin/skills/*/SKILL.md, and their characters;
   skill_chars
   always_on_chars   the characters every SessionStart command of plugin/hooks/hooks.json writes to stdout,
-                    run from the kit root with CLAUDE_PLUGIN_ROOT set to the module's plugin/ folder and,
+                    run from the kit root with CLAUDE_PLUGIN_ROOT set to the module's plugin/ folder, the
+                    kit's shared/ first on PYTHONPATH (a plugin holds no shared code: its hook imports the
+                    package that python3 finds, and the report measures what the working tree prints) and,
                     on stdin, the least event a session's start sends (`EVENT`; an empty stdin makes a
                     hook print its BROKEN line for input that is no JSON, not what a session sees), plus
                     the `description` of each skill's front matter: what reaches the model at every
@@ -328,7 +330,12 @@ def session_start(module: Path) -> tuple[int, list[Handler]]:
 def printed(module: Path, handler: Handler, notes: list[str]) -> int:
     """The characters a SessionStart handler writes to stdout, run from the kit root; a note when it
     exits other than 0 or times out."""
-    env = os.environ | {"CLAUDE_PLUGIN_ROOT": str(module / "plugin"), "CLAUDE_PROJECT_DIR": str(KIT)}
+    path = os.pathsep.join(filter(None, [str(KIT / "shared"), os.environ.get("PYTHONPATH")]))
+    env = os.environ | {
+        "CLAUDE_PLUGIN_ROOT": str(module / "plugin"),
+        "CLAUDE_PROJECT_DIR": str(KIT),
+        "PYTHONPATH": path,
+    }
     shown = " ".join(handler.argv).replace(str(KIT) + "/", "")
     try:
         done = subprocess.run(

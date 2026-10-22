@@ -5,12 +5,18 @@ Requires: git; Python 3.12 or newer as `python3`, with the libraries in `require
 is reported by the command with the fix on its first line and nothing is written; nothing is
 silently skipped.
 
+The shared code is the Python package `constitution-layer-kit`, which brings PyYAML with it. A project
+installs it once, for the `python3` its commands run:
+```bash
+python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
+```
+A line that starts `BROKEN: const-locations needs the Python package constitution-layer-kit` (`C15`),
+`BROKEN: const-locations needs constitution-layer-kit` (`C16`) or
+`BROKEN: const-locations was written for constitution-layer-kit` (`C17`) points here.
+
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). No hooks: the plugin ships two skills and one script, and nothing here blocks a
-   write. A copy of this plugin's folder made outside the repository it comes from must follow
-   links (`cp -RL`): `scripts/constitution_layer_kit` is a link to code the plugin shares with its siblings, and an install from the marketplace copies what it points at. A checkout made without symlink
-   support leaves one-line text files in their place (`git config core.symlinks true`, then
-   check out again).
+   write.
 2. **Zero configuration works** in a repository whose `constitution.yaml` names a `root_policy`
    and the policies' territories: every kind whose territory is `<dir>/**`, `<dir>/**/*.md` or
    `<dir>/*/NAME.md` gets its documents created at the home that follows, with the four-field

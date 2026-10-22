@@ -5,6 +5,15 @@ Requires: git, Python 3.12 or newer as `python3`, and the libraries in `requirem
 reported at the first turn end, a missing git too, each with the fix on the first line; nothing is
 silently skipped.
 
+The shared code is the Python package `constitution-layer-kit`, which brings PyYAML with it. A project
+installs it once, for the `python3` its hooks run:
+```bash
+python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
+```
+A line that starts `BROKEN: const-task-close needs the Python package constitution-layer-kit` (`C15`),
+`BROKEN: const-task-close needs constitution-layer-kit` (`C16`) or
+`BROKEN: const-task-close was written for constitution-layer-kit` (`C17`) points here.
+
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). Two hooks print the pointer line, below, at session start and at each subagent's start. The third: at the end of every turn the working tree of the session's repository is
    examined, and a dirty tree — any tracked change or untracked file git does not ignore — is
@@ -15,10 +24,7 @@ silently skipped.
    continuation and leaves the tree dirty unless the commit the finding teaches is allowed: it
    is the compound `git add -A && git commit …`, and a rule must match each part on its own, so
    both `Bash(git add *)` and `Bash(git commit *)` go in `permissions.allow` or `--allowedTools`;
-   or set `severity: warn`. A copy of this plugin's folder made outside the repository it comes
-   from must follow links (`cp -RL`): `scripts/constitution_layer_kit` is a link to code the plugin shares with its siblings, and an install from the marketplace copies what it points at. A checkout made without symlink
-   support leaves one-line text files in their place (`git config core.symlinks true`, then check
-   out again).
+   or set `severity: warn`.
 2. **Zero configuration works** in a repository that has a `constitution.yaml`, whatever it
    says: the turn-end hook judges the tree, and the range check examines zero pairs and says so.
    Without that file every run is a visible skip naming it; an empty mapping, `{}`, is enough.

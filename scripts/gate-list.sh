@@ -76,17 +76,23 @@ members() {
     for n in $GATES $EXTRAS; do [ "$(job "$n")" = "$1" ] && echo "$n"; done
 }
 
+# scan <command>: a module's scan with the change's own shared code on PYTHONPATH. A plugin holds no shared
+# code (decision dec-0099-shared-code-installed-as-a-pip-package, R7): its entry file imports the package that
+# python3 finds, and a scan of the gate list must run the shared code of the change, never a release a person
+# installed or none, so the kit's shared/ comes first on the path for the scan alone.
+scan() { printf '%s\n' "PYTHONPATH=\"\$PWD/shared\" $*"; }
+
 commands() {
     case "$1" in
-        references) echo "sh modules/const-referencing/plugin/scripts/check-references.sh --scan" ;;
-        meta-types) echo "python3 modules/const-meta-types/plugin/scripts/check-governed-document.py --scan" ;;
-        catalogs) echo "python3 modules/const-catalogs/plugin/scripts/check-catalog-item.py --scan" ;;
-        decision-records) echo "python3 modules/const-decision-records/plugin/scripts/check-decision-record.py --scan" ;;
-        open-questions) echo "sh modules/const-questions/plugin/scripts/check-open-questions.sh --scan" ;;
-        style) echo "sh modules/const-styling/plugin/scripts/check-style.sh --scan" ;;
-        language) echo "sh modules/const-language/plugin/scripts/check-language.sh --scan" ;;
-        budgets) echo "sh modules/const-doc-budgets/plugin/scripts/check-budgets.sh --scan" ;;
-        list-handles) echo "sh modules/const-interaction/plugin/scripts/check-list-handles.sh --scan" ;;
+        references) scan sh modules/const-referencing/plugin/scripts/check-references.sh --scan ;;
+        meta-types) scan python3 modules/const-meta-types/plugin/scripts/check-governed-document.py --scan ;;
+        catalogs) scan python3 modules/const-catalogs/plugin/scripts/check-catalog-item.py --scan ;;
+        decision-records) scan python3 modules/const-decision-records/plugin/scripts/check-decision-record.py --scan ;;
+        open-questions) scan sh modules/const-questions/plugin/scripts/check-open-questions.sh --scan ;;
+        style) scan sh modules/const-styling/plugin/scripts/check-style.sh --scan ;;
+        language) scan sh modules/const-language/plugin/scripts/check-language.sh --scan ;;
+        budgets) scan sh modules/const-doc-budgets/plugin/scripts/check-budgets.sh --scan ;;
+        list-handles) scan sh modules/const-interaction/plugin/scripts/check-list-handles.sh --scan ;;
         carry-lists | shared-links | shared-package | yaml-style | module-links | handle-forms | aspects | portability | gate-lists | copies | schema-mirror | dials-schema | resolved-paths | eval-receipts)
             echo "python3 scripts/check-$1.py"
             echo "python3 scripts/check-$1.py --self-test" ;;
@@ -109,18 +115,19 @@ commands() {
                     types-*)
                         # the module's own packages, as own_packages of scripts/kit_module_doc.py derives them: each folder at
                         # the top of the plugin's scripts/, itself no link, that holds an __init__.py, whose name starts
-                        # with neither . nor _ (the glob skips . already), save constitution_layer_kit
+                        # with neither . nor _ (the glob skips . already), save constitution_layer_kit. The plugin holds
+                        # no shared code, so the shared package comes from the kit's shared/ on MYPYPATH.
                         for p in modules/"$m"/plugin/scripts/*; do
                             case "${p##*/}" in _* | constitution_layer_kit) continue ;; esac
-                            [ -d "$p" ] && [ ! -L "$p" ] && [ -f "$p/__init__.py" ] && echo "cd modules/$m/plugin/scripts && python3 -m mypy --strict ${p##*/}"
+                            [ -d "$p" ] && [ ! -L "$p" ] && [ -f "$p/__init__.py" ] && echo "cd modules/$m/plugin/scripts && MYPYPATH=../../../../shared python3 -m mypy --strict ${p##*/}"
                         done
-                        echo "cd modules/$m/plugin/scripts && python3 -m mypy --strict *.py"
+                        echo "cd modules/$m/plugin/scripts && MYPYPATH=../../../../shared python3 -m mypy --strict *.py"
                         echo "cd modules/$m/tests && python3 -m mypy --strict *.py" ;;
                 esac
                 return 0
             done
             return 1 ;;
-        task-close) echo "sh modules/const-task-close/plugin/scripts/check-task-close.sh --scan" ;;
+        task-close) scan sh modules/const-task-close/plugin/scripts/check-task-close.sh --scan ;;
         branch-gate) echo "sh scripts/git-hooks/tests/run.sh" ;;
         setup-claude) echo "sh scripts/tests/setup-claude.sh" ;;
         lint)
@@ -128,7 +135,7 @@ commands() {
             echo "python3 -m ruff check scripts shared" ;;
         types)
             echo "cd shared && python3 -m mypy --strict constitution_layer_kit"
-            echo "cd scripts && MYPYPATH=../modules/const-meta-types/plugin/scripts:../modules/const-decision-records/plugin/scripts python3 -m mypy --strict *.py" ;;
+            echo "cd scripts && MYPYPATH=../modules/const-meta-types/plugin/scripts:../modules/const-decision-records/plugin/scripts:../shared python3 -m mypy --strict *.py" ;;
         *) return 1 ;;
     esac
 }

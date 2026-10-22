@@ -41,6 +41,7 @@ from constitution_layer_kit.output import ROTATE_AT, log_name
 from constitution_layer_kit.repository import list_markdown
 from consumer import ROOT_POLICY
 from harness import (
+    SHARED,
     Edit,
     Harness,
     Result,
@@ -53,6 +54,7 @@ from harness import (
 )
 
 NO_ENVELOPE = "# Fixture\n\nNo envelope at all.\n"
+PACKAGE = "constitution_layer_kit"  # the shared package, a folder of the kit's `shared/`
 
 # Run at the start of a gate's process, through a `sitecustomize` on PYTHONPATH — any module's entry
 # point, whatever its wrapper. It logs the `timeout=` each git call is given, one line, the call after it;
@@ -72,11 +74,8 @@ import subprocess
 import sys
 import types
 
-scripts = os.environ["GIT_PATCH_SCRIPTS"]
-sys.path.insert(0, scripts)
 from constitution_layer_kit import identity, repository
 
-sys.path.remove(scripts)
 lowered = os.environ.get("GIT_PATCH_SECONDS")
 trigger = os.environ.get("GIT_PATCH_TRIGGER")
 hook_lowered = os.environ.get("GIT_PATCH_HOOK_SECONDS")
@@ -146,7 +145,6 @@ def git_patch(
     log = folder / "git-calls"
     env = {
         "PYTHONPATH": os.pathsep.join(filter(None, [str(folder), os.environ.get("PYTHONPATH")])),
-        "GIT_PATCH_SCRIPTS": str(h.scripts),
         "GIT_PATCH_LOG": str(log),
     }
     if seconds is not None and trigger is not None:
@@ -170,6 +168,20 @@ def declared_hook_seconds(log: Path) -> list[str]:
     """The `hook_seconds` of each declaration the process made, as `repr` wrote it, one per line."""
     kept = log.with_name(log.name + "-hook-seconds")
     return kept.read_text().splitlines() if kept.exists() else []
+
+
+def entry_requires(entry: Path) -> str:
+    """The release of the shared package that an entry file requires: the string it assigns to `REQUIRES`
+    at the top of the file, read from its syntax tree, never run."""
+    for node in ast.parse(entry.read_text(encoding="utf-8")).body:
+        if (
+            isinstance(node, ast.Assign)
+            and [target.id for target in node.targets if isinstance(target, ast.Name)] == ["REQUIRES"]
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        ):
+            return node.value.value
+    pytest.fail(f"{entry} assigns no string to REQUIRES at its top level")
 
 
 def hook_budget(calls: list[str]) -> None:
@@ -378,11 +390,12 @@ class SharedItems:
     def broken(self, result: Result, failure: Broken) -> None:
         self.broken_as_typed(result, failure.render())
 
-    def broken_as_typed(self, result: Result, line: str) -> None:
+    def broken_as_typed(self, result: Result, line: str, label: str = "") -> None:
         """The failure's line first — typed by hand where the item types it — then the closing line."""
-        broken_first_line(result, line)
+        broken_first_line(result, line, label)
         counted = self.s.closing in result.stderr  # a run that examined, or changed, nothing says so
-        assert counted, f"no count line after: {result.stderr.strip()}"
+        said = f"no count line after: {result.stderr.strip()}"
+        assert counted, f"{label}: {said}" if label else said
 
     def bin_with(self, *tools: str) -> str:
         """A PATH directory holding only the named tools, to simulate the absence of the rest."""
@@ -392,6 +405,79 @@ class SharedItems:
             assert source, tool
             os.symlink(source, directory / tool)
         return str(directory)
+
+    # ---------------------------------------------------------------- the shared package: absent, old, new
+
+    def clause(self) -> str:
+        """What closes `C15`, `C16` and `C17` behind a dash in the entry file: the identity's
+        `until_installed`; a generator's closing carries none, its text ending after `says`."""
+        return f" — {identity.current().until_installed}" if self.s.event_driven else ""
+
+    def guide(self) -> Path:
+        """The install note the lines send to: `INSTALL.md` in the folder above the entry file's."""
+        return self.h.entry.parent.parent / "INSTALL.md"
+
+    def package_missing(self, guide: Path) -> str:
+        """`C15` as the entry file prints it, typed by hand: the version it requires and that version's
+        major, the path of the plugin's own install note, escaped, and the module's clause."""
+        required = entry_requires(self.h.entry)
+        return (
+            f"BROKEN: {self.ns} needs the Python package constitution-layer-kit {required} or a later"
+            f" {required.partition('.')[0]}.x release, and python3 cannot import it — fix: install it for"
+            f" python3 as {messages.escaped(str(guide))} says{self.clause()}"
+        )
+
+    def package_too_old(self, found: str, guide: Path) -> str:
+        """`C16` as the entry file prints it, typed by hand, for an installed release `found`."""
+        required = entry_requires(self.h.entry)
+        return (
+            f"BROKEN: {self.ns} needs constitution-layer-kit {required} or a later"
+            f" {required.partition('.')[0]}.x release, found {found} — fix: install one for python3 as"
+            f" {messages.escaped(str(guide))} says{self.clause()}"
+        )
+
+    def module_too_old(self, found: str, guide: Path) -> str:
+        """`C17` as the entry file prints it, typed by hand, for an installed release `found`."""
+        required = entry_requires(self.h.entry)
+        return (
+            f"BROKEN: {self.ns} was written for constitution-layer-kit {required}, a"
+            f" {required.partition('.')[0]}.x release, found {found} — fix: update the plugin to a release"
+            f" written for {found.partition('.')[0]}.x, or install a {required.partition('.')[0]}.x release"
+            f" of constitution-layer-kit for python3 as {messages.escaped(str(guide))} says{self.clause()}"
+        )
+
+    def release_with(self, version: str) -> dict[str, str]:
+        """The environment that puts a copy of the shared package first on PYTHONPATH, its `__version__`
+        set to `version`: the gate imports the copy, since the harness's own folder comes after it."""
+        folder = self.h.scratch_dir()
+        copy = folder / PACKAGE
+        shutil.copytree(SHARED / PACKAGE, copy, ignore=shutil.ignore_patterns("__pycache__"))
+        init = copy / "__init__.py"
+        text = init.read_text(encoding="utf-8")
+        stated = f'__version__ = "{package_version}"'
+        assert text.count(stated) == 1, f"{init} does not state its version as {stated}"
+        init.write_text(text.replace(stated, f'__version__ = "{version}"'), encoding="utf-8")
+        return {"PYTHONPATH": str(folder)}
+
+    def valid_run(
+        self, env: dict[str, str] | None = None, command: Sequence[str] | None = None
+    ) -> tuple[Result, str]:
+        """A run the gate passes, as each kind of gate is run: a generator's act from inside a fresh
+        consumer, a scan over a consumer holding the passed document, the event of a gate on no file, and
+        for a gate on a file a README with no envelope. The result, and the green line it says."""
+        consumer = self.h.fresh_consumer()
+        if not self.s.event_driven:
+            result = self.h.run_gate("", args=self.s.act_args, env=env, command=command, cwd=consumer.root)
+            return result, self.s.green
+        if self.s.scan_only:
+            consumer.write(self.s.valid.target, self.s.valid.text)
+            result = self.h.run_gate("", args=self.scan_args(consumer.root), env=env, command=command)
+            return result, self.s.green
+        if self.no_file:
+            result = self.h.run_gate(self.payload(consumer.root, self.s.valid), env=env, command=command)
+            return result, self.s.green
+        event = event_json(consumer.root, Write("README.md", NO_ENVELOPE))
+        return self.h.run_gate(event, env=env, command=command), self.s.bare_readme
 
     # ---------------------------------------------------------------- the dials file
 
@@ -536,7 +622,7 @@ class SharedItems:
         seen: dict[str, object] = {}
         for mode in ("hook", "scan", "act", "none"):
             done = subprocess.run(
-                [sys.executable, "-c", program, str(self.h.scripts), mode],
+                [sys.executable, "-c", program, str(SHARED), mode],
                 capture_output=True,
                 text=True,
                 check=False,
@@ -585,7 +671,7 @@ class SharedItems:
             "    print('other mode: RuntimeError', failure)\n"
         )
         done = subprocess.run(
-            [sys.executable, "-c", program, str(self.h.scripts)], capture_output=True, text=True, check=False
+            [sys.executable, "-c", program, str(SHARED)], capture_output=True, text=True, check=False
         )
         lines = done.stdout.splitlines()
         ok = (
@@ -887,7 +973,7 @@ class SharedItems:
         seen: dict[str, object] = {}
         for mode in ("hook", "scan", "act", "none"):
             done = subprocess.run(
-                [sys.executable, "-c", program, str(self.h.scripts), mode],
+                [sys.executable, "-c", program, str(SHARED), mode],
                 capture_output=True,
                 text=True,
                 check=False,
@@ -935,7 +1021,7 @@ class SharedItems:
             "print(len(started))\n"
         )
         done = subprocess.run(
-            [sys.executable, "-c", program, str(self.h.scripts)], capture_output=True, text=True, check=False
+            [sys.executable, "-c", program, str(SHARED)], capture_output=True, text=True, check=False
         )
         wanted = [
             self.spent("2", "the prose linter finished"),
@@ -1432,28 +1518,48 @@ def test_library_absent(subject: Subject) -> None:
     it.broken(result, messages.c2_library_missing("PyYAML", str(preflight.requirements_file())))
 
 
-@item(115, "absence: the shared code, as an install that dropped its link would leave the plugin")
+@item(115, "absence: the shared code, the Python package that python3 cannot import")
 def test_shared_code_absent(subject: Subject) -> None:
-    """The plugin as an install that dropped the link to the shared code would leave it."""
+    """The package missing for python3 in four ways, each the entry file's `C15`, typed by hand, then the
+    closing line: a folder first on PYTHONPATH whose package fails to import; the harness's own shared
+    folder left out with nothing else importable (`-S`, so that no release installed for the developer's
+    python3 is found); an empty folder of the package's name as the one candidate; and the plugin in a folder
+    whose name holds a backslash, a line feed and a carriage return, whose path the line shows escaped on
+    one line. The note the line sends to exists."""
     it = shared(subject, "shared_code_absent")
-    plugin = it.h.scratch_dir() / "plugin"
-    shutil.copytree(it.h.scripts, plugin / "scripts", symlinks=True)
-    gate_code = plugin / "scripts" / "constitution_layer_kit"
-    gate_code.unlink() if gate_code.is_symlink() else shutil.rmtree(gate_code)
-    consumer = it.h.fresh_consumer()
+    stdin = it.payload(it.h.fresh_consumer().root, it.s.valid)
+    assert it.guide().is_file(), f"the line sends to {it.guide()}, which is no file"
+    wanted = it.package_missing(it.guide())
+    failing = it.h.scratch_dir()
+    (failing / PACKAGE).mkdir()
+    (failing / PACKAGE / "__init__.py").write_text(
+        "raise ImportError('simulated absence')\n", encoding="utf-8"
+    )
+    it.broken_as_typed(
+        it.h.run_gate(stdin, env={"PYTHONPATH": str(failing)}), wanted, "a package that fails to import"
+    )
+    alone = [sys.executable, "-S", str(it.h.entry)]
+    nothing = {"PYTHONPATH": ""}
+    it.broken_as_typed(
+        it.h.run_gate(stdin, env=nothing, command=alone, shared=False), wanted, "the shared folder left out"
+    )
+    empty = it.h.scratch_dir()
+    (empty / PACKAGE).mkdir()
+    it.broken_as_typed(
+        it.h.run_gate(stdin, env={"PYTHONPATH": str(empty)}, command=alone, shared=False),
+        wanted,
+        "an empty folder of the package's name",
+    )
+    odd = it.h.scratch_dir() / "a\\b\nc\rd"
+    (odd / "scripts").mkdir(parents=True)
+    shutil.copy(it.h.entry, odd / "scripts" / it.h.entry.name)
     result = it.h.run_gate(
-        it.payload(consumer.root, it.s.valid),
-        command=[it.h.sh, str(plugin / "scripts" / it.h.wrapper.name)],
+        stdin,
+        env=nothing,
+        command=[sys.executable, "-S", str(odd / "scripts" / it.h.entry.name)],
+        shared=False,
     )
-    expect(result, 1, f"BROKEN: {it.ns} is installed without its shared code", "stderr", label="link removed")
-    gate_code.mkdir()  # an install that left an empty directory behind: importable, and still no code
-    result = it.h.run_gate(
-        it.payload(consumer.root, it.s.valid),
-        command=[it.h.sh, str(plugin / "scripts" / it.h.wrapper.name)],
-    )
-    expect(
-        result, 1, f"BROKEN: {it.ns} is installed without its shared code", "stderr", label="empty directory"
-    )
+    it.broken_as_typed(result, it.package_missing(odd / "INSTALL.md"), "a plugin folder with line breaks")
 
 
 @item(116, "a failing git is a configuration failure, never a green skip")
@@ -1812,23 +1918,8 @@ def test_copy_with_links_followed(subject: Subject) -> None:
     plugin = it.h.scratch_dir() / "plugin"
     shutil.copytree(it.h.scripts, plugin / "scripts", symlinks=False)
     shutil.copy(preflight.requirements_file(), plugin / "requirements.txt")
-    copied = [it.h.sh, str(plugin / "scripts" / it.h.wrapper.name)]
-    consumer = it.h.fresh_consumer()
-    if not it.s.event_driven:  # a generator: a run that completes, from inside the consumer
-        result = it.h.run_gate("", args=it.s.act_args, command=copied, cwd=consumer.root)
-        expect(result, 0, it.s.green, "stdout")
-        return
-    if it.s.scan_only:  # the consumer holding the passed document, scanned by the copy
-        consumer.write(it.s.valid.target, it.s.valid.text)
-        result = it.h.run_gate("", args=it.scan_args(consumer.root), command=copied)
-        expect(result, 0, it.s.green, "stdout")
-        return
-    if it.no_file:  # a clean consumer at a turn's end, or a command the gate passes: the gate's green
-        result = it.h.run_gate(it.payload(consumer.root, it.s.valid), command=copied)
-        expect(result, 0, it.s.green, "stdout")
-        return
-    result = it.h.run_gate(event_json(consumer.root, Write("README.md", NO_ENVELOPE)), command=copied)
-    expect(result, 0, it.s.bare_readme, "stdout")
+    result, green = it.valid_run(command=[it.h.sh, str(plugin / "scripts" / it.h.wrapper.name)])
+    expect(result, 0, green, "stdout")
 
 
 @item(141, "not fail-open: an unexpected exception exits 1, BROKEN first, the traceback after")
@@ -3129,7 +3220,7 @@ def test_dials_prefix_is_the_files(subject: Subject) -> None:
     def read(namespace: str, text: str) -> object:
         folder = it.h.scratch_dir()
         done = subprocess.run(
-            [sys.executable, "-c", LAYER_PROGRAM, str(it.h.scripts), namespace, text, str(folder)],
+            [sys.executable, "-c", LAYER_PROGRAM, str(SHARED), namespace, text, str(folder)],
             capture_output=True,
             text=True,
             check=False,
@@ -3277,4 +3368,58 @@ def test_dials_prefix_namespaces(subject: Subject) -> None:
             it.broken_as_typed(it.s.gate_on(it.s.valid, dials_patch=patch)[0], line)
         except AssertionError as error:
             failed.append(f"{what}: {error}")
+    assert not failed, "; ".join(failed)
+
+
+@item(184, "C16: the installed release is below the one the entry file requires, through the entry point")
+def test_shared_code_too_old(subject: Subject) -> None:
+    """A copy of the shared package whose `__version__` is `0.9.0`, first on PYTHONPATH, under the module's
+    real entry point: `C16`, typed by hand, naming the version the entry file requires and the one found,
+    exit 1, the closing line after it. The entry file alone in a folder of its own, with none of the
+    module's packages beside it, gives the same line with the path of its own note: the check comes before
+    the import of the module's own package."""
+    it = shared(subject, "shared_code_too_old")
+    found = "0.9.0"
+    stdin = it.payload(it.h.fresh_consumer().root, it.s.valid)
+    env = it.release_with(found)
+    it.broken_as_typed(it.h.run_gate(stdin, env=env), it.package_too_old(found, it.guide()), "in place")
+    alone = it.h.scratch_dir() / "plugin"
+    (alone / "scripts").mkdir(parents=True)
+    shutil.copy(it.h.entry, alone / "scripts" / it.h.entry.name)
+    result = it.h.run_gate(stdin, env=env, command=[sys.executable, str(alone / "scripts" / it.h.entry.name)])
+    it.broken_as_typed(result, it.package_too_old(found, alone / "INSTALL.md"), "the entry file alone")
+
+
+@item(185, "C17: the installed release is of a later major than the one the entry file requires")
+def test_shared_code_new_major(subject: Subject) -> None:
+    """A copy of the shared package whose `__version__` is `2.0.0`, under the module's real entry point:
+    `C17`, typed by hand, naming the version the entry file requires, its major and the major found,
+    exit 1, the closing line after it. The entry file alone in a folder of its own gives the same line
+    with the path of its own note."""
+    it = shared(subject, "shared_code_new_major")
+    found = "2.0.0"
+    stdin = it.payload(it.h.fresh_consumer().root, it.s.valid)
+    env = it.release_with(found)
+    it.broken_as_typed(it.h.run_gate(stdin, env=env), it.module_too_old(found, it.guide()), "in place")
+    alone = it.h.scratch_dir() / "plugin"
+    (alone / "scripts").mkdir(parents=True)
+    shutil.copy(it.h.entry, alone / "scripts" / it.h.entry.name)
+    result = it.h.run_gate(stdin, env=env, command=[sys.executable, str(alone / "scripts" / it.h.entry.name)])
+    it.broken_as_typed(result, it.module_too_old(found, alone / "INSTALL.md"), "the entry file alone")
+
+
+@item(186, "an installed release of a later minor or patch of the same major serves the entry file")
+def test_shared_code_later_release(subject: Subject) -> None:
+    """Copies of the shared package at `1.0.1`, `1.4.0` and `1.10.0`, under the module's real entry point,
+    the last read as a number above `1.4.0`: each run passes what it passes with the release at hand, its
+    green line on stdout and no `BROKEN` line, each run gathered so that one version's red hides no
+    other."""
+    it = shared(subject, "shared_code_later_release")
+    failed: list[str] = []
+    for found in ("1.0.1", "1.4.0", "1.10.0"):
+        result, green = it.valid_run(env=it.release_with(found))
+        if result.code != 0 or green not in result.stdout or "BROKEN" in result.stderr:
+            failed.append(
+                f"{found}: exit {result.code}, stdout {result.stdout.strip()}, stderr {result.stderr.strip()}"
+            )
     assert not failed, "; ".join(failed)

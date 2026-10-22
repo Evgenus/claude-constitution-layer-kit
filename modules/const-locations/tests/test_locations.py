@@ -1129,13 +1129,11 @@ def test_write_fails_part_way() -> None:
     is L5.20, and the file and the directory made for it are removed: the tree as it was."""
     consumer = prepared()
     before = tree_state(consumer)
-    env = dict(os.environ)
-    env.pop("CLAUDE_PLUGIN_DATA", None)
     done = subprocess.run(
         [H.sh, str(H.wrapper), *LONG_ARGS],
         text=True,
         capture_output=True,
-        env=env,
+        env=H.environment(),
         check=False,
         cwd=consumer.root,
         preexec_fn=limited_to_file_size,  # the harness's run takes none: the limit is this item's alone

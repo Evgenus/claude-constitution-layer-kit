@@ -54,6 +54,7 @@ from unittest import mock
 KIT = Path(__file__).resolve().parent.parent
 for module in ("const-meta-types", "const-decision-records"):  # kit-side test code only
     sys.path.insert(0, str(KIT / "modules" / module / "plugin" / "scripts"))
+sys.path.insert(0, str(KIT / "shared"))  # the shared package: no plugin holds a link to it
 
 try:
     import jsonschema

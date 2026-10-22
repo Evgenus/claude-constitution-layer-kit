@@ -29,15 +29,16 @@ one, the `gitCommitSha` of that entry, the one field read that no page documents
 only as a git object id. `claude plugin marketplace add` is read for its exit, and on a failure its last
 output line is quoted; `claude --version` is read for its first word.
 
-The shared code (decision dec-0099-shared-code-installed-as-a-pip-package, R17): a module's plugin holds no
-copy of `shared/constitution_layer_kit/`, and its hooks and scans import the package that `python3` finds. So
-that they find the change's own code and never a release a person installed, the check makes, right after the
-bare repository, the environment of `kit_install.shared_path` under the same throwaway folder: a virtual
-environment of the python3 the check runs under, with its system packages, whose `.pth` file names the working
-folder's `shared/`; nothing is built and nothing needs the network. The marketplace add, the install and the
-list of step 2, and every hook and scan of step 3, run with that environment's `bin` first on PATH. The
-`claude --version` command is asked before any folder exists and loads no plugin, so it keeps the person's
-PATH. A failure to make the environment is a configuration failure with the fix, as that function words it.
+The shared code (decision dec-0099-shared-code-installed-as-a-pip-package, R7 and R17): a module's plugin
+holds no copy of `shared/constitution_layer_kit/`, and its hooks and scans import the package that `python3`
+finds. So that they find the change's own code and never a release a person installed, the check makes,
+right after the bare repository, the environment of `kit_install.shared_path` under the same throwaway
+folder: a virtual environment of the python3 the check runs under, with its system packages, whose `.pth`
+file names the working folder's `shared/`; nothing is built and nothing needs the network. The marketplace
+add, the install and the list of step 2, and every hook and scan of step 3, run with that environment's
+`bin` first on PATH. The `claude --version` command is asked before any folder exists and loads no plugin,
+so it keeps the person's PATH. A failure to make the environment is a configuration failure with the fix,
+as that function words it.
 
 For the module named, in throwaway folders that the check removes:
   1. a bare repository — `git init`, the kit's kernel copied to docs/constitution/ and committed,
@@ -88,7 +89,10 @@ For the module named, in throwaway folders that the check removes:
      folder holds such a link today, since a module's runner's links stand in its `tests/`, beside
      `plugin/`; every
      other link arrives as a real file, or a real directory, with the
-     same files byte for byte; the copy holds no link the source lacks; the copy holds
+     same files byte for byte; the copy holds no link the source lacks; the copy holds nothing at
+     scripts/constitution_layer_kit, no folder, no file and no link, whatever the source holds there: a plugin
+     holds no shared code (decision dec-0099-shared-code-installed-as-a-pip-package, R7), and anything there
+     would shadow the package pip installed, a script's folder coming first on Python's path; the copy holds
      the source's hooks file; every hook of the source's hooks/hooks.json, which is a `command` hook
      (`hooks_of`: a hook of another type, `http`, `mcp_tool`, `prompt` or `agent`, is a failure to run, since
      the check cannot prove a hook it does not run), run from the copy in
@@ -225,7 +229,8 @@ Modes:  --module <name> [--from <source>]  check one module of the kit;
                          the pin and off it, and the reports of a refusal, of a finding, of a green run and
                          of configuration failures, a file the run cannot read included, as literal lines
                          through `main`, with and without the note; and of a module's source at a commit
-                         from the kit's history (const-meta-types at HEAD, its links reaching shared/); and
+                         from the kit's history (const-meta-types at HEAD, its plugin
+                         free of shared code); and
                          the version check over a fake `claude` that answers `--version` with the pin,
                          another version, a longer or shorter one, no version, blank lines before the
                          version, a failure, a crash and no answer, the variable unset and at each other
@@ -250,7 +255,9 @@ Modes:  --module <name> [--from <source>]  check one module of the kit;
                          each a BROKEN line with its fix; the check run under a virtual environment, whose
                          packages the new environment sees; and a plugin with no link to the shared code,
                          whose hook and scan import it, green with the environment's PATH and red without
-                         it, the hook and the scan each exiting 1.
+                         it, the hook and the scan each exiting 1; and a copy that holds a folder, a link, a
+                         dangling link or a file at scripts/constitution_layer_kit, whatever its source holds
+                         there, a finding that names what stands there, ahead of any other.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -731,6 +738,26 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
     return findings
 
 
+def shared_code_findings(module: str, plugin: Path) -> list[Finding]:
+    """The installed copy holds nothing at scripts/constitution_layer_kit: no folder, no file, no link and no
+    dangling link, whatever the source holds there. A plugin holds no shared code; its entry files import the
+    package that pip installed for python3, and a folder at this place, which comes first on Python's path
+    as the script's own folder, would shadow it."""
+    place = plugin / "scripts" / "constitution_layer_kit"
+    if not (there(place) or link_at(place)):
+        return []
+    found = "a link" if link_at(place) else "a folder" if folder_at(place) else "a file"
+    return [
+        Finding(
+            module,
+            f"the installed copy holds scripts/constitution_layer_kit, {found}, shared code in a plugin that"
+            " imports the package pip installed",
+            f"remove it from the module (git rm -r modules/{module}/plugin/scripts/constitution_layer_kit):"
+            " the entry files import the Python package for python3, and anything at this place shadows it",
+        )
+    ]
+
+
 def check_installed(
     module: str, source: Path, plugin: Path, repo: Path, data: Path, path: str | None = None
 ) -> list[Finding]:
@@ -746,7 +773,7 @@ def check_installed(
     lacks_hooks_file = file_at(source / "hooks" / "hooks.json") and not file_at(
         plugin / "hooks" / "hooks.json"
     )
-    findings = link_findings(module, source, plugin)
+    findings = shared_code_findings(module, plugin) + link_findings(module, source, plugin)
     if lacks_hooks_file:
         findings.append(
             Finding(module, "the installed copy has no hooks/hooks.json", "restore the hooks file")
@@ -852,9 +879,9 @@ def installed_commit(config: Path, key: str, plugin: Path, note: Note) -> str:
 
 
 def source_at(commit: str, module: str, root: Path) -> Path:
-    """The kit's source of the module at a commit — its plugin folder, the module's document beside it, and
-    the shared code its links reach — read from git history into a folder under root, the commit fetched
-    when the clone lacks it; the plugin folder is what it returns."""
+    """The kit's source of the module at a commit — its plugin folder and the module's document beside it —
+    read from git history into a folder under root, the commit fetched when the clone lacks it; the plugin
+    folder is what it returns. The plugin holds no link to the shared code, so the shared code is not read."""
     env = os.environ.copy()
     code, _, _ = run(["git", "cat-file", "-e", f"{commit}^{{commit}}"], KIT, env)
     if code != 0:
@@ -869,7 +896,7 @@ def source_at(commit: str, module: str, root: Path) -> Path:
             )
     try:
         done = subprocess.run(
-            ["git", "archive", "--format=tar", commit, f"modules/{module}", "shared"],
+            ["git", "archive", "--format=tar", commit, f"modules/{module}"],
             cwd=KIT,
             capture_output=True,
             check=True,
@@ -1081,6 +1108,9 @@ def fixture_source_changes(change: str, source: Path, shared: Path, copy: Path) 
     if change == "inner-link-copied":
         (source / "scripts" / "again").symlink_to(source / "hooks")
         shutil.copytree(source / "hooks", copy / "scripts" / "again")
+    if change == "shared-code-folder":  # the old arrangement: a link to the shared code, arrived as a folder
+        (source / "scripts" / "constitution_layer_kit").symlink_to(shared)
+        shutil.copytree(shared, copy / "scripts" / "constitution_layer_kit")
     if change == "link-other-bytes":
         (source / "scripts" / "one").symlink_to(shared / "code.py")
         (copy / "scripts" / "one").write_text("x = 2\n", encoding="utf-8")
@@ -1116,6 +1146,12 @@ def fixture_copy_changes(change: str, shared: Path, copy: Path) -> None:
         (copy / "scripts" / "shared" / "added.py").write_text("y = 1\n", encoding="utf-8")
     if change == "extra-link":
         (copy / "scripts" / "made").symlink_to(copy / "hooks")
+    if change == "shared-code-link":
+        (copy / "scripts" / "constitution_layer_kit").symlink_to(shared)
+    if change == "shared-code-file":
+        (copy / "scripts" / "constitution_layer_kit").write_text("x = 1\n", encoding="utf-8")
+    if change == "shared-code-dangling":
+        (copy / "scripts" / "constitution_layer_kit").symlink_to(copy / "nowhere")
 
 
 def fixture_folders(root: Path, change: str) -> tuple[Path, Path]:
@@ -1180,7 +1216,8 @@ LINK_CASES = {
         "runner-link-to-a-link",
         "the link tests/own_gate is left a link",
     ),
-    "a link of tests/ to a real folder scripts/constitution_layer_kit leads inside the plugin": (
+    "a link of tests/ to a real folder scripts/constitution_layer_kit leads inside the plugin, beside the"
+    " shared code the folder is": (
         "runner-link-constitution-layer-kit",
         "the link tests/constitution_layer_kit is left a link",
     ),
@@ -1220,6 +1257,22 @@ LINK_CASES = {
         "arrived as a file",
     ),
     "a link in the copy that the source lacks is a finding": ("extra-link", "a link its source lacks"),
+    "a folder at scripts/constitution_layer_kit in the copy, the source's link to it arrived, is a finding": (
+        "shared-code-folder",
+        "holds scripts/constitution_layer_kit, a folder, shared code in a plugin",
+    ),
+    "a link at scripts/constitution_layer_kit in the copy is a finding, ahead of the link its source lacks": (
+        "shared-code-link",
+        "holds scripts/constitution_layer_kit, a link, shared code in a plugin",
+    ),
+    "a dangling link at scripts/constitution_layer_kit in the copy is a finding": (
+        "shared-code-dangling",
+        "holds scripts/constitution_layer_kit, a link, shared code in a plugin",
+    ),
+    "a file at scripts/constitution_layer_kit in the copy is a finding": (
+        "shared-code-file",
+        "holds scripts/constitution_layer_kit, a file, shared code in a plugin",
+    ),
     "a hook given another event than its own is a finding": ("no-event", "exits 3"),
     "a shell scan that is red is a finding": ("scan-red", "check-x --scan"),
     "a Python scan that is red is a finding": ("py-scan-red", "check-p.py --scan"),
@@ -1259,6 +1312,14 @@ def link_cases(tally: Tally) -> None:
     for name, (change, wanted) in LINK_CASES.items():
         got = [f.what for f in fixture_findings(change)]
         ok = got == [] if not wanted else len(got) >= 1 and all(wanted in g for g in got[:1])
+        if (
+            change == "runner-link-constitution-layer-kit"
+        ):  # the folder is shared code, found ahead of the link
+            ok = (
+                len(got) == 2
+                and "holds scripts/constitution_layer_kit, a folder" in got[0]
+                and wanted in got[1]
+            )
         if change == "no-hooks-file":
             ok = ok and len(got) == 1  # the file is missing; the hook the source names still runs in the copy
         if change == "inner-link":
@@ -4150,13 +4211,14 @@ def source_at_commit_case(tally: Tally) -> None:
         root = Path(tmp).resolve()
         extracted = source_at(head, "const-meta-types", root)
         ok = extracted == root / "source" / "modules" / "const-meta-types" / "plugin"
+        shared_code = extracted / "scripts" / "constitution_layer_kit"
         ok = (
             ok
             and (extracted.parent / "MODULE.md").is_file()
-            and (extracted / "scripts" / "constitution_layer_kit").is_symlink()
+            and (extracted / "hooks" / "hooks.json").is_file()
+            and not (shared_code.is_symlink() or shared_code.exists())  # the plugin holds no shared code
+            and not (root / "source" / "shared").exists()  # and none is read for it
         )
-        target = (extracted / "scripts" / "constitution_layer_kit").resolve()
-        ok = ok and target.is_relative_to(root / "source" / "shared") and target.is_dir()
     tally.failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] the source at a commit is read from the kit's history")
 

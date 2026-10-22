@@ -5,16 +5,21 @@ Requires: git, Python 3.12 or newer as `python3`, and the libraries in `requirem
 reported at session start and on the first `Write` or `Edit` of any file, a missing git on the first
 one of a Markdown file, each with the fix on the first line; nothing is silently skipped.
 
+The shared code is the Python package `constitution-layer-kit`, which brings PyYAML with it. A project
+installs it once, for the `python3` its hooks run:
+```bash
+python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
+```
+A line that starts `BROKEN: const-catalogs needs the Python package constitution-layer-kit` (`C15`),
+`BROKEN: const-catalogs needs constitution-layer-kit` (`C16`) or
+`BROKEN: const-catalogs was written for constitution-layer-kit` (`C17`) points here.
+
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). Four hooks. At every session start — startup, resume, clear, compaction, fork — the
    plugin prints one line into the model's context while `catalogs` lists nothing, saying so (the
    transcript does not show it), and nothing once a catalog is listed. It also prints, at every
    session start and at every subagent's start, one line naming the skill (step 7). The write-time hook fires on
    every `Write` and `Edit`; it examines Markdown files in a listed catalog's territory and nothing else.
-   A copy of this plugin's folder made outside the repository it comes from must follow links
-   (`cp -RL`): `scripts/constitution_layer_kit` is a link to code the plugin shares with its siblings, and an install from the marketplace copies what it points at. A checkout made without symlink support leaves one-line text files in
-   their place (`git config core.symlinks true`, then check out again). A plugin without it says so on
-   the first `Write` or `Edit` and checks nothing until repaired.
 2. **Switch the check on: list the catalogs.** A kind is numbered because an entry here says
    so. The module guesses none: until `catalogs` lists one, every run prints
    `0 documents examined` and says why. In the project's `constitution.yaml`:

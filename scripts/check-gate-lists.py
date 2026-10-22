@@ -4,9 +4,9 @@ module's job, the list's modules are exactly the module folders, each module fol
 `const-<aspect>`, named so by its manifest, listed once in the marketplace and enabled in the kit's
 settings, which declare the marketplace, every kit check is run by an entry of the gate group, every
 top-level `const-<aspect>` key of the kit's dials file names a module folder, the `types` entry of
-the gate list puts on `MYPYPATH` the module folders the schema mirror imports from, the scan block
-of the install guide names every declared scan and nothing else, and each module folder has its pair in
-the coverage map of the range check.
+the gate list puts on `MYPYPATH` the module folders the schema mirror imports from and `../shared`, the
+scan block of the install guide names every declared scan and nothing else, and each module folder has its
+pair in the coverage map of the range check.
 
 A module declares its scan in its document's enforcement section (template §9, anchor `t9`), read
 by `kit_module_doc.enforcement` row by row, whatever a row's indent: a line whose stripped form
@@ -97,13 +97,14 @@ namespace is its plugin name), one RED finding for each that does not, by key; a
 a kernel key or a policy's namespace, a key that is no string, and a key below the top level, are not
 judged. A dials file that is missing, is no YAML or is no mapping is BROKEN. The `types` entry of the
 list, `--show types`, puts on `MYPYPATH` exactly the module folders `scripts/check-schema-mirror.py` puts
-on its import path, each as `../modules/<m>/plugin/scripts`: the folders are the strings of the one
-`for module in (...)` over a non-empty tuple of strings, read from the syntax tree and never run; the
-entry's are the items of every `MYPYPATH=` setting on a code line of its commands, comments aside, an
-empty element from a stray colon an item like another; the two are compared as sets, and a difference
-is one RED finding naming both. A mirror that is missing, is no Python or has not that one loop is
-BROKEN, and so is a list with no `types` entry. These two holds come after every other kind of finding,
-the dials file's first.
+on its import path, each as `../modules/<m>/plugin/scripts`, and `../shared`, where the shared package stands
+now that no plugin holds a link to it (decision dec-0099-shared-code-installed-as-a-pip-package, R7): the
+folders are the strings of the one `for module in (...)` over a non-empty tuple of strings, read from the
+syntax tree and never run; the entry's are the items of every `MYPYPATH=` setting on a code line of its
+commands, comments aside, an empty element from a stray colon an item like another; the two are compared as
+sets, `../shared` being one more of the wanted, and a difference is one RED finding naming both. A mirror
+that is missing, is no Python or has not that one loop is BROKEN, and so is a list with no `types` entry.
+These two holds come after every other kind of finding, the dials file's first.
 The install guide, `INSTALL.md` at the kit root, holds one fenced block whose info string is `bash
 check=scan`; its first line is `for s in <path> … ; do …`, and the words between `for s in` and `; do`
 are the paths the guide runs with `sh`, each `<module>/plugin/scripts/<stem>.sh`, the POSIX entry point of a
@@ -271,6 +272,7 @@ DIALS = "constitution.yaml"
 MIRROR = "scripts/check-schema-mirror.py"  # puts the kit-side module folders on its import path
 TYPES_ENTRY = "types"  # the entry of the list that type-checks the shared code and the kit's scripts
 MYPYPATH = re.compile(r"(?<![\w-])MYPYPATH=(\S*)")
+TYPES_SHARED = "../shared"  # where the module folders and the kit's scripts find the shared package
 DIRECTORY_SOURCE = {"source": "directory", "path": "."}  # the kit's own folder, as a settings source
 WHY_NAME = (
     "the kernel names every module `const-<aspect>`, lowercase kebab-case, and the CI gives a job"
@@ -301,8 +303,9 @@ WHY_NAMESPACE = (
     " no module folder is a dial nobody applies"
 )
 WHY_TYPES = (
-    "the schema mirror imports gate code from those module folders, so the type check of the kit's scripts"
-    " resolves it only through a MYPYPATH that names the same folders"
+    "the schema mirror imports gate code from those module folders and the shared package from shared/, so"
+    " the type check of the kit's scripts resolves them only through a MYPYPATH that names the same folders"
+    " and ../shared"
 )
 WHY_ENABLED = (
     "the kit's sessions load only the plugins its committed settings enable, and the one switch-off,"
@@ -585,7 +588,7 @@ class Finding:
             )
             return what, WHY_GUIDE, fix
         # Where.TYPES_PATH: `module` holds the list's path, `said` the entry's MYPYPATH
-        folders = ":".join(f"../modules/{name}/plugin/scripts" for name in self.names)
+        folders = ":".join([*(f"../modules/{name}/plugin/scripts" for name in self.names), TYPES_SHARED])
         held = f"`{self.said}`" if self.said else "nothing"
         what = f"its `{TYPES_ENTRY}` entry puts {held} on MYPYPATH, but {MIRROR} imports from `{folders}`"
         fix = (
@@ -1242,8 +1245,9 @@ def mirror_folders(root: Path) -> tuple[str, ...]:
 
 def types_path(root: Path) -> list[Finding]:
     """The `types` entry of the gate list puts on MYPYPATH exactly the module folders the schema mirror
-    imports from, each as `../modules/<m>/plugin/scripts`: the items of every MYPYPATH setting on a code line
-    of the entry's commands, comments aside, against the mirror's folders, as sets."""
+    imports from, each as `../modules/<m>/plugin/scripts`, and `../shared`: the items of every MYPYPATH
+    setting on a code line of the entry's commands, comments aside, against the mirror's folders and the
+    shared one, as sets."""
     items = [
         part
         for line in listed(root, "--show", TYPES_ENTRY).splitlines()
@@ -1251,7 +1255,7 @@ def types_path(root: Path) -> list[Finding]:
         for part in value.strip("\"'").split(":")
     ]
     folders = mirror_folders(root)
-    if set(items) == {f"../modules/{name}/plugin/scripts" for name in folders}:
+    if set(items) == {*(f"../modules/{name}/plugin/scripts" for name in folders), TYPES_SHARED}:
         return []
     return [Finding(GATE_LIST, Where.TYPES_PATH, said=":".join(items), names=folders)]
 
@@ -1479,7 +1483,7 @@ TEST_OWNER = (
 )
 MIRROR_FOLDERS = ("const-p", "const-q")  # the self-test's schema mirror folders, no tree's module folders
 TYPES_COMMAND = (  # the self-test's `types` entry, agreeing with MIRROR_FOLDERS
-    "cd scripts && MYPYPATH=../modules/const-p/plugin/scripts:../modules/const-q/plugin/scripts"
+    "cd scripts && MYPYPATH=../modules/const-p/plugin/scripts:../modules/const-q/plugin/scripts:../shared"
     " python3 -m mypy --strict *.py"
 )
 
@@ -1989,9 +1993,11 @@ def with_mirror(*folders: str) -> Callable[[dict[str, Any]], object]:
     return lambda f: f.update({MIRROR: mirror_text(folders)})
 
 
-def mypypath(*folders: str) -> str:
-    """The folders as the items of a MYPYPATH setting."""
-    return ":".join(f"../modules/{name}/plugin/scripts" for name in folders)
+def mypypath(*folders: str, shared: bool = True) -> str:
+    """The folders as the items of a MYPYPATH setting, `../shared` last unless `shared` is False."""
+    return ":".join(
+        [*(f"../modules/{name}/plugin/scripts" for name in folders), *([TYPES_SHARED] if shared else [])]
+    )
 
 
 def types_with(setting: str) -> str:
@@ -2269,8 +2275,23 @@ def registry_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
         "a MYPYPATH named only in a comment of the entry": edit(
             with_mirror(p, q), one, types_with("") + f"  # MYPYPATH={mypypath(p, q)}"
         ),
-        "a MYPYPATH with a path that is no module folder's": edit(
-            with_mirror(p, q), one, types_with(f"MYPYPATH={mypypath(p, q)}:../shared ")
+        "a MYPYPATH with a path that is no module folder's nor the shared one": edit(
+            with_mirror(p, q), one, types_with(f"MYPYPATH={mypypath(p, q)}:../other ")
+        ),
+        "the shared package missing from MYPYPATH": edit(
+            with_mirror(p, q), one, types_with(f"MYPYPATH={mypypath(p, q, shared=False)} ")
+        ),
+        "../shared first and the pair after it": edit(
+            with_mirror(p, q), [], types_with(f"MYPYPATH={TYPES_SHARED}:{mypypath(p, q, shared=False)} ")
+        ),
+        "../shared alone, the mirror importing from a pair": edit(
+            with_mirror(p, q), one, types_with(f"MYPYPATH={TYPES_SHARED} ")
+        ),
+        "the shared package under another path": edit(
+            with_mirror(p, q), one, types_with(f"MYPYPATH={mypypath(p, q, shared=False)}:../x/shared ")
+        ),
+        "the shared folder of the kit's root, not of the scripts' folder": edit(
+            with_mirror(p, q), one, types_with(f"MYPYPATH={mypypath(p, q, shared=False)}:shared ")
         ),
         "a folder of the pair under another path": edit(
             with_mirror(p, q), one, types_with(f"MYPYPATH={mypypath(p)}:../x/{q}/scripts ")
@@ -4131,8 +4152,9 @@ def reports_in_order(tally: Tally) -> None:
         " that names no module folder is a dial nobody applies"
     )
     types_why = (
-        "  why: the schema mirror imports gate code from those module folders, so the type check of the kit's"
-        " scripts resolves it only through a MYPYPATH that names the same folders"
+        "  why: the schema mirror imports gate code from those module folders and the shared package from"
+        " shared/, so the type check of the kit's scripts resolves them only through a MYPYPATH that names"
+        " the same folders and ../shared"
     )
 
     def namespace_lines(key: str) -> list[str]:  # typed by hand, the key the one thing that varies
@@ -4153,7 +4175,7 @@ def reports_in_order(tally: Tally) -> None:
             " on the command that type-checks scripts/*.py",
         ]
 
-    pair_path = "../modules/const-p/plugin/scripts:../modules/const-q/plugin/scripts"
+    pair_path = "../modules/const-p/plugin/scripts:../modules/const-q/plugin/scripts:../shared"
     kinds_lines = [  # the list's modules, then the registry files, then the item filters, then the kit checks
         "RED: const-quiet: the list lacks its entries `install-const-quiet`, `fixtures-const-quiet`,"
         " `lint-const-quiet`, `types-const-quiet`",
@@ -4170,7 +4192,11 @@ def reports_in_order(tally: Tally) -> None:
         "  fix: add an entry to GATES in scripts/gate-list.sh and an arm in commands() that runs"
         f" `{RUN_NEW}`, with its `--self-test` where it has one",
         *namespace_lines("const-gone"),  # the dials file, then the types entry: after every earlier kind
-        *types_lines(f"`{pair_path}`", f"{pair_path}:../modules/const-r/plugin/scripts"),
+        *types_lines(
+            f"`{pair_path}`",
+            "../modules/const-p/plugin/scripts:../modules/const-q/plugin/scripts"
+            ":../modules/const-r/plugin/scripts:../shared",
+        ),
         "RED: 6 finding(s) — 2 module document(s) examined, 1 declared scan(s), 1 kit check(s)",
     ]
     strays_lines = [  # typed by hand; a name that no folder can bear has the removal for its one fix
