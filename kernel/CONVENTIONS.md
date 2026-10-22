@@ -92,19 +92,19 @@ Body shape, when a real choice existed: the options considered, pros/cons per op
 <a id="k6"></a>
 ## 6. Dials file
 
-Per-project calibration lives in **one** file at the repository root: `constitution.yaml`. Each module reads its own namespace (its plugin name) and ships defaults that apply when the file or namespace is absent — install-and-run must work with zero configuration. The required kernel-owned key `module_prefix` names the prefix every module's namespace starts with: a kebab-case word ending in `-`. To resolve territory a module also reads the kernel-owned keys `root_policy` and `territory_dialect`, and the policy namespaces (§3); it reads no other module's namespace.
+Per-project calibration lives in **one** file at the repository root: `constitution.yaml`. Each module reads its own namespace (its plugin name) and ships defaults that apply when the file or namespace is absent — install-and-run must work with zero configuration. An existing file names, in the required kernel-owned key `module_prefix`, the prefix every module's namespace starts with: a kebab-case word ending in `-`. To resolve territory a module also reads the kernel-owned keys `root_policy` and `territory_dialect`, and the policy namespaces (§3); it reads no other module's namespace.
 
 ```yaml
 # constitution.yaml
 root_policy: docs/policies/root-policy.md   # kernel-owned: where the root policy is
-module_prefix: const-                       # kernel-owned, required: starts every module's namespace
-# territory_dialect: gitignore              # kernel-owned, optional: the pattern dialect of every territory; default gitignore
+module_prefix: const-                       # kernel-owned, required: the modules' prefix
+# territory_dialect: gitignore              # kernel-owned, optional: every territory's pattern dialect; default gitignore
 root-policy:                                # a policy's namespace is its id
   territory: ["docs/policies/**"]           # where policies live; the root lies inside
 some-policy:                                # a policy found in the root's territory
   territory: ["docs/notes/**"]              # never overlapping another policy's, the root's included
   some_calibration: value
-const-example-aspect:                       # a module's namespace, named after the plugin
+const-example-aspect:                       # a module's namespace, the plugin's name
   some_dial: value
 ```
 
