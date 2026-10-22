@@ -519,8 +519,8 @@ def defined(
 
 
 def own_python(module: Path) -> list[Path]:
-    """The module's own tracked Python under plugin/scripts/: links, and so the shared
-    constitution_layer_kit, left out."""
+    """The module's own tracked Python under plugin/scripts/; a path through a constitution_layer_kit
+    folder is left out, though no plugin holds one now."""
     return [
         path
         for path in tracked(module / "plugin", ("scripts",))
