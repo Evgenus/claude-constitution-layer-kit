@@ -25,7 +25,7 @@ On 2026-10-23 a session bootstrapped the first consumer project by section 2 of 
 10. **F10.** The turn-end hook of [`const-task-close`](../requirements.md#const-task-close), at `severity: block`, asked for a commit while step 9 waited for the yes that [kernel §4](../../kernel/CONVENTIONS.md#k4) asks of a `process` record. Following it would have landed the record before its yes.
 11. **F11.** The guide used plain policy ids without asking. The decider ruled in chat on 2026-10-23 that whether policies are a catalog is a question the install asks before the first policy, since a later change renames each policy, its dials key and every citation of it.
 
-Six of them are fixes of the guide's text, routine by [rule 6 of plc-0011-install-guide](../policies/plc-0011-install-guide.md#r6): F1, F2, F3, F4, F6 and F7. F9 is no fault: the heading equal to the title is the module's design, which its messages say. Four questions remained, F10, F11, F5 and F8, and the session put them one per message in chat on 2026-10-23, in that order. The decider chose one change for all eleven, with this one record. Sections 1 to 4 hold the questions.
+Five of them are fixes of the guide's text, routine by [rule 6 of plc-0011-install-guide](../policies/plc-0011-install-guide.md#r6): F1, F2, F3, F4 and F6. F9 is no fault: the heading equal to the title is the module's design, which its messages say. Four questions remained, F10, F11, F5 and F8, and the session put them one per message in chat on 2026-10-23, in that order. The decider chose one change for all eleven, with this one record. The session first fixed F7 as a routine edit too; the carry audit found that it changed an accepted ruling, and it became a fifth question. Sections 1 to 5 hold the questions.
 
 ## 1. Where the yes of a bootstrap lands
 
@@ -45,7 +45,7 @@ The session recommended A: it is the one option that fixes the clash for every l
 
 <a id="r1"></a>**R1.** The bootstrap of the install guide runs on a branch of its own, `work/adopt-kernel`, cut right after the repository's first commit on `main`. Each step commits on that branch. The last step merges it onto `main` with `--no-ff`, after the decider's yes, and the merge commit names the yes: it is the commit that lands record #1.
 
-<a id="r2"></a>**R2.** The kernel copy is made just before record #1, and the two land in one commit, so the record is born `inactive`.
+<a id="r2"></a>**R2.** The kernel copy is made just before record #1, in the same turn, so that the two land in one commit; if a turn ends between them, the copy is committed on the branch first. Record #1 is born `inactive`, since everything it rules — the dials file, the policies and the kernel copy — is applied by the commit that creates it.
 
 <a id="r3"></a>**R3.** A change that waits for a human yes is committed on its own branch at the end of a turn, its yes named in the merge that lands it; it is never left uncommitted to wait. The skill `commit-before-edit` of module [`const-task-close`](../requirements.md#const-task-close) says so, and its hook is unchanged.
 
@@ -83,7 +83,7 @@ The skill of `const-styling` creates a guide only when it is first loaded, and a
 
 The session recommended A: it follows the ruling of section 2, a choice made at install, when it costs least, and only by the user. The decider chose A in chat on 2026-10-23.
 
-<a id="r5"></a>**R5.** Beside the question of R4, the install guide asks "Does this project keep a style guide?" and proposes no default. On yes, the skill `style-defaults` of `const-styling` is loaded before the first policy and creates the guide, its policy and the `guides` dial, and every policy carries a style rule. On no, no guide is written. The answer is written in record #1.
+<a id="r5"></a>**R5.** Beside the question of R4, the install guide asks "Does this project keep a style guide?" and proposes no default. On yes, the skill `style-defaults` of `const-styling` is loaded before the first policy and creates the guide, its policy and the `guides` dial, and every policy carries a style rule. On no, no guide is written, and the skill `style-defaults` follows its shipped text as the guide and creates none. The answer is written in record #1.
 
 ## 4. Whether a green write reaches the model
 
@@ -103,15 +103,37 @@ The session recommended A: the silence is a decision the kit made to save contex
 
 <a id="r6"></a>**R6.** A gate that passes a write with nothing to note stays silent to the model. The install guide's step 8 says so, and names the scans as the place where every gate's verdict shows.
 
+## 5. The language of the kernel copy
+
+R10 of [dec-0062-install-guide-governed-kind](dec-0062-install-guide-governed-kind.md#r10) ruled that the guide's dials example departs from [`const-language`](../requirements.md#const-language) for `docs/constitution/**`, allowing `grade` and `sentence`, since the kernel met only the kit's own looser thresholds. The bootstrap still saw passive-voice notes on the kernel copy, which a project never edits (F7). The session widened the departure to `passive` as a routine edit, and the carry audit at 387f0f5 found that this changed R10 without a ruling. Measured on 2026-10-23 at the module's defaults, the kernel read at grade 12.17 against a ceiling of 10, held 24 sentences over 25 words, and gave 20 passive-voice notes. The kit keeps `passive: off` for its own text by [dec-0046-language-module-rulings](dec-0046-language-module-rulings.md), and the planned descent of its thresholds covers grade and sentence length, not passive voice.
+
+- **A. Allow `passive` too, a ruling here that widens R10.**
+  - **Pros:** a project's scans stay quiet about text it cannot change; the project's own documents keep the check; this change stays small.
+  - **Cons:** it changes an accepted ruling; the departure grows, and its passive part stays as long as the kit writes in the passive.
+- **B. Undo the widening, R10 as it stands.**
+  - **Pros:** no accepted ruling changes.
+  - **Cons:** about twenty notes on every scan of every new project, real notes lost among them; F7 stays open.
+- **C. `const-language.passive: off` in the guide's example.**
+  - **Pros:** the setting the kit uses for itself.
+  - **Cons:** it silences passive voice on the project's own documents, a check the module keeps on by default; it still needs a ruling.
+- **D. Rewrite the kernel in this change to meet the module's defaults, and drop the departure.**
+  - **Pros:** no departure at all; the kernel copy is checked at full strictness like every other document; the guide's example loses an entry.
+  - **Cons:** a kernel change, so the carry audit runs in full over every record ([rule 3 of plc-0002-kernel](../policies/plc-0002-kernel.md#r3)); every rewritten sentence must keep its meaning; the recreate of the first project waits for it.
+
+The session recommended A, to keep this change small and leave the rewrite to a change of its own. The decider asked to fix the language of that one file instead, and chose D in chat on 2026-10-23.
+
+<a id="r7"></a>**R7.** The kernel meets the default thresholds of `const-language` as written: its grade, its sentence length, and no passive voice the module reports. The guide's dials example carries no departure for the kernel copy, and the guide's check holds it, since its scan block runs that module's scan on the copy at the defaults. The rewrite that makes it so changes wording only. This replaces R10 of [dec-0062-install-guide-governed-kind](dec-0062-install-guide-governed-kind.md#r10).
+
 ## Applied
 
-The record was born `active`, and the change that creates it applies its rulings: the install guide's section 2 is rewritten, and the skill `commit-before-edit` of `const-task-close` gains its sentence, with boundary example 14 in that module's section 8. In the guide, the dials file and the kernel copy swap places: the dials file, step 6 before this change, is step 4, and the kernel copy, step 4 before, is step 6. A record accepted earlier that names step 4 or step 6 of the bootstrap means the other one now; the other steps keep their numbers. The commit that fixes what the carry audit finds sets the record `inactive`.
+The record was born `active`, and the change that creates it applies its rulings. The install guide's section 2 is rewritten, and its check holds what the blocks `new-repo` and `commit` now do, as [rule 4 of plc-0011-install-guide](../policies/plc-0011-install-guide.md#r4) asks. The skill `commit-before-edit` of `const-task-close` gains its sentence, with boundary example 14 in that module's section 8. The skill `style-defaults` of `const-styling`, its install note and its module document say what a project that keeps no guide does. The kernel is rewritten, and step 5 of the rollout plan follows the guide's order. In the guide, the dials file and the kernel copy swap places: the dials file, step 6 before this change, is step 4, and the kernel copy, step 4 before, is step 6. The change migrates the three carry entries of accepted records that named those steps, by case (i) of rule 14 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14). The last commit of the branch sets the record `inactive`.
 
 ## Carry list
 
-1. R1 — [the install guide](../../INSTALL.md#s2), the opening of section 2 and its steps 1 and 9.
-2. R2 — [the install guide](../../INSTALL.md#s2), steps 6 and 7 of section 2.
+1. R1 — [the install guide](../../INSTALL.md#s2), the opening of section 2 and its steps 1 and 9; [the guide's check](../../scripts/check-install-guide.py), its docstring at the names `new-repo` and `commit`.
+2. R2 — [the install guide](../../INSTALL.md#s2), the opening of section 2 and its steps 6 and 7.
 3. R3 — [the skill commit-before-edit](../../modules/const-task-close/plugin/skills/commit-before-edit/SKILL.md), its third moment; [const-task-close §8](../../modules/const-task-close/MODULE.md#t8), example 14.
 4. R4 — [the install guide](../../INSTALL.md#s2), step 4 of section 2, and step 7 for the answer.
-5. R5 — [the install guide](../../INSTALL.md#s2), steps 4, 5 and 7 of section 2.
+5. R5 — [the install guide](../../INSTALL.md#s2), steps 4, 5 and 7 of section 2; [the skill style-defaults](../../modules/const-styling/plugin/skills/style-defaults/SKILL.md), its first section; [the install note of const-styling](../../modules/const-styling/plugin/INSTALL.md), step 2.
 6. R6 — [the install guide](../../INSTALL.md#s2), step 8 of section 2.
+7. R7 — [the kernel](../../kernel/CONVENTIONS.md), its prose as written; [the install guide](../../INSTALL.md#s2), step 4 of section 2; [the guide's check](../../scripts/check-install-guide.py), its docstring at the name `scan`. What it replaces is history.
