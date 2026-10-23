@@ -65,7 +65,7 @@ The modules ship as drafts, each at version `0.0.x` until Phase D of the [rollou
 
 ## Get started
 
-The [install guide](INSTALL.md) bootstraps a new project step by step: the prerequisites, the modules loaded first, the kernel copied, the first policies, the dials file and the first record, then a scan of every module. It also covers installing one module, updating and uninstalling. CI runs its commands on every change to the kit.
+The [install guide](INSTALL.md) bootstraps a new project step by step: the prerequisites, the modules loaded first, two questions for you, the dials file, the first policies, the kernel copied and the first record, a scan of every module, then a merge that names your yes. It also covers installing one module, updating and uninstalling. CI runs its commands on every change to the kit.
 
 ## Repository map
 

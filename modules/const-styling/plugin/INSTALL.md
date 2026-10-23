@@ -18,7 +18,9 @@ A line that starts `BROKEN: const-styling needs the Python package constitution-
    before a diagram, a table, a formula, a heading below level three, a callout, a fenced block or a
    template is written, and reads the project's style guide. The scan reads the covered Markdown
    files for twelve traces of the defaults and reports each that no departure allows.
-2. **The style guide.** Create the project's guide from `skills/style-defaults/style-guide.md`:
+2. **The style guide,** when the project keeps one; a project that decided to keep none follows
+   the shipped guide, as step 3 of this note says, and creates nothing. Create the project's guide from
+   `skills/style-defaults/style-guide.md`:
    fill its envelope, put it with the project's documents, and name its path in
    `const-styling.guides`. It carries the founding defaults — Mermaid for diagrams, character
    drawings for trivial cases only, pseudocode over formulas, prose against lists against tables,

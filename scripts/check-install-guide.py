@@ -47,7 +47,8 @@ the kit as committed at HEAD, never an uncommitted edit; nothing is built and no
 environment's `bin` leads the PATH of every command the run starts, the blocks' and the `claude` commands of
 the claims. A failure to make it is a configuration failure with the fix, as that function words it.
 Beside every block's exit 0, the check holds at each name:
-  new-repo     the block ends in a git repository: the project.
+  new-repo     the block ends in a git repository, the project, whose `main` holds a commit and whose
+               checked-out branch is another, the bootstrap's own branch, at the commit `main` is at.
   marketplace  `claude plugin marketplace list --json`, run in the folder the block ended in, lists
                exactly one entry named as the kit's marketplace, by the name the clone's
                .claude-plugin/marketplace.json gives, read once by `kit_module_doc.marketplace_name`
@@ -85,7 +86,8 @@ Beside every block's exit 0, the check holds at each name:
                claims a territory, the root at `root_policy`, and decision record #1, named and placed by
                the dials' first catalog.
   scan         the block's exit: every scan it runs exits 0.
-  commit       the project's working tree is clean.
+  commit       the project's working tree is clean, `main` is checked out, and its last commit is a merge
+               whose second parent is the tip of the branch the new-repo block left checked out.
   update       every module is listed as the install claim has it, at its manifest version, its
                `installPath` the cached copy, a folder, and enabled. That an update leaves a draft's
                change at an unchanged version untaken is not run: the platform fetches a GitHub
@@ -350,13 +352,13 @@ NAMES = (
     "uninstall",
 )
 DOES = {
-    "new-repo": "creates the project's repository",
+    "new-repo": "creates the project's repository and the bootstrap's branch",
     "marketplace": "registers the kit as a marketplace",
     "install": "installs every module at project scope",
     "kernel": "copies the kernel",
     "dials": "is the dials example",
     "scan": "runs every module's scan",
-    "commit": "commits the bootstrap",
+    "commit": "commits the bootstrap and merges its branch onto main",
     "update": "updates the plugins",
     "reinstall": "uninstalls and installs each module again",
     "uninstall": "uninstalls every module",
@@ -700,6 +702,7 @@ class Run:
     marketplace: str  # the name the kit's clone gives its marketplace, read once from its marketplace.json
     note: Note  # the state of the run against the pin: the note a run off it ends its lines with, and the fix
     project: Path | None = None
+    branch: str = ""  # the bootstrap's own branch, the one the new-repo block left checked out
     clone: Path | None = None  # the platform's clone of the marketplace, its installLocation, once read
 
     def key(self, module: str) -> str:
@@ -1069,9 +1072,22 @@ def claim_kernel(state: Run, project: Path) -> str:
 
 
 def claim_commit(state: Run, project: Path) -> str:
-    """What fails of the claim that the project's working tree is clean after the commit."""
+    """What fails of the claim that the working tree is clean after the commit and that `main` holds the
+    bootstrap's branch as the second parent of its last commit, a merge."""
     code, said = run(["git", "status", "--porcelain"], project, state.env, joined=False)
-    return "" if code == 0 and not said else "the project's working tree is not clean after the commit"
+    if code != 0 or said:
+        return "the project's working tree is not clean after the commit"
+    code, head = run(["git", "symbolic-ref", "--short", "HEAD"], project, state.env, joined=False)
+    if code != 0 or head != "main":
+        return "the block ends on no `main`: the bootstrap's branch is merged onto `main`"
+    code, parents = run(["git", "rev-list", "--parents", "-n", "1", "HEAD"], project, state.env, joined=False)
+    tip_code, tip = run(
+        ["git", "rev-parse", "--verify", "--quiet", state.branch], project, state.env, joined=False
+    )
+    hashes = parents.split()  # the commit, then its parents
+    if code != 0 or tip_code != 0 or len(hashes) != 3 or hashes[2] != tip:
+        return f"the last commit of `main` is no merge of {state.branch}: the yes is named in that merge"
+    return ""
 
 
 def claim_uninstall(state: Run, project: Path) -> str:
@@ -1089,6 +1105,21 @@ def claim(state: Run, name: str) -> str:
         if code != 0:
             return "the block ends in no git repository"
         state.project = state.cwd
+        code, branch = run(["git", "symbolic-ref", "--short", "HEAD"], state.cwd, state.env, joined=False)
+        main, _ = run(
+            ["git", "rev-parse", "--verify", "--quiet", "main^{commit}"], state.cwd, state.env, joined=False
+        )
+        if main != 0:
+            return "the block makes no `main` with a commit"
+        if code != 0 or not branch:
+            return "the block ends on no branch: the bootstrap runs on a branch of its own, cut from `main`"
+        if branch == "main":
+            return "the block ends on `main`: the bootstrap runs on a branch of its own, cut from `main`"
+        _, head = run(["git", "rev-parse", "HEAD"], state.cwd, state.env, joined=False)
+        _, tip = run(["git", "rev-parse", "main"], state.cwd, state.env, joined=False)
+        if head != tip:
+            return f"{branch} does not start where `main` is: the bootstrap's branch is cut from `main`"
+        state.branch = branch
         return ""
     if project is None:
         return "no block named check=new-repo made the project first"
@@ -1732,8 +1763,8 @@ def unmade_path(root: Path, shared: Path | None = None, path: str | None = None)
 def toy_guide(**replace: str) -> str:
     """A guide with every name, the commands of the real one in small; `replace` swaps a block's text."""
     blocks = {
-        "new-repo": "mkdir -p ~/dev/my-project && cd ~/dev/my-project && git init --quiet && "
-        'git commit --quiet --allow-empty -m "Initial commit"',
+        "new-repo": "mkdir -p ~/dev/my-project && cd ~/dev/my-project && git init --quiet -b main && "
+        'git commit --quiet --allow-empty -m "Initial commit" && git switch --quiet -c work/adopt-kernel',
         "marketplace": "claude plugin marketplace add toy/kit",
         "install": "for m in ~/dev/claude-constitution-layer-kit/modules/const-*; do "
         f'claude plugin install "$(basename "$m")@{TOY_MP}" --scope project; done',
@@ -1744,7 +1775,9 @@ def toy_guide(**replace: str) -> str:
         "dials": TOY_DIALS.rstrip("\n"),
         "scan": "test -f constitution.yaml && test -f docs/policies/root-policy.md && "
         "test -f docs/policies/records.md && test -f docs/records/rec-0001-adopt-constitution-kernel.md",
-        "commit": 'git add -A && git commit --quiet -m "Adopt the constitution kernel"',
+        "commit": 'git add -A && git commit --quiet -m "Adopt the constitution kernel" && '
+        "git switch --quiet main && "
+        'git merge --quiet --no-ff work/adopt-kernel -m "Adopt the constitution kernel"',
         "update": f"claude plugin marketplace update {TOY_MP} && "
         "for m in ~/dev/claude-constitution-layer-kit/modules/const-*; "
         f'do claude plugin update "$(basename "$m")@{TOY_MP}" --scope project; done',
@@ -3560,6 +3593,44 @@ class SelfTestRun:
                 "after check=new-repo: the block ends in no git repository",
             ),
             (
+                "a repository left on main red",
+                {
+                    "new-repo": "mkdir -p ~/dev/my-project && cd ~/dev/my-project && "
+                    'git init --quiet -b main && git commit --quiet --allow-empty -m "Initial commit"'
+                },
+                "",
+                "after check=new-repo: the block ends on `main`: the bootstrap runs on a branch of its own",
+            ),
+            (
+                "a repository with no first commit red",
+                {
+                    "new-repo": "mkdir -p ~/dev/my-project && cd ~/dev/my-project && "
+                    "git init --quiet -b main && git switch --quiet -c work/adopt-kernel"
+                },
+                "",
+                "after check=new-repo: the block makes no `main` with a commit",
+            ),
+            (
+                "a repository left on a detached head red",
+                {
+                    "new-repo": "mkdir -p ~/dev/my-project && cd ~/dev/my-project && "
+                    'git init --quiet -b main && git commit --quiet --allow-empty -m "Initial commit" && '
+                    "git checkout --quiet --detach"
+                },
+                "",
+                "after check=new-repo: the block ends on no branch: the bootstrap runs on a branch",
+            ),
+            (
+                "a branch that does not start where main is red",
+                {
+                    "new-repo": "mkdir -p ~/dev/my-project && cd ~/dev/my-project && "
+                    'git init --quiet -b main && git commit --quiet --allow-empty -m "Initial commit" && '
+                    'git switch --quiet -c work/adopt-kernel && git commit --quiet --allow-empty -m "More"'
+                },
+                "",
+                "after check=new-repo: work/adopt-kernel does not start where `main` is",
+            ),
+            (
                 "a marketplace never added red",
                 {"marketplace": "true || claude plugin marketplace add toy/kit"},
                 "",
@@ -3587,8 +3658,9 @@ class SelfTestRun:
                 "a block that reads another block's variable red",
                 {
                     "new-repo": "KIT=~/dev/claude-constitution-layer-kit && mkdir -p ~/dev/my-project && "
-                    "cd ~/dev/my-project && git init --quiet && "
-                    'git commit --quiet --allow-empty -m "Initial commit"',
+                    "cd ~/dev/my-project && git init --quiet -b main && "
+                    'git commit --quiet --allow-empty -m "Initial commit" && '
+                    "git switch --quiet -c work/adopt-kernel",
                     "kernel": 'echo "$KIT" && mkdir -p docs/constitution && '
                     "cp -r ~/dev/claude-constitution-layer-kit/kernel/. docs/constitution/",
                 },
@@ -3639,6 +3711,21 @@ class SelfTestRun:
                 {"commit": "touch stray"},
                 "",
                 "after check=commit: the project's working tree",
+            ),
+            (
+                "a commit that merges nothing red",
+                {"commit": 'git add -A && git commit --quiet -m "Adopt the constitution kernel"'},
+                "",
+                "after check=commit: the block ends on no `main`",
+            ),
+            (
+                "a fast-forward in place of a merge red",
+                {
+                    "commit": 'git add -A && git commit --quiet -m "Adopt the constitution kernel" && '
+                    "git switch --quiet main && git merge --quiet --ff-only work/adopt-kernel"
+                },
+                "",
+                "after check=commit: the last commit of `main` is no merge of work/adopt-kernel",
             ),
             (
                 "an update that drops a module red",
