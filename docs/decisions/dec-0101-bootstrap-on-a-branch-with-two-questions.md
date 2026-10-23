@@ -122,7 +122,7 @@ R10 of [dec-0062-install-guide-governed-kind](dec-0062-install-guide-governed-ki
 
 The session recommended A, to keep this change small and leave the rewrite to a change of its own. The decider asked to fix the language of that one file instead, and chose D in chat on 2026-10-23.
 
-<a id="r7"></a>**R7.** The kernel meets the default thresholds of `const-language` as written: its grade, its sentence length, its two lists of phrases, and no passive-voice note. The guide's dials example carries no departure for the kernel copy. The guide's check holds what that module reports as an error at its defaults — the grade, the sentence limit and the lists — since its scan block runs that module's scan on the copy; the passive voice, a warning there and off in the kit's own dials, is held by review. The kernel policy states the rule. The rewrite that makes it so changes wording only. This replaces R10 of [dec-0062-install-guide-governed-kind](dec-0062-install-guide-governed-kind.md#r10).
+<a id="r7"></a>**R7.** The kernel meets the default thresholds of `const-language` as written: its grade, its sentence length, its two lists of phrases, and no passive-voice note. The guide's dials example carries no departure for the kernel copy. The guide's check holds what that module reports as an error at its defaults — such as the grade, the sentence limit and the lists — since its scan block runs that module's scan on the copy; the passive voice, a warning there and off in the kit's own dials, is held by review. The kernel policy states the rule. The rewrite that makes it so changes wording only. This replaces R10 of [dec-0062-install-guide-governed-kind](dec-0062-install-guide-governed-kind.md#r10).
 
 ## Applied
 
