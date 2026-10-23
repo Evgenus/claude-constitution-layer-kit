@@ -21,13 +21,13 @@ title: <one line>
 status: active               # active | inactive — lifecycle, see the lifecycle rule below
 ```
 
-**Three exceptions to the `id` rule,** each for the items of a numbered kind. A number is provisional until its item lands on the main branch. First, an item not yet landed may meet, at a pull request, an item already on the main branch under its number. Then the one not yet landed takes a new number, in its file, its `id` and its references on its own branch. The item already landed keeps its number. Second, two items of one catalog — ids that share a prefix and a number — may both land on the main branch. Then the one that landed second takes a number the catalog has not held, in its file and its `id`. Every reference to it in the tree follows. Third, a kind that already has documents may become a catalog, or a catalog's form may change, as when its width grows. Then each of its documents not yet in that form takes it once, in its file and its `id`. Every reference to it in the tree follows. In each case the id it leaves is never reused.
+**Three exceptions to the `id` rule,** each for the items of a numbered kind. A number is provisional until its item lands on the main branch. The first exception is an item not yet landed that meets, at a pull request, an item already on the main branch under its number. The one not yet landed then takes a new number, in its file, its `id` and its references on its own branch. The item already landed keeps its number. The second is two items of one catalog — ids that share a prefix and a number — that have both landed on the main branch. The one that landed second then takes a number the catalog has not held, in its file and its `id`. The renumbering rewrites every reference to it in the tree. The third is a kind that already has documents and becomes a catalog, or a catalog whose form changes, as when its width grows. Each of its documents not yet in that form then takes it once, in its file and its `id`. The renaming rewrites every reference to it in the tree. In each case the id it leaves is never reused.
 
 Creation and modification history is the repository's job — no envelope field duplicates git metadata.
 
 The envelope allows and expects more fields — upper layers (knowledge, binding) and individual modules extend it; they never alter the meaning of the fields above. Schema: `schemas/document-frontmatter.schema.json`.
 
-**Supersession rule:** the working tree holds only current truth; history is git's. Superseding a state description (a `current-state` document) means *editing the document in place*. Its id and path stay stable, so every inbound reference keeps resolving to the current version. The previous version stays in git history, and the commit message names the change a supersession. No field or status duplicates this — git is the append-only layer. Records are not superseded in place: reversing a ruling is a new record (§5).
+**Supersession rule:** the working tree holds only current truth; history is git's. Superseding a state description (a `current-state` document) means *editing the document in place*. Its id and path stay stable, so every inbound reference keeps resolving to the current version. The previous version stays unchanged in git history, and the commit message names the change a supersession. No field or status duplicates this — git is the append-only layer. Records are not superseded in place: reversing a ruling is a new record (§5).
 
 **Lifecycle rule:** `status` encodes lifecycle, with one meaning for every meta-type:
 
@@ -50,7 +50,7 @@ Exactly one per document:
 **Precedence on conflict** — authority is meta-type × lifecycle:
 
 1. Policies bind always.
-2. An **active** `task-record` is the write-head: within its scope it outranks the current-state documents it is changing. **Task close is a single act:** the change lands in code *and* in the affected current-state documents together. Then the close sets the record `inactive` and deletes its working files (git remembers). An active task-record whose scope sees no commits counts as stalled drift. Its halfway state must go back into a commit or roll back, and never stand as de-facto truth.
+2. An **active** `task-record` is the write-head: within its scope it outranks the current-state documents it is changing. **Task close is a single act:** the close applies the change to code *and* to the affected current-state documents together. Then the close sets the record `inactive` and deletes its working files (git remembers). An active task-record whose scope sees no commits counts as stalled drift. Its halfway state must go back into a commit or roll back, and never stand as de-facto truth.
 3. Current-state documents outrank every `inactive` record. Closed tasks are evidence of their moment, nothing more.
 4. **Planned** `task-record`s bind nothing; the further out, the less they even inform.
 
@@ -74,7 +74,7 @@ Every governed decision is one of:
 | stakes | meaning | ceremony |
 |---|---|---|
 | `routine` | reversible, cheap to revert | act; note in the commit message; no record |
-| `process` | harness, policy, or procedure ruling | decision record + one human yes on the change, named in the commit that lands it. Where a PR flow exists, that is the commit that merges the pull request. The yes is its approval or, where no second human reviews it, the decider's own merge. This is the fast lane: a process fix never queues behind the full gate. |
+| `process` | harness, policy, or procedure ruling | decision record + one human yes on the change, named in the commit that lands it. Where a PR flow exists, that is the commit that merges the pull request. There the yes is the approval of the pull request or, where no second human reviews it, the decider's own merge. This is the fast lane: a process fix never queues behind the full gate. |
 | `product` | user-visible behavior | decision record |
 | `architecture` | structural, hard to reverse | decision record + review |
 
@@ -98,9 +98,9 @@ The decision moment and ordering are git's: a decision is operative when committ
 
 1. A typo, which the commit names a typo fix.
 2. A reference-form migration — rewriting how a record cites other documents — which the commit names a migration.
-3. A wording edit, which the commit names a wording edit. It changes the way a sentence or a list item reads. It leaves its meaning as it stands, with every fact, number and reference in it. The policy governing the project's records lists its kinds in a closed set.
+3. A wording edit, which the commit names a wording edit. It changes how a sentence or a list item reads, and leaves its meaning, and every fact, number and reference in it, as they stand. It is of a kind that the policy governing the project's records lists in a closed set.
 
-Past the window of the first case, reversing or changing a ruling is a new record, never an in-place edit of the old one.
+Past the window before acceptance, reversing or changing a ruling is a new record, never an in-place edit of the old one.
 
 Body shape, when a real choice existed: the options considered, pros/cons per option, one recommendation with reasoning, the choice made. When no real choice existed, a record states the ruling and reasoning — no manufactured options. Schema: `schemas/decision-record.schema.json`.
 
@@ -134,4 +134,4 @@ Profiles (e.g. solo-agents, small-team, regulated) are nothing but prewritten `c
 <a id="k7"></a>
 ## 7. Naming
 
-Modules are plugins named `const-<aspect>` (kebab-case). Module dial namespaces equal plugin names. Document ids, file names, and skill names: kebab-case. Every size and every budget counts **characters**, never tokens. A character is one Unicode code point of the file read as UTF-8. A CRLF line ending counts as one, and the count normalizes nothing and leaves nothing out. Bytes that are not valid UTF-8 count one per replacement character in their place. A decoder that follows the Unicode standard's recommended practice puts them there: one for each maximal subpart of an ill-formed subsequence.
+Modules are plugins named `const-<aspect>` (kebab-case). Module dial namespaces equal plugin names. Document ids, file names, and skill names: kebab-case. Every size and every budget counts **characters**, never tokens. A character is one Unicode code point of the file read as UTF-8. A CRLF line ending counts as one, and the count normalizes nothing and leaves nothing out. Bytes that are not valid UTF-8 count one per replacement character that a decoder following the Unicode standard's recommended practice puts in their place. That is one for each maximal subpart of an ill-formed subsequence.

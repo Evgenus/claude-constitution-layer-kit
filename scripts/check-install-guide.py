@@ -48,7 +48,7 @@ environment's `bin` leads the PATH of every command the run starts, the blocks' 
 the claims. A failure to make it is a configuration failure with the fix, as that function words it.
 Beside every block's exit 0, the check holds at each name:
   new-repo     the block ends in a git repository, the project, whose `main` holds a commit and whose
-               checked-out branch is another, the bootstrap's own branch.
+               checked-out branch is another, the bootstrap's own branch, at the commit `main` is at.
   marketplace  `claude plugin marketplace list --json`, run in the folder the block ended in, lists
                exactly one entry named as the kit's marketplace, by the name the clone's
                .claude-plugin/marketplace.json gives, read once by `kit_module_doc.marketplace_name`
@@ -1111,8 +1111,14 @@ def claim(state: Run, name: str) -> str:
         )
         if main != 0:
             return "the block makes no `main` with a commit"
-        if code != 0 or branch in ("", "main"):
+        if code != 0 or not branch:
+            return "the block ends on no branch: the bootstrap runs on a branch of its own, cut from `main`"
+        if branch == "main":
             return "the block ends on `main`: the bootstrap runs on a branch of its own, cut from `main`"
+        _, head = run(["git", "rev-parse", "HEAD"], state.cwd, state.env, joined=False)
+        _, tip = run(["git", "rev-parse", "main"], state.cwd, state.env, joined=False)
+        if head != tip:
+            return f"{branch} does not start where `main` is: the bootstrap's branch is cut from `main`"
         state.branch = branch
         return ""
     if project is None:
@@ -3594,6 +3600,35 @@ class SelfTestRun:
                 },
                 "",
                 "after check=new-repo: the block ends on `main`: the bootstrap runs on a branch of its own",
+            ),
+            (
+                "a repository with no first commit red",
+                {
+                    "new-repo": "mkdir -p ~/dev/my-project && cd ~/dev/my-project && "
+                    "git init --quiet -b main && git switch --quiet -c work/adopt-kernel"
+                },
+                "",
+                "after check=new-repo: the block makes no `main` with a commit",
+            ),
+            (
+                "a repository left on a detached head red",
+                {
+                    "new-repo": "mkdir -p ~/dev/my-project && cd ~/dev/my-project && "
+                    'git init --quiet -b main && git commit --quiet --allow-empty -m "Initial commit" && '
+                    "git checkout --quiet --detach"
+                },
+                "",
+                "after check=new-repo: the block ends on no branch: the bootstrap runs on a branch",
+            ),
+            (
+                "a branch that does not start where main is red",
+                {
+                    "new-repo": "mkdir -p ~/dev/my-project && cd ~/dev/my-project && "
+                    'git init --quiet -b main && git commit --quiet --allow-empty -m "Initial commit" && '
+                    'git switch --quiet -c work/adopt-kernel && git commit --quiet --allow-empty -m "More"'
+                },
+                "",
+                "after check=new-repo: work/adopt-kernel does not start where `main` is",
             ),
             (
                 "a marketplace never added red",
