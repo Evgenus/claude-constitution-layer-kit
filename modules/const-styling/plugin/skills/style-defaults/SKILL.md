@@ -26,8 +26,9 @@ guide is the one statement of the defaults; this page restates none of them — 
 scan's traces, which are the mechanical halves of some, not the defaults.
 
 Where the repository has no style guide, the shipped text, `style-guide.md` beside this file,
-applies meanwhile. Create the project's own from it, unless the project's decision records say
-it keeps no guide: such a project follows the shipped text and creates nothing. To create one:
+applies meanwhile. Create the project's own from it, unless the project has decided to keep none — its decision
+records say so, or the user answered no while the project was set up: such a project follows the
+shipped text and creates nothing. To create one:
 fill its envelope — the `id` a stable kebab-case name — put it where the project's documents of
 that kind live, and name its path in `const-styling.guides`. That file carries the founding
 entries. A project that governs its documents by policies gives the guide a policy of its own

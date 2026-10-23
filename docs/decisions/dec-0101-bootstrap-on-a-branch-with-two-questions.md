@@ -45,7 +45,7 @@ The session recommended A: it is the one option that fixes the clash for every l
 
 <a id="r1"></a>**R1.** The bootstrap of the install guide runs on a branch of its own, `work/adopt-kernel`, cut right after the repository's first commit on `main`. Each step commits on that branch. The last step merges it onto `main` with `--no-ff`, after the decider's yes, and the merge commit names the yes: it is the commit that lands record #1.
 
-<a id="r2"></a>**R2.** The kernel copy is made just before record #1, in the same turn, so that the two land in one commit; if a turn ends between them, the copy is committed on the branch first. Record #1 is born `inactive`: by the commit that creates it, everything it rules is applied on the branch — the dials file and the policies by earlier commits, the kernel copy beside it — and it lands with them in the merge.
+<a id="r2"></a>**R2.** The kernel copy is made just before record #1, in the same turn, so that the two land in one commit; if a turn ends between them, the copy is committed on the branch first. Record #1 is born `inactive`: by the commit that creates it, everything it rules is applied on the branch — the dials file and the policies by earlier commits, the kernel copy beside it or just before it — and it lands with them in the merge.
 
 <a id="r3"></a>**R3.** A change that waits for a human yes is committed on its own branch at the end of a turn, its yes named in the merge that lands it; it is never left uncommitted to wait. The skill `commit-before-edit` of module [`const-task-close`](../requirements.md#const-task-close) says so, and its hook is unchanged.
 
@@ -83,7 +83,7 @@ The skill of `const-styling` creates a guide only when it is first loaded, and a
 
 The session recommended A: it follows the ruling of section 2, a choice made at install, when it costs least, and only by the user. The decider chose A in chat on 2026-10-23.
 
-<a id="r5"></a>**R5.** Beside the question of R4, the install guide asks "Does this project keep a style guide?" and proposes no default. On yes, the skill `style-defaults` of `const-styling` is loaded before the first policy and creates the guide, its policy and the `guides` dial, and every policy carries a style rule. On no, no guide is written, and the skill `style-defaults` follows its shipped text as the guide and creates none; record #1 says so, and the policies carry no style rule. The answer is written in record #1. This narrows R6 of [dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md#r6) and R6 of [dec-0055-promise-audit-fixes](dec-0055-promise-audit-fixes.md#r6), which bound every policy-governed project to a guide, and [requirement A9.1](../requirements.md#a9-1) with them.
+<a id="r5"></a>**R5.** Beside the question of R4, the install guide asks "Does this project keep a style guide?" and proposes no default. On yes, the skill `style-defaults` of `const-styling` is loaded before the first policy and creates the guide, its policy and the `guides` dial, and every policy carries a style rule. On no, no guide is written, and the skill `style-defaults` follows its shipped text as the guide and creates none; record #1 says so, and the policies carry no style rule. The answer is written in record #1. This narrows R5 and R6 of [dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md#r5) and R6 of [dec-0055-promise-audit-fixes](dec-0055-promise-audit-fixes.md#r6), which bound every policy-governed project to a guide, and [requirement A9.1](../requirements.md#a9-1) with them.
 
 ## 4. Whether a green write reaches the model
 
@@ -122,7 +122,7 @@ R10 of [dec-0062-install-guide-governed-kind](dec-0062-install-guide-governed-ki
 
 The session recommended A, to keep this change small and leave the rewrite to a change of its own. The decider asked to fix the language of that one file instead, and chose D in chat on 2026-10-23.
 
-<a id="r7"></a>**R7.** The kernel meets the default thresholds of `const-language` as written: its grade, its sentence length, and no passive-voice note. The guide's dials example carries no departure for the kernel copy. The guide's check holds the grade and the sentence limit, since its scan block runs that module's scan on the copy at the defaults; the passive voice, a warning there and off in the kit's own dials, is held by review. The kernel policy states the rule. The rewrite that makes it so changes wording only. This replaces R10 of [dec-0062-install-guide-governed-kind](dec-0062-install-guide-governed-kind.md#r10).
+<a id="r7"></a>**R7.** The kernel meets the default thresholds of `const-language` as written: its grade, its sentence length, its two lists of phrases, and no passive-voice note. The guide's dials example carries no departure for the kernel copy. The guide's check holds what that module reports as an error at its defaults — the grade, the sentence limit and the lists — since its scan block runs that module's scan on the copy; the passive voice, a warning there and off in the kit's own dials, is held by review. The kernel policy states the rule. The rewrite that makes it so changes wording only. This replaces R10 of [dec-0062-install-guide-governed-kind](dec-0062-install-guide-governed-kind.md#r10).
 
 ## Applied
 
