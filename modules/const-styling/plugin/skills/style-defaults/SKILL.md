@@ -30,7 +30,8 @@ applies meanwhile. Create the project's own from it, unless the project has deci
 records say so, or the user answered no while the project is or was being set up: such a project
 follows the shipped text and creates nothing. To create one:
 fill its envelope — the `id` a stable kebab-case name — put it where the project's documents of
-that kind live, and name its path in `const-styling.guides`. That file carries the founding
+that kind live, and name its path in `const-styling.guides`. Write it with the session's file
+tools, never by a copy in the shell, so that every hook sees the write. That file carries the founding
 entries. A project that governs its documents by policies gives the guide a policy of its own
 first, as its constitution asks for any new kind, has its root policy ask every policy for a
 style rule, and has each kind's policy carry one, binding that kind's documents to the guide.
