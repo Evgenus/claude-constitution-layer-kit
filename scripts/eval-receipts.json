@@ -119,27 +119,27 @@
   "const-styling": {
     "attempts": [
       {
-        "at": "2026-10-22T22:23:38Z",
+        "at": "2026-10-23T15:28:56Z",
         "cases": 1,
         "passed": 1,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:fc5838b760ba7df30a407f67c65be102f4e43ec5146ae2839d6450e1f4871a2d",
+    "hash": "sha256:e2334afb4960a5daa6aaa620b290082b6f58ad2e9be33bbf0d6cbcd44a30debc",
     "model": "claude-opus-5-5"
   },
   "const-task-close": {
     "attempts": [
       {
-        "at": "2026-10-22T22:25:53Z",
+        "at": "2026-10-23T15:27:41Z",
         "cases": 2,
         "passed": 2,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:e6bc8d381df2527e569a4b678fdf985e4cf32238823277d9a379cccd08a99b07",
+    "hash": "sha256:71f923ce182c00515e9fa03d8c926038a0444b9061e63192a58ea0dc67b747c0",
     "model": "claude-opus-5-5"
   }
 }
