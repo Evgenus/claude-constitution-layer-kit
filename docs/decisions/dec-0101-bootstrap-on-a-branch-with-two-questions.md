@@ -2,7 +2,7 @@
 id: dec-0101-bootstrap-on-a-branch-with-two-questions
 type: task-record
 title: The bootstrap runs on a branch, its yes named in the merge, and asks whether policies are a catalog and whether a style guide is kept
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
