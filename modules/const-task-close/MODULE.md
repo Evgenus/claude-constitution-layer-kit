@@ -158,6 +158,7 @@ The range check and the tree check are deterministic; the fixtures are their pai
 11. A turn ends with one coherent change done → commit / *not* "next turn".
 12. A turn ends mid-change, a test still red → commit as work in progress, the message saying so / *not* a clean-looking silence; or stash, and say so.
 13. The hook blocks a turn that was a question with no edits → impossible: a clean tree is silent; a dirty one was left by earlier work, and that is what it names.
+14. A turn ends while a `process` record waits for its yes → commit the change on its own branch; the yes is named in the merge that lands it / *not* left dirty to wait, and *not* committed onto the trunk before the yes.
 
 <a id="t9"></a>
 ## 9. Enforcement honesty

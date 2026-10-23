@@ -35,7 +35,9 @@ lets it end. Whether a commit is coherent, and what its message says: yours.
    The message says what changed and why, in the project's own conventions.
 3. **At the end of a turn.** Never leave a dirty tree. A change that is done is committed; a change
    that is half-done is committed as work in progress, its message saying so — or stashed, and the
-   reply says so. A clean tree is silent at the hook.
+   reply says so. A change that waits for a human yes is committed too, on its own branch: the
+   yes is named in the merge that lands the branch, never given by leaving the tree dirty. A
+   clean tree is silent at the hook.
 
 ## Rolling back
 
