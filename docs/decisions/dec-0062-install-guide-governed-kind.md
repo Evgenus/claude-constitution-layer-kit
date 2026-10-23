@@ -144,6 +144,6 @@ The change that adds this record applies every item: the policy and its territor
 7. R7 — [plc-0011-install-guide](../policies/plc-0011-install-guide.md#r1), rules 1 to 8.
 8. R8 — [plc-0011-install-guide](../policies/plc-0011-install-guide.md#r2), rule 2.
 9. R9 — history only: a routine rewrite of a page in no territory, made by this change.
-10. R10 — [the install guide](../../INSTALL.md#s2), step 6 of its bootstrap; the finding itself is history.
+10. R10 — [the install guide](../../INSTALL.md#s2), step 4 of its bootstrap; the finding itself is history.
 11. R11 — pending: [the rollout plan](../rollout-plan.md#s9), step 9, the kit's descent to the defaults of `const-language`.
 12. R12 — [the dials file](../../constitution.yaml), the ceiling `install-guide` of `const-doc-budgets`.
