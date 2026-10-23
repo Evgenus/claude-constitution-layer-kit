@@ -15,7 +15,7 @@ On 2026-10-23 a session bootstrapped the first consumer project by section 2 of 
 
 1. **F1.** The guide said "Commit after each step", but its step 7 put record #1 in the same commit as the kernel copy.
 2. **F2.** The guide wrote the policies before `constitution.yaml`. The creation command of [`const-locations`](../requirements.md#const-locations) refuses to run without that file, and the skill `new-kind` writes it first.
-3. **F3.** Step 7 said to create the record through the creation command alone. The command wrote `status: active` and no `stakes` or `decider`, through the shell, so no hook saw it, and the record scan was red. Module `const-locations` names that very act a violation in its section 8.
+3. **F3.** Step 7 said to create the record through the creation command alone. The command wrote `status: active` and no `stakes` or `decider`, through the shell, so no hook saw it, and the record scan was red. Module [`const-locations`](../requirements.md#const-locations) names that very act a violation in its section 8.
 4. **F4.** The guide said no document is written without its guard, "the kernel copy included". The copy is made through the shell and passes no hook; only the scans check it.
 5. **F5.** The skill of [`const-styling`](../requirements.md#const-styling) asks a repository with no style guide to create one, with a policy of its own and a style rule in every policy. The guide named none of this, and the style scan stays green without a guide.
 6. **F6.** Step 8 asked for `/plugin list` and the Errors tab of `/plugin`, which a session in the desktop app cannot open.
@@ -47,7 +47,7 @@ The session recommended A: it is the one option that fixes the clash for every l
 
 <a id="r2"></a>**R2.** The kernel copy is made just before record #1, and the two land in one commit, so the record is born `inactive`.
 
-<a id="r3"></a>**R3.** A change that waits for a human yes is committed on its own branch at the end of a turn, its yes named in the merge that lands it; it is never left uncommitted to wait. The skill `commit-before-edit` of module `const-task-close` says so, and its hook is unchanged.
+<a id="r3"></a>**R3.** A change that waits for a human yes is committed on its own branch at the end of a turn, its yes named in the merge that lands it; it is never left uncommitted to wait. The skill `commit-before-edit` of module [`const-task-close`](../requirements.md#const-task-close) says so, and its hook is unchanged.
 
 ## 2. Whether the list of policies is a catalog
 
