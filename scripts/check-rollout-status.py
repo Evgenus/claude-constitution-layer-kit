@@ -689,9 +689,9 @@ ROW_2 = "| [s2](#s2) | Second | B | 🔄 | 1 | 1 | 1 | 50% |"
 ROW_3 = "| [s3](#s3) | Third | B | ⏳ | 0 | 1 | 0 | 0% |"
 ROW_4 = "| [s4](#s4) | Fourth | B | 💤 | 0 | 0 | 1 | n/a |"
 ROW_ALL = "| all | All steps | all | 🔄 | 2 | 2 | 2 | 50% |"
-STEP_1 = '1. <a id="s1"></a>✅ Rule made, [the record](decisions/dec-0001-x.md).'
+STEP_1 = '1. <a id="s1"></a>✅ Rule made, [the record](records/first.md).'
 STEP_2 = '2. <a id="s2"></a>The second step.'
-ITEM_1 = '   - <a id="s2-1"></a>**2.1** ✅ Done thing, [the record](decisions/dec-0002-x.md).'
+ITEM_1 = '   - <a id="s2-1"></a>**2.1** ✅ Done thing, [the record](records/second.md).'
 ITEM_2 = '   - <a id="s2-2"></a>**2.2** ⏳ Open thing.'
 ITEM_3 = '   - <a id="s2-3"></a>**2.3** 💤 Waiting thing.'
 STEP_3 = '3. <a id="s3"></a>⏳ Open step with no items.'
