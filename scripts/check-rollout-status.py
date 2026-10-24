@@ -12,11 +12,13 @@ library alone. A finding is one line of the file, with what failed, why the rule
 
 What it holds, each failure a finding of its own:
   1. The matrix. Exactly one table with the matrix's header, standing before the first phase line, whose
-     header row is `| Step | Title | Phase | Status | Done | Open | Waiting | % done |`, with a separator row
-     under it; a table with another header is not read. Every row has 8 cells, a `\\|` staying inside its
-     cell. The first cell of a step row is the link `[s<n>](#s<n>)`; the first cell of the last row is `all`.
-     The header row and the first phase line are looked for outside the fenced blocks (7), as the steps
-     and the items are: a fenced header row is no matrix, and a fenced phase anchor is no phase.
+     header row is `| Step | Title | Phase | Status | Done | Open | Waiting | % done |`, with a separator
+     row under it; a table with another header is not read. Every row has 8 cells, a `\\|` staying inside
+     its cell. The first cell of a step row is the link `[s<n>](#s<n>)`; the first cell of the last row
+     is `all`. The header row and the first phase line are looked for outside the fenced blocks (7), as
+     the steps and the items are: a fenced header row is no matrix, and a fenced phase anchor is no
+     phase. Where no matrix stands before the first phase line, a table in sight after that line is to be
+     moved above it; else one is added.
   2. The rows against the steps. One row for each step, none for a step the plan lacks, none twice, in
      the order the steps stand in the plan, and the row `all` last. These are held only as 3 says. A row
      whose first cell names no step is a finding, and so is a second row of a step or of `all`, whatever
@@ -93,9 +95,9 @@ What it holds, each failure a finding of its own:
      a line of the same character, as long or longer, with no words after it. What a block holds is no
      list line, no step line, no phase line, no header row and no line that runs on under an item. A
      block that opens and never closes runs to the end of the file and hides every line after it, so it
-     is a finding at its opening line, and the rows are held as 3 says while it stands; while one opens
-     above the first phase line, the matrix's absence or place is not reported either, since the block
-     may hide them, and a block that opens below that line leaves them in sight.
+     is a finding at its opening line, and the rows are held as 3 says while it stands; a missing matrix
+     is still reported, and while no table is in sight its fix asks to close the block first, since the
+     block may hide one.
 
 What it leaves to review: whether a mark matches the words of its item, whether a link is the proof of its
 item, a done item's words, a row's title, and every other content of the plan; the style, the language and
@@ -912,19 +914,29 @@ def row_findings(matrix: Matrix, steps: list[Step], clean: bool) -> list[Finding
 
 
 def matrix_findings(lines: list[str], steps: list[Step], clean: bool) -> list[Finding]:
-    """The findings of the matrix: its own table, whatever the pass, save that while a fenced block stands
-    open above the first phase line, the matrix's absence and its place after that line are not reported,
-    since the block may hide them; and its rows as `row_findings` holds them."""
+    """The findings of the matrix: its own table, whatever the pass, and its rows as `row_findings` holds
+    them. Where no matrix stands before the first phase line, the fix moves a table in sight after that line
+    above it; while no table is in sight and a fenced block stands open, it asks to close the block first,
+    since the block may hide one; else it adds one."""
     first_phase = first_phase_line(lines)
     headers = [n for n, line in unfenced(lines) if line.strip() == HEADER]
     if not headers or (first_phase is not None and headers[0] > first_phase):
         opened = unclosed_fence(lines)
-        if opened is not None and (first_phase is None or opened < first_phase):
-            return []  # a block open above the first phase line may hide the matrix; its finding comes first
-        fix = (
-            f"add a table with the header row {HEADER} before the first phase anchor, with one row for each"
-            " step and a last row all, as rule 10 of plc-0008-rollout-plan says"
-        )
+        if headers:
+            fix = (
+                f"move the table at line {headers[0]} above the first phase anchor, as rule 10 of"
+                " plc-0008-rollout-plan says"
+            )
+        elif opened is not None:
+            fix = (
+                f"close the fenced block at line {opened} first, since it may hide the matrix; the next run"
+                " says whether to move a table or add one"
+            )
+        else:
+            fix = (
+                f"add a table with the header row {HEADER} before the first phase anchor, with one row for"
+                " each step and a last row all, as rule 10 of plc-0008-rollout-plan says"
+            )
         return [
             Finding(first_phase or 1, "the plan has no status matrix before its first phase", WHY_MATRIX, fix)
         ]
@@ -1307,9 +1319,16 @@ def row_cases() -> dict[str, tuple[str, Want]]:
             [(11, "the row all stands above the row of s4", "move the row all to the end of the matrix")],
         ),
         "no matrix is a finding": (row(TABLE + "\n", ""), [(6, no_matrix, table_fix)]),
-        "a matrix after the first phase line is no matrix before it": (
+        "a matrix after the first phase line is no matrix before it, and is told to move": (
             edit(row(TABLE + "\n", ""), "## Phase A\n\n", "## Phase A\n\n" + TABLE + "\n"),
-            [(6, no_matrix, table_fix)],
+            [
+                (
+                    6,
+                    no_matrix,
+                    "move the table at line 9 above the first phase anchor, as rule 10 of"
+                    " plc-0008-rollout-plan says",
+                )
+            ],
         ),
         "a plan with no phase line and no matrix is a finding at its first line": (
             "# Plan\n",
@@ -2148,8 +2167,8 @@ def fence_cases() -> dict[str, tuple[str, Want]]:
                 (
                     7,
                     "the plan has no status matrix before its first phase",
-                    f"add a table with the header row {HEADER} before the first phase anchor, with one row"
-                    " for each step and a last row all, as rule 10 of plc-0008-rollout-plan says",
+                    "move the table at line 9 above the first phase anchor, as rule 10 of"
+                    " plc-0008-rollout-plan says",
                 ),
                 (28, never, close),
             ],
@@ -2158,9 +2177,29 @@ def fence_cases() -> dict[str, tuple[str, Want]]:
             edited(ITEM_2, "```\n" + ITEM_2),
             [(24, never, close)],
         ),
-        "a block left open above the matrix gives its own finding alone": (
+        "a block left open above the matrix: the fence, and a missing matrix told to close it first": (
             edited(HEADER, "```\n" + HEADER),
-            [(6, never, close)],
+            [
+                (
+                    1,
+                    "the plan has no status matrix before its first phase",
+                    "close the fenced block at line 6 first, since it may hide the matrix; the next run says"
+                    " whether to move a table or add one",
+                ),
+                (6, never, close),
+            ],
+        ),
+        "a block left open below the first phase line, no table in sight, still reports the missing matrix": (
+            edit(edit(BASE, TABLE + "\n", ""), STEP_3, "```\n" + STEP_3),
+            [
+                (
+                    6,
+                    "the plan has no status matrix before its first phase",
+                    "close the fenced block at line 18 first, since it may hide the matrix; the next run says"
+                    " whether to move a table or add one",
+                ),
+                (18, never, close),
+            ],
         ),
         "a block left open leaves the row all unheld, its sums standing for every step": (
             edited(STEP_3, "```\n" + STEP_3),
@@ -2172,8 +2211,7 @@ def fence_cases() -> dict[str, tuple[str, Want]]:
 def rule_cases() -> dict[str, tuple[str, Want]]:
     """The one rule of the rows: while a step or an item has a finding, or a fenced block stands open, the
     rows are not held against the items, and no row text is taught; the table of the matrix and the keys of
-    its rows are held whatever the pass, save the matrix's absence or place while a block stands open
-    above the first phase line."""
+    its rows are held whatever the pass."""
 
     def edited(old: str, new: str) -> str:
         return edit(BASE, old, new)
