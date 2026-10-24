@@ -18,7 +18,8 @@ What it holds, each failure a finding of its own:
      is `all`. The header row and the first phase line are looked for outside the fenced blocks (7), as
      the steps and the items are: a fenced header row is no matrix, and a fenced phase anchor is no
      phase. Where no matrix stands before the first phase line, a table in sight after that line is to be
-     moved above it; else one is added.
+     moved above it, and each further table in sight deleted; while none is in sight and a fenced block
+     stands open (7), the block is to be closed first; else one is added.
   2. The rows against the steps. One row for each step, none for a step the plan lacks, none twice, in
      the order the steps stand in the plan, and the row `all` last. These are held only as 3 says. A row
      whose first cell names no step is a finding, and so is a second row of a step or of `all`, whatever
@@ -913,11 +914,20 @@ def row_findings(matrix: Matrix, steps: list[Step], clean: bool) -> list[Finding
     return findings
 
 
+def further_fix(first: int) -> str:
+    """The fix of each table in sight after the first phase line beyond the one at line `first`, to move."""
+    return (
+        f"delete this table; the matrix is the table at line {first}, to be moved above the first phase"
+        " anchor"
+    )
+
+
 def matrix_findings(lines: list[str], steps: list[Step], clean: bool) -> list[Finding]:
     """The findings of the matrix: its own table, whatever the pass, and its rows as `row_findings` holds
     them. Where no matrix stands before the first phase line, the fix moves a table in sight after that line
-    above it; while no table is in sight and a fenced block stands open, it asks to close the block first,
-    since the block may hide one; else it adds one."""
+    above it, and each further table in sight is a second matrix to delete; while no table is in sight and a
+    fenced block stands open, it asks to close the block first, since the block may hide one; else it adds
+    one."""
     first_phase = first_phase_line(lines)
     headers = [n for n, line in unfenced(lines) if line.strip() == HEADER]
     if not headers or (first_phase is not None and headers[0] > first_phase):
@@ -929,17 +939,22 @@ def matrix_findings(lines: list[str], steps: list[Step], clean: bool) -> list[Fi
             )
         elif opened is not None:
             fix = (
-                f"close the fenced block at line {opened} first, since it may hide the matrix; the next run"
-                " says whether to move a table or add one"
+                f"close the fenced block at line {opened} first, since it may hide a table; the next run says"
+                " whether to move a table or add one, if either is needed"
             )
         else:
             fix = (
                 f"add a table with the header row {HEADER} before the first phase anchor, with one row for"
                 " each step and a last row all, as rule 10 of plc-0008-rollout-plan says"
             )
-        return [
-            Finding(first_phase or 1, "the plan has no status matrix before its first phase", WHY_MATRIX, fix)
+        missing = Finding(
+            first_phase or 1, "the plan has no status matrix before its first phase", WHY_MATRIX, fix
+        )
+        further = [
+            Finding(line, "the plan holds a second status matrix", WHY_MATRIX, further_fix(headers[0]))
+            for line in headers[1:]
         ]
+        return [missing, *further]
     matrix = read_matrix(lines, headers[0])
     findings: list[Finding] = []
     if len(headers) > 1:
@@ -1328,6 +1343,27 @@ def row_cases() -> dict[str, tuple[str, Want]]:
                     "move the table at line 9 above the first phase anchor, as rule 10 of"
                     " plc-0008-rollout-plan says",
                 )
+            ],
+        ),
+        "two tables after the first phase line: the first is told to move, the second to go": (
+            edit(
+                edit(row(TABLE + "\n", ""), "## Phase A\n\n", "## Phase A\n\n" + TABLE + "\n"),
+                "## Phase B\n\n",
+                "## Phase B\n\n" + TABLE + "\n",
+            ),
+            [
+                (
+                    6,
+                    no_matrix,
+                    "move the table at line 9 above the first phase anchor, as rule 10 of"
+                    " plc-0008-rollout-plan says",
+                ),
+                (
+                    22,
+                    "the plan holds a second status matrix",
+                    "delete this table; the matrix is the table at line 9, to be moved above the first phase"
+                    " anchor",
+                ),
             ],
         ),
         "a plan with no phase line and no matrix is a finding at its first line": (
@@ -2183,8 +2219,8 @@ def fence_cases() -> dict[str, tuple[str, Want]]:
                 (
                     1,
                     "the plan has no status matrix before its first phase",
-                    "close the fenced block at line 6 first, since it may hide the matrix; the next run says"
-                    " whether to move a table or add one",
+                    "close the fenced block at line 6 first, since it may hide a table; the next run says"
+                    " whether to move a table or add one, if either is needed",
                 ),
                 (6, never, close),
             ],
@@ -2195,8 +2231,8 @@ def fence_cases() -> dict[str, tuple[str, Want]]:
                 (
                     6,
                     "the plan has no status matrix before its first phase",
-                    "close the fenced block at line 18 first, since it may hide the matrix; the next run says"
-                    " whether to move a table or add one",
+                    "close the fenced block at line 18 first, since it may hide a table; the next run says"
+                    " whether to move a table or add one, if either is needed",
                 ),
                 (18, never, close),
             ],
