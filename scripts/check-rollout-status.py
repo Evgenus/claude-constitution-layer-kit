@@ -20,8 +20,8 @@ What it holds, each failure a finding of its own:
   2. The rows against the steps. One row for each step, none for a step the plan lacks, none twice, in
      the order the steps stand in the plan, and the row `all` last. A row whose first cell names no step
      is a finding. A step's number stands once. A list line under a phase line and above the phase's first
-     step, as a step line written in another form is, stands in no step and is a finding, since no row
-     counts it.
+     step, as a step line written in another form that is still a list line's (`5) …`) is, stands in no
+     step and is a finding, since no row counts it.
   3. The cells. Each cell is of its form: the phase one capital letter (the word `all` on the last row),
      the status one of ✅ ⏳ 🔄 💤, the counts whole numbers, the percent a whole number with `%` or `n/a`.
      Each cell is also what the items give: the phase is that of the last phase line above the step; done,
@@ -91,16 +91,20 @@ the length of the plan are held by the modules that hold them; and the history r
 an item keeps its number, a number once used is not used again, the next whole number at a step's end —
 which no text of the plan shows.
 
-The check reads the plan by line patterns, not as a Markdown parser does. Its known limits: a thematic
-break written `* * *` or `- - -` under a step or a phase line reads as a list line, and is a finding; a
-list line in a phase with no step stands in no step, and is a finding too; a list line above the first
-phase line, under no step, is not seen, a step line written in another form there among them; a link is
-a text of the form `[text](target)` on the item's lines, read by that pattern and not as CommonMark reads
-one, so a link that stands only in a code span, an image `![x](a.png)`, a target with a space in it and
-an escaped bracket pass for one, and an empty link text or nested brackets do not; a step's number is
-held to stand once and not to ascend, and a leading zero in it is not held; a phase line is
-`<a id="phase-<x>"></a>` alone on its line, x a lower-case letter, so an anchor written inside its
-heading is not seen, and a phase's anchor is not held to stand before its heading.
+The check reads the plan by line patterns, not as a Markdown parser does, and where the two readings
+differ its finding, or its silence, may be wrong: review holds such a line. The known cases, which are not
+all of them: a thematic break written `* * *` or `- - -` under a step or a phase line reads as a list
+line, and is a finding; a list line in a phase with no step stands in no step, and is a finding too; a
+list line above the first phase line, under no step, is not seen, a step line written in another form
+there among them; a step line in a form that is no list line's (`5.<a id="s5"></a>`, with no space) is not
+seen anywhere, save as a line that runs on under the line above it; a link is a text of the form
+`[text](target)` on the item's lines, read by that pattern and not as CommonMark reads one, so a link that
+stands only in a code span, an image `![x](a.png)`, a target with a space in it and an escaped `[` pass
+for one, and an empty link text, an empty target, nested brackets or an escaped `]` in the text do not; a
+step's number is held to stand once and not to ascend, and a leading zero in it is not held; a phase line
+is `<a id="phase-<x>"></a>` at the start of its line and alone on it, x a lower-case letter, so an
+indented anchor or one written inside its heading is not seen, and a phase's anchor is not held to stand
+before its heading.
 
 Modes:  no arguments   check docs/rollout-plan.md at the kit root;
         --self-test    prove the check on throwaway texts: a valid plan green, and each hold above red
@@ -163,12 +167,13 @@ WHY_ONE_LINE = "an item is one line, so its mark, its words and its link are rea
 WHY_PHASE = "each step stands in the phase above it, and its row names that phase"
 WHY_STEPS = "a step is cited by its number, and its row is found by it"
 WHY_STRAY = (
-    "a line in no step is counted in no row, so the matrix cannot show it, as rule 4 of plc-0008-rollout-plan"
-    " says"
+    "a line in no step is counted in no row, so the matrix cannot show it, as rules 4 and 10 of"
+    " plc-0008-rollout-plan say"
 )
 STRAY_FIX = (
-    'write it as a step line, <n>. <a id="s<n>"></a> and its text, as rule 4 of plc-0008-rollout-plan'
-    " gives it, or move it under its step as an item, or, for a note, join its words to the sentence above"
+    'write it as a step line, <n>. <a id="s<n>"></a><mark> <words>, as rules 4 and 5 of'
+    " plc-0008-rollout-plan give it, or move it under its step as an item, or, for a note, join its words"
+    " to the sentence above"
 )
 WHY_FENCE = "every line after it is read as code, so the steps and items below are not checked"
 RUN_FIX = "join this line to the line above, or put a blank line above it where it is no part of the item"
@@ -431,7 +436,11 @@ def read_mark(name: str, after: str, line: int, rest: str) -> tuple[Mark | None,
     """The one mark an item opens with, and what is wrong with the way it opens."""
     mark = ITEM_MARKS.get(rest[:1])
     if mark is None:
-        fix = f"write one of ✅ ⏳ 💤 and a space {after}"
+        fix = (
+            "write one of ✅ ⏳ 💤 in place of the 🔄"
+            if rest[:1] == "🔄"
+            else f"write one of ✅ ⏳ 💤 and a space {after}"
+        )
         return None, [Finding(line, f"{name} opens with no status mark", WHY_MARK, fix)]
     text = rest[1:]
     if not text.startswith(" ") or not text.strip():
@@ -1372,11 +1381,15 @@ def step_cases() -> dict[str, tuple[str, Want]]:
                 (
                     21,
                     "this list line stands in no step",
-                    'write it as a step line, <n>. <a id="s<n>"></a> and its text, as rule 4 of'
-                    " plc-0008-rollout-plan gives it, or move it under its step as an item, or, for a note,"
+                    'write it as a step line, <n>. <a id="s<n>"></a><mark> <words>, as rules 4 and 5 of'
+                    " plc-0008-rollout-plan give it, or move it under its step as an item, or, for a note,"
                     " join its words to the sentence above",
                 )
             ],
+        ),
+        "an item whose mark is 🔄 is told to write a mark in its place": (
+            edited(ITEM_2, ITEM_2.replace("⏳ ", "🔄 ")),
+            [(24, "item 2.2 opens with no status mark", "write one of ✅ ⏳ 💤 in place of the 🔄")],
         ),
         "an item with two marks is a finding": (
             edited(ITEM_2, ITEM_2.replace("⏳ ", "⏳ ✅ ")),
