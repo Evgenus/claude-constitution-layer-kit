@@ -21,8 +21,9 @@ What it holds, each failure a finding of its own:
      moved above it, and each further table in sight deleted; while none is in sight and a fenced block
      stands open (7), the block is to be closed first; else one is added. A header row repeated inside
      the table's run of rows is a finding of its own, that header row to go, with the separator row under
-     it where one stands there and the table has its own; a header row beyond that run is a second
-     matrix, a table to delete.
+     it where one stands there, save where the repeat stands among the header rows at the table's top,
+     whose separator row is the table's own; a header row beyond that run is a second matrix, a table to
+     delete.
   2. The rows against the steps. One row for each step, none for a step the plan lacks, none twice, in
      the order the steps stand in the plan, and the row `all` last. These are held only as 3 says. A row
      whose first cell names no step is a finding, and so is a second row of a step or of `all`, whatever
@@ -928,18 +929,15 @@ def further_fix(first: int) -> str:
 
 def further_findings(lines: list[str], headers: list[int], outside: str) -> list[Finding]:
     """Each header row in sight after the first: inside the first table's run of rows, a repeated header
-    row, which is to go, with the separator row under it where one stands there and the table has its own;
-    beyond that run, a second matrix, whose fix is `outside`."""
-    matrix = read_matrix(lines, headers[0])
-    run = {row.line for row in matrix.rows}
+    row, which is to go, with the separator row under it where one stands there, save where the repeat stands
+    among the header rows at the table's top, whose separator row is the table's own; beyond that run, a
+    second matrix, whose fix is `outside`."""
+    run = {row.line for row in read_matrix(lines, headers[0]).rows}
 
     def repeat(line: int) -> str:
         under = line < len(lines) and SEPARATOR.match(lines[line].strip()) is not None
-        rows = (
-            "this header row and the separator row under it"
-            if under and matrix.separated
-            else "this header row"
-        )
+        on_top = all(lines[k - 1].strip() == HEADER for k in range(headers[0] + 1, line))
+        rows = "this header row and the separator row under it" if under and not on_top else "this header row"
         return f"delete {rows}; the header row repeats the header of the table at line {headers[0]}"
 
     return [
@@ -1478,6 +1476,36 @@ def row_cases() -> dict[str, tuple[str, Want]]:
                 ),
                 (7, 'the first cell of this matrix row reads "Step", which names no step', no_step),
                 (8, 'the first cell of this matrix row reads "---", which names no step', no_step),
+            ],
+        ),
+        "a moved table with its header twice on top and once deeper: the deeper repeat takes its separator": (
+            edit(
+                row(TABLE + "\n", ""),
+                "## Phase A\n\n",
+                "## Phase A\n\n"
+                + TABLE.replace(HEADER + "\n", HEADER + "\n" + HEADER + "\n", 1).replace(
+                    ROW_2 + "\n", ROW_2 + "\n" + HEADER + "\n" + SEPARATOR_ROW + "\n"
+                )
+                + "\n",
+            ),
+            [
+                (
+                    6,
+                    no_matrix,
+                    "move the table at line 9 above the first phase anchor, as rule 10 of"
+                    " plc-0008-rollout-plan says",
+                ),
+                (
+                    10,
+                    "the status matrix repeats its header row here",
+                    "delete this header row; the header row repeats the header of the table at line 9",
+                ),
+                (
+                    14,
+                    "the status matrix repeats its header row here",
+                    "delete this header row and the separator row under it; the header row repeats the header"
+                    " of the table at line 9",
+                ),
             ],
         ),
         "three matrices: each further one is a finding": (
