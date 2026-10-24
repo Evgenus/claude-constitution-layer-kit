@@ -1,13 +1,13 @@
 ---
 id: dec-0102-bootstrap-recommends-and-copies-the-kernel-first
 type: task-record
-title: The bootstrap recommends yes to its two questions and copies the kernel before the policies
+title: The bootstrap recommends yes to its two questions, copies the kernel before the policies, and writes each territory after its policy
 status: active
 stakes: process
 decider: Eugene Chernyshov
 ---
 
-# The bootstrap recommends yes to its two questions and copies the kernel before the policies
+# The bootstrap recommends yes to its two questions, copies the kernel before the policies, and writes each territory after its policy
 
 ## Context
 
@@ -33,7 +33,7 @@ On 2026-10-23 a second session bootstrapped the first consumer project by sectio
 
 The session recommended A, as the one option of the three it put that kept both the ruling of no default and the kernel's words, at the price of the full audit. The decider answered "or we can recommend", and the session read it as option D: the guide itself recommends an answer to each question, and the user's answer still decides. The session proposed yes to both, with its reasons, and the decider confirmed in chat on 2026-10-24.
 
-<a id="r1"></a>**R1.** The install guide recommends yes to each of the two questions of its bootstrap, with its reason, and the user's answer decides. Yes to "Is the list of policies a catalog?", since the catalog gate checks every policy's name from the first one and the later rename never comes. Yes to "Does this project keep a style guide?", since at install few policies need a style rule, the shipped guide passes the defaults of [`const-language`](../requirements.md#const-language) as written, and a guide added later edits every policy. Record #1 carries the guide's recommendation beside the answers. This replaces "proposes no default" in R4 and R5 of [dec-0101-bootstrap-on-a-branch-with-two-questions](dec-0101-bootstrap-on-a-branch-with-two-questions.md#r4); the rest of R4 and R5 stands.
+<a id="r1"></a>**R1.** The install guide recommends yes to each of the two questions of its bootstrap, with its reason, and the user's answer decides. Yes to "Is the list of policies a catalog?", since the catalog gate checks every policy's name from the first one and the later rename never comes. Yes to "Does this project keep a style guide?", since at install few policies need a style rule, the shipped guide passes the defaults of [`const-language`](../requirements.md#const-language) as written, and a guide added later edits every policy. Record #1 carries the guide's recommendation beside the answers. This replaces "proposes no default" in R4 and R5 of [dec-0101-bootstrap-on-a-branch-with-two-questions](dec-0101-bootstrap-on-a-branch-with-two-questions.md#r4); the rest of R4 stands, and of R5 all but the moment of the style skill, which R3 replaces.
 
 ## 2. The kernel copy before the policies
 
@@ -52,7 +52,7 @@ The session recommended A: the friction returns in every project, and the reason
 
 The carry audit of this change, at e43ff0b, found the guide's step 4 claiming the territories of the kernel copy and of decision records before their policies existed, while module [`const-locations`](../requirements.md#const-locations) orders every new kind as its policy, then its territory, then its first document, and the guide's own sentence said a territory is claimed once its kind has a policy. The kernel copy cannot follow that order: every policy links it.
 
-- **A. Follow the policy-first order.** Step 4 writes only the root's lines; step 6 writes each policy and then its territory, and names the record policy and its catalog once that policy exists; the kernel copy is the one document made before its policy.
+- **A. Follow the policy-first order.** Step 4 writes no territory; step 6 writes each policy and then its territory, and names the record policy and its catalog once that policy exists; the kernel copy is the one document made before its policy.
   - **Pros:** the guide and the module agree; one stated exception in place of a contradiction; the gates' repeated note that a named policy has no document goes away.
   - **Cons:** step 6 grows, each policy bringing its line of the dials file; the example block needs a sentence on the file's final form.
 - **B. Keep claiming all three territories in step 4, and state it as the bootstrap's exception.**
@@ -61,7 +61,7 @@ The carry audit of this change, at e43ff0b, found the guide's step 4 claiming th
 
 The session recommended A: it removes the contradiction and leaves only the exception nothing can avoid. The decider chose A in chat on 2026-10-24.
 
-<a id="r3"></a>**R3.** The bootstrap claims a territory only once its kind has a policy. Step 4 writes the dials file's first lines alone: `root_policy`, `module_prefix`, the root policy's territory, the namespace of `const-task-close`, and the `plc` catalog when the policies are a catalog. Step 6 writes each further policy and then its territory, and adds `record_policies` and the `dec` catalog after the policy for decision records. With a style guide, the skill of `const-styling` comes after those three policies. The kernel copy of step 5 is the one document made before its policy: it stays outside claimed territory until step 6 claims it, since every policy links it.
+<a id="r3"></a>**R3.** The bootstrap claims a territory only once its kind has a policy. Step 4 writes the dials file's first lines alone: `module_prefix`, the namespace of `const-task-close`, and the `plc` catalog when the policies are a catalog. Step 6 writes the root policy by hand and then its lines, `root_policy` and its territory; then each further policy and its territory; and, after the policy for decision records, `record_policies` and the `dec` catalog, before the `plc` entry. With a style guide, the skill of `const-styling` comes after those three policies, which replaces "before the first policy" in R5 of [dec-0101-bootstrap-on-a-branch-with-two-questions](dec-0101-bootstrap-on-a-branch-with-two-questions.md#r5). Since every policy links the kernel, the kernel copy of step 5 is the one document made before its policy; it stays outside claimed territory until step 6 claims it.
 
 ## Applied
 
@@ -71,4 +71,4 @@ The record was born `active`, and the change that creates it applies its rulings
 
 1. R1 — [the install guide](../../INSTALL.md#s2), step 4 of section 2, and step 7 for the record. What it replaces is history.
 2. R2 — [the install guide](../../INSTALL.md#s2), the opening of section 2 and its steps 5, 6 and 7. What it replaces is history.
-3. R3 — [the install guide](../../INSTALL.md#s2), steps 4, 5 and 6 of section 2.
+3. R3 — [the install guide](../../INSTALL.md#s2), steps 4, 5 and 6 of section 2. What it replaces is history.
