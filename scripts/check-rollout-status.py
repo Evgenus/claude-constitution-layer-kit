@@ -940,7 +940,7 @@ def matrix_findings(lines: list[str], steps: list[Step], clean: bool) -> list[Fi
         elif opened is not None:
             fix = (
                 f"close the fenced block at line {opened} first, since it may hide a table; the next run says"
-                " whether to move a table or add one, if either is needed"
+                " what the matrix then needs"
             )
         else:
             fix = (
@@ -957,9 +957,10 @@ def matrix_findings(lines: list[str], steps: list[Step], clean: bool) -> list[Fi
         return [missing, *further]
     matrix = read_matrix(lines, headers[0])
     findings: list[Finding] = []
-    if len(headers) > 1:
-        fix = f"delete this table; the matrix is the one at line {headers[0]}"
-        findings.append(Finding(headers[1], "the plan holds a second status matrix", WHY_MATRIX, fix))
+    fix = f"delete this table; the matrix is the one at line {headers[0]}"
+    findings += [
+        Finding(line, "the plan holds a second status matrix", WHY_MATRIX, fix) for line in headers[1:]
+    ]
     if not matrix.separated:
         fix = f"add the row {SEPARATOR_ROW} under the header row"
         what = "the status matrix has no separator row under its header row"
@@ -1388,6 +1389,48 @@ def row_cases() -> dict[str, tuple[str, Want]]:
                     "the plan holds a second status matrix",
                     "delete this table; the matrix is the one at line 6",
                 )
+            ],
+        ),
+        "three matrices: each further one is a finding": (
+            BASE + "\n" + TABLE + "\n" + TABLE,
+            [
+                (
+                    29,
+                    "the plan holds a second status matrix",
+                    "delete this table; the matrix is the one at line 6",
+                ),
+                (
+                    37,
+                    "the plan holds a second status matrix",
+                    "delete this table; the matrix is the one at line 6",
+                ),
+            ],
+        ),
+        "three tables after the first phase line: one to move, each further one to go": (
+            edit(
+                edit(row(TABLE + "\n", ""), "## Phase A\n\n", "## Phase A\n\n" + TABLE + "\n" + TABLE + "\n"),
+                "## Phase B\n\n",
+                "## Phase B\n\n" + TABLE + "\n",
+            ),
+            [
+                (
+                    6,
+                    no_matrix,
+                    "move the table at line 9 above the first phase anchor, as rule 10 of"
+                    " plc-0008-rollout-plan says",
+                ),
+                (
+                    17,
+                    "the plan holds a second status matrix",
+                    "delete this table; the matrix is the table at line 9, to be moved above the first phase"
+                    " anchor",
+                ),
+                (
+                    30,
+                    "the plan holds a second status matrix",
+                    "delete this table; the matrix is the table at line 9, to be moved above the first phase"
+                    " anchor",
+                ),
             ],
         ),
         "a matrix in a fenced block is no matrix": (
@@ -2220,7 +2263,7 @@ def fence_cases() -> dict[str, tuple[str, Want]]:
                     1,
                     "the plan has no status matrix before its first phase",
                     "close the fenced block at line 6 first, since it may hide a table; the next run says"
-                    " whether to move a table or add one, if either is needed",
+                    " what the matrix then needs",
                 ),
                 (6, never, close),
             ],
@@ -2232,7 +2275,7 @@ def fence_cases() -> dict[str, tuple[str, Want]]:
                     6,
                     "the plan has no status matrix before its first phase",
                     "close the fenced block at line 18 first, since it may hide a table; the next run says"
-                    " whether to move a table or add one, if either is needed",
+                    " what the matrix then needs",
                 ),
                 (18, never, close),
             ],
