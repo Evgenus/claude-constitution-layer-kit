@@ -93,9 +93,9 @@ What it holds, each failure a finding of its own:
      a line of the same character, as long or longer, with no words after it. What a block holds is no
      list line, no step line, no phase line, no header row and no line that runs on under an item. A
      block that opens and never closes runs to the end of the file and hides every line after it, so it
-     is a finding at its opening line, and the rows are held as 3 says while it stands; the matrix's
-     absence or place is not reported then, since a block left open may hide the matrix, its place or the
-     lines below it.
+     is a finding at its opening line, and the rows are held as 3 says while it stands; while one opens
+     above the first phase line, the matrix's absence or place is not reported either, since the block
+     may hide them, and a block that opens below that line leaves them in sight.
 
 What it leaves to review: whether a mark matches the words of its item, whether a link is the proof of its
 item, a done item's words, a row's title, and every other content of the plan; the style, the language and
@@ -913,13 +913,14 @@ def row_findings(matrix: Matrix, steps: list[Step], clean: bool) -> list[Finding
 
 def matrix_findings(lines: list[str], steps: list[Step], clean: bool) -> list[Finding]:
     """The findings of the matrix: its own table, whatever the pass, save that while a fenced block stands
-    open anywhere in the plan, the matrix's absence and its place after the first phase line are not
-    reported; and its rows as `row_findings` holds them."""
+    open above the first phase line, the matrix's absence and its place after that line are not reported,
+    since the block may hide them; and its rows as `row_findings` holds them."""
     first_phase = first_phase_line(lines)
     headers = [n for n, line in unfenced(lines) if line.strip() == HEADER]
     if not headers or (first_phase is not None and headers[0] > first_phase):
-        if unclosed_fence(lines) is not None:
-            return []  # an open block above may hide the matrix; its own finding comes first
+        opened = unclosed_fence(lines)
+        if opened is not None and (first_phase is None or opened < first_phase):
+            return []  # a block open above the first phase line may hide the matrix; its finding comes first
         fix = (
             f"add a table with the header row {HEADER} before the first phase anchor, with one row for each"
             " step and a last row all, as rule 10 of plc-0008-rollout-plan says"
@@ -2141,6 +2142,18 @@ def fence_cases() -> dict[str, tuple[str, Want]]:
             edit(edited(STEP_3, "```\n" + STEP_3), ROW_ALL, visible_sums),
             [(26, never, close)],
         ),
+        "a block left open below the first phase line still reports a matrix after that line": (
+            edit(edit(BASE, TABLE, ""), "## Phase A\n", "## Phase A\n" + TABLE) + "~~~\n",
+            [
+                (
+                    7,
+                    "the plan has no status matrix before its first phase",
+                    f"add a table with the header row {HEADER} before the first phase anchor, with one row"
+                    " for each step and a last row all, as rule 10 of plc-0008-rollout-plan says",
+                ),
+                (28, never, close),
+            ],
+        ),
         "a block left open inside a step with items holds no row against the items": (
             edited(ITEM_2, "```\n" + ITEM_2),
             [(24, never, close)],
@@ -2159,7 +2172,8 @@ def fence_cases() -> dict[str, tuple[str, Want]]:
 def rule_cases() -> dict[str, tuple[str, Want]]:
     """The one rule of the rows: while a step or an item has a finding, or a fenced block stands open, the
     rows are not held against the items, and no row text is taught; the table of the matrix and the keys of
-    its rows are held whatever the pass, save the matrix's absence or place while a block stands open."""
+    its rows are held whatever the pass, save the matrix's absence or place while a block stands open
+    above the first phase line."""
 
     def edited(old: str, new: str) -> str:
         return edit(BASE, old, new)
