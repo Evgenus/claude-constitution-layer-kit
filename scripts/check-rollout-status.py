@@ -72,8 +72,8 @@ What it holds, each failure a finding of its own:
      line of the same character, as long or longer, with no words after it. What a block holds is no list
      line, no step line, no phase line, no header row and no line that runs on under an item. A block that
      opens and never closes runs to the end of the file and hides every line after it, so it is a finding
-     at its opening line; while one stands, no row is reported as lacking its step, since the steps below
-     the block are not read.
+     at its opening line; while one stands, no row is reported as lacking its step and the row all is not
+     held against the sums, since the steps below the block are not read.
 
 What it leaves to review: whether a mark matches the words of its item, whether a link is the proof of its
 item, a done item's words, a row's title, and every other content of the plan; the style, the language and
@@ -815,7 +815,7 @@ def cell_findings(row: Row, key: str, derived: Derived) -> list[Finding]:
 
 def row_findings(matrix: Matrix, steps: list[Step], unread: bool) -> list[Finding]:
     """The findings of the rows. Where `unread` is true, a fenced block left open hides the steps below it,
-    and no row is reported as lacking its step."""
+    no row is reported as lacking its step, and the row all is not held against the sums."""
     derived = {step.key: derive(step) for step in steps}
     total = derive_total(steps)
     by_key, findings = index_rows(matrix.rows)
@@ -824,6 +824,8 @@ def row_findings(matrix: Matrix, steps: list[Step], unread: bool) -> list[Findin
     findings += order_findings(by_key, derived)
     findings += all_position_findings(by_key, derived)
     for key, row in by_key.items():
+        if key == "all" and unread:  # the steps an open block hides are not counted, so no sum is held
+            continue
         wanted = total if key == "all" else derived.get(key)
         if wanted is not None:
             findings += cell_findings(row, key, wanted)
@@ -1926,6 +1928,10 @@ def fence_cases() -> dict[str, tuple[str, Want]]:
         ),
         "a block left open hides the steps below it, and no row is reported as lacking its step": (
             edit(edited(STEP_3, "```\n" + STEP_3), ROW_ALL, visible_sums),
+            [(26, never, close)],
+        ),
+        "a block left open leaves the row all unheld, its sums standing for every step": (
+            edited(STEP_3, "```\n" + STEP_3),
             [(26, never, close)],
         ),
     }
