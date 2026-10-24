@@ -86,15 +86,16 @@ What it holds, each failure a finding of its own:
      lines, as CommonMark reads it, gives the finding of 4 alone; a split between `]` and `(` is no link in
      CommonMark, and there the finding of no link stands beside it. The same for a done step with no
      items.
-  7. The fenced blocks, for every scan above: the steps, the phase lines, the items, and the header row and
-     the first phase line of the matrix. A fence is a line whose text, after any spaces, starts with three
-     or more backticks or tildes, since inside a list item a fence stands four spaces in or more; a
-     backtick fence whose words hold a backtick opens nothing, being inline code. A fence closes only on a
-     line of the same character, as long or longer, with no words after it. What a block holds is no list
-     line, no step line, no phase line, no header row and no line that runs on under an item. A block that
-     opens and never closes runs to the end of the file and hides every line after it, so it is a finding
-     at its opening line, and the rows are held as 3 says while it stands; the matrix's absence or place
-     is not reported then, since the lines below the block are not read.
+  7. The fenced blocks, for every scan above: the steps, the phase lines, the items, and the header row
+     and the first phase line of the matrix. A fence is a line whose text, after any spaces, starts with
+     three or more backticks or tildes, since inside a list item a fence stands four spaces in or more; a
+     backtick fence whose words hold a backtick opens nothing, being inline code. A fence closes only on
+     a line of the same character, as long or longer, with no words after it. What a block holds is no
+     list line, no step line, no phase line, no header row and no line that runs on under an item. A
+     block that opens and never closes runs to the end of the file and hides every line after it, so it
+     is a finding at its opening line, and the rows are held as 3 says while it stands; the matrix's
+     absence or place is not reported then, since a block left open may hide the matrix, its place or the
+     lines below it.
 
 What it leaves to review: whether a mark matches the words of its item, whether a link is the proof of its
 item, a done item's words, a row's title, and every other content of the plan; the style, the language and
@@ -695,8 +696,9 @@ def read_step(span: Span) -> tuple[Step, list[Finding]]:
     findings: list[Finding] = []
     if not span.phase:
         fix = (
-            f"move step {span.number} below the status matrix into its phase, after the step it follows, and"
-            ' write the line <a id="phase-<letter>"></a> of that phase where it is missing'
+            f"move step {span.number} below the status matrix, into its phase and its place in the order of"
+            " the steps, as rule 4 of plc-0008-rollout-plan has them, and write the line"
+            ' <a id="phase-<letter>"></a> of its phase where it is missing'
         )
         findings.append(
             Finding(span.line, f"step {span.number} stands above the first phase anchor", WHY_PHASE, fix)
@@ -1368,30 +1370,49 @@ def step_cases() -> dict[str, tuple[str, Want]]:
                 (
                     16,
                     "step 1 stands above the first phase anchor",
-                    "move step 1 below the status matrix into its phase, after the step it follows, and write"
-                    ' the line <a id="phase-<letter>"></a> of that phase where it is missing',
+                    "move step 1 below the status matrix, into its phase and its place in the order"
+                    " of the steps, as rule 4 of plc-0008-rollout-plan has them, and write the line"
+                    ' <a id="phase-<letter>"></a> of its phase where it is missing',
                 )
             ],
         ),
-        "a step above the matrix is told to move below it, under its phase line": (
+        "a step above the matrix is told to move below it, into its phase": (
             edit(edited(STEP_1 + "\n", ""), "# Plan\n", "# Plan\n" + STEP_1 + "\n"),
             [
                 (
                     5,
                     "step 1 stands above the first phase anchor",
-                    "move step 1 below the status matrix into its phase, after the step it follows, and write"
-                    ' the line <a id="phase-<letter>"></a> of that phase where it is missing',
+                    "move step 1 below the status matrix, into its phase and its place in the order"
+                    " of the steps, as rule 4 of plc-0008-rollout-plan has them, and write the line"
+                    ' <a id="phase-<letter>"></a> of its phase where it is missing',
                 )
             ],
         ),
-        "a step of a phase with other steps, above the matrix, is told to follow the step it follows": (
+        "a step of a phase with other steps, above the matrix, is told to take its place in the order": (
             edit(edited(STEP_3 + "\n", ""), "# Plan\n", "# Plan\n" + STEP_3 + "\n"),
             [
                 (
                     5,
                     "step 3 stands above the first phase anchor",
-                    "move step 3 below the status matrix into its phase, after the step it follows, and write"
-                    ' the line <a id="phase-<letter>"></a> of that phase where it is missing',
+                    "move step 3 below the status matrix, into its phase and its place in the order"
+                    " of the steps, as rule 4 of plc-0008-rollout-plan has them, and write the line"
+                    ' <a id="phase-<letter>"></a> of its phase where it is missing',
+                )
+            ],
+        ),
+        "the first step of a later phase, above the matrix, is told to take its place in the order": (
+            edit(
+                edited(STEP_2 + "\n" + ITEM_1 + "\n" + ITEM_2 + "\n" + ITEM_3 + "\n", ""),
+                "# Plan\n",
+                "# Plan\n" + STEP_2 + "\n" + ITEM_1 + "\n" + ITEM_2 + "\n" + ITEM_3 + "\n",
+            ),
+            [
+                (
+                    5,
+                    "step 2 stands above the first phase anchor",
+                    "move step 2 below the status matrix, into its phase and its place in the order"
+                    " of the steps, as rule 4 of plc-0008-rollout-plan has them, and write the line"
+                    ' <a id="phase-<letter>"></a> of its phase where it is missing',
                 )
             ],
         ),
@@ -2236,8 +2257,9 @@ def rule_cases() -> dict[str, tuple[str, Want]]:
                 (
                     15,
                     "step 1 stands above the first phase anchor",
-                    "move step 1 below the status matrix into its phase, after the step it follows, and write"
-                    ' the line <a id="phase-<letter>"></a> of that phase where it is missing',
+                    "move step 1 below the status matrix, into its phase and its place in the order"
+                    " of the steps, as rule 4 of plc-0008-rollout-plan has them, and write the line"
+                    ' <a id="phase-<letter>"></a> of its phase where it is missing',
                 )
             ],
         ),
