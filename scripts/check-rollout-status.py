@@ -47,25 +47,28 @@ What it holds, each failure a finding of its own:
      P is a finding, since a number once used is not used again; a leading zero is a finding. A number is
      never offered from the gap between P and the next item that reads a number (N), since a whole number
      there is one a removed item held: where an N stands, the offer is the letter after P's, `a` where P
-     has none, and none where N has P's whole number, the letters between them having been given in
-    order; where none stands, the next whole number above P. The fix names for that item a number
-     above P and below N, both bounds and that example, so that no other item turns red; where none fits,
-     N not being above the letter after P, or P ending in `z`, it says so and names item P, the one
-     before, as the one that may be out of place. A first item has no P, and 1 bounds
-     it from below: where an N stands, no number fits, a step whose first item is above 1 having lost its
-     item 1, and the fix says so, names N, the next one numbered, and says that an item added before the
-     first stands after it instead; where none stands, it offers 1. The same holds for the number a list
+     has none; where none stands, the next whole number above P. The fix names for that item a number
+     above P and below N, both bounds and that example, so that no other item turns red. Where none fits
+     — N not above the letter after P, N of P's whole number, the letters between them having been given
+     in order, or P ending in `z` — it says so and names item P, the one before, as the one that may be
+     out of place. A first item has no P, and 1 bounds it from below: where an N stands, no number fits,
+     and the fix says so, names N, the next one numbered, with the reason that applies — below item 1 the
+     items are numbered from 1, below a higher one a step that starts above 1 lost its item 1 and a
+     number once used is not used again — and says that an item added before the first stands after it
+     instead; where none stands, it offers 1. The same holds for the number a list
      line that is no item is told to take, which has the bounds alone, and for the number offered to an
      item whose handle and anchor read none. An item that is the first of its step to read a number is
      named so, whatever list line stands before it.
   5. The steps' own marks. A step with items opens its own text, after its anchor, with no mark. A step
-     with no items is its own one item: its text opens with one mark and a space, and it is one line, as
-     an item is, with the finding and the fix of 4 for the line right under it that runs on. A line right
-     under the line of a step with items is the step's own text, and no finding.
+     with no items is its own one item: its text opens with one mark, a space and words, and it is one
+     line, as an item is, with the finding and the fix of 4 for the line right under it that runs on. A
+     line right under the line of a step with items is the step's own text, and no finding.
   6. The links. A done item holds an inline Markdown link, `[text](target)`, on its own line, and so does
      a done step with no items. The link is looked for in the item's line and the lines that run on under
-     it, joined, so that a link split across them gives the finding of 4 alone, until the lines are
-     joined; the same for a done step with no items.
+     it, joined by a space, and may hold spaces right after its `(`, so that a link split across the
+     lines, as CommonMark reads it, gives the finding of 4 alone; a split between `]` and `(` is no link in
+     CommonMark, and there the finding of no link stands beside it. The same for a done step with no
+     items.
   7. The fenced blocks, for every scan above: the steps, the phase lines, the items, and the header row and
      the first phase line of the matrix. A fence is a line whose text, after any spaces, starts with three
      or more backticks or tildes, since inside a list item a fence stands four spaces in or more; a
@@ -73,9 +76,8 @@ What it holds, each failure a finding of its own:
      line of the same character, as long or longer, with no words after it. What a block holds is no list
      line, no step line, no phase line, no header row and no line that runs on under an item. A block that
      opens and never closes runs to the end of the file and hides every line after it, so it is a finding
-     at its opening line; while one stands, no row of the matrix is held against the items, nor reported
-     as lacking its step or as having none, and a matrix it may hide is not missed, since the lines below
-     the block are not read.
+     at its opening line; while one stands, the rows of the matrix are not read against the steps at all,
+     and the matrix's absence or place is not reported, since the lines below the block are not read.
 
 What it leaves to review: whether a mark matches the words of its item, whether a link is the proof of its
 item, a done item's words, a row's title, and every other content of the plan; the style, the language and
@@ -119,7 +121,7 @@ ITEM_FORM = re.compile(r'^\s*- <a id="([^"]*)"></a>\*\*([^*]*)\*\* (.*)$')
 HANDLE = re.compile(r"(\d+[a-z]?)\.(\d+[a-z]?)")
 ANCHOR = re.compile(r"s(\d+[a-z]?)-(\d+[a-z]?)")
 NUMBER = re.compile(r"(\d+)([a-z]?)")
-LINK = re.compile(r"\[[^\]]+\]\([^)\s][^)]*\)")
+LINK = re.compile(r"\[[^\]]+\]\(\s*[^)\s][^)]*\)")
 CELL_BOUNDARY = re.compile(r"(?<!\\)\|")
 SEPARATOR = re.compile(r"^\|[\s:|-]*-[\s:|-]*\|$")
 STEP_KEY = re.compile(r"s\d+[a-z]?")
@@ -145,6 +147,7 @@ WHY_STEPS = "a step is cited by its number, and its row is found by it"
 WHY_FENCE = "every line after it is read as code, so the steps and items below are not checked"
 RUN_FIX = "join this line to the line above, or put a blank line above it where it is no part of the item"
 BEFORE_FIRST = "an item added before the first stands after it instead"
+FROM_ONE = "the items of a step are numbered from 1"
 ON_STEP = -1  # the index a line gets that runs on under the line of a step, as a list line gets its own
 
 
@@ -473,12 +476,12 @@ def after(previous: Number | None, bound: Number | None) -> Number | None:
     """A number above the one before (P) and below the bound (N), to write where an item reads none and in
     a fix. A whole number in the gap between P and N is never offered, since a removed item held it and a
     number once used is not used again. Where an N stands: the letter after P's, `a` where P has none, if
-    it is below N; None where it is not, after the letter z, and for a first item, which has no P. Where no
-    N stands: the next whole number above P, and 1 for a first item."""
+    it is below N; None where it is not, where N has P's whole number, after the letter z, and for a first
+    item, which has no P. Where no N stands: the next whole number above P, and 1 for a first item."""
     if bound is None:
         return (1, "") if previous is None else (previous[0] + 1, "")
     if previous is None or previous[1] == "z" or bound[0] == previous[0]:
-        return None  # where N shares P's whole number, the letters between them were given in order
+        return None
     count, letter = previous
     successor = (count, chr(ord(letter) + 1) if letter else "a")
     return successor if successor < bound else None
@@ -513,9 +516,10 @@ def no_room(number: str, previous: Number | None, bound: Number | None, tail: st
     if bound is None or after(previous, bound) is not None:
         return None
     if previous is None:
+        reason = FROM_ONE if bound == (1, "") else "a number once used is not used again"
         return (
-            f"no number fits before item {number}.{render_number(bound)}, the next one numbered, since a"
-            f" number once used is not used again, and {BEFORE_FIRST}"
+            f"no number fits before item {number}.{render_number(bound)}, the next one numbered, since"
+            f" {reason}, and {BEFORE_FIRST}"
         )
     culprit = f"item {number}.{render_number(previous)}, the one before,"
     clause = f"no number fits {range_words(number, previous, bound)}; {culprit} may be the one out of place"
@@ -817,7 +821,7 @@ def cell_findings(row: Row, key: str, derived: Derived) -> list[Finding]:
 
 def row_findings(matrix: Matrix, steps: list[Step], unread: bool) -> list[Finding]:
     """The findings of the rows. Where `unread` is true, a fenced block left open hides the steps below it,
-    and no row is held against the items, nor reported as lacking its step or as having none."""
+    and the rows are not read against the steps at all."""
     derived = {step.key: derive(step) for step in steps}
     total = derive_total(steps)
     by_key, findings = index_rows(matrix.rows)
@@ -864,7 +868,7 @@ def fence_finding(line: int) -> Finding:
         line,
         "this fenced block never closes",
         WHY_FENCE,
-        "close it with a line of the same fence where its code ends",
+        "close it with a line of the same fence, with nothing after it, where its code ends",
     )
 
 
@@ -1517,10 +1521,16 @@ def renumbered(item: str, old: str, new: str) -> str:
 
 
 def first_room(bound: str) -> str:
-    """The clause for a number wanted before the item numbered <bound>, the first of its step to read one."""
+    """The clause for a number wanted before the item numbered <bound>, the first of its step to read one:
+    below 2.1 the items are numbered from 1, below any other a number once used is not used again."""
+    reason = (
+        "the items of a step are numbered from 1"
+        if bound == "2.1"
+        else "a number once used is not used again"
+    )
     return (
-        f"no number fits before item {bound}, the next one numbered, since a number once used is not used"
-        " again, and an item added before the first stands after it instead"
+        f"no number fits before item {bound}, the next one numbered, since {reason}, and an item added before"
+        " the first stands after it instead"
     )
 
 
@@ -1775,6 +1785,17 @@ def list_cases() -> dict[str, tuple[str, Want]]:
                 )
             ],
         ),
+        "a list line above item 2.1 is told the items of a step are numbered from 1": (
+            edit(BASE, ITEM_1, note + "\n" + ITEM_1),
+            [
+                (
+                    23,
+                    what,
+                    "join its words to the sentence above, or write it as an item after the first one:"
+                    f" {first_room('2.1')}",
+                )
+            ],
+        ),
         "list lines and no item are told to number from 1 up": (
             edit(
                 edit(edited(ITEM_1, note), ITEM_2, "   * A second note."),
@@ -1869,6 +1890,10 @@ def run_cases() -> dict[str, tuple[str, Want]]:
             edited(ITEM_1, done + " [the record\n   of it](records/second.md)."),
             [(24, "this is a second line of item 2.1", join)],
         ),
+        "a done item whose link is split right after its ( has the finding of the second line alone": (
+            edited(ITEM_1, done + " [the record](\n   records/second.md)."),
+            [(24, "this is a second line of item 2.1", join)],
+        ),
         "a done item with no link on either line has both findings": (
             edited(ITEM_1, done + "\n   and more words."),
             [
@@ -1925,7 +1950,7 @@ def fence_cases() -> dict[str, tuple[str, Want]]:
         return edit(BASE, old, new)
 
     never = "this fenced block never closes"
-    close = "close it with a line of the same fence where its code ends"
+    close = "close it with a line of the same fence, with nothing after it, where its code ends"
     visible_sums = "| all | All steps | all | 🔄 | 2 | 1 | 1 | 66% |"  # the sums of steps 1 and 2 alone
     return {
         "a fenced block that never closes is a finding at its opening line": (
@@ -2135,7 +2160,7 @@ def report_outcomes() -> list[tuple[str, bool, str]]:
     fence_lines = [
         "RED: docs/rollout-plan.md:28: this fenced block never closes",
         "  why: every line after it is read as code, so the steps and items below are not checked",
-        "  fix: close it with a line of the same fence where its code ends",
+        "  fix: close it with a line of the same fence, with nothing after it, where its code ends",
         "RED: 1 finding(s) — 4 step(s), 6 item(s) examined",
     ]
     red_text = edit(BASE, ROW_2, ROW_2.replace("| 1 | 1 | 1 |", "| 2 | 1 | 1 |"))
