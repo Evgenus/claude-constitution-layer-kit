@@ -1,13 +1,13 @@
 ---
 id: dec-0102-bootstrap-recommends-and-copies-the-kernel-first
 type: task-record
-title: The bootstrap recommends yes to its two questions, copies the kernel before the policies, and writes each territory after its policy
+title: The bootstrap recommends yes to its two questions, copies the kernel before the policies, and claims each further territory after its policy
 status: active
 stakes: process
 decider: Eugene Chernyshov
 ---
 
-# The bootstrap recommends yes to its two questions, copies the kernel before the policies, and writes each territory after its policy
+# The bootstrap recommends yes to its two questions, copies the kernel before the policies, and claims each further territory after its policy
 
 ## Context
 
@@ -48,7 +48,7 @@ The session recommended A: the friction returns in every project, and the reason
 
 <a id="r2"></a>**R2.** The bootstrap copies the kernel in its step 5, before the policies of step 6, and commits the copy on its own. Record #1 is written last, in step 7, and is born `inactive`, since by the commit that creates it the dials file, the kernel copy and the policies are applied on the branch. This replaces R2 of [dec-0101-bootstrap-on-a-branch-with-two-questions](dec-0101-bootstrap-on-a-branch-with-two-questions.md#r2).
 
-## 3. A territory only after its policy
+## 3. Each further territory after its policy
 
 The carry audit of this change, at e43ff0b, found the guide's step 4 claiming the territories of the kernel copy and of decision records before their policies existed, while module [`const-locations`](../requirements.md#const-locations) orders every new kind as its policy, then its territory, then its first document, and the guide's own sentence said a territory is claimed once its kind has a policy. The kernel copy cannot follow that order: every policy links it.
 
@@ -59,9 +59,9 @@ The carry audit of this change, at e43ff0b, found the guide's step 4 claiming th
   - **Pros:** the smallest edit.
   - **Cons:** an exception to the module's "the order is the rule"; the repeated note stays.
 
-The session recommended A: it removes the contradiction and leaves only the exception nothing can avoid. The decider chose A in chat on 2026-10-24, as worded above. Two confirming reads of this change then moved the root's lines out of step 4: the first, at 33d1949, found the root's territory named before the root policy existed; the second, at 03cba1c, found that writing the root policy before its lines left its write unchecked by the gate of `const-meta-types`. So the root's lines arrive with the root policy, in step 6, as the skill new-kind of `const-locations` orders from zero. The decider's yes on the merge is given on R3 as it stands below.
+The session recommended A: it removes the contradiction and leaves only the exception nothing can avoid. The decider chose A in chat on 2026-10-24. A confirming read at 33d1949 moved the root's lines out of step 4, on the premise that the gates fail while `root_policy` names a file not yet written; the read at 03cba1c found the premise false and the move harmful, since the root policy's write went unchecked, and the read after it found that A as chosen works. So R3 states A as chosen, and names the root's territory as the one territory claimed before its policy.
 
-<a id="r3"></a>**R3.** The bootstrap claims a territory only once its kind has a policy. Step 4 writes the dials file's first lines alone: `module_prefix`, the namespace of `const-task-close`, and the `plc` catalog when the policies are a catalog. Step 6 writes `root_policy` and the root's territory, and then the root policy by hand in the same turn, the one place a policy and its territory arrive together, so that its write is checked; then each further policy and its territory; and, after the policy for decision records, `record_policies` and the `dec` catalog, before the `plc` entry. With a style guide, the skill of `const-styling` comes after those three policies, which replaces "before the first policy" in R5 of [dec-0101-bootstrap-on-a-branch-with-two-questions](dec-0101-bootstrap-on-a-branch-with-two-questions.md#r5). Since every policy links the kernel, the kernel copy of step 5 is the one document made before its policy; it stays outside claimed territory until step 6 claims it.
+<a id="r3"></a>**R3.** The bootstrap claims each further territory only once its kind has a policy. Step 4 writes the dials file's first lines alone, the root's: `root_policy`, `module_prefix`, the root policy's territory, the namespace of `const-task-close`, and the `plc` catalog when the policies are a catalog. The root's territory is so the one claimed before its policy, since the creation command and the checks of the root policy need it. Step 6 writes the root policy first, by hand; then each further policy and its territory; and, after the policy for decision records, `record_policies` and the `dec` catalog, before the `plc` entry. With a style guide, the skill of `const-styling` comes after those three policies, which replaces "before the first policy" in R5 of [dec-0101-bootstrap-on-a-branch-with-two-questions](dec-0101-bootstrap-on-a-branch-with-two-questions.md#r5). Since every policy links the kernel, the kernel copy of step 5 is the one document made before its policy; it stays outside claimed territory until step 6 claims it.
 
 ## Applied
 
