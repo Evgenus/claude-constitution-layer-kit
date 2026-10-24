@@ -2,7 +2,7 @@
 id: dec-0103-rollout-plan-status-matrix
 type: task-record
 title: The rollout plan opens with a status matrix that a kit check holds, and every item carries one status mark
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
