@@ -41,7 +41,8 @@ What it holds, each failure a finding of its own:
      fenced block is a paragraph of the step and no item. An item reads
      `- <a id="s<n>-<m>"></a>**<n>.<m>** <mark> <text>`: <n> the number of its step, <m> its number in
      the step, anchor and handle agreeing with each other and with the step, one mark of ✅ ⏳ 💤, a space
-     and words. Where anchor and handle disagree the number is the anchor's, which other documents cite,
+     and words; a 🔄 right after the mark is a finding of its own, since 🔄 is a step's status and no
+     item's mark. Where anchor and handle disagree the number is the anchor's, which other documents cite,
      and the fix rewrites the handle; the handle's number is read only where the anchor reads none. A
      list line in any other form is a finding. The numbers ascend, gaps allowed: the first <m> is any
      whole number from 1, with a letter or none, and each next item is numbered above the one before it
@@ -79,13 +80,23 @@ What it holds, each failure a finding of its own:
      line, no step line, no phase line, no header row and no line that runs on under an item. A block that
      opens and never closes runs to the end of the file and hides every line after it, so it is a finding
      at its opening line; while one stands, the rows of the matrix are not read, against the steps or for
-     their own form, save a first cell that names no step and a step's second row, and the matrix's
-     absence or place is not reported, since the lines below the block are not read.
+     their own form, save the findings of the rows' first cells (a cell that names no step, a step's
+     second row) and of the matrix's own table (a second matrix, a missing separator row), and the
+     matrix's absence or place is not reported, since the lines below the block are not read.
 
 What it leaves to review: whether a mark matches the words of its item, whether a link is the proof of its
 item, a done item's words, a row's title, and every other content of the plan; the style, the language and
-the length of the plan are held by the modules that hold them. A known limit: a thematic break written
-`* * *` under a step still reads as a list line, and is a finding.
+the length of the plan are held by the modules that hold them; and the history rule 4 asks of numbers —
+an item keeps its number, a number once used is not used again, the next whole number at a step's end —
+which no text of the plan shows.
+
+The check reads the plan by line patterns, not as a Markdown parser does. Its known limits: a thematic
+break written `* * *` or `- - -` reads as a list line, and is a finding; a list line in a phase with no
+step stands in no step, and is a finding too; a link is a text of the form `[text](target)` on the item's
+lines, so a link that stands only in a code span, an image `![x](a.png)` and a target with a space in it
+pass for one; a step's number is held to stand once and not to ascend, a leading zero in it is not
+held, and a phase's anchor is not held to stand before its heading; a step line written in another form
+above the first phase line is not seen.
 
 Modes:  no arguments   check docs/rollout-plan.md at the kit root;
         --self-test    prove the check on throwaway texts: a valid plan green, and each hold above red
@@ -147,10 +158,10 @@ WHY_LIST = "every list line under a step is counted as an item, so a line that i
 WHY_ONE_LINE = "an item is one line, so its mark, its words and its link are read together"
 WHY_PHASE = "each step stands in the phase above it, and its row names that phase"
 WHY_STEPS = "a step is cited by its number, and its row is found by it"
-WHY_STRAY = "a line in no step is counted in no row, so the matrix cannot show it"
+WHY_STRAY = "a line in no step is counted in no row, so the matrix cannot show it (rule 4)"
 STRAY_FIX = (
     'write it as a step line, <n>. <a id="s<n>"></a> and its text, as rule 4 of plc-0008-rollout-plan'
-    " gives it, or move it under its step as an item"
+    " gives it, or move it under its step as an item, or, for a note, join its words to the sentence above"
 )
 WHY_FENCE = "every line after it is read as code, so the steps and items below are not checked"
 RUN_FIX = "join this line to the line above, or put a blank line above it where it is no part of the item"
@@ -1355,7 +1366,8 @@ def step_cases() -> dict[str, tuple[str, Want]]:
                     21,
                     "this list line stands in no step",
                     'write it as a step line, <n>. <a id="s<n>"></a> and its text, as rule 4 of'
-                    " plc-0008-rollout-plan gives it, or move it under its step as an item",
+                    " plc-0008-rollout-plan gives it, or move it under its step as an item, or, for a note,"
+                    " join its words to the sentence above",
                 )
             ],
         ),
