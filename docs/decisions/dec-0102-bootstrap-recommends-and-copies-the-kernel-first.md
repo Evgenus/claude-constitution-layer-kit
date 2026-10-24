@@ -2,7 +2,7 @@
 id: dec-0102-bootstrap-recommends-and-copies-the-kernel-first
 type: task-record
 title: The bootstrap recommends yes to its two questions, copies the kernel before the policies, and claims each further territory after its policy
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
