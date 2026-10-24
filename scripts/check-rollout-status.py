@@ -21,8 +21,8 @@ What it holds, each failure a finding of its own:
      moved above it, and each further table in sight deleted; while none is in sight and a fenced block
      stands open (7), the block is to be closed first; else one is added. A header row repeated inside
      the table's run of rows is a finding of its own, that header row to go, with the separator row under
-     it where one stands there, save where the repeat stands right under the table's header or under
-     other header rows only; a header row beyond that run is a second matrix, a table to delete.
+     it where one stands there, save where every line between the table's header and the repeat is a
+     header row; a header row beyond that run is a second matrix, a table to delete.
   2. The rows against the steps. One row for each step, none for a step the plan lacks, none twice, in
      the order the steps stand in the plan, and the row `all` last. These are held only as 3 says. A row
      whose first cell names no step is a finding, and so is a second row of a step or of `all`, whatever
@@ -927,10 +927,10 @@ def further_fix(first: int) -> str:
 
 
 def further_findings(lines: list[str], headers: list[int], outside: str) -> list[Finding]:
-    """Each header row in sight after the first: inside the first table's run of rows, a repeated header
-    row, which is to go, with the separator row under it where one stands there, save where the repeat stands
-    right under the table's header or under other header rows only; beyond that run, a second matrix, whose
-    fix is `outside`."""
+    """Each header row in sight after the first: inside the first table's run of rows, a repeated header row,
+    which is to go, with the separator row under it where one stands there, save where every line between
+    the table's header and the repeat is a header row; beyond that run, a second matrix, whose fix is
+    `outside`."""
     run = {row.line for row in read_matrix(lines, headers[0]).rows}
 
     def repeat(line: int) -> str:
