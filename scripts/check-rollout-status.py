@@ -33,17 +33,17 @@ What it holds, each failure a finding of its own:
      same rules. A step stands under a phase line.
      The one rule of reading the rows: they are read against the steps and their items only when the
      steps-and-items pass is clean. The pass is every finding about the steps and the items, those of 2
-     to 7 that name no row: of the step lines, the numbers, the marks, the words, the links and the lines
-     that run on; of a step that stands twice, a step above the first phase line and a list line in no
-     step; and of a fenced block left open. While any one stands, the report holds those findings and, of
-     the matrix, only these: its own table (1: no matrix before the first phase line, a second matrix, no
-     separator row) and the keys of its rows (2: a first cell that names no step, a second row of a step
-     or of `all`). No row is held against the items then: no missing row, no extra row, no row out of
-     order, no row `all` out of place, no wrong number of cells, no cell of the wrong form, no cell of
-     the wrong value, and no row text is offered, since the fix of a step or an item can still change
-     what a row says. Once the pass is clean, every item has exactly one mark, so every row is read from
-     the items as they stand, and the fix of a row gives values that no later fix of a step or an item
-     changes.
+     to 7 that name no row: of the step lines, the list lines that read as no item, the handles, the
+     anchors and the numbers, the marks, the words, the links and the lines that run on; of a step that
+     stands twice, a step above the first phase line and a list line in no step; and of a fenced block
+     left open. While any one stands, the report holds those findings and, of the matrix, only these: its
+     own table (1: no matrix before the first phase line, a second matrix, no separator row) and the keys
+     of its rows (2: a first cell that names no step, a second row of a step or of `all`). No row is held
+     against the items then: no missing row, no extra row, no row out of order, no row `all` out of
+     place, no wrong number of cells, no cell of the wrong form, no cell of the wrong value, and no row
+     text is offered, since the fix of a step or an item can still change what a row says. Once the pass
+     is clean, every item has exactly one mark, so every row is read from the items as they stand, and
+     the fix of a row gives values that no later fix of a step or an item changes.
   4. The items. Every list line of a step, outside a fenced block, is an item: a line that starts, indented
      or not, with `-`, `*` or `+` and a space, or with digits, `.` or `)` and a space, the line of a step
      itself excepted. An item is one line, its link on that line: a non-blank line right under an item
@@ -695,8 +695,8 @@ def read_step(span: Span) -> tuple[Step, list[Finding]]:
     findings: list[Finding] = []
     if not span.phase:
         fix = (
-            f"move step {span.number} below the status matrix, under the line"
-            ' <a id="phase-<letter>"></a> of its phase, and write that line where it is missing'
+            f"move step {span.number} below the status matrix into its phase, after the step it follows, and"
+            ' write the line <a id="phase-<letter>"></a> of that phase where it is missing'
         )
         findings.append(
             Finding(span.line, f"step {span.number} stands above the first phase anchor", WHY_PHASE, fix)
@@ -910,8 +910,9 @@ def row_findings(matrix: Matrix, steps: list[Step], clean: bool) -> list[Finding
 
 
 def matrix_findings(lines: list[str], steps: list[Step], clean: bool) -> list[Finding]:
-    """The findings of the matrix: its own table, whatever the pass, save its absence under an open fenced
-    block, and its rows as `row_findings` holds them."""
+    """The findings of the matrix: its own table, whatever the pass, save that while a fenced block stands
+    open anywhere in the plan, the matrix's absence and its place after the first phase line are not
+    reported; and its rows as `row_findings` holds them."""
     first_phase = first_phase_line(lines)
     headers = [n for n, line in unfenced(lines) if line.strip() == HEADER]
     if not headers or (first_phase is not None and headers[0] > first_phase):
@@ -1367,8 +1368,8 @@ def step_cases() -> dict[str, tuple[str, Want]]:
                 (
                     16,
                     "step 1 stands above the first phase anchor",
-                    'move step 1 below the status matrix, under the line <a id="phase-<letter>"></a> of its'
-                    " phase, and write that line where it is missing",
+                    "move step 1 below the status matrix into its phase, after the step it follows, and write"
+                    ' the line <a id="phase-<letter>"></a> of that phase where it is missing',
                 )
             ],
         ),
@@ -1378,8 +1379,19 @@ def step_cases() -> dict[str, tuple[str, Want]]:
                 (
                     5,
                     "step 1 stands above the first phase anchor",
-                    'move step 1 below the status matrix, under the line <a id="phase-<letter>"></a> of its'
-                    " phase, and write that line where it is missing",
+                    "move step 1 below the status matrix into its phase, after the step it follows, and write"
+                    ' the line <a id="phase-<letter>"></a> of that phase where it is missing',
+                )
+            ],
+        ),
+        "a step of a phase with other steps, above the matrix, is told to follow the step it follows": (
+            edit(edited(STEP_3 + "\n", ""), "# Plan\n", "# Plan\n" + STEP_3 + "\n"),
+            [
+                (
+                    5,
+                    "step 3 stands above the first phase anchor",
+                    "move step 3 below the status matrix into its phase, after the step it follows, and write"
+                    ' the line <a id="phase-<letter>"></a> of that phase where it is missing',
                 )
             ],
         ),
@@ -2126,7 +2138,7 @@ def fence_cases() -> dict[str, tuple[str, Want]]:
 def rule_cases() -> dict[str, tuple[str, Want]]:
     """The one rule of the rows: while a step or an item has a finding, or a fenced block stands open, the
     rows are not held against the items, and no row text is taught; the table of the matrix and the keys of
-    its rows are held whatever the pass."""
+    its rows are held whatever the pass, save the matrix's absence or place while a block stands open."""
 
     def edited(old: str, new: str) -> str:
         return edit(BASE, old, new)
@@ -2224,8 +2236,8 @@ def rule_cases() -> dict[str, tuple[str, Want]]:
                 (
                     15,
                     "step 1 stands above the first phase anchor",
-                    'move step 1 below the status matrix, under the line <a id="phase-<letter>"></a> of its'
-                    " phase, and write that line where it is missing",
+                    "move step 1 below the status matrix into its phase, after the step it follows, and write"
+                    ' the line <a id="phase-<letter>"></a> of that phase where it is missing',
                 )
             ],
         ),
