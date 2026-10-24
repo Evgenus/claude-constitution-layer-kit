@@ -34,7 +34,9 @@ What it holds, each failure a finding of its own:
      itself excepted. An item is one line, its link on that line: a non-blank line right under an item
      line, itself no list line, no step line, no phase line and no fence line, is a finding, and so is each
      such line right under that one, since the mark, the words and the link of an item are read together;
-     a line after a blank line or a fenced block is a paragraph of the step and no item. An item reads
+     the fix is to join the line to the one above, or to put a blank line above it where it is no part of
+     the item, as a heading, a comment or a quote under an item is none. A line after a blank line or a
+     fenced block is a paragraph of the step and no item. An item reads
      `- <a id="s<n>-<m>"></a>**<n>.<m>** <mark> <text>`: <n> the number of its step, <m> its number in
      the step, anchor and handle agreeing with each other and with the step, one mark of ✅ ⏳ 💤, a space
      and words. Where anchor and handle disagree the number is the anchor's, which other documents cite,
@@ -42,25 +44,36 @@ What it holds, each failure a finding of its own:
      list line in any other form is a finding. The numbers ascend, gaps allowed: the first <m> is any
      whole number from 1, with a letter or none, and each next item is numbered above the one before it
      (P), a letter standing after the same number without one and a before b. A number that is not above
-     P is a finding, since a number once used is not used again; a leading zero is a finding. The fix
-     names for that item a number above P and below N, the number of the next item that reads one, both
-     bounds and an example that fits, so that no other item turns red; where none fits, N not being above
-     P or nothing lying between them, it says so and names item P as the one that may be out of place. A
-     first item numbered below 1 has no P, and 1 bounds it from below; the last item of a step has no N.
-     The same bounds hold for the number a list line that is no item is told to take, and for the number
-     offered to an item whose handle and anchor read none, the next whole number where it is below N.
+     P is a finding, since a number once used is not used again; a leading zero is a finding. A number is
+     never offered from the gap between P and the next item that reads a number (N), since a whole number
+     there is one a removed item held: where an N stands, the offer is the letter after P's, `a` where P
+     has none; where none stands, the next whole number above P. The fix names for that item a number
+     above P and below N, both bounds and that example, so that no other item turns red; where none fits,
+     N not being above the letter after P, or P ending in `z`, it says so and names item P, the one
+     before, as the one that may be out of place. A first item has no P, and 1 bounds
+     it from below: where an N stands, no number fits, a step whose first item is above 1 having lost its
+     item 1, and the fix says so, names N, the next one numbered, and says that an item added before the
+     first stands after it instead; where none stands, it offers 1. The same holds for the number a list
+     line that is no item is told to take, which has the bounds alone, and for the number offered to an
+     item whose handle and anchor read none. An item that is the first of its step to read a number is
+     named so, whatever list line stands before it.
   5. The steps' own marks. A step with items opens its own text, after its anchor, with no mark. A step
-     with no items is its own one item: its text opens with one mark and a space.
+     with no items is its own one item: its text opens with one mark and a space, and it is one line, as
+     an item is, with the finding and the fix of 4 for the line right under it that runs on. A line right
+     under the line of a step with items is the step's own text, and no finding.
   6. The links. A done item holds an inline Markdown link, `[text](target)`, on its own line, and so does
-     a done step with no items. A done item whose link stands on a line that runs on under it has the
-     finding of 4 alone, until the lines are joined.
+     a done step with no items. The link is looked for in the item's line and the lines that run on under
+     it, joined, so that a link split across them gives the finding of 4 alone, until the lines are
+     joined; the same for a done step with no items.
   7. The fenced blocks, for every scan above: the steps, the phase lines, the items, and the header row and
      the first phase line of the matrix. A fence is a line whose text, after any spaces, starts with three
      or more backticks or tildes, since inside a list item a fence stands four spaces in or more; a
      backtick fence whose words hold a backtick opens nothing, being inline code. A fence closes only on a
-     line of the same character, as long or longer, with no words after it; a block left open runs to the
-     end of the file. What a block holds is no list line, no step line, no phase line, no header row and
-     no line that runs on under an item.
+     line of the same character, as long or longer, with no words after it. What a block holds is no list
+     line, no step line, no phase line, no header row and no line that runs on under an item. A block that
+     opens and never closes runs to the end of the file and hides every line after it, so it is a finding
+     at its opening line; while one stands, no row is reported as lacking its step, since the steps below
+     the block are not read.
 
 What it leaves to review: whether a mark matches the words of its item, whether a link is the proof of its
 item, a done item's words, a row's title, and every other content of the plan; the style, the language and
@@ -127,6 +140,10 @@ WHY_LIST = "every list line under a step is counted as an item, so a line that i
 WHY_ONE_LINE = "an item is one line, so its mark, its words and its link are read together"
 WHY_PHASE = "each step stands in the phase above it, and its row names that phase"
 WHY_STEPS = "a step is cited by its number, and its row is found by it"
+WHY_FENCE = "every line after it is read as code, so the steps and items below are not checked"
+RUN_FIX = "join this line to the line above, or put a blank line above it where it is no part of the item"
+BEFORE_FIRST = "an item added before the first stands after it instead"
+ON_STEP = -1  # the index a line gets that runs on under the line of a step, as a list line gets its own
 
 
 class Broken(Exception):
@@ -208,7 +225,7 @@ class Span:
     phase: str
     text: str
     lines: list[tuple[int, str]]
-    tails: list[tuple[int, int, str]]  # the index of a list line, and the number and text of a line under it
+    tails: list[tuple[int, int, str]]  # the index of a list line or ON_STEP, and the number and text under it
 
 
 @dataclass(frozen=True)
@@ -304,17 +321,31 @@ def closes_fence(fence: str, line: str) -> bool:
     return found.group(1)[0] == fence[0] and len(found.group(1)) >= len(fence) and not found.group(2).strip()
 
 
+def fence_after(fence: str, line: str) -> str:
+    """The fence still open after a line, given the one open before it; an empty string where none is."""
+    if fence:
+        return "" if closes_fence(fence, line) else fence
+    return fence_opening(line)
+
+
 def unfenced(lines: list[str]) -> Iterator[tuple[int, str]]:
     """The lines outside the fenced blocks, each with its number from 1; the fence lines and what they
     enclose are left out. A block left open runs to the end of the file."""
     fence = ""
     for number, line in enumerate(lines, start=1):
-        if fence:
-            fence = "" if closes_fence(fence, line) else fence
-        else:
-            fence = fence_opening(line)
-            if not fence:
-                yield number, line
+        outside = not fence
+        fence = fence_after(fence, line)
+        if outside and not fence:
+            yield number, line
+
+
+def unclosed_fence(lines: list[str]) -> int | None:
+    """The line where a fenced block opens and never closes, or None where every block closes."""
+    fence, opened = "", 0
+    for number, line in enumerate(lines, start=1):
+        opened = opened if fence else number
+        fence = fence_after(fence, line)
+    return opened if fence else None
 
 
 def first_phase_line(lines: list[str]) -> int | None:
@@ -324,12 +355,12 @@ def first_phase_line(lines: list[str]) -> int | None:
 def split_steps(lines: list[str]) -> list[Span]:
     """The steps of the plan, each with the list lines of its span: from its line to the next step line, the
     next phase line or the end of the file; a fenced block holds none. A non-blank line right under a list
-    line, with no fence line between, that is no list line, step line or phase line runs on under it, and
-    so does each such line right under that one."""
+    line or a step line, with no fence line between, that is no list line, step line or phase line runs on
+    under it, and so does each such line right under that one."""
     spans: list[Span] = []
     phase = ""
     current: Span | None = None
-    from_item: int | None = None  # the index of the list line the line above runs on from, if it does
+    from_item: int | None = None  # the index of the list line, or ON_STEP, the line above runs on from
     last = 0
     for number, line in unfenced(lines):
         runs_on = from_item if number == last + 1 else None
@@ -340,6 +371,7 @@ def split_steps(lines: list[str]) -> list[Span]:
         elif step:
             current = Span(step.group(1), number, phase, step.group(2), [], [])
             spans.append(current)
+            from_item = ON_STEP
         elif current is not None and LIST_LINE.match(line):
             current.lines.append((number, line))
             from_item = len(current.lines) - 1
@@ -374,42 +406,55 @@ def link_finding(name: str, line: int) -> Finding:
 
 
 def read_item(line_no: int, line: str, tail: str) -> tuple[Item, list[Finding]]:
-    """An item line with its findings of mark and link. A done item whose link stands in `tail`, the lines
-    that run on under it, has no finding of its link: the finding of those lines stands until they are
-    joined."""
+    """An item line with its findings of mark and link. The link is looked for in the line and `tail`, the
+    lines that run on under it, joined: a link split across them gives the finding of those lines alone,
+    until they are joined."""
     shaped = ITEM_FORM.match(line.rstrip())
     if shaped is None:
         return Item(line_no, False, "", "", None), []
     anchor, handle, rest = shaped.groups()
     name = f"item {handle}"
     mark, findings = read_mark(name, f"after **{handle}**", line_no, rest)
-    if mark is Mark.DONE and LINK.search(rest) is None and LINK.search(tail) is None:
+    if mark is Mark.DONE and LINK.search(f"{rest} {tail}") is None:
         findings.append(link_finding(name, line_no))
     return Item(line_no, True, anchor, handle, mark), findings
 
 
-def tail_texts(span: Span) -> list[str]:
-    """For each list line of the step, the words of the lines that run on under it, joined."""
-    return [" ".join(text for index, _, text in span.tails if index == at) for at in range(len(span.lines))]
+def tail_of(span: Span, at: int) -> str:
+    """The words of the lines that run on under the list line of index `at`, or under the line of the step
+    for ON_STEP, joined."""
+    return " ".join(text for index, _, text in span.tails if index == at)
 
 
-def run_finding(item: Item, line: int) -> Finding:
-    """A line that runs on under an item line, or under a list line that is no item."""
-    words = "a second line" if line == item.line + 1 else "a further line"
-    if item.shaped:
-        name, target = f"item {item.handle}", f"the line of item {item.handle}"
-    else:
-        name, target = "the list line above", "the list line above"
-    return Finding(line, f"{name} runs on to {words}", WHY_ONE_LINE, f"join this line to {target}")
+def run_finding(subject: str, first: int, line: int) -> Finding:
+    """A line that runs on under `subject`, a line at `first`: an item, a list line that is no item, or a
+    step with no items."""
+    words = "second" if line == first + 1 else "further"
+    return Finding(line, f"this is a {words} line of {subject}", WHY_ONE_LINE, RUN_FIX)
+
+
+def run_findings(span: Span, items: list[Item]) -> list[Finding]:
+    """The lines that run on under the list lines of a step with items; those right under the step's own
+    line are its text, and no finding."""
+    findings: list[Finding] = []
+    for index, line, _ in span.tails:
+        if index != ON_STEP:
+            item = items[index]
+            subject = f"item {item.handle}" if item.shaped else f"the list line at line {item.line}"
+            findings.append(run_finding(subject, item.line, line))
+    return findings
 
 
 def read_solo(span: Span) -> tuple[Item, list[Finding]]:
-    """A step with no items is its own one item, its mark right after its anchor."""
+    """A step with no items is its own one item, its mark right after its anchor, and one line: the lines
+    that run on under it are findings, and its link is looked for in them as in an item's."""
     name = f"step {span.number}, which has no items,"
     after = f"right after the anchor of step {span.number}"
     mark, findings = read_mark(name, after, span.line, span.text)
-    if mark is Mark.DONE and LINK.search(span.text) is None:
+    if mark is Mark.DONE and LINK.search(f"{span.text} {tail_of(span, ON_STEP)}") is None:
         findings.append(link_finding(name, span.line))
+    subject = f"step {span.number}, which has no items"
+    findings += [run_finding(subject, span.line, line) for _, line, _ in span.tails]
     return Item(span.line, True, "", name, mark), findings
 
 
@@ -423,16 +468,18 @@ def render_number(number: Number) -> str:
 
 
 def after(previous: Number | None, bound: Number | None) -> Number | None:
-    """A number above the one before and below the bound, to write where an item reads none and in a fix:
-    the next whole number where it is below the bound, else the one next above the one before. None where
-    none fits: the bound is not above the one next above the one before."""
-    if previous is None:
-        options = [(1, "")]
-    else:
-        count, letter = previous
-        successor = (count + 1, "") if letter == "z" else (count, chr(ord(letter) + 1) if letter else "a")
-        options = [(count + 1, ""), successor]
-    return next((option for option in options if bound is None or option < bound), None)
+    """A number above the one before (P) and below the bound (N), to write where an item reads none and in
+    a fix. A whole number in the gap between P and N is never offered, since a removed item held it and a
+    number once used is not used again. Where an N stands: the letter after P's, `a` where P has none, if
+    it is below N; None where it is not, after the letter z, and for a first item, which has no P. Where no
+    N stands: the next whole number above P, and 1 for a first item."""
+    if bound is None:
+        return (1, "") if previous is None else (previous[0] + 1, "")
+    if previous is None or previous[1] == "z":
+        return None
+    count, letter = previous
+    successor = (count, chr(ord(letter) + 1) if letter else "a")
+    return successor if successor < bound else None
 
 
 def rises(previous: Number | None, own: Number) -> bool:
@@ -456,16 +503,21 @@ def range_words(number: str, previous: Number | None, bound: Number | None) -> s
     return low if bound is None else f"{low} and below {number}.{render_number(bound)}"
 
 
-def no_room(number: str, previous: Number | None, bound: Number | None) -> str | None:
-    """The clause that says no number fits between the one before and the bound, and which item may be out
-    of place; None where a number fits."""
+def no_room(number: str, previous: Number | None, bound: Number | None, tail: str = "") -> str | None:
+    """The clause that says no number fits between the one before and the bound; None where a number fits.
+    Before a first item it names the bound, the next one numbered, and says where an item added before the
+    first stands. After an item it names that one as the one that may be out of place, and `tail`, if any,
+    says what to do about it, after a colon."""
     if bound is None or after(previous, bound) is not None:
         return None
     if previous is None:
-        culprit = f"item {number}.{render_number(bound)}, the next one numbered,"
-    else:
-        culprit = f"item {number}.{render_number(previous)}, the one before,"
-    return f"no number fits {range_words(number, previous, bound)}; {culprit} may be the one out of place"
+        return (
+            f"no number fits before item {number}.{render_number(bound)}, the next one numbered, since a"
+            f" number once used is not used again, and {BEFORE_FIRST}"
+        )
+    culprit = f"item {number}.{render_number(previous)}, the one before,"
+    clause = f"no number fits {range_words(number, previous, bound)}; {culprit} may be the one out of place"
+    return f"{clause}: {tail}" if tail else clause
 
 
 def example(number: str, previous: Number | None, bound: Number | None) -> str:
@@ -476,9 +528,13 @@ def example(number: str, previous: Number | None, bound: Number | None) -> str:
 def order_finding(number: str, item: Item, previous: Number | None, bound: Number | None) -> Finding:
     """An item whose number is not above the one before. The fix changes this item alone, to a number above
     the one before and below the next one numbered, so that no other item turns red; where none fits, it
-    says so and names the item before, or the next one where there is none before, as the one out of place."""
+    says so and names the item before as the one out of place, or, for a first item, the next one numbered,
+    after which an item added before the first stands."""
     if previous is None:
-        what = f"item {item.handle} opens step {number}, and its number is below 1"
+        what = (
+            f"item {item.handle} is the first item of step {number} that reads a number, and its number is"
+            " below 1"
+        )
         reason = "the items of a step are numbered from 1"
     else:
         what = (
@@ -486,20 +542,20 @@ def order_finding(number: str, item: Item, previous: Number | None, bound: Numbe
             " above it"
         )
         reason = "a number once used is not used again"
-    room = no_room(number, previous, bound)
+    room = no_room(
+        number, previous, bound, "renumber it in its handle and its anchor so that the numbers ascend"
+    )
     if room is None:
         where = range_words(number, previous, bound)
-        fix = f"give it a number {where} in its handle and its anchor{example(number, previous, bound)}"
-    else:
-        fix = f"{room}: renumber it in its handle and its anchor so that the numbers ascend"
-    return Finding(item.line, what, WHY_NUMBER, f"{fix}; {reason}")
+        room = f"give it a number {where} in its handle and its anchor{example(number, previous, bound)}"
+    return Finding(item.line, what, WHY_NUMBER, f"{room}; {reason}")
 
 
 def id_finding(number: str, item: Item, current: Number | None, room: str | None) -> Finding | None:
     """The handle and the anchor against the step and the number the item claims, which is the anchor's;
-    `current` is None where an item reads no number and none fits, and `room` says so."""
+    `current` is None where an item reads no number and none fits, and `room` says so, with what to do."""
     if current is None:
-        fix = f"{room or 'no number fits'}: renumber it in its handle and its anchor, then number this item"
+        fix = room or "no number fits"
     else:
         handle = f"{number}.{render_number(current)}"
         anchor = f"s{number}-{render_number(current)}"
@@ -519,6 +575,8 @@ def list_finding(number: str, line: int, previous: Number | None, bound: Number 
     if room is None:
         where = range_words(number, previous, bound)
         fix = f"write it as an item, {shape}, with an <m> {where}, or join its words to the sentence above"
+    elif previous is None:
+        fix = f"join its words to the sentence above, or write it as an item after the first one: {room}"
     else:
         fix = f"join its words to the sentence above, or renumber first and then write it as an item: {room}"
     return Finding(line, f"this list line of step {number} does not read as an item", WHY_LIST, fix)
@@ -547,7 +605,10 @@ def number_findings(number: str, items: list[Item]) -> list[Finding]:
         if own is not None and not rises(previous, own):
             findings.append(order_finding(number, item, previous, bound))
         current = own if own is not None else after(previous, bound)
-        misplaced = id_finding(number, item, current, no_room(number, previous, bound))
+        room = no_room(
+            number, previous, bound, "renumber it in its handle and its anchor, then number this item"
+        )
+        misplaced = id_finding(number, item, current, room)
         if misplaced is not None:
             findings.append(misplaced)
         previous = previous if current is None else current
@@ -569,11 +630,11 @@ def read_step(span: Span) -> tuple[Step, list[Finding]]:
         fix = f"delete the mark from the line of step {span.number}; its items carry the marks"
         findings.append(Finding(span.line, what, WHY_STEP_MARK, fix))
     items: list[Item] = []
-    for (line_no, line), tail in zip(span.lines, tail_texts(span), strict=True):
-        item, found = read_item(line_no, line, tail)
+    for index, (line_no, line) in enumerate(span.lines):
+        item, found = read_item(line_no, line, tail_of(span, index))
         items.append(item)
         findings += found
-    findings += [run_finding(items[index], line) for index, line, _ in span.tails]
+    findings += run_findings(span, items)
     findings += number_findings(span.number, items)
     return Step(span.number, span.line, span.phase, tuple(items)), findings
 
@@ -752,12 +813,14 @@ def cell_findings(row: Row, key: str, derived: Derived) -> list[Finding]:
     return findings
 
 
-def row_findings(matrix: Matrix, steps: list[Step]) -> list[Finding]:
+def row_findings(matrix: Matrix, steps: list[Step], unread: bool) -> list[Finding]:
+    """The findings of the rows. Where `unread` is true, a fenced block left open hides the steps below it,
+    and no row is reported as lacking its step."""
     derived = {step.key: derive(step) for step in steps}
     total = derive_total(steps)
     by_key, findings = index_rows(matrix.rows)
     findings += missing_findings(matrix, derived, total, by_key)
-    findings += extra_findings(by_key, derived)
+    findings += [] if unread else extra_findings(by_key, derived)
     findings += order_findings(by_key, derived)
     findings += all_position_findings(by_key, derived)
     for key, row in by_key.items():
@@ -767,7 +830,7 @@ def row_findings(matrix: Matrix, steps: list[Step]) -> list[Finding]:
     return findings
 
 
-def matrix_findings(lines: list[str], steps: list[Step]) -> list[Finding]:
+def matrix_findings(lines: list[str], steps: list[Step], unread: bool) -> list[Finding]:
     first_phase = first_phase_line(lines)
     headers = [n for n, line in unfenced(lines) if line.strip() == HEADER]
     if not headers or (first_phase is not None and headers[0] > first_phase):
@@ -787,14 +850,23 @@ def matrix_findings(lines: list[str], steps: list[Step]) -> list[Finding]:
         fix = f"add the row {SEPARATOR_ROW} under the header row"
         what = "the status matrix has no separator row under its header row"
         findings.append(Finding(matrix.header, what, WHY_MATRIX, fix))
-    return findings + row_findings(matrix, steps)
+    return findings + row_findings(matrix, steps, unread)
+
+
+def fence_finding(line: int) -> Finding:
+    return Finding(
+        line, "this fenced block never closes", WHY_FENCE, "close it with a line of the same fence"
+    )
 
 
 def check_text(text: str) -> Result:
     """Every finding of a plan's text, in the order of its lines, and what was examined."""
     lines = split_lines(text)
     steps, findings = read_steps(lines)
-    findings += matrix_findings(lines, steps)
+    unclosed = unclosed_fence(lines)
+    if unclosed is not None:
+        findings.append(fence_finding(unclosed))
+    findings += matrix_findings(lines, steps, unclosed is not None)
     findings.sort(key=lambda found: found.line)
     return Result(
         tuple(findings),
@@ -1200,7 +1272,7 @@ def step_cases() -> dict[str, tuple[str, Want]]:
         "link its record, or the document or the module its routine change concerns, or, once its record is"
         " deleted, the current-state document that carries its ruling"
     )
-    nameless = ITEM_2.replace("s2-2", "x").replace("**2.2**", "**two**")
+    nameless = unnumbered(ITEM_2, "2", "x")
     return {
         "a step above the first phase line is a finding": (
             edited('<a id="phase-a"></a>\n', ""),
@@ -1324,9 +1396,60 @@ def step_cases() -> dict[str, tuple[str, Want]]:
             edited(ITEM_2, ITEM_2.replace("**2.2**", "**two**")),
             [(24, f"the handle two and the anchor s2-2 of an item {id_what}", id_fix)],
         ),
-        "a handle and an anchor that read no number are a finding, the next number is wanted": (
+        "a handle and an anchor that read no number are a finding, the letter after the one before": (
             edited(ITEM_2, nameless),
-            [(24, f"the handle two and the anchor x of an item {id_what}", id_fix)],
+            [
+                (
+                    24,
+                    f"the handle two and the anchor x of an item {id_what}",
+                    "write the handle **2.1a** and the anchor s2-1a",
+                )
+            ],
+        ),
+        "an item that reads no number at the end of its step is offered the next whole number": (
+            edited(ITEM_3, unnumbered(ITEM_3, "3", "z")),
+            [
+                (
+                    25,
+                    f"the handle two and the anchor z of an item {id_what}",
+                    "write the handle **2.3** and the anchor s2-3",
+                )
+            ],
+        ),
+        "items that read no number are numbered from 1 up, each above the one before": (
+            edit(
+                edit(edited(ITEM_1, unnumbered(ITEM_1, "1", "y")), ITEM_2, nameless),
+                ITEM_3,
+                unnumbered(ITEM_3, "3", "z"),
+            ),
+            [
+                (
+                    23,
+                    f"the handle two and the anchor y of an item {id_what}",
+                    "write the handle **2.1** and the anchor s2-1",
+                ),
+                (
+                    24,
+                    f"the handle two and the anchor x of an item {id_what}",
+                    "write the handle **2.2** and the anchor s2-2",
+                ),
+                (
+                    25,
+                    f"the handle two and the anchor z of an item {id_what}",
+                    "write the handle **2.3** and the anchor s2-3",
+                ),
+            ],
+        ),
+        "an item that reads no number before the first item that reads one is told no number fits": (
+            edited(ITEM_1, unnumbered(ITEM_1, "1", "y")),
+            [
+                (
+                    23,
+                    f"the handle two and the anchor y of an item {id_what}",
+                    "no number fits before item 2.2, the next one numbered, since a number once used is not"
+                    " used again, and an item added before the first stands after it instead",
+                )
+            ],
         ),
         "an item that reads no number is offered one below the next item's": (
             edit(edited(ITEM_3, renumbered(ITEM_3, "3", "2")), ITEM_2, nameless),
@@ -1384,6 +1507,19 @@ def renumbered(item: str, old: str, new: str) -> str:
     return item.replace(f"s2-{old}", f"s2-{new}").replace(f"**2.{old}**", f"**2.{new}**")
 
 
+def first_room(bound: str) -> str:
+    """The clause for a number wanted before the item numbered <bound>, the first of its step to read one."""
+    return (
+        f"no number fits before item {bound}, the next one numbered, since a number once used is not used"
+        " again, and an item added before the first stands after it instead"
+    )
+
+
+def unnumbered(item: str, old: str, anchor: str) -> str:
+    """An item line of step 2 whose anchor is <anchor> and whose handle is **two**: both read no number."""
+    return item.replace(f"s2-{old}", anchor).replace(f"**2.{old}**", "**two**")
+
+
 def numbered(first: str, second: str, third: str) -> str:
     """The valid plan with the three items of step 2 numbered as given in their anchors and handles, such
     as "1", "2a" or "5"."""
@@ -1397,6 +1533,7 @@ def number_cases() -> dict[str, tuple[str, Want]]:
     unused = "a number once used is not used again"
     ascend = "renumber it in its handle and its anchor so that the numbers ascend"
     from_one = "the items of a step are numbered from 1"
+    first_what = "is the first item of step 2 that reads a number, and its number is below 1"
     return {
         "an equal number is a finding, the last item has no upper bound": (
             numbered("1", "2", "2"),
@@ -1449,15 +1586,36 @@ def number_cases() -> dict[str, tuple[str, Want]]:
                 )
             ],
         ),
-        "a first item numbered 0 is a finding, its fix below the item after it": (
+        "a first item numbered 0 is a finding, no number fits before the item after it": (
             numbered("0", "2", "3"),
+            [(23, f"item 2.0 {first_what}", f"{first_room('2.2')}; {from_one}")],
+        ),
+        "a first item numbered 0 is told to take 1 where no item after it reads a number": (
+            edit(edit(numbered("0", "2", "3"), ITEM_2, "   - A note."), ITEM_3, "   - Another note."),
             [
                 (
                     23,
-                    "item 2.0 opens step 2, and its number is below 1",
-                    "give it a number from 1 up and below 2.2 in its handle and its anchor, such as 2.1;"
-                    f" {from_one}",
-                )
+                    f"item 2.0 {first_what}",
+                    f"give it a number from 1 up in its handle and its anchor, such as 2.1; {from_one}",
+                ),
+                (24, "this list line of step 2 does not read as an item", list_fix("above 2.0")),
+                (25, "this list line of step 2 does not read as an item", list_fix("above 2.0")),
+            ],
+        ),
+        "an item numbered 0 is the first of its step to read a number, a list line standing before it": (
+            edit(
+                numbered("0", "2", "3"),
+                renumbered(ITEM_1, "1", "0"),
+                "   * A note.\n" + renumbered(ITEM_1, "1", "0"),
+            ),
+            [
+                (
+                    23,
+                    "this list line of step 2 does not read as an item",
+                    "join its words to the sentence above, or write it as an item after the first one:"
+                    f" {first_room('2.0')}",
+                ),
+                (24, f"item 2.0 {first_what}", f"{first_room('2.2')}; {from_one}"),
             ],
         ),
         "a fix names a number above the item before and below the item after": (
@@ -1466,8 +1624,30 @@ def number_cases() -> dict[str, tuple[str, Want]]:
                 (
                     24,
                     "item 2.2 follows item 2.3, and its number is not above it",
-                    "give it a number above 2.3 and below 2.5 in its handle and its anchor, such as 2.4;"
+                    "give it a number above 2.3 and below 2.5 in its handle and its anchor, such as 2.3a;"
                     f" {unused}",
+                )
+            ],
+        ),
+        "after a letter the next letter is offered, not a whole number in the gap": (
+            numbered("3a", "2", "5"),
+            [
+                (
+                    24,
+                    "item 2.2 follows item 2.3a, and its number is not above it",
+                    "give it a number above 2.3a and below 2.5 in its handle and its anchor, such as 2.3b;"
+                    f" {unused}",
+                )
+            ],
+        ),
+        "no number fits after the letter z, though whole numbers lie before the item after": (
+            numbered("2z", "2", "4"),
+            [
+                (
+                    24,
+                    "item 2.2 follows item 2.2z, and its number is not above it",
+                    "no number fits above 2.2z and below 2.4; item 2.2z, the one before, may be the one out"
+                    f" of place: {ascend}; {unused}",
                 )
             ],
         ),
@@ -1481,7 +1661,7 @@ def number_cases() -> dict[str, tuple[str, Want]]:
                 (
                     24,
                     "item 2.2 follows item 2.3, and its number is not above it",
-                    "give it a number above 2.3 and below 2.5 in its handle and its anchor, such as 2.4;"
+                    "give it a number above 2.3 and below 2.5 in its handle and its anchor, such as 2.3a;"
                     f" {unused}",
                 ),
                 (
@@ -1521,17 +1701,6 @@ def number_cases() -> dict[str, tuple[str, Want]]:
                     "item 2.2 follows item 2.2z, and its number is not above it",
                     "no number fits above 2.2z and below 2.3; item 2.2z, the one before, may be the one out"
                     f" of place: {ascend}; {unused}",
-                )
-            ],
-        ),
-        "no number fits for a first item below 1 when the next is 1": (
-            numbered("0", "1", "3"),
-            [
-                (
-                    23,
-                    "item 2.0 opens step 2, and its number is below 1",
-                    "no number fits from 1 up and below 2.1; item 2.1, the next one numbered, may be the one"
-                    f" out of place: {ascend}; {from_one}",
                 )
             ],
         ),
@@ -1575,9 +1744,28 @@ def list_cases() -> dict[str, tuple[str, Want]]:
             edited(ITEM_3, ITEM_3 + "\n* A plain note."),
             [(26, what, fix)],
         ),
-        "a list line before every item is told to number from 1 up, below the first": (
+        "a list line before every item is told no number fits, and to write it after the first one": (
             edited(ITEM_1, note),
-            [(23, what, list_fix("from 1 up and below 2.2"))],
+            [
+                (
+                    23,
+                    what,
+                    "join its words to the sentence above, or write it as an item after the first one:"
+                    f" {first_room('2.2')}",
+                )
+            ],
+        ),
+        "list lines and no item are told to number from 1 up": (
+            edit(
+                edit(edited(ITEM_1, note), ITEM_2, "   * A second note."),
+                ITEM_3,
+                "   * A third note.",
+            ),
+            [
+                (23, what, list_fix("from 1 up")),
+                (24, what, list_fix("from 1 up")),
+                (25, what, list_fix("from 1 up")),
+            ],
         ),
         "a list line between two items is told both bounds": (
             edited(ITEM_2, note),
@@ -1630,8 +1818,9 @@ def run_cases() -> dict[str, tuple[str, Want]]:
     def edited(old: str, new: str) -> str:
         return edit(BASE, old, new)
 
-    join = "join this line to the line of item 2.2"
+    join = "join this line to the line above, or put a blank line above it where it is no part of the item"
     done = '   - <a id="s2-1"></a>**2.1** ✅ Done thing,'
+    rule = '1. <a id="s1"></a>✅ Rule made,'
     link_fix = (
         "link its record, or the document or the module its routine change concerns, or, once its record is"
         " deleted, the current-state document that carries its ruling"
@@ -1639,32 +1828,105 @@ def run_cases() -> dict[str, tuple[str, Want]]:
     return {
         "an item that runs on to a second line is a finding": (
             edited(ITEM_2, ITEM_2 + "\n   and more words"),
-            [(25, "item 2.2 runs on to a second line", join)],
+            [(25, "this is a second line of item 2.2", join)],
         ),
         "a third line under an item is a finding of its own": (
             edited(ITEM_2, ITEM_2 + "\n   and more words\n   and yet more"),
             [
-                (25, "item 2.2 runs on to a second line", join),
-                (26, "item 2.2 runs on to a further line", join),
+                (25, "this is a second line of item 2.2", join),
+                (26, "this is a further line of item 2.2", join),
             ],
+        ),
+        "a heading right under an item is a finding, the fix offers a blank line above it": (
+            edited(ITEM_3, ITEM_3 + "\n## A heading"),
+            [(26, "this is a second line of item 2.3", join)],
         ),
         "a done item whose link stands on the second line has the finding of that line alone": (
             edited(ITEM_1, done + "\n   [the record](records/second.md)."),
-            [(24, "item 2.1 runs on to a second line", "join this line to the line of item 2.1")],
+            [(24, "this is a second line of item 2.1", join)],
+        ),
+        "a done item whose link is split across two lines has the finding of the second alone": (
+            edited(ITEM_1, done + " [the record\n   of it](records/second.md)."),
+            [(24, "this is a second line of item 2.1", join)],
         ),
         "a done item with no link on either line has both findings": (
             edited(ITEM_1, done + "\n   and more words."),
             [
                 (23, "done item 2.1 holds no link", link_fix),
-                (24, "item 2.1 runs on to a second line", "join this line to the line of item 2.1"),
+                (24, "this is a second line of item 2.1", join),
             ],
         ),
         "a list line that is no item and runs on is a finding": (
             edited(ITEM_3, ITEM_3 + "\n   * A plain note\n   continued."),
             [
                 (26, "this list line of step 2 does not read as an item", list_fix("above 2.3")),
-                (27, "the list line above runs on to a second line", "join this line to the list line above"),
+                (27, "this is a second line of the list line at line 26", join),
             ],
+        ),
+        "a further line under a list line that is no item names that list line": (
+            edited(ITEM_3, ITEM_3 + "\n   * A plain note\n   continued\n   and continued."),
+            [
+                (26, "this list line of step 2 does not read as an item", list_fix("above 2.3")),
+                (27, "this is a second line of the list line at line 26", join),
+                (28, "this is a further line of the list line at line 26", join),
+            ],
+        ),
+        "a step with no items that runs on to a second line is a finding": (
+            edited(STEP_3, STEP_3 + "\nand more words"),
+            [(27, "this is a second line of step 3, which has no items", join)],
+        ),
+        "a third line under a step with no items is a finding of its own": (
+            edited(STEP_3, STEP_3 + "\nand more words\nand yet more"),
+            [
+                (27, "this is a second line of step 3, which has no items", join),
+                (28, "this is a further line of step 3, which has no items", join),
+            ],
+        ),
+        "a done step with no items whose link stands on the second line has the finding of that line alone": (
+            edited(STEP_1, f"{rule}\n[the record](records/first.md)."),
+            [(18, "this is a second line of step 1, which has no items", join)],
+        ),
+        "a done step with no items whose link is split across two lines has the second line's finding": (
+            edited(STEP_1, f"{rule} [the record\nof it](records/first.md)."),
+            [(18, "this is a second line of step 1, which has no items", join)],
+        ),
+        "a done step with no items and no link on either line has both findings": (
+            edited(STEP_1, f"{rule}\nand more words."),
+            [
+                (17, "done step 1, which has no items, holds no link", link_fix),
+                (18, "this is a second line of step 1, which has no items", join),
+            ],
+        ),
+    }
+
+
+def fence_cases() -> dict[str, tuple[str, Want]]:
+    def edited(old: str, new: str) -> str:
+        return edit(BASE, old, new)
+
+    never = "this fenced block never closes"
+    close = "close it with a line of the same fence"
+    visible_sums = "| all | All steps | all | 🔄 | 2 | 1 | 1 | 66% |"  # the sums of steps 1 and 2 alone
+    return {
+        "a fenced block that never closes is a finding at its opening line": (
+            edited(STEP_4, STEP_4 + "\n```\n- inside"),
+            [(28, never, close)],
+        ),
+        "a tilde block that never closes is a finding": (
+            edited(STEP_4, STEP_4 + "\n~~~\ninside"),
+            [(28, never, close)],
+        ),
+        "a closing line with words does not close the block": (
+            edited(STEP_4, STEP_4 + "\n```\n```text"),
+            [(28, never, close)],
+        ),
+        "a block that never closes after a closed one is found at its own opening line": (
+            edited(STEP_4, STEP_4 + "\n```\ninside\n```\n~~~\ninside"),
+            [(31, never, close)],
+        ),
+        "a block left open hides the steps below it, and no row is reported as lacking its step": (
+            edit(edited(STEP_3, "```\n" + STEP_3), ROW_ALL, visible_sums),
+            [(26, never, close)],
         ),
     }
 
@@ -1714,6 +1976,16 @@ def green_cases() -> dict[str, str]:
             ROW_4,
             ROW_4.replace("| B |", "| C |"),
         ),
+        "a line right under the line of a step with items is the step's own text: green": edit(
+            BASE, STEP_2, STEP_2 + "\nMore words of the step."
+        ),
+        "a blank line, a phase line or a fenced block under a step with no items ends its line: green": edit(
+            edit(BASE, STEP_3, STEP_3 + "\n\nA paragraph of the step."),
+            STEP_4,
+            STEP_4
+            + "\n```\ninside\n```\nA line after the block.\n"
+            + '<a id="phase-c"></a>\nAfter the phase line.',
+        ),
         "a phase anchor in a fenced block above the matrix is none: green": edit(
             BASE, "# Plan\n\n", '# Plan\n\n```\n<a id="phase-z"></a>\n```\n\n'
         ),
@@ -1738,7 +2010,15 @@ def text_outcomes() -> list[tuple[str, bool, str]]:
     for name, text in green_cases().items():
         got = [(f.line, f.what, f.fix) for f in check_text(text).findings]
         outcomes.append((name, got == [], f"got {got}"))
-    for cases in (matrix_cases(), row_cases(), step_cases(), number_cases(), list_cases(), run_cases()):
+    for cases in (
+        matrix_cases(),
+        row_cases(),
+        step_cases(),
+        number_cases(),
+        list_cases(),
+        run_cases(),
+        fence_cases(),
+    ):
         for name, (text, wanted) in cases.items():
             got = [(f.line, f.what, f.fix) for f in check_text(text).findings]
             outcomes.append((name, got == wanted, f"got {got}"))
@@ -1792,8 +2072,17 @@ def report_outcomes() -> list[tuple[str, bool, str]]:
     bounds_lines = [
         "RED: docs/rollout-plan.md:24: item 2.2 follows item 2.3, and its number is not above it",
         number_why,
-        "  fix: give it a number above 2.3 and below 2.5 in its handle and its anchor, such as 2.4; a number"
+        "  fix: give it a number above 2.3 and below 2.5 in its handle and its anchor, such as 2.3a; a number"
         " once used is not used again",
+        "RED: 1 finding(s) — 4 step(s), 6 item(s) examined",
+    ]
+    first_lines = [
+        "RED: docs/rollout-plan.md:23: item 2.0 is the first item of step 2 that reads a number, and its"
+        " number is below 1",
+        number_why,
+        "  fix: no number fits before item 2.2, the next one numbered, since a number once used is not used"
+        " again, and an item added before the first stands after it instead; the items of a step are"
+        " numbered from 1",
         "RED: 1 finding(s) — 4 step(s), 6 item(s) examined",
     ]
     no_fit_lines = [
@@ -1805,14 +2094,22 @@ def report_outcomes() -> list[tuple[str, bool, str]]:
         "RED: 1 finding(s) — 4 step(s), 6 item(s) examined",
     ]
     run_lines = [
-        "RED: docs/rollout-plan.md:25: item 2.2 runs on to a second line",
+        "RED: docs/rollout-plan.md:25: this is a second line of item 2.2",
         "  why: an item is one line, so its mark, its words and its link are read together",
-        "  fix: join this line to the line of item 2.2",
+        "  fix: join this line to the line above, or put a blank line above it where it is no part of the"
+        " item",
+        "RED: 1 finding(s) — 4 step(s), 6 item(s) examined",
+    ]
+    fence_lines = [
+        "RED: docs/rollout-plan.md:28: this fenced block never closes",
+        "  why: every line after it is read as code, so the steps and items below are not checked",
+        "  fix: close it with a line of the same fence",
         "RED: 1 finding(s) — 4 step(s), 6 item(s) examined",
     ]
     red_text = edit(BASE, ROW_2, ROW_2.replace("| 1 | 1 | 1 |", "| 2 | 1 | 1 |"))
     link_text = edit(BASE, ITEM_1, '   - <a id="s2-1"></a>**2.1** ✅ Done thing.')
     run_text = edit(BASE, ITEM_2, ITEM_2 + "\n   and more words")
+    fence_text = edit(BASE, STEP_4, STEP_4 + "\n```\n- inside")
     green_code, green_printed = capture(lambda: report(check_text(BASE)))
     return [
         red_outcome("the report of one finding is its literal text, exit 2", red_text, red_lines),
@@ -1834,7 +2131,17 @@ def report_outcomes() -> list[tuple[str, bool, str]]:
             numbered("5", "2", "3"),
             no_fit_lines,
         ),
+        red_outcome(
+            "the report of a first item with no room before the next is its literal text, exit 2",
+            numbered("0", "2", "3"),
+            first_lines,
+        ),
         red_outcome("the report of an item that runs on is its literal text, exit 2", run_text, run_lines),
+        red_outcome(
+            "the report of a fenced block that never closes is its literal text, exit 2",
+            fence_text,
+            fence_lines,
+        ),
         (
             "the report of a valid plan is its literal line, exit 0",
             green_code == EXIT_GREEN and green_printed == [green_line],
