@@ -100,12 +100,14 @@ no step, is not seen, a step line written in another form there among them; a st
 no list line's (`5.<a id="s5"></a>`, with no space) is not seen anywhere, save as a line that runs on
 under the line above it; a link is a text on the item's lines that matches the pattern `[`, one or more
 characters that are no `]`, `](`, any spaces, a character that is no space and no `)`, any characters that
-are no `)`, and `)` — read by that pattern and not as CommonMark reads one, so a link that stands only in
-a code span or an image `![x](a.png)` passes for one, and a link CommonMark reads may pass or fail, as an
-empty text or an escaped `]` in the text can; a step's number is held to stand once and not to ascend, and
-a leading zero in it is not held; a phase line is `<a id="phase-<x>"></a>` at the start of its line and
-alone on it, x a lower-case letter, so an indented anchor or one written inside its heading is not seen,
-and a phase's anchor is not held to stand before its heading.
+are no `)`, and `)`, a space being any white space — read by that pattern and not as CommonMark reads one,
+so a link that stands only in a code span or an image `![x](a.png)` passes for one, and a link CommonMark
+reads may pass or fail, as an empty text or an escaped `]` in the text can; a step's number is held to
+stand once and not to ascend, and a leading zero in it is not held; a phase line is `<a
+id="phase-<x>"></a>` at the start of its line and alone on it, x a lower-case letter, so an indented
+anchor or one written inside its heading is not seen as a phase line, and right under an item or a step
+with no items it is a line that runs on under it, and a phase's anchor is not held to stand before its
+heading.
 
 Modes:  no arguments   check docs/rollout-plan.md at the kit root;
         --self-test    prove the check on throwaway texts: a valid plan green, and each hold above red
@@ -440,7 +442,7 @@ def read_mark(name: str, after: str, line: int, rest: str) -> tuple[Mark | None,
     if mark is None:
         if rest[:1] == "🔄":
             fix = (
-                "delete the 🔄 and the space after it"
+                "delete the 🔄 and the spaces after it"
                 if rest[1:].strip()[:1] in ITEM_MARKS
                 else "write one of ✅ ⏳ 💤 and a space in place of the 🔄"
             )
@@ -799,7 +801,8 @@ def missing_findings(
             fix = (
                 f"add the row {row_text(key, wanted)} {where}"
                 if wanted.settled
-                else f"write a mark on every item of {key}, then add its row {where}"
+                else f"write a mark on every item of {key}, every list line of it as an item, then add its"
+                f" row {where}"
             )
             findings.append(Finding(line, f"the matrix has no row for {key}", WHY_MATRIX, fix))
         else:
@@ -807,7 +810,12 @@ def missing_findings(
         previous = key
     if "all" not in by_key:
         line = matrix.rows[-1].line if matrix.rows else matrix.header
-        fix = f"add the row {row_text('all', total)} as the last row"
+        fix = (
+            f"add the row {row_text('all', total)} as the last row"
+            if total.settled
+            else "write a mark on every item, every list line of a step as an item, then add the row all as"
+            " the last row"
+        )
         findings.append(
             Finding(line, "the matrix has no last row all, the sums of its steps", WHY_MATRIX, fix)
         )
@@ -1413,14 +1421,31 @@ def step_cases() -> dict[str, tuple[str, Want]]:
                 (
                     8,
                     "the matrix has no row for s2",
-                    "write a mark on every item of s2, then add its row after the row of s1",
+                    "write a mark on every item of s2, every list line of it as an item, then add its row"
+                    " after the row of s1",
                 ),
                 (23, "item 2.2 opens with no status mark", "write one of ✅ ⏳ 💤 and a space after **2.2**"),
             ],
         ),
+        "a missing row all, with an unmarked item, is told to wait for the marks": (
+            edit(edited(ROW_ALL + "\n", ""), "**2.2** ⏳ ", "**2.2** "),
+            [
+                (
+                    11,
+                    "the matrix has no last row all, the sums of its steps",
+                    "write a mark on every item, every list line of a step as an item, then add the row all"
+                    " as the last row",
+                ),
+                (23, "item 2.2 opens with no status mark", "write one of ✅ ⏳ 💤 and a space after **2.2**"),
+            ],
+        ),
+        "an item whose 🔄 stands before its mark, two spaces between, is told to delete them": (
+            edited(ITEM_2, ITEM_2.replace("⏳ ", "🔄  ⏳ ")),
+            [(24, "item 2.2 opens with no status mark", "delete the 🔄 and the spaces after it")],
+        ),
         "an item whose 🔄 stands before its mark is told to delete it": (
             edited(ITEM_2, ITEM_2.replace("⏳ ", "🔄 ⏳ ")),
-            [(24, "item 2.2 opens with no status mark", "delete the 🔄 and the space after it")],
+            [(24, "item 2.2 opens with no status mark", "delete the 🔄 and the spaces after it")],
         ),
         "an item with two marks is a finding": (
             edited(ITEM_2, ITEM_2.replace("⏳ ", "⏳ ✅ ")),
