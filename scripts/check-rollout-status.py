@@ -20,8 +20,9 @@ What it holds, each failure a finding of its own:
      phase. Where no matrix stands before the first phase line, a table in sight after that line is to be
      moved above it, and each further table in sight deleted; while none is in sight and a fenced block
      stands open (7), the block is to be closed first; else one is added. A header row repeated inside
-     the table's run of rows is a finding of its own, that header row and the separator row under it to
-     go; a header row beyond that run is a second matrix, a table to delete.
+     the table's run of rows is a finding of its own, that header row to go, with the separator row under
+     it where one stands there and the table has its own; a header row beyond that run is a second
+     matrix, a table to delete.
   2. The rows against the steps. One row for each step, none for a step the plan lacks, none twice, in
      the order the steps stand in the plan, and the row `all` last. These are held only as 3 says. A row
      whose first cell names no step is a finding, and so is a second row of a step or of `all`, whatever
@@ -42,13 +43,14 @@ What it holds, each failure a finding of its own:
      anchors and the numbers, the marks, the words, the links and the lines that run on; of a step that
      stands twice, a step above the first phase line and a list line in no step; and of a fenced block
      left open. While any one stands, the report holds those findings and, of the matrix, only these: its
-     own table (1: no matrix before the first phase line, a second matrix, no separator row) and the keys
-     of its rows (2: a first cell that names no step, a second row of a step or of `all`). No row is held
-     against the items then: no missing row, no extra row, no row out of order, no row `all` out of
-     place, no wrong number of cells, no cell of the wrong form, no cell of the wrong value, and no row
-     text is offered, since the fix of a step or an item can still change what a row says. Once the pass
-     is clean, every item has exactly one mark, so every row is read from the items as they stand, and
-     the fix of a row gives values that no later fix of a step or an item changes.
+     own table (1: no matrix before the first phase line, a second matrix, a repeated header row, no
+     separator row) and the keys of its rows (2: a first cell that names no step, a second row of a step
+     or of `all`). No row is held against the items then: no missing row, no extra row, no row out of
+     order, no row `all` out of place, no wrong number of cells, no cell of the wrong form, no cell of
+     the wrong value, and no row text is offered, since the fix of a step or an item can still change
+     what a row says. Once the pass is clean, every item has exactly one mark, so every row is read from
+     the items as they stand, and the fix of a row gives values that no later fix of a step or an item
+     changes.
   4. The items. Every list line of a step, outside a fenced block, is an item: a line that starts, indented
      or not, with `-`, `*` or `+` and a space, or with digits, `.` or `)` and a space, the line of a step
      itself excepted. An item is one line, its link on that line: a non-blank line right under an item
@@ -925,15 +927,23 @@ def further_fix(first: int) -> str:
 
 
 def further_findings(lines: list[str], headers: list[int], outside: str) -> list[Finding]:
-    """Each header row in sight after the first: inside the first table's run of rows, a repeated header,
-    whose header and separator rows are to go; beyond it, a second matrix, whose fix is `outside`."""
-    run = {row.line for row in read_matrix(lines, headers[0]).rows}
-    repeat = (
-        "delete this header row and the separator row under it; they repeat the header of the table at line"
-        f" {headers[0]}"
-    )
+    """Each header row in sight after the first: inside the first table's run of rows, a repeated header
+    row, which is to go, with the separator row under it where one stands there and the table has its own;
+    beyond that run, a second matrix, whose fix is `outside`."""
+    matrix = read_matrix(lines, headers[0])
+    run = {row.line for row in matrix.rows}
+
+    def repeat(line: int) -> str:
+        under = line < len(lines) and SEPARATOR.match(lines[line].strip()) is not None
+        rows = (
+            "this header row and the separator row under it"
+            if under and matrix.separated
+            else "this header row"
+        )
+        return f"delete {rows}; the header row repeats the header of the table at line {headers[0]}"
+
     return [
-        Finding(line, "the status matrix repeats its header row here", WHY_MATRIX, repeat)
+        Finding(line, "the status matrix repeats its header row here", WHY_MATRIX, repeat(line))
         if line in run
         else Finding(line, "the plan holds a second status matrix", WHY_MATRIX, outside)
         for line in headers[1:]
@@ -1412,8 +1422,8 @@ def row_cases() -> dict[str, tuple[str, Want]]:
                 (
                     10,
                     "the status matrix repeats its header row here",
-                    "delete this header row and the separator row under it; they repeat the header of the"
-                    " table at line 6",
+                    "delete this header row and the separator row under it; the header row repeats the header"
+                    " of the table at line 6",
                 ),
                 (10, 'the first cell of this matrix row reads "Step", which names no step', no_step),
                 (11, 'the first cell of this matrix row reads "---", which names no step', no_step),
@@ -1437,9 +1447,37 @@ def row_cases() -> dict[str, tuple[str, Want]]:
                 (
                     13,
                     "the status matrix repeats its header row here",
-                    "delete this header row and the separator row under it; they repeat the header of the"
-                    " table at line 9",
+                    "delete this header row and the separator row under it; the header row repeats the header"
+                    " of the table at line 9",
                 ),
+            ],
+        ),
+        "a header row repeated inside the matrix with no separator row: that row alone is to go": (
+            edit(BASE, ROW_2 + "\n", ROW_2 + "\n" + HEADER + "\n"),
+            [
+                (
+                    10,
+                    "the status matrix repeats its header row here",
+                    "delete this header row; the header row repeats the header of the table at line 6",
+                ),
+                (10, 'the first cell of this matrix row reads "Step", which names no step', no_step),
+            ],
+        ),
+        "a header row typed twice at the top: the second alone is to go, the separator kept": (
+            edit(BASE, HEADER + "\n", HEADER + "\n" + HEADER + "\n"),
+            [
+                (
+                    6,
+                    "the status matrix has no separator row under its header row",
+                    f"add the row {SEPARATOR_ROW} under the header row",
+                ),
+                (
+                    7,
+                    "the status matrix repeats its header row here",
+                    "delete this header row; the header row repeats the header of the table at line 6",
+                ),
+                (7, 'the first cell of this matrix row reads "Step", which names no step', no_step),
+                (8, 'the first cell of this matrix row reads "---", which names no step', no_step),
             ],
         ),
         "three matrices: each further one is a finding": (
