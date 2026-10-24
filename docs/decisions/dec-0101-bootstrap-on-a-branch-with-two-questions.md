@@ -131,9 +131,9 @@ The record was born `active`, and the change that creates it applies its rulings
 ## Carry list
 
 1. R1 — [the install guide](../../INSTALL.md#s2), the opening of section 2 and its steps 1 and 9; [the guide's check](../../scripts/check-install-guide.py), its docstring at the names `new-repo` and `commit`.
-2. R2 — [the install guide](../../INSTALL.md#s2), the opening of section 2 and its steps 6 and 7.
+2. R2 — [the install guide](../../INSTALL.md#s2), the opening of section 2 and its steps 5 and 7.
 3. R3 — [the skill commit-before-edit](../../modules/const-task-close/plugin/skills/commit-before-edit/SKILL.md), its third moment; [const-task-close §8](../../modules/const-task-close/MODULE.md#t8), example 14.
 4. R4 — [the install guide](../../INSTALL.md#s2), step 4 of section 2, and step 7 for the answer.
-5. R5 — [the install guide](../../INSTALL.md#s2), steps 4, 5 and 7 of section 2; [the skill style-defaults](../../modules/const-styling/plugin/skills/style-defaults/SKILL.md), its first section; [the install note of const-styling](../../modules/const-styling/plugin/INSTALL.md), step 2; [requirement A9.1](../requirements.md#a9-1); [const-styling §3](../../modules/const-styling/MODULE.md#t3), the row of [requirement A9.1](../requirements.md#a9-1). What it narrows is history.
+5. R5 — [the install guide](../../INSTALL.md#s2), steps 4, 6 and 7 of section 2; [the skill style-defaults](../../modules/const-styling/plugin/skills/style-defaults/SKILL.md), its first section; [the install note of const-styling](../../modules/const-styling/plugin/INSTALL.md), step 2; [requirement A9.1](../requirements.md#a9-1); [const-styling §3](../../modules/const-styling/MODULE.md#t3), the row of [requirement A9.1](../requirements.md#a9-1). What it narrows is history.
 6. R6 — [the install guide](../../INSTALL.md#s2), step 8 of section 2.
 7. R7 — [the kernel](../../kernel/CONVENTIONS.md), its prose as written; [rule 10 of plc-0002-kernel](../policies/plc-0002-kernel.md#r10) and its [rule 8](../policies/plc-0002-kernel.md#r8); [the install guide](../../INSTALL.md#s2), step 4 of section 2; [the guide's check](../../scripts/check-install-guide.py), its docstring at the name `scan`. What it replaces is history.
