@@ -18,10 +18,11 @@ What it holds, each failure a finding of its own:
      The header row and the first phase line are looked for outside the fenced blocks (7), as the steps
      and the items are: a fenced header row is no matrix, and a fenced phase anchor is no phase.
   2. The rows against the steps. One row for each step, none for a step the plan lacks, none twice, in
-     the order the steps stand in the plan, and the row `all` last. A row whose first cell names no step
-     is a finding. A step's number stands once. A list line under a phase line and above the phase's first
-     step, as a step line written in another form that is still a list line's (`5) …`) is, stands in no
-     step and is a finding, since no row counts it.
+     the order the steps stand in the plan, and the row `all` last. These are held only as 3 says. A row
+     whose first cell names no step is a finding, and so is a second row of a step or of `all`, always. A
+     step's number stands once. A list line under a phase line and above the phase's first step, as a step
+     line written in another form that is still a list line's (`5) …`) is, stands in no step and is a
+     finding, since no row counts it.
   3. The cells. Each cell is of its form: the phase one capital letter (the word `all` on the last row),
      the status one of ✅ ⏳ 🔄 💤, the counts whole numbers, the percent a whole number with `%` or `n/a`.
      Each cell is also what the items give: the phase is that of the last phase line above the step; done,
@@ -29,11 +30,20 @@ What it holds, each failure a finding of its own:
      rounded down, and `n/a` where done + open is 0; the status is ✅ when no item is open or waiting, ⏳
      when an item is open and none is done, 🔄 when an item is done and another is open, 💤 when no item
      is open and one is waiting. The row `all` holds the sums of the steps, its percent and status by the
-     same rules. A step stands under a phase line. Where an item of a step has no single mark, none or two,
-     the counts, the percent and the status of its row, and of the row `all`, are left uncompared until it
-     has one; and while a line is left out of the sums, a step that stands twice or a list line in no step,
-     the counts, the percent and the status of the row `all` are left uncompared too, since the line joins
-     the sums once its own finding is fixed. A missing row then says to fix the findings below first.
+     same rules. A step stands under a phase line.
+     The one rule of reading the rows: they are read against the steps and their items only when the
+     steps-and-items pass is clean. The pass is every finding about the steps and the items, those of 2
+     to 7 that name no row: of the step lines, the phase lines, the numbers, the marks, the words, the
+     links and the lines that run on; of a step that stands twice, a step above the first phase line and
+     a list line in no step; and of a fenced block left open. While any one stands, the report holds
+     those findings and, of the matrix, only what depends on no item: its own table (1: no matrix before
+     the first phase line, a second matrix, no separator row) and the keys of its rows (2: a first cell
+     that names no step, a second row of a step or of `all`). No row is held against the items then: no
+     missing row, no extra row, no row out of order, no row `all` out of place, no wrong number of cells,
+     no cell of the wrong form, no cell of the wrong value, and no row text is offered, since the fix of a
+     step or an item can still change what a row says. Once the pass is clean, every item has exactly one
+     mark, so every row is read from the items as they stand, and the fix of a row gives values that no
+     later fix of a step or an item changes.
   4. The items. Every list line of a step, outside a fenced block, is an item: a line that starts, indented
      or not, with `-`, `*` or `+` and a space, or with digits, `.` or `)` and a space, the line of a step
      itself excepted. An item is one line, its link on that line: a non-blank line right under an item
@@ -83,10 +93,8 @@ What it holds, each failure a finding of its own:
      line of the same character, as long or longer, with no words after it. What a block holds is no list
      line, no step line, no phase line, no header row and no line that runs on under an item. A block that
      opens and never closes runs to the end of the file and hides every line after it, so it is a finding
-     at its opening line; while one stands, the rows of the matrix are not read, against the steps or for
-     their own form, save a first cell that names no step and a second row of a step or of all, and
-     save the findings of the matrix's own table, a second matrix and a missing separator row; and the
-     matrix's absence or place is not reported, since the lines below the block are not read.
+     at its opening line, and the rows are held as 3 says while it stands; the matrix's absence or place
+     is not reported then, since the lines below the block are not read.
 
 What it leaves to review: whether a mark matches the words of its item, whether a link is the proof of its
 item, a done item's words, a row's title, and every other content of the plan; the style, the language and
@@ -276,7 +284,6 @@ class Derived:
 
     phase: str
     counts: Counts
-    settled: bool  # every item carries a mark, so the counts mean something
 
     def cells(self) -> tuple[str, ...]:
         counts = self.counts
@@ -708,13 +715,12 @@ def read_step(span: Span) -> tuple[Step, list[Finding]]:
     return Step(span.number, span.line, span.phase, tuple(items)), findings
 
 
-def read_steps(lines: list[str]) -> tuple[list[Step], list[Finding], bool]:
-    """The steps of the plan, a step that stands twice left out after its finding, the findings of their
-    items, and whether a step was left out so."""
+def read_steps(lines: list[str]) -> tuple[list[Step], list[Finding]]:
+    """The steps of the plan, a step that stands twice left out after its finding, and the findings of the
+    steps and their items."""
     steps: list[Step] = []
     findings: list[Finding] = []
     seen: dict[str, int] = {}
-    doubled = False
     for span in split_steps(lines):
         step, found = read_step(span)
         findings += found
@@ -722,26 +728,22 @@ def read_steps(lines: list[str]) -> tuple[list[Step], list[Finding], bool]:
             what = f"step {step.key} stands twice, first at line {seen[step.key]}"
             fix = "give the later step a number of its own, in its line, its anchor and its items"
             findings.append(Finding(step.line, what, WHY_STEPS, fix))
-            doubled = True
             continue
         seen[step.key] = step.line
         steps.append(step)
-    return steps, findings, doubled
+    return steps, findings
 
 
 def derive(step: Step) -> Derived:
+    """What the items of a step give: its phase and the counts of its marks."""
     marks = [item.mark for item in step.items]
     counts = Counts(marks.count(Mark.DONE), marks.count(Mark.OPEN), marks.count(Mark.WAITING))
-    return Derived(step.phase, counts, None not in marks)
+    return Derived(step.phase, counts)
 
 
-def derive_total(steps: list[Step], left_out: bool = False) -> Derived:
-    """The row all: the sums of the steps, settled only where every item has one mark and no line is
-    `left_out` of the sums — a step that stands twice, a list line in no step — since such a line joins the
-    sums once its own finding is fixed."""
-    parts = [derive(step) for step in steps]
-    settled = not left_out and all(part.settled for part in parts)
-    return Derived("all", sum((part.counts for part in parts), Counts()), settled)
+def derive_total(steps: list[Step]) -> Derived:
+    """The row all: the sums of the steps."""
+    return Derived("all", sum((derive(step).counts for step in steps), Counts()))
 
 
 def split_cells(line: str) -> tuple[str, ...]:
@@ -807,22 +809,14 @@ def missing_findings(
             where = (
                 f"after the row of {previous}" if previous else "as the first row, under the separator row"
             )
-            fix = (
-                f"add the row {row_text(key, wanted)} {where}"
-                if wanted.settled
-                else f"fix the findings of the items of {key} below first, then add its row {where}"
-            )
+            fix = f"add the row {row_text(key, wanted)} {where}"
             findings.append(Finding(line, f"the matrix has no row for {key}", WHY_MATRIX, fix))
         else:
             line = row.line
         previous = key
     if "all" not in by_key:
         line = matrix.rows[-1].line if matrix.rows else matrix.header
-        fix = (
-            f"add the row {row_text('all', total)} as the last row"
-            if total.settled
-            else "fix the findings of the steps and items below first, then add the row all as the last row"
-        )
+        fix = f"add the row {row_text('all', total)} as the last row"
         findings.append(
             Finding(line, "the matrix has no last row all, the sums of its steps", WHY_MATRIX, fix)
         )
@@ -865,8 +859,6 @@ def all_position_findings(by_key: dict[str, Row], derived: dict[str, Derived]) -
 
 
 def column_finding(row: Row, key: str, index: int, wanted: str) -> Finding | None:
-    if not wanted:  # the step stands above the first phase line, and has its own finding
-        return None
     column = ALL_PHASE if key == "all" and index == 0 else COLUMNS[index]
     shown = row.cells[2 + index]
     if column.form.fullmatch(shown) is None:
@@ -888,22 +880,21 @@ def cell_findings(row: Row, key: str, derived: Derived) -> list[Finding]:
         what = f'the first cell of {label(key)} reads "{row.cells[0]}", which is not a link to the step'
         fix = f"write [{key}](#{key}) in the first cell of the row {key}"
         findings.append(Finding(row.line, what, WHY_MATRIX, fix))
-    shown = len(COLUMNS) if derived.settled else 1  # the counts, percent and status come from the marks
-    for index, wanted in enumerate(derived.cells()[:shown]):
+    for index, wanted in enumerate(derived.cells()):
         found = column_finding(row, key, index, wanted)
         if found is not None:
             findings.append(found)
     return findings
 
 
-def row_findings(matrix: Matrix, steps: list[Step], unread: bool, left_out: bool) -> list[Finding]:
-    """The findings of the rows. Where `unread` is true, a fenced block left open hides the steps below it,
-    and the rows are not read against the steps at all."""
-    derived = {step.key: derive(step) for step in steps}
-    total = derive_total(steps, left_out)
+def row_findings(matrix: Matrix, steps: list[Step], clean: bool) -> list[Finding]:
+    """The findings of the rows. Their keys are always held; the rows are read against the steps and their
+    items only where the steps-and-items pass is `clean`, the one rule of the rows."""
     by_key, findings = index_rows(matrix.rows)
-    if unread:  # the steps an open block hides are not read, so no row, count or sum can be held
+    if not clean:
         return findings
+    derived = {step.key: derive(step) for step in steps}
+    total = derive_total(steps)
     findings += missing_findings(matrix, derived, total, by_key)
     findings += extra_findings(by_key, derived)
     findings += order_findings(by_key, derived)
@@ -915,12 +906,13 @@ def row_findings(matrix: Matrix, steps: list[Step], unread: bool, left_out: bool
     return findings
 
 
-def matrix_findings(lines: list[str], steps: list[Step], unread: bool, left_out: bool) -> list[Finding]:
+def matrix_findings(lines: list[str], steps: list[Step], clean: bool) -> list[Finding]:
+    """The findings of the matrix: its own table, always, and its rows as `row_findings` holds them."""
     first_phase = first_phase_line(lines)
     headers = [n for n, line in unfenced(lines) if line.strip() == HEADER]
     if not headers or (first_phase is not None and headers[0] > first_phase):
-        if unread:  # an open block above may hide the matrix; its own finding comes first
-            return []
+        if unclosed_fence(lines) is not None:
+            return []  # an open block above may hide the matrix; its own finding comes first
         fix = (
             f"add a table with the header row {HEADER} before the first phase anchor, with one row for each"
             " step and a last row all, as rule 10 of plc-0008-rollout-plan says"
@@ -937,7 +929,7 @@ def matrix_findings(lines: list[str], steps: list[Step], unread: bool, left_out:
         fix = f"add the row {SEPARATOR_ROW} under the header row"
         what = "the status matrix has no separator row under its header row"
         findings.append(Finding(matrix.header, what, WHY_MATRIX, fix))
-    return findings + row_findings(matrix, steps, unread, left_out)
+    return findings + row_findings(matrix, steps, clean)
 
 
 def fence_finding(line: int) -> Finding:
@@ -952,13 +944,12 @@ def fence_finding(line: int) -> Finding:
 def check_text(text: str) -> Result:
     """Every finding of a plan's text, in the order of its lines, and what was examined."""
     lines = split_lines(text)
-    steps, findings, doubled = read_steps(lines)
-    strays = stray_findings(lines)
-    findings += strays
+    steps, findings = read_steps(lines)
+    findings += stray_findings(lines)
     unclosed = unclosed_fence(lines)
     if unclosed is not None:
         findings.append(fence_finding(unclosed))
-    findings += matrix_findings(lines, steps, unclosed is not None, doubled or bool(strays))
+    findings += matrix_findings(lines, steps, clean=not findings)  # the rows wait for the steps and items
     findings.sort(key=lambda found: found.line)
     return Result(
         tuple(findings),
@@ -1386,7 +1377,7 @@ def step_cases() -> dict[str, tuple[str, Want]]:
                 )
             ],
         ),
-        "an item with no mark is a finding, and its row is left uncompared": (
+        "an item with no mark is a finding": (
             edited(ITEM_2, ITEM_2.replace("⏳ ", "")),
             [(24, "item 2.2 opens with no status mark", f"{wording} after **2.2**")],
         ),
@@ -1421,82 +1412,6 @@ def step_cases() -> dict[str, tuple[str, Want]]:
                     "item 2.2 opens with no status mark",
                     "write one of ✅ ⏳ 💤 and a space in place of the 🔄",
                 )
-            ],
-        ),
-        "a missing row of a step with an unmarked item is told to wait for the marks": (
-            edit(edited(ROW_2 + "\n", ""), "**2.2** ⏳ ", "**2.2** "),
-            [
-                (
-                    8,
-                    "the matrix has no row for s2",
-                    "fix the findings of the items of s2 below first, then add its row after the row of s1",
-                ),
-                (23, "item 2.2 opens with no status mark", "write one of ✅ ⏳ 💤 and a space after **2.2**"),
-            ],
-        ),
-        "a missing row all, with a step that stands twice, is told to wait for its number": (
-            edited(ROW_ALL + "\n", "")
-            + '2. <a id="s2"></a>The second step, again.\n'
-            + '   - <a id="s2-1"></a>**2.1** ✅ Done again, [the record](records/fourth.md).\n',
-            [
-                (
-                    11,
-                    "the matrix has no last row all, the sums of its steps",
-                    "fix the findings of the steps and items below first, then add the row all as the last"
-                    " row",
-                ),
-                (
-                    27,
-                    "step s2 stands twice, first at line 21",
-                    "give the later step a number of its own, in its line, its anchor and its items",
-                ),
-            ],
-        ),
-        "a missing row all, with a list line in no step, is told to wait for it": (
-            edit(
-                edited(ROW_ALL + "\n", ""),
-                "## Phase B\n",
-                "## Phase B\n- ✅ A done thing, [x](records/fifth.md).\n",
-            ),
-            [
-                (
-                    11,
-                    "the matrix has no last row all, the sums of its steps",
-                    "fix the findings of the steps and items below first, then add the row all as the last"
-                    " row",
-                ),
-                (
-                    20,
-                    "this list line stands in no step",
-                    'write it as a step line, <n>. <a id="s<n>"></a> and its words, with a mark and a space'
-                    " before them where the step has no items, as rules 4 and 5 of plc-0008-rollout-plan"
-                    " give it, or move it under its step as an item, or, for a note, join its words to the"
-                    " sentence above",
-                ),
-            ],
-        ),
-        "a missing row all, with an item of two marks, is told to wait for it": (
-            edit(edited(ROW_ALL + "\n", ""), "**2.2** ⏳ ", "**2.2** ⏳ ✅ "),
-            [
-                (
-                    11,
-                    "the matrix has no last row all, the sums of its steps",
-                    "fix the findings of the steps and items below first, then add the row all as the last"
-                    " row",
-                ),
-                (23, "item 2.2 opens with two marks", "keep one of ✅ ⏳ 💤 and delete the other"),
-            ],
-        ),
-        "a missing row all, with an unmarked item, is told to wait for the marks": (
-            edit(edited(ROW_ALL + "\n", ""), "**2.2** ⏳ ", "**2.2** "),
-            [
-                (
-                    11,
-                    "the matrix has no last row all, the sums of its steps",
-                    "fix the findings of the steps and items below first, then add the row all as the last"
-                    " row",
-                ),
-                (23, "item 2.2 opens with no status mark", "write one of ✅ ⏳ 💤 and a space after **2.2**"),
             ],
         ),
         "an item whose 🔄 stands before its mark, two spaces between, is told to delete them": (
@@ -2192,6 +2107,280 @@ def fence_cases() -> dict[str, tuple[str, Want]]:
     }
 
 
+def rule_cases() -> dict[str, tuple[str, Want]]:
+    """The one rule of the rows: while a step or an item has a finding, or a fenced block stands open, the
+    rows are not held against the items, and no row text is taught; the table of the matrix and the keys of
+    its rows are held always."""
+
+    def edited(old: str, new: str) -> str:
+        return edit(BASE, old, new)
+
+    def bare(text: str) -> str:
+        return edit(text, "**2.2** ⏳ ", "**2.2** ")  # item 2.2 opens with no mark
+
+    def item_at(line: int) -> Want:
+        return [
+            (line, "item 2.2 opens with no status mark", "write one of ✅ ⏳ 💤 and a space after **2.2**")
+        ]
+
+    two = "**2.2** ⏳ ✅ "
+    two_marks = "keep one of ✅ ⏳ 💤 and delete the other"
+    crowded = "item 2.2 has no space and no text after its mark"
+    space = "write a space and the words of the item after the mark"
+    never = "this fenced block never closes"
+    close = "close it with a line of the same fence, with nothing after it, where its code ends"
+    stray = (
+        'write it as a step line, <n>. <a id="s<n>"></a> and its words, with a mark and a space before them'
+        " where the step has no items, as rules 4 and 5 of plc-0008-rollout-plan give it, or move it under"
+        " its step as an item, or, for a note, join its words to the sentence above"
+    )
+    no_matrix = "the plan has no status matrix before its first phase"
+    table_fix = (
+        f"add a table with the header row {HEADER} before the first phase anchor, with one row for each step"
+        " and a last row all, as rule 10 of plc-0008-rollout-plan says"
+    )
+    names_no_step = 'the first cell of this matrix row reads "Third step", which names no step'
+    no_step_fix = (
+        "write [s<n>](#s<n>) for the step the row sums up, or all for the last row, or delete the row"
+    )
+    keyed = edited(ROW_3, ROW_3.replace("[s3](#s3)", "Third step"))  # a first cell that names no step
+    opened = edited(STEP_4, STEP_4 + "\n```\n- inside")  # a fenced block that never closes, at line 28
+    return {
+        "a missing row of a step beside an item with no mark: the item's finding alone": (
+            bare(edited(ROW_2 + "\n", "")),
+            item_at(23),
+        ),
+        "an extra row beside an item with no mark: the item's finding alone": (
+            bare(edited(ROW_4, ROW_4 + "\n| [s5](#s5) | Fifth | B | ⏳ | 0 | 1 | 0 | 0% |")),
+            item_at(25),
+        ),
+        "rows out of order beside an item with no mark: the item's finding alone": (
+            bare(edited(ROW_2 + "\n" + ROW_3, ROW_3 + "\n" + ROW_2)),
+            item_at(24),
+        ),
+        "the row all above a step row beside an item with no mark: the item's finding alone": (
+            bare(edited(ROW_4 + "\n" + ROW_ALL, ROW_ALL + "\n" + ROW_4)),
+            item_at(24),
+        ),
+        "a row of seven cells beside an item with no mark: the item's finding alone": (
+            bare(edited(ROW_3, ROW_3.replace(" 0% |", ""))),
+            item_at(24),
+        ),
+        "a cell of the wrong form beside an item with no mark: the item's finding alone": (
+            bare(edited(ROW_3, ROW_3.replace("| 0 | 1 | 0 |", "| x | 1 | 0 |"))),
+            item_at(24),
+        ),
+        "a cell of the wrong value beside an item with no mark: the item's finding alone": (
+            bare(edited(ROW_3, ROW_3.replace("| 0 | 1 | 0 |", "| 1 | 1 | 0 |"))),
+            item_at(24),
+        ),
+        "a first cell that is no link beside an item with no mark: the item's finding alone": (
+            bare(edited(ROW_3, ROW_3.replace("[s3](#s3)", "s3"))),
+            item_at(24),
+        ),
+        "a missing row all beside an item with two marks: the item's finding alone": (
+            edit(edited(ROW_ALL + "\n", ""), "**2.2** ⏳ ", two),
+            [(23, "item 2.2 opens with two marks", two_marks)],
+        ),
+        "a missing row all beside two marks with no space between: the item's finding alone": (
+            edit(edited(ROW_ALL + "\n", ""), "**2.2** ⏳ ", "**2.2** ⏳✅ "),
+            [(23, crowded, space)],
+        ),
+        "a missing step row beside two marks with no space between: the item's finding alone": (
+            edit(edited(ROW_2 + "\n", ""), "**2.2** ⏳ ", "**2.2** ⏳✅ "),
+            [(23, crowded, space)],
+        ),
+        "a row all of seven cells beside an item with two marks: the item's finding alone": (
+            edit(edited(ROW_ALL, ROW_ALL.replace(" 50% |", "")), "**2.2** ⏳ ", two),
+            [(24, "item 2.2 opens with two marks", two_marks)],
+        ),
+        "a list line in no step beside a missing step row: the stray finding alone": (
+            edit(
+                edited(ROW_3 + "\n", ""),
+                "## Phase B\n",
+                "## Phase B\n- ✅ A done thing, [x](records/fifth.md).\n",
+            ),
+            [(20, "this list line stands in no step", stray)],
+        ),
+        "a step above the first phase line beside its missing row: the step's finding alone": (
+            edit(edited('<a id="phase-a"></a>\n', ""), ROW_1 + "\n", ""),
+            [
+                (
+                    15,
+                    "step 1 stands above the first phase anchor",
+                    'put the line <a id="phase-<letter>"></a> of its phase above step 1',
+                )
+            ],
+        ),
+        "a step that stands twice beside a missing row all: the doubled finding alone": (
+            edit(edited(ROW_ALL + "\n", ""), STEP_4, STEP_4 + '\n3. <a id="s3"></a>⏳ Again.'),
+            [
+                (
+                    27,
+                    "step s3 stands twice, first at line 25",
+                    "give the later step a number of its own, in its line, its anchor and its items",
+                )
+            ],
+        ),
+        "a done step with no link beside a missing step row: the step's finding alone": (
+            edit(edited(ROW_1 + "\n", ""), STEP_1, '1. <a id="s1"></a>✅ Rule made.'),
+            [
+                (
+                    16,
+                    "done step 1, which has no items, holds no link",
+                    "link its record, or the document or the module its routine change concerns, or, once its"
+                    " record is deleted, the current-state document that carries its ruling",
+                )
+            ],
+        ),
+        "no matrix beside an item with no mark: both findings": (
+            bare(edited(TABLE + "\n", "")),
+            [(6, no_matrix, table_fix), *item_at(16)],
+        ),
+        "no separator row beside an item with no mark: both findings": (
+            bare(edited(SEPARATOR_ROW + "\n", "")),
+            [
+                (
+                    6,
+                    "the status matrix has no separator row under its header row",
+                    f"add the row {SEPARATOR_ROW} under the header row",
+                ),
+                *item_at(23),
+            ],
+        ),
+        "a second matrix beside an item with no mark: both findings": (
+            bare(BASE + "\n" + TABLE),
+            [
+                *item_at(24),
+                (
+                    29,
+                    "the plan holds a second status matrix",
+                    "delete this table; the matrix is the one at line 6",
+                ),
+            ],
+        ),
+        "the keys of the rows beside an item with no mark: the keys and the item": (
+            bare(edit(edit(keyed, ROW_2, ROW_2 + "\n" + ROW_2), ROW_ALL, ROW_ALL + "\n" + ROW_ALL)),
+            [
+                (10, "the matrix has two rows for s2", "delete this second row of s2"),
+                (11, names_no_step, no_step_fix),
+                (14, "the matrix has two rows for all", "delete this second row of all"),
+                *item_at(26),
+            ],
+        ),
+        "a block left open beside an item with no mark: both findings": (
+            bare(opened),
+            [*item_at(24), (28, never, close)],
+        ),
+        "a block left open beside a row of seven cells: the fence alone": (
+            edit(opened, ROW_3, ROW_3.replace(" 0% |", "")),
+            [(28, never, close)],
+        ),
+        "a block left open still holds the keys of the rows": (
+            edit(edit(keyed, ROW_2, ROW_2 + "\n" + ROW_2), STEP_4, STEP_4 + "\n```\n- inside"),
+            [
+                (10, "the matrix has two rows for s2", "delete this second row of s2"),
+                (11, names_no_step, no_step_fix),
+                (29, never, close),
+            ],
+        ),
+    }
+
+
+Stage = tuple[str, Want]  # the text of one run of a chain, and the findings that run gives
+
+
+def chain_cases() -> dict[str, list[Stage]]:
+    """Plans that are mended by following the fixes of each run in report order, by hand: each run gives
+    the findings of the steps and items alone, then the rows that the mended steps and items teach, and the
+    run after the last fix is green."""
+    # one item with no mark, two rows missing: the fix writes a mark of the fixer's choice, 💤
+    bare = edit(edit(edit(BASE, ROW_2 + "\n", ""), ROW_ALL + "\n", ""), "**2.2** ⏳ ", "**2.2** ")
+    marked = edit(bare, "**2.2** ", "**2.2** 💤 ")
+    rowed = edit(marked, ROW_1, ROW_1 + "\n| [s2](#s2) | Second | B | 💤 | 1 | 0 | 2 | 100% |")
+    rowed = edit(rowed, ROW_4, ROW_4 + "\n| all | All steps | all | 🔄 | 2 | 1 | 3 | 66% |")
+    # a list line in no step, an item of two marks, a step that stands twice and a row all of seven cells
+    tangled = edit(BASE, ROW_ALL, ROW_ALL.replace(" 50% |", ""))
+    tangled = edit(tangled, "## Phase B\n", "## Phase B\n\nThe notes of the phase.\n- A stray note.\n")
+    tangled = edit(tangled, "**2.2** ⏳ ", "**2.2** ⏳ ✅ ")
+    tangled = edit(tangled, STEP_4, STEP_4 + '\n3. <a id="s3"></a>⏳ Again.')
+    mended = edit(
+        tangled, "The notes of the phase.\n- A stray note.\n", "The notes of the phase. A stray note.\n"
+    )
+    mended = edit(mended, "**2.2** ⏳ ✅ ", "**2.2** ⏳ ")
+    mended = edit(mended, '3. <a id="s3"></a>⏳ Again.', '5. <a id="s5"></a>⏳ Again.')
+    shown = edit(mended, ROW_4, ROW_4 + "\n| [s5](#s5) | Again | B | ⏳ | 0 | 1 | 0 | 0% |")
+    shown = edit(shown, ROW_ALL.replace(" 50% |", ""), "| all | All steps | all | 🔄 | 2 | 3 | 2 | 40% |")
+    return {
+        "fixes followed in report order: an item with no mark, then two missing rows": [
+            (
+                bare,
+                [
+                    (
+                        22,
+                        "item 2.2 opens with no status mark",
+                        "write one of ✅ ⏳ 💤 and a space after **2.2**",
+                    )
+                ],
+            ),
+            (
+                marked,
+                [
+                    (
+                        8,
+                        "the matrix has no row for s2",
+                        "add the row | [s2](#s2) | <title> | B | 💤 | 1 | 0 | 2 | 100% | after the row of s1",
+                    ),
+                    (
+                        10,
+                        "the matrix has no last row all, the sums of its steps",
+                        "add the row | all | <title> | all | 🔄 | 2 | 1 | 3 | 66% | as the last row",
+                    ),
+                ],
+            ),
+            (rowed, []),
+        ],
+        "fixes followed in report order: a stray line, two marks, a step twice, a row all of seven cells": [
+            (
+                tangled,
+                [
+                    (
+                        23,
+                        "this list line stands in no step",
+                        'write it as a step line, <n>. <a id="s<n>"></a> and its words, with a mark and a'
+                        " space before them where the step has no items, as rules 4 and 5 of"
+                        " plc-0008-rollout-plan give it, or move it under its step as an item, or, for a"
+                        " note, join its words to the sentence above",
+                    ),
+                    (27, "item 2.2 opens with two marks", "keep one of ✅ ⏳ 💤 and delete the other"),
+                    (
+                        31,
+                        "step s3 stands twice, first at line 29",
+                        "give the later step a number of its own, in its line, its anchor and its items",
+                    ),
+                ],
+            ),
+            (
+                mended,
+                [
+                    (
+                        11,
+                        "the matrix has no row for s5",
+                        "add the row | [s5](#s5) | <title> | B | ⏳ | 0 | 1 | 0 | 0% | after the row of s4",
+                    ),
+                    (
+                        12,
+                        "the row all has 7 cells, and the matrix has 8",
+                        "write the row with 8 cells, escaping a | in its title as \\|:"
+                        " | all | <title> | all | 🔄 | 2 | 3 | 2 | 40% |",
+                    ),
+                ],
+            ),
+            (shown, []),
+        ],
+    }
+
+
 def fenced(*lines: str) -> str:
     """The valid plan with a fenced block of the given lines under the items of step 2."""
     return edit(BASE, ITEM_3, "\n".join((ITEM_3, *lines)))
@@ -2266,10 +2455,15 @@ def green_cases() -> dict[str, str]:
     }
 
 
+def triples(text: str) -> Want:
+    """The line, what and fix of each finding of a plan's text."""
+    return [(f.line, f.what, f.fix) for f in check_text(text).findings]
+
+
 def text_outcomes() -> list[tuple[str, bool, str]]:
     outcomes: list[tuple[str, bool, str]] = []
     for name, text in green_cases().items():
-        got = [(f.line, f.what, f.fix) for f in check_text(text).findings]
+        got = triples(text)
         outcomes.append((name, got == [], f"got {got}"))
     for cases in (
         matrix_cases(),
@@ -2279,10 +2473,15 @@ def text_outcomes() -> list[tuple[str, bool, str]]:
         list_cases(),
         run_cases(),
         fence_cases(),
+        rule_cases(),
     ):
         for name, (text, wanted) in cases.items():
-            got = [(f.line, f.what, f.fix) for f in check_text(text).findings]
+            got = triples(text)
             outcomes.append((name, got == wanted, f"got {got}"))
+    for name, stages in chain_cases().items():
+        for run, (text, wanted) in enumerate(stages, start=1):
+            got = triples(text)
+            outcomes.append((f"{name}, run {run}", got == wanted, f"got {got}"))
     return outcomes
 
 
