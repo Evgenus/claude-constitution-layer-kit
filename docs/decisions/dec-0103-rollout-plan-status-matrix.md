@@ -54,11 +54,11 @@ C, by the decider in chat on 2026-10-24: "C: summary matrix on top, split items 
 
 <a id="r6"></a>**R6.** Ticking an item done changes its mark, its sentence, its step's row and the row `all` in the same change, at routine stakes.
 
-<a id="r7"></a>**R7.** The rewrite of this change is one of form: every sentence of the plan is kept, split into items where a step held several pieces of work, each item marked by its own words. A sentence is changed only where a split needs it: a subject named where a pronoun would point across an item, a sentence joined by semicolons cut where its parts carry different marks, a parenthesis that names open work made an item of its own, and a sentence about a whole step moved to the step's lead. Steps 5, 8, 9 and 10, whose items hold their text, open with their titles from the matrix. The reading of the old text against the new one reads each such change. A status the proof pass of this change found stale is changed only as the decider chooses.
+<a id="r7"></a>**R7.** The rewrite of this change is one of form: every sentence of the plan is kept, split into items where a step held several pieces of work, each item marked by its own words. A sentence is changed only where a split needs it: a subject named where a pronoun would point across an item, a sentence joined by semicolons cut where its parts carry different marks, a parenthesis that names open work made an item of its own, and a sentence about a whole step moved to the step's lead. Steps 5, 8, 9 and 10, whose items hold their text, open with their titles from the matrix. The reading of the old text against the new one reads each such change. The decider chose, in chat on 2026-10-24, that the statuses and dated facts the proof pass of this change found stale are corrected in this change; the commit that corrects them names the proof of each.
 
 ## Applied
 
-The change amended rules 2, 3, 4, 5 and 8 of [plc-0008-rollout-plan](../policies/plc-0008-rollout-plan.md) and added its rule 10; rewrote [the rollout plan](../rollout-plan.md) into the matrix and its items; and added the kit's `scripts/check-rollout-status.py` to the gate group of `scripts/gate-list.sh`. A proof pass checked every claim of the old plan against the repository, and four fresh readers read the old text against the new one.
+The change amended rules 2, 3, 4, 5 and 8 of [plc-0008-rollout-plan](../policies/plc-0008-rollout-plan.md) and added its rule 10; rewrote [the rollout plan](../rollout-plan.md) into the matrix and its items; and added the kit's `scripts/check-rollout-status.py` to the gate group of `scripts/gate-list.sh`. A proof pass checked every claim of the old plan against the repository, and four fresh readers read the old text against the new one; the claims the proof pass found stale were then corrected, as the decider chose.
 
 ## Carry list
 
@@ -68,4 +68,4 @@ The change amended rules 2, 3, 4, 5 and 8 of [plc-0008-rollout-plan](../policies
 4. R4 — [plc-0008-rollout-plan](../policies/plc-0008-rollout-plan.md#r10), rule 10.
 5. R5 — [plc-0008-rollout-plan](../policies/plc-0008-rollout-plan.md#r8), rule 8, and [the check's docstring](../../scripts/check-rollout-status.py).
 6. R6 — [plc-0008-rollout-plan](../policies/plc-0008-rollout-plan.md#r3), rule 3.
-7. R7 — history only: the form of this change's rewrite, and the stale statuses of its proof pass.
+7. R7 — history only: the form of this change's rewrite, and the correction of the stale claims its proof pass found.
