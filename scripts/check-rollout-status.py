@@ -47,7 +47,8 @@ What it holds, each failure a finding of its own:
      P is a finding, since a number once used is not used again; a leading zero is a finding. A number is
      never offered from the gap between P and the next item that reads a number (N), since a whole number
      there is one a removed item held: where an N stands, the offer is the letter after P's, `a` where P
-     has none; where none stands, the next whole number above P. The fix names for that item a number
+     has none, and none where N has P's whole number, the letters between them having been given in
+    order; where none stands, the next whole number above P. The fix names for that item a number
      above P and below N, both bounds and that example, so that no other item turns red; where none fits,
      N not being above the letter after P, or P ending in `z`, it says so and names item P, the one
      before, as the one that may be out of place. A first item has no P, and 1 bounds
@@ -72,8 +73,9 @@ What it holds, each failure a finding of its own:
      line of the same character, as long or longer, with no words after it. What a block holds is no list
      line, no step line, no phase line, no header row and no line that runs on under an item. A block that
      opens and never closes runs to the end of the file and hides every line after it, so it is a finding
-     at its opening line; while one stands, no row is reported as lacking its step and the row all is not
-     held against the sums, since the steps below the block are not read.
+     at its opening line; while one stands, no row of the matrix is held against the items, nor reported
+     as lacking its step or as having none, and a matrix it may hide is not missed, since the lines below
+     the block are not read.
 
 What it leaves to review: whether a mark matches the words of its item, whether a link is the proof of its
 item, a done item's words, a row's title, and every other content of the plan; the style, the language and
@@ -475,8 +477,8 @@ def after(previous: Number | None, bound: Number | None) -> Number | None:
     N stands: the next whole number above P, and 1 for a first item."""
     if bound is None:
         return (1, "") if previous is None else (previous[0] + 1, "")
-    if previous is None or previous[1] == "z":
-        return None
+    if previous is None or previous[1] == "z" or bound[0] == previous[0]:
+        return None  # where N shares P's whole number, the letters between them were given in order
     count, letter = previous
     successor = (count, chr(ord(letter) + 1) if letter else "a")
     return successor if successor < bound else None
@@ -815,17 +817,17 @@ def cell_findings(row: Row, key: str, derived: Derived) -> list[Finding]:
 
 def row_findings(matrix: Matrix, steps: list[Step], unread: bool) -> list[Finding]:
     """The findings of the rows. Where `unread` is true, a fenced block left open hides the steps below it,
-    no row is reported as lacking its step, and the row all is not held against the sums."""
+    and no row is held against the items, nor reported as lacking its step or as having none."""
     derived = {step.key: derive(step) for step in steps}
     total = derive_total(steps)
     by_key, findings = index_rows(matrix.rows)
+    if unread:  # the steps an open block hides are not read, so no row, count or sum can be held
+        return findings
     findings += missing_findings(matrix, derived, total, by_key)
-    findings += [] if unread else extra_findings(by_key, derived)
+    findings += extra_findings(by_key, derived)
     findings += order_findings(by_key, derived)
     findings += all_position_findings(by_key, derived)
     for key, row in by_key.items():
-        if key == "all" and unread:  # the steps an open block hides are not counted, so no sum is held
-            continue
         wanted = total if key == "all" else derived.get(key)
         if wanted is not None:
             findings += cell_findings(row, key, wanted)
@@ -836,6 +838,8 @@ def matrix_findings(lines: list[str], steps: list[Step], unread: bool) -> list[F
     first_phase = first_phase_line(lines)
     headers = [n for n, line in unfenced(lines) if line.strip() == HEADER]
     if not headers or (first_phase is not None and headers[0] > first_phase):
+        if unread:  # an open block above may hide the matrix; its own finding comes first
+            return []
         fix = (
             f"add a table with the header row {HEADER} before the first phase anchor, with one row for each"
             " step and a last row all, as rule 10 of plc-0008-rollout-plan says"
@@ -857,7 +861,10 @@ def matrix_findings(lines: list[str], steps: list[Step], unread: bool) -> list[F
 
 def fence_finding(line: int) -> Finding:
     return Finding(
-        line, "this fenced block never closes", WHY_FENCE, "close it with a line of the same fence"
+        line,
+        "this fenced block never closes",
+        WHY_FENCE,
+        "close it with a line of the same fence where its code ends",
     )
 
 
@@ -1642,6 +1649,17 @@ def number_cases() -> dict[str, tuple[str, Want]]:
                 )
             ],
         ),
+        "no letter is offered where the item after has the whole number of the item before": (
+            numbered("3", "2", "3b"),
+            [
+                (
+                    24,
+                    "item 2.2 follows item 2.3, and its number is not above it",
+                    "no number fits above 2.3 and below 2.3b; item 2.3, the one before, may be the one out"
+                    f" of place: {ascend}; {unused}",
+                )
+            ],
+        ),
         "no number fits after the letter z, though whole numbers lie before the item after": (
             numbered("2z", "2", "4"),
             [
@@ -1907,7 +1925,7 @@ def fence_cases() -> dict[str, tuple[str, Want]]:
         return edit(BASE, old, new)
 
     never = "this fenced block never closes"
-    close = "close it with a line of the same fence"
+    close = "close it with a line of the same fence where its code ends"
     visible_sums = "| all | All steps | all | 🔄 | 2 | 1 | 1 | 66% |"  # the sums of steps 1 and 2 alone
     return {
         "a fenced block that never closes is a finding at its opening line": (
@@ -1929,6 +1947,14 @@ def fence_cases() -> dict[str, tuple[str, Want]]:
         "a block left open hides the steps below it, and no row is reported as lacking its step": (
             edit(edited(STEP_3, "```\n" + STEP_3), ROW_ALL, visible_sums),
             [(26, never, close)],
+        ),
+        "a block left open inside a step with items holds no row against the items": (
+            edited(ITEM_2, "```\n" + ITEM_2),
+            [(24, never, close)],
+        ),
+        "a block left open above the matrix gives its own finding alone": (
+            edited(HEADER, "```\n" + HEADER),
+            [(6, never, close)],
         ),
         "a block left open leaves the row all unheld, its sums standing for every step": (
             edited(STEP_3, "```\n" + STEP_3),
@@ -2109,7 +2135,7 @@ def report_outcomes() -> list[tuple[str, bool, str]]:
     fence_lines = [
         "RED: docs/rollout-plan.md:28: this fenced block never closes",
         "  why: every line after it is read as code, so the steps and items below are not checked",
-        "  fix: close it with a line of the same fence",
+        "  fix: close it with a line of the same fence where its code ends",
         "RED: 1 finding(s) — 4 step(s), 6 item(s) examined",
     ]
     red_text = edit(BASE, ROW_2, ROW_2.replace("| 1 | 1 | 1 |", "| 2 | 1 | 1 |"))
