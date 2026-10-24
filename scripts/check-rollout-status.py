@@ -19,10 +19,10 @@ What it holds, each failure a finding of its own:
      and the items are: a fenced header row is no matrix, and a fenced phase anchor is no phase.
   2. The rows against the steps. One row for each step, none for a step the plan lacks, none twice, in
      the order the steps stand in the plan, and the row `all` last. These are held only as 3 says. A row
-     whose first cell names no step is a finding, and so is a second row of a step or of `all`, always. A
-     step's number stands once. A list line under a phase line and above the phase's first step, as a step
-     line written in another form that is still a list line's (`5) …`) is, stands in no step and is a
-     finding, since no row counts it.
+     whose first cell names no step is a finding, and so is a second row of a step or of `all`, whatever
+     the pass. A step's number stands once. A list line under a phase line and above the phase's first
+     step, as a step line written in another form that is still a list line's (`5) …`) is, stands in no
+     step and is a finding, since no row counts it.
   3. The cells. Each cell is of its form: the phase one capital letter (the word `all` on the last row),
      the status one of ✅ ⏳ 🔄 💤, the counts whole numbers, the percent a whole number with `%` or `n/a`.
      Each cell is also what the items give: the phase is that of the last phase line above the step; done,
@@ -33,17 +33,17 @@ What it holds, each failure a finding of its own:
      same rules. A step stands under a phase line.
      The one rule of reading the rows: they are read against the steps and their items only when the
      steps-and-items pass is clean. The pass is every finding about the steps and the items, those of 2
-     to 7 that name no row: of the step lines, the phase lines, the numbers, the marks, the words, the
-     links and the lines that run on; of a step that stands twice, a step above the first phase line and
-     a list line in no step; and of a fenced block left open. While any one stands, the report holds
-     those findings and, of the matrix, only what depends on no item: its own table (1: no matrix before
-     the first phase line, a second matrix, no separator row) and the keys of its rows (2: a first cell
-     that names no step, a second row of a step or of `all`). No row is held against the items then: no
-     missing row, no extra row, no row out of order, no row `all` out of place, no wrong number of cells,
-     no cell of the wrong form, no cell of the wrong value, and no row text is offered, since the fix of a
-     step or an item can still change what a row says. Once the pass is clean, every item has exactly one
-     mark, so every row is read from the items as they stand, and the fix of a row gives values that no
-     later fix of a step or an item changes.
+     to 7 that name no row: of the step lines, the numbers, the marks, the words, the links and the lines
+     that run on; of a step that stands twice, a step above the first phase line and a list line in no
+     step; and of a fenced block left open. While any one stands, the report holds those findings and, of
+     the matrix, only these: its own table (1: no matrix before the first phase line, a second matrix, no
+     separator row) and the keys of its rows (2: a first cell that names no step, a second row of a step
+     or of `all`). No row is held against the items then: no missing row, no extra row, no row out of
+     order, no row `all` out of place, no wrong number of cells, no cell of the wrong form, no cell of
+     the wrong value, and no row text is offered, since the fix of a step or an item can still change
+     what a row says. Once the pass is clean, every item has exactly one mark, so every row is read from
+     the items as they stand, and the fix of a row gives values that no later fix of a step or an item
+     changes.
   4. The items. Every list line of a step, outside a fenced block, is an item: a line that starts, indented
      or not, with `-`, `*` or `+` and a space, or with digits, `.` or `)` and a space, the line of a step
      itself excepted. An item is one line, its link on that line: a non-blank line right under an item
@@ -694,7 +694,10 @@ def number_findings(number: str, items: list[Item]) -> list[Finding]:
 def read_step(span: Span) -> tuple[Step, list[Finding]]:
     findings: list[Finding] = []
     if not span.phase:
-        fix = f'put the line <a id="phase-<letter>"></a> of its phase above step {span.number}'
+        fix = (
+            f"move step {span.number} below the status matrix, under the line"
+            ' <a id="phase-<letter>"></a> of its phase, and write that line where it is missing'
+        )
         findings.append(
             Finding(span.line, f"step {span.number} stands above the first phase anchor", WHY_PHASE, fix)
         )
@@ -888,8 +891,8 @@ def cell_findings(row: Row, key: str, derived: Derived) -> list[Finding]:
 
 
 def row_findings(matrix: Matrix, steps: list[Step], clean: bool) -> list[Finding]:
-    """The findings of the rows. Their keys are always held; the rows are read against the steps and their
-    items only where the steps-and-items pass is `clean`, the one rule of the rows."""
+    """The findings of the rows. Their keys are held whatever the pass; the rows are read against the steps
+    and their items only where the steps-and-items pass is `clean`, the one rule of the rows."""
     by_key, findings = index_rows(matrix.rows)
     if not clean:
         return findings
@@ -907,7 +910,8 @@ def row_findings(matrix: Matrix, steps: list[Step], clean: bool) -> list[Finding
 
 
 def matrix_findings(lines: list[str], steps: list[Step], clean: bool) -> list[Finding]:
-    """The findings of the matrix: its own table, always, and its rows as `row_findings` holds them."""
+    """The findings of the matrix: its own table, whatever the pass, save its absence under an open fenced
+    block, and its rows as `row_findings` holds them."""
     first_phase = first_phase_line(lines)
     headers = [n for n, line in unfenced(lines) if line.strip() == HEADER]
     if not headers or (first_phase is not None and headers[0] > first_phase):
@@ -1363,7 +1367,19 @@ def step_cases() -> dict[str, tuple[str, Want]]:
                 (
                     16,
                     "step 1 stands above the first phase anchor",
-                    'put the line <a id="phase-<letter>"></a> of its phase above step 1',
+                    'move step 1 below the status matrix, under the line <a id="phase-<letter>"></a> of its'
+                    " phase, and write that line where it is missing",
+                )
+            ],
+        ),
+        "a step above the matrix is told to move below it, under its phase line": (
+            edit(edited(STEP_1 + "\n", ""), "# Plan\n", "# Plan\n" + STEP_1 + "\n"),
+            [
+                (
+                    5,
+                    "step 1 stands above the first phase anchor",
+                    'move step 1 below the status matrix, under the line <a id="phase-<letter>"></a> of its'
+                    " phase, and write that line where it is missing",
                 )
             ],
         ),
@@ -2110,7 +2126,7 @@ def fence_cases() -> dict[str, tuple[str, Want]]:
 def rule_cases() -> dict[str, tuple[str, Want]]:
     """The one rule of the rows: while a step or an item has a finding, or a fenced block stands open, the
     rows are not held against the items, and no row text is taught; the table of the matrix and the keys of
-    its rows are held always."""
+    its rows are held whatever the pass."""
 
     def edited(old: str, new: str) -> str:
         return edit(BASE, old, new)
@@ -2208,7 +2224,8 @@ def rule_cases() -> dict[str, tuple[str, Want]]:
                 (
                     15,
                     "step 1 stands above the first phase anchor",
-                    'put the line <a id="phase-<letter>"></a> of its phase above step 1',
+                    'move step 1 below the status matrix, under the line <a id="phase-<letter>"></a> of its'
+                    " phase, and write that line where it is missing",
                 )
             ],
         ),
