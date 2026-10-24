@@ -29,10 +29,11 @@ What it holds, each failure a finding of its own:
      rounded down, and `n/a` where done + open is 0; the status is ✅ when no item is open or waiting, ⏳
      when an item is open and none is done, 🔄 when an item is done and another is open, 💤 when no item
      is open and one is waiting. The row `all` holds the sums of the steps, its percent and status by the
-     same rules. A step stands under a phase line. Where an item of a step has no mark, the counts, the
-     percent and the status of its row, and of the row `all`, are left uncompared until it has one; and
-     while a step stands twice, the row `all` is left uncompared too, since the later step's items join the
-     sums once it has a number of its own.
+     same rules. A step stands under a phase line. Where an item of a step has no single mark, none or two,
+     the counts, the percent and the status of its row, and of the row `all`, are left uncompared until it
+     has one; and while a line is left out of the sums, a step that stands twice or a list line in no step,
+     the counts, the percent and the status of the row `all` are left uncompared too, since the line joins
+     the sums once its own finding is fixed. A missing row then says to fix the findings below first.
   4. The items. Every list line of a step, outside a fenced block, is an item: a line that starts, indented
      or not, with `-`, `*` or `+` and a space, or with digits, `.` or `)` and a space, the line of a step
      itself excepted. An item is one line, its link on that line: a non-blank line right under an item
@@ -460,7 +461,7 @@ def read_mark(name: str, after: str, line: int, rest: str) -> tuple[Mark | None,
         return mark, [Finding(line, f"{name} holds 🔄, a step's status and no item's mark", WHY_MARK, fix)]
     if text.strip()[:1] in SIGNS:
         fix = "keep one of ✅ ⏳ 💤 and delete the other"
-        return mark, [Finding(line, f"{name} opens with two marks", WHY_MARK, fix)]
+        return None, [Finding(line, f"{name} opens with two marks", WHY_MARK, fix)]
     return mark, []
 
 
@@ -708,8 +709,8 @@ def read_step(span: Span) -> tuple[Step, list[Finding]]:
 
 
 def read_steps(lines: list[str]) -> tuple[list[Step], list[Finding], bool]:
-    """The steps of the plan, a step that stands twice left out after its finding, and the findings of
-    their items."""
+    """The steps of the plan, a step that stands twice left out after its finding, the findings of their
+    items, and whether a step was left out so."""
     steps: list[Step] = []
     findings: list[Finding] = []
     seen: dict[str, int] = {}
@@ -734,11 +735,12 @@ def derive(step: Step) -> Derived:
     return Derived(step.phase, counts, None not in marks)
 
 
-def derive_total(steps: list[Step], doubled: bool = False) -> Derived:
-    """The row all: the sums of the steps, settled only where every item has a mark and no step stands twice,
-    since a later step's items join the sums once it has a number of its own."""
+def derive_total(steps: list[Step], left_out: bool = False) -> Derived:
+    """The row all: the sums of the steps, settled only where every item has one mark and no line is
+    `left_out` of the sums — a step that stands twice, a list line in no step — since such a line joins the
+    sums once its own finding is fixed."""
     parts = [derive(step) for step in steps]
-    settled = not doubled and all(part.settled for part in parts)
+    settled = not left_out and all(part.settled for part in parts)
     return Derived("all", sum((part.counts for part in parts), Counts()), settled)
 
 
@@ -808,8 +810,7 @@ def missing_findings(
             fix = (
                 f"add the row {row_text(key, wanted)} {where}"
                 if wanted.settled
-                else f"write a mark on every item of {key}, every list line of it as an item, then add its"
-                f" row {where}"
+                else f"fix the findings of the items of {key} below first, then add its row {where}"
             )
             findings.append(Finding(line, f"the matrix has no row for {key}", WHY_MATRIX, fix))
         else:
@@ -820,8 +821,7 @@ def missing_findings(
         fix = (
             f"add the row {row_text('all', total)} as the last row"
             if total.settled
-            else "give every step a number of its own, write a mark on every item and every list line of a"
-            " step as an item, then add the row all as the last row"
+            else "fix the findings of the steps and items below first, then add the row all as the last row"
         )
         findings.append(
             Finding(line, "the matrix has no last row all, the sums of its steps", WHY_MATRIX, fix)
@@ -896,11 +896,11 @@ def cell_findings(row: Row, key: str, derived: Derived) -> list[Finding]:
     return findings
 
 
-def row_findings(matrix: Matrix, steps: list[Step], unread: bool, doubled: bool) -> list[Finding]:
+def row_findings(matrix: Matrix, steps: list[Step], unread: bool, left_out: bool) -> list[Finding]:
     """The findings of the rows. Where `unread` is true, a fenced block left open hides the steps below it,
     and the rows are not read against the steps at all."""
     derived = {step.key: derive(step) for step in steps}
-    total = derive_total(steps, doubled)
+    total = derive_total(steps, left_out)
     by_key, findings = index_rows(matrix.rows)
     if unread:  # the steps an open block hides are not read, so no row, count or sum can be held
         return findings
@@ -915,7 +915,7 @@ def row_findings(matrix: Matrix, steps: list[Step], unread: bool, doubled: bool)
     return findings
 
 
-def matrix_findings(lines: list[str], steps: list[Step], unread: bool, doubled: bool) -> list[Finding]:
+def matrix_findings(lines: list[str], steps: list[Step], unread: bool, left_out: bool) -> list[Finding]:
     first_phase = first_phase_line(lines)
     headers = [n for n, line in unfenced(lines) if line.strip() == HEADER]
     if not headers or (first_phase is not None and headers[0] > first_phase):
@@ -937,7 +937,7 @@ def matrix_findings(lines: list[str], steps: list[Step], unread: bool, doubled: 
         fix = f"add the row {SEPARATOR_ROW} under the header row"
         what = "the status matrix has no separator row under its header row"
         findings.append(Finding(matrix.header, what, WHY_MATRIX, fix))
-    return findings + row_findings(matrix, steps, unread, doubled)
+    return findings + row_findings(matrix, steps, unread, left_out)
 
 
 def fence_finding(line: int) -> Finding:
@@ -953,11 +953,12 @@ def check_text(text: str) -> Result:
     """Every finding of a plan's text, in the order of its lines, and what was examined."""
     lines = split_lines(text)
     steps, findings, doubled = read_steps(lines)
-    findings += stray_findings(lines)
+    strays = stray_findings(lines)
+    findings += strays
     unclosed = unclosed_fence(lines)
     if unclosed is not None:
         findings.append(fence_finding(unclosed))
-    findings += matrix_findings(lines, steps, unclosed is not None, doubled)
+    findings += matrix_findings(lines, steps, unclosed is not None, doubled or bool(strays))
     findings.sort(key=lambda found: found.line)
     return Result(
         tuple(findings),
@@ -1428,8 +1429,7 @@ def step_cases() -> dict[str, tuple[str, Want]]:
                 (
                     8,
                     "the matrix has no row for s2",
-                    "write a mark on every item of s2, every list line of it as an item, then add its row"
-                    " after the row of s1",
+                    "fix the findings of the items of s2 below first, then add its row after the row of s1",
                 ),
                 (23, "item 2.2 opens with no status mark", "write one of ✅ ⏳ 💤 and a space after **2.2**"),
             ],
@@ -1442,8 +1442,8 @@ def step_cases() -> dict[str, tuple[str, Want]]:
                 (
                     11,
                     "the matrix has no last row all, the sums of its steps",
-                    "give every step a number of its own, write a mark on every item and every list line of a"
-                    " step as an item, then add the row all as the last row",
+                    "fix the findings of the steps and items below first, then add the row all as the last"
+                    " row",
                 ),
                 (
                     27,
@@ -1452,14 +1452,49 @@ def step_cases() -> dict[str, tuple[str, Want]]:
                 ),
             ],
         ),
+        "a missing row all, with a list line in no step, is told to wait for it": (
+            edit(
+                edited(ROW_ALL + "\n", ""),
+                "## Phase B\n",
+                "## Phase B\n- ✅ A done thing, [x](records/fifth.md).\n",
+            ),
+            [
+                (
+                    11,
+                    "the matrix has no last row all, the sums of its steps",
+                    "fix the findings of the steps and items below first, then add the row all as the last"
+                    " row",
+                ),
+                (
+                    20,
+                    "this list line stands in no step",
+                    'write it as a step line, <n>. <a id="s<n>"></a> and its words, with a mark and a space'
+                    " before them where the step has no items, as rules 4 and 5 of plc-0008-rollout-plan"
+                    " give it, or move it under its step as an item, or, for a note, join its words to the"
+                    " sentence above",
+                ),
+            ],
+        ),
+        "a missing row all, with an item of two marks, is told to wait for it": (
+            edit(edited(ROW_ALL + "\n", ""), "**2.2** ⏳ ", "**2.2** ⏳ ✅ "),
+            [
+                (
+                    11,
+                    "the matrix has no last row all, the sums of its steps",
+                    "fix the findings of the steps and items below first, then add the row all as the last"
+                    " row",
+                ),
+                (23, "item 2.2 opens with two marks", "keep one of ✅ ⏳ 💤 and delete the other"),
+            ],
+        ),
         "a missing row all, with an unmarked item, is told to wait for the marks": (
             edit(edited(ROW_ALL + "\n", ""), "**2.2** ⏳ ", "**2.2** "),
             [
                 (
                     11,
                     "the matrix has no last row all, the sums of its steps",
-                    "give every step a number of its own, write a mark on every item and every list line of a"
-                    " step as an item, then add the row all as the last row",
+                    "fix the findings of the steps and items below first, then add the row all as the last"
+                    " row",
                 ),
                 (23, "item 2.2 opens with no status mark", "write one of ✅ ⏳ 💤 and a space after **2.2**"),
             ],
