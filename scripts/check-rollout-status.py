@@ -64,8 +64,9 @@ What it holds, each failure a finding of its own:
      a number is named so, whatever list line stands before it.
   5. The steps' own marks. A step with items opens its own text, after its anchor, with no mark. A step
      with no items is its own one item: its text opens with one mark, a space and words, and it is one
-     line, as an item is, with the finding and the fix of 4 for the line right under it that runs on. A
-     line right under the line of a step with items is the step's own text, and no finding.
+     line, as an item is, with the finding and the fix of 4 for the line right under it that runs on, and
+     the 🔄 hold of 4. A line right under the line of a step with items is the step's own text, and no
+     finding.
   6. The links. A done item holds an inline Markdown link, `[text](target)`, on its own line, and so does
      a done step with no items. The link is looked for in the item's line and the lines that run on under
      it, joined by a space, and may hold spaces right after its `(`, so that a link split across the
@@ -80,8 +81,8 @@ What it holds, each failure a finding of its own:
      line, no step line, no phase line, no header row and no line that runs on under an item. A block that
      opens and never closes runs to the end of the file and hides every line after it, so it is a finding
      at its opening line; while one stands, the rows of the matrix are not read, against the steps or for
-     their own form, save the findings of the rows' first cells (a cell that names no step, a step's
-     second row) and of the matrix's own table (a second matrix, a missing separator row), and the
+     their own form, save a first cell that names no step and a second row of a step or of all, and
+     save the findings of the matrix's own table, a second matrix and a missing separator row; and the
      matrix's absence or place is not reported, since the lines below the block are not read.
 
 What it leaves to review: whether a mark matches the words of its item, whether a link is the proof of its
@@ -91,12 +92,15 @@ an item keeps its number, a number once used is not used again, the next whole n
 which no text of the plan shows.
 
 The check reads the plan by line patterns, not as a Markdown parser does. Its known limits: a thematic
-break written `* * *` or `- - -` reads as a list line, and is a finding; a list line in a phase with no
-step stands in no step, and is a finding too; a link is a text of the form `[text](target)` on the item's
-lines, so a link that stands only in a code span, an image `![x](a.png)` and a target with a space in it
-pass for one; a step's number is held to stand once and not to ascend, a leading zero in it is not
-held, and a phase's anchor is not held to stand before its heading; a step line written in another form
-above the first phase line is not seen.
+break written `* * *` or `- - -` under a step or a phase line reads as a list line, and is a finding; a
+list line in a phase with no step stands in no step, and is a finding too; a list line above the first
+phase line, under no step, is not seen, a step line written in another form there among them; a link is
+a text of the form `[text](target)` on the item's lines, read by that pattern and not as CommonMark reads
+one, so a link that stands only in a code span, an image `![x](a.png)`, a target with a space in it and
+an escaped bracket pass for one, and an empty link text or nested brackets do not; a step's number is
+held to stand once and not to ascend, and a leading zero in it is not held; a phase line is
+`<a id="phase-<x>"></a>` alone on its line, x a lower-case letter, so an anchor written inside its
+heading is not seen, and a phase's anchor is not held to stand before its heading.
 
 Modes:  no arguments   check docs/rollout-plan.md at the kit root;
         --self-test    prove the check on throwaway texts: a valid plan green, and each hold above red
@@ -158,7 +162,10 @@ WHY_LIST = "every list line under a step is counted as an item, so a line that i
 WHY_ONE_LINE = "an item is one line, so its mark, its words and its link are read together"
 WHY_PHASE = "each step stands in the phase above it, and its row names that phase"
 WHY_STEPS = "a step is cited by its number, and its row is found by it"
-WHY_STRAY = "a line in no step is counted in no row, so the matrix cannot show it (rule 4)"
+WHY_STRAY = (
+    "a line in no step is counted in no row, so the matrix cannot show it, as rule 4 of plc-0008-rollout-plan"
+    " says"
+)
 STRAY_FIX = (
     'write it as a step line, <n>. <a id="s<n>"></a> and its text, as rule 4 of plc-0008-rollout-plan'
     " gives it, or move it under its step as an item, or, for a note, join its words to the sentence above"
