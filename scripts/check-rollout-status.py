@@ -19,7 +19,9 @@ What it holds, each failure a finding of its own:
      and the items are: a fenced header row is no matrix, and a fenced phase anchor is no phase.
   2. The rows against the steps. One row for each step, none for a step the plan lacks, none twice, in
      the order the steps stand in the plan, and the row `all` last. A row whose first cell names no step
-     is a finding. A step's number stands once.
+     is a finding. A step's number stands once. A list line under a phase line and above the phase's first
+     step, as a step line written in another form is, stands in no step and is a finding, since no row
+     counts it.
   3. The cells. Each cell is of its form: the phase one capital letter (the word `all` on the last row),
      the status one of ✅ ⏳ 🔄 💤, the counts whole numbers, the percent a whole number with `%` or `n/a`.
      Each cell is also what the items give: the phase is that of the last phase line above the step; done,
@@ -52,13 +54,13 @@ What it holds, each failure a finding of its own:
      — N not above the letter after P, N of P's whole number, the letters between them having been given
      in order, or P ending in `z` — it says so and names item P, the one before, as the one that may be
      out of place. A first item has no P, and 1 bounds it from below: where an N stands, no number fits,
-     and the fix says so, names N, the next one numbered, with the reason that applies — below item 1 the
-     items are numbered from 1, below a higher one a step that starts above 1 lost its item 1 and a
-     number once used is not used again — and says that an item added before the first stands after it
-     instead; where none stands, it offers 1. The same holds for the number a list
-     line that is no item is told to take, which has the bounds alone, and for the number offered to an
-     item whose handle and anchor read none. An item that is the first of its step to read a number is
-     named so, whatever list line stands before it.
+     and the fix says so, names N, the next one numbered, with the reason that applies — below item 1 or
+     a lower one the items are numbered from 1, below a higher one a step that starts above 1 lost its
+     item 1 and a number once used is not used again — and says that an item added before the first
+     stands after it instead, each reason once; where none stands, it offers 1. The same holds for the
+     number a list line that is no item is told to take, which has the bounds alone, and for the number
+     offered to an item whose handle and anchor read none. An item that is the first of its step to read
+     a number is named so, whatever list line stands before it.
   5. The steps' own marks. A step with items opens its own text, after its anchor, with no mark. A step
      with no items is its own one item: its text opens with one mark, a space and words, and it is one
      line, as an item is, with the finding and the fix of 4 for the line right under it that runs on. A
@@ -76,8 +78,9 @@ What it holds, each failure a finding of its own:
      line of the same character, as long or longer, with no words after it. What a block holds is no list
      line, no step line, no phase line, no header row and no line that runs on under an item. A block that
      opens and never closes runs to the end of the file and hides every line after it, so it is a finding
-     at its opening line; while one stands, the rows of the matrix are not read against the steps at all,
-     and the matrix's absence or place is not reported, since the lines below the block are not read.
+     at its opening line; while one stands, the rows of the matrix are not read, against the steps or for
+     their own form, save a first cell that names no step and a step's second row, and the matrix's
+     absence or place is not reported, since the lines below the block are not read.
 
 What it leaves to review: whether a mark matches the words of its item, whether a link is the proof of its
 item, a done item's words, a row's title, and every other content of the plan; the style, the language and
@@ -144,6 +147,11 @@ WHY_LIST = "every list line under a step is counted as an item, so a line that i
 WHY_ONE_LINE = "an item is one line, so its mark, its words and its link are read together"
 WHY_PHASE = "each step stands in the phase above it, and its row names that phase"
 WHY_STEPS = "a step is cited by its number, and its row is found by it"
+WHY_STRAY = "a line in no step is counted in no row, so the matrix cannot show it"
+STRAY_FIX = (
+    'write it as a step line, <n>. <a id="s<n>"></a> and its text, as rule 4 of plc-0008-rollout-plan'
+    " gives it, or move it under its step as an item"
+)
 WHY_FENCE = "every line after it is read as code, so the steps and items below are not checked"
 RUN_FIX = "join this line to the line above, or put a blank line above it where it is no part of the item"
 BEFORE_FIRST = "an item added before the first stands after it instead"
@@ -386,6 +394,21 @@ def split_steps(lines: list[str]) -> list[Span]:
     return spans
 
 
+def stray_findings(lines: list[str]) -> list[Finding]:
+    """A list line after the first phase line that stands in no step, under a phase line and above the
+    phase's first step, as a step line written in another form does: it is counted in no row."""
+    findings: list[Finding] = []
+    phased, stepped = False, False
+    for number, line in unfenced(lines):
+        if PHASE_LINE.match(line):
+            phased, stepped = True, False
+        elif STEP_LINE.match(line):
+            stepped = True
+        elif phased and not stepped and LIST_LINE.match(line):
+            findings.append(Finding(number, "this list line stands in no step", WHY_STRAY, STRAY_FIX))
+    return findings
+
+
 def read_mark(name: str, after: str, line: int, rest: str) -> tuple[Mark | None, list[Finding]]:
     """The one mark an item opens with, and what is wrong with the way it opens."""
     mark = ITEM_MARKS.get(rest[:1])
@@ -396,6 +419,9 @@ def read_mark(name: str, after: str, line: int, rest: str) -> tuple[Mark | None,
     if not text.startswith(" ") or not text.strip():
         fix = "write a space and the words of the item after the mark"
         return mark, [Finding(line, f"{name} has no space and no text after its mark", WHY_MARK, fix)]
+    if text.strip()[:1] == "🔄":
+        fix = "delete the 🔄; an item carries one of ✅ ⏳ 💤 alone"
+        return mark, [Finding(line, f"{name} holds 🔄, a step's status and no item's mark", WHY_MARK, fix)]
     if text.strip()[:1] in SIGNS:
         fix = "keep one of ✅ ⏳ 💤 and delete the other"
         return mark, [Finding(line, f"{name} opens with two marks", WHY_MARK, fix)]
@@ -412,8 +438,8 @@ def link_finding(name: str, line: int) -> Finding:
 
 def read_item(line_no: int, line: str, tail: str) -> tuple[Item, list[Finding]]:
     """An item line with its findings of mark and link. The link is looked for in the line and `tail`, the
-    lines that run on under it, joined: a link split across them gives the finding of those lines alone,
-    until they are joined."""
+    lines that run on under it, joined by a space: a link split across them, as CommonMark reads one, gives
+    the finding of those lines alone; a split between `]` and `(` is no link, and its finding stands too."""
     shaped = ITEM_FORM.match(line.rstrip())
     if shaped is None:
         return Item(line_no, False, "", "", None), []
@@ -516,7 +542,7 @@ def no_room(number: str, previous: Number | None, bound: Number | None, tail: st
     if bound is None or after(previous, bound) is not None:
         return None
     if previous is None:
-        reason = FROM_ONE if bound == (1, "") else "a number once used is not used again"
+        reason = FROM_ONE if bound <= (1, "") else "a number once used is not used again"
         return (
             f"no number fits before item {number}.{render_number(bound)}, the next one numbered, since"
             f" {reason}, and {BEFORE_FIRST}"
@@ -554,7 +580,7 @@ def order_finding(number: str, item: Item, previous: Number | None, bound: Numbe
     if room is None:
         where = range_words(number, previous, bound)
         room = f"give it a number {where} in its handle and its anchor{example(number, previous, bound)}"
-    return Finding(item.line, what, WHY_NUMBER, f"{room}; {reason}")
+    return Finding(item.line, what, WHY_NUMBER, room if reason in room else f"{room}; {reason}")
 
 
 def id_finding(number: str, item: Item, current: Number | None, room: str | None) -> Finding | None:
@@ -569,8 +595,8 @@ def id_finding(number: str, item: Item, current: Number | None, room: str | None
             return None
         fix = f"write the handle **{handle}** and the anchor {anchor}"
     what = (
-        f"the handle {item.handle} and the anchor {item.anchor} of an item do not agree with each other"
-        f" and with step {number}"
+        f"the handle {item.handle} and the anchor {item.anchor} of an item are not written as step {number}"
+        " and its number give them"
     )
     return Finding(item.line, what, WHY_ID, fix)
 
@@ -876,6 +902,7 @@ def check_text(text: str) -> Result:
     """Every finding of a plan's text, in the order of its lines, and what was examined."""
     lines = split_lines(text)
     steps, findings = read_steps(lines)
+    findings += stray_findings(lines)
     unclosed = unclosed_fence(lines)
     if unclosed is not None:
         findings.append(fence_finding(unclosed))
@@ -1279,7 +1306,7 @@ def step_cases() -> dict[str, tuple[str, Want]]:
         return edit(BASE, old, new)
 
     wording = "write one of ✅ ⏳ 💤 and a space"
-    id_what = "do not agree with each other and with step 2"
+    id_what = "are not written as step 2 and its number give them"
     id_fix = "write the handle **2.2** and the anchor s2-2"
     link_fix = (
         "link its record, or the document or the module its routine change concerns, or, once its record is"
@@ -1310,6 +1337,27 @@ def step_cases() -> dict[str, tuple[str, Want]]:
         "an item with no mark is a finding, and its row is left uncompared": (
             edited(ITEM_2, ITEM_2.replace("⏳ ", "")),
             [(24, "item 2.2 opens with no status mark", f"{wording} after **2.2**")],
+        ),
+        "an item that holds 🔄 after its mark is told 🔄 is no item's mark": (
+            edited(ITEM_2, ITEM_2.replace("⏳ ", "⏳ 🔄 ")),
+            [
+                (
+                    24,
+                    "item 2.2 holds 🔄, a step's status and no item's mark",
+                    "delete the 🔄; an item carries one of ✅ ⏳ 💤 alone",
+                )
+            ],
+        ),
+        "a list line under a phase line and above its first step stands in no step": (
+            edited("## Phase B\n", '## Phase B\n5. <a id="s05"></a>⏳ A step written in another form.\n'),
+            [
+                (
+                    21,
+                    "this list line stands in no step",
+                    'write it as a step line, <n>. <a id="s<n>"></a> and its text, as rule 4 of'
+                    " plc-0008-rollout-plan gives it, or move it under its step as an item",
+                )
+            ],
         ),
         "an item with two marks is a finding": (
             edited(ITEM_2, ITEM_2.replace("⏳ ", "⏳ ✅ ")),
@@ -1522,12 +1570,10 @@ def renumbered(item: str, old: str, new: str) -> str:
 
 def first_room(bound: str) -> str:
     """The clause for a number wanted before the item numbered <bound>, the first of its step to read one:
-    below 2.1 the items are numbered from 1, below any other a number once used is not used again."""
-    reason = (
-        "the items of a step are numbered from 1"
-        if bound == "2.1"
-        else "a number once used is not used again"
-    )
+    below 2.1 or a lower one the items are numbered from 1, below any other a number once used is not used
+    again."""
+    low = bound in ("2.0", "2.1")
+    reason = "the items of a step are numbered from 1" if low else "a number once used is not used again"
     return (
         f"no number fits before item {bound}, the next one numbered, since {reason}, and an item added before"
         " the first stands after it instead"
@@ -1553,7 +1599,13 @@ def number_cases() -> dict[str, tuple[str, Want]]:
     ascend = "renumber it in its handle and its anchor so that the numbers ascend"
     from_one = "the items of a step are numbered from 1"
     first_what = "is the first item of step 2 that reads a number, and its number is below 1"
-    return {
+    once = {
+        "an item numbered 0 before item 2.1 is told its reason once": (
+            numbered("0", "1", "3"),
+            [(23, f"item 2.0 {first_what}", first_room("2.1"))],
+        ),
+    }
+    return once | {
         "an equal number is a finding, the last item has no upper bound": (
             numbered("1", "2", "2"),
             [
