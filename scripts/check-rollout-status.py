@@ -19,7 +19,9 @@ What it holds, each failure a finding of its own:
      the steps and the items are: a fenced header row is no matrix, and a fenced phase anchor is no
      phase. Where no matrix stands before the first phase line, a table in sight after that line is to be
      moved above it, and each further table in sight deleted; while none is in sight and a fenced block
-     stands open (7), the block is to be closed first; else one is added.
+     stands open (7), the block is to be closed first; else one is added. A header row repeated inside
+     the table's run of rows is a finding of its own, that header row and the separator row under it to
+     go; a header row beyond that run is a second matrix, a table to delete.
   2. The rows against the steps. One row for each step, none for a step the plan lacks, none twice, in
      the order the steps stand in the plan, and the row `all` last. These are held only as 3 says. A row
      whose first cell names no step is a finding, and so is a second row of a step or of `all`, whatever
@@ -922,6 +924,22 @@ def further_fix(first: int) -> str:
     )
 
 
+def further_findings(lines: list[str], headers: list[int], outside: str) -> list[Finding]:
+    """Each header row in sight after the first: inside the first table's run of rows, a repeated header,
+    whose header and separator rows are to go; beyond it, a second matrix, whose fix is `outside`."""
+    run = {row.line for row in read_matrix(lines, headers[0]).rows}
+    repeat = (
+        "delete this header row and the separator row under it; they repeat the header of the table at line"
+        f" {headers[0]}"
+    )
+    return [
+        Finding(line, "the status matrix repeats its header row here", WHY_MATRIX, repeat)
+        if line in run
+        else Finding(line, "the plan holds a second status matrix", WHY_MATRIX, outside)
+        for line in headers[1:]
+    ]
+
+
 def matrix_findings(lines: list[str], steps: list[Step], clean: bool) -> list[Finding]:
     """The findings of the matrix: its own table, whatever the pass, and its rows as `row_findings` holds
     them. Where no matrix stands before the first phase line, the fix moves a table in sight after that line
@@ -950,17 +968,13 @@ def matrix_findings(lines: list[str], steps: list[Step], clean: bool) -> list[Fi
         missing = Finding(
             first_phase or 1, "the plan has no status matrix before its first phase", WHY_MATRIX, fix
         )
-        further = [
-            Finding(line, "the plan holds a second status matrix", WHY_MATRIX, further_fix(headers[0]))
-            for line in headers[1:]
-        ]
+        further = further_findings(lines, headers, further_fix(headers[0])) if headers else []
         return [missing, *further]
     matrix = read_matrix(lines, headers[0])
     findings: list[Finding] = []
-    fix = f"delete this table; the matrix is the one at line {headers[0]}"
-    findings += [
-        Finding(line, "the plan holds a second status matrix", WHY_MATRIX, fix) for line in headers[1:]
-    ]
+    findings += further_findings(
+        lines, headers, f"delete this table; the matrix is the one at line {headers[0]}"
+    )
     if not matrix.separated:
         fix = f"add the row {SEPARATOR_ROW} under the header row"
         what = "the status matrix has no separator row under its header row"
@@ -1276,6 +1290,7 @@ def row_cases() -> dict[str, tuple[str, Want]]:
 
     add = "add the row "
     no_matrix = "the plan has no status matrix before its first phase"
+    no_step = "write [s<n>](#s<n>) for the step the row sums up, or all for the last row, or delete the row"
     table_fix = (
         f"add a table with the header row {HEADER} before the first phase anchor, with one row for each step"
         " and a last row all, as rule 10 of plc-0008-rollout-plan says"
@@ -1389,6 +1404,42 @@ def row_cases() -> dict[str, tuple[str, Want]]:
                     "the plan holds a second status matrix",
                     "delete this table; the matrix is the one at line 6",
                 )
+            ],
+        ),
+        "a header row repeated inside the matrix: that row and its separator row are to go": (
+            edit(BASE, ROW_2 + "\n", ROW_2 + "\n" + HEADER + "\n" + SEPARATOR_ROW + "\n"),
+            [
+                (
+                    10,
+                    "the status matrix repeats its header row here",
+                    "delete this header row and the separator row under it; they repeat the header of the"
+                    " table at line 6",
+                ),
+                (10, 'the first cell of this matrix row reads "Step", which names no step', no_step),
+                (11, 'the first cell of this matrix row reads "---", which names no step', no_step),
+            ],
+        ),
+        "a header row repeated inside a table after the first phase line: the move, and that row to go": (
+            edit(
+                row(TABLE + "\n", ""),
+                "## Phase A\n\n",
+                "## Phase A\n\n"
+                + TABLE.replace(ROW_2 + "\n", ROW_2 + "\n" + HEADER + "\n" + SEPARATOR_ROW + "\n")
+                + "\n",
+            ),
+            [
+                (
+                    6,
+                    no_matrix,
+                    "move the table at line 9 above the first phase anchor, as rule 10 of"
+                    " plc-0008-rollout-plan says",
+                ),
+                (
+                    13,
+                    "the status matrix repeats its header row here",
+                    "delete this header row and the separator row under it; they repeat the header of the"
+                    " table at line 9",
+                ),
             ],
         ),
         "three matrices: each further one is a finding": (
