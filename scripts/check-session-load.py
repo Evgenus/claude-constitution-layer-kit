@@ -451,6 +451,12 @@ def self_test() -> int:
             green = whole_run_said(root)
             with mock.patch.dict(globals(), {"shared_path": unmade_path}):
                 said = whole_run_said(root)
+            (root / "kernel" / "CONVENTIONS.md").unlink()
+            (root / "kernel").rmdir()
+            try:
+                lost = whole_run_said(root)
+            except Exception as other:  # what `main` does not catch ends the check in a traceback
+                lost = f"raised {type(other).__name__}: {other}"
         ok = green == "1 skill(s), 1 start hook(s)"
         failed += 0 if ok else 1
         print(
@@ -467,7 +473,18 @@ def self_test() -> int:
         )
         if not ok:
             print(f"        got {said}")
-    total = len(cases) + 4
+        lost_line = (  # typed by hand: the kit lost its kernel/, which the bare repository copies
+            f"BROKEN: the kernel is not at {root}/kernel — fix: restore it from the kit's history"
+            f" (`git -C {root} checkout HEAD -- kernel`), then run the check again"
+        )
+        ok = lost == lost_line
+        failed += 0 if ok else 1
+        print(
+            f"[{'ok' if ok else 'FAIL'}] the same run over a kit with no kernel/ is a BROKEN line naming it"
+        )
+        if not ok:
+            print(f"        got {lost}")
+    total = len(cases) + 5
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 

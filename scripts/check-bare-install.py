@@ -2662,6 +2662,40 @@ def start_and_lookup_cases(tally: Tally) -> None:
     shut_folder_cases(tally)
 
 
+def kernel_cases(tally: Tally, line_of: Callable[[str | None], str]) -> None:
+    """A kit with no `kernel/`, and a kernel with a file that cannot be read, are each one BROKEN line naming
+    the kernel and its fix, never the misleading "make the module's files readable" of `main`'s
+    `OSError`; `line_of` is the run of `bare_repository` that `bare_repository_cases` makes."""
+    with tempfile.TemporaryDirectory() as tmp:
+        kit = Path(tmp).resolve()
+        with patched_globals({"KIT": kit}):
+            got_line = line_of(None)
+        missing_line = (  # typed by hand
+            f"BROKEN: the kernel is not at {kit}/kernel — fix: restore it from the kit's history"
+            f" (`git -C {kit} checkout HEAD -- kernel`), then run the check again"
+        )
+        version_case(tally, "bare repository: a kit with no kernel/", got_line == missing_line, got_line)
+        if os.geteuid() == 0:  # root reads any file: the missing kernel above is the proof
+            return
+        shut = kit / "kernel" / "CONVENTIONS.md"
+        shut.parent.mkdir()
+        shut.write_text("# kernel\n", encoding="utf-8")
+        shut.chmod(0)
+        try:
+            with patched_globals({"KIT": kit}):
+                got_line = line_of(None)
+        finally:
+            shut.chmod(0o600)
+        unreadable_line = (  # typed by hand
+            f"BROKEN: the kernel at {kit}/kernel could not be copied ({shut}: [Errno 13] Permission denied:"
+            f" '{shut}') — fix: make its files readable, `ls -lR {kit}/kernel` shows why not, then run the"
+            " check again"
+        )
+        version_case(
+            tally, "bare repository: a kernel file that cannot be read", got_line == unreadable_line, got_line
+        )
+
+
 def bare_repository_cases(tally: Tally) -> None:
     """A git command of `bare_repository` that exits other than 0 is one BROKEN line naming it as
     `git <subcommand>` and a fix that can be followed (git ran, so "install git" is none); a missing
@@ -2771,6 +2805,7 @@ def bare_repository_cases(tally: Tally) -> None:
         ],
         f"{got_line} {ran}",
     )
+    kernel_cases(tally, line_of)
     with tempfile.TemporaryDirectory() as none_here:
         got_line = line_of(None, none_here)
     version_case(
@@ -4170,18 +4205,38 @@ def person_variable_run_case(tally: Tally, step: StepTwo, person_values: dict[st
 
 
 def unreadable_file_cases(tally: Tally, step: StepTwo) -> None:
-    """A file the run cannot read is the two BROKEN lines, the note at the end of each."""
+    """A kit with no kernel is the two BROKEN lines naming the kernel and its fix, never the module's files;
+    any other file the run cannot read is the two BROKEN lines of `main`'s fallback; the note at the end of
+    each line."""
     no_kernel, lines_of, new_scene = step.no_kernel, step.lines_of, step.new_scene
-    unreadable_lines = [  # typed by hand: a file the run could not read, after the version is known
-        f"BROKEN: a file could not be read ([Errno 2] No such file or directory: '{no_kernel}/kernel')"
-        " — fix: make the module's files readable{}",
+    kernel_lines = [  # typed by hand: a kit with no kernel/, after the version is known
+        f"BROKEN: the kernel is not at {no_kernel}/kernel — fix: restore it from the kit's history"
+        f" (`git -C {no_kernel} checkout HEAD -- kernel`), then run the check again{{}}",
         "BROKEN: the check could not run — 0 modules examined{}",
     ]
+    unreadable_lines = [  # typed by hand: a file the run could not read, after the version is known
+        "BROKEN: a file could not be read ([Errno 13] Permission denied: '/x/shut') — fix: make the module's"
+        " files readable{}",
+        "BROKEN: the check could not run — 0 modules examined{}",
+    ]
+
+    def shut(root: Path) -> Path:
+        """`bare_repository`, but a file it reads cannot be read: an `OSError` no step turns into a Broken."""
+        raise PermissionError(errno.EACCES, "Permission denied", "/x/shut")
+
     for name, says, optout, note_wanted in (
         ("off the pin", SAYS_OFF, True, OFF_PIN),
         ("on the pin", SAYS_PINNED, False, ""),
     ):
         got_status, got_lines = lines_of(new_scene(), says, optout, no_kernel)
+        version_case(
+            tally,
+            f"a kit with no kernel, {name}: the two BROKEN lines naming it, the note at the end of each",
+            (got_status, got_lines) == (EXIT_BROKEN, [line.format(note_wanted) for line in kernel_lines]),
+            f"{got_status} {got_lines}",
+        )
+        with patched_globals({"bare_repository": shut}):
+            got_status, got_lines = lines_of(new_scene(), says, optout)
         version_case(
             tally,
             f"a file the run cannot read, {name}: the two BROKEN lines, the note at the end of each",
