@@ -51,7 +51,8 @@ examined. The records' folder and the width of their numbers are read from the `
 pattern `<folder>/**`, its width (absent is 4) a whole number from 1 to 9 that can number the
 threshold, and the entry stands once. A dials file, an entry or a folder that cannot be read, a width
 or a territory that is off, and a file of `*.md` in that folder that does not have the form
-`dec-<width digits>-<slug>` — never skipped — are each a failure to run, with the fix.
+`dec-<width digits>-<slug>` — never skipped — are each a failure to run, with the fix; so is a kit whose
+shared/ has lost the shared package the check imports, which names what to restore.
 
 Modes:  no arguments            check the lists, the anchors and the receipts;
         --scope BASE [MODULE]   print the records a closing audit must read for the change since
@@ -93,7 +94,18 @@ except ImportError:
 KIT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(KIT / "shared"))  # kit-side tooling only
 
-from constitution_layer_kit.envelope import envelope_bounds, envelope_lines  # noqa: E402
+try:  # the kit's own shared/ comes first, so a failure here is a kit that lost its shared package
+    from constitution_layer_kit.envelope import envelope_bounds, envelope_lines  # noqa: E402
+except ImportError as missing:
+    kit = shlex.quote(str(KIT))
+    print(
+        f"BROKEN: the shared package cannot be imported from {KIT / 'shared'} ({missing}) — fix: restore what"
+        f" is gone from shared/constitution_layer_kit/ from the kit's history (`git -C {kit} status --short"
+        f" shared` lists it, `git -C {kit} checkout HEAD -- <path>` restores one path), then run the check"
+        " again"
+    )
+    print("BROKEN: the check could not run — 0 records examined")
+    sys.exit(1)
 
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 
@@ -1374,6 +1386,47 @@ def run_old_git(t: Tally) -> None:
     t.judge(ok, "a git that prints the trailer placeholders as text is named, exit 1")
 
 
+HIDE_RELEASE = (  # a sitecustomize that hides an installed release, so that only the kit's shared/ is found
+    "import sys\n"
+    "class Hide:\n"
+    "    def find_spec(self, name, path=None, target=None):\n"
+    "        if name.partition('.')[0] == 'constitution_layer_kit':\n"
+    "            raise ModuleNotFoundError(f'No module named {name!r}', name=name)\n"
+    "sys.meta_path.insert(0, Hide())\n"
+)
+
+
+def run_no_shared_package(t: Tally) -> None:
+    """A kit whose shared/ lost the package, and no release to fall back on: the check cannot run, and says
+    what to restore, never a traceback."""
+    with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as tools:
+        root = Path(tmp).resolve()
+        for script in ("check-carry-lists.py", "kit_module_doc.py"):  # the check and the reader it imports
+            (root / "scripts").mkdir(exist_ok=True)
+            (root / "scripts" / script).write_text(
+                (Path(__file__).parent / script).read_text(encoding="utf-8"), encoding="utf-8"
+            )
+        (Path(tools) / "sitecustomize.py").write_text(HIDE_RELEASE, encoding="utf-8")
+        ran = subprocess.run(
+            [sys.executable, str(root / "scripts" / "check-carry-lists.py")],
+            capture_output=True,
+            text=True,
+            check=False,
+            env={**os.environ, "PYTHONPATH": tools},
+        )
+        wanted = [  # typed by hand
+            f"BROKEN: the shared package cannot be imported from {root}/shared (No module named"
+            f" 'constitution_layer_kit') — fix: restore what is gone from shared/constitution_layer_kit/ from"
+            f" the kit's history (`git -C {root} status --short shared` lists it, `git -C {root} checkout"
+            " HEAD -- <path>` restores one path), then run the check again",
+            "BROKEN: the check could not run — 0 records examined",
+        ]
+    ok = ran.returncode == EXIT_BROKEN and ran.stdout.splitlines() == wanted and not ran.stderr
+    t.judge(ok, "a kit with no shared package is named, with what to restore, exit 1")
+    if not ok:
+        print(f"        got {ran.returncode} {ran.stdout!r} {ran.stderr[-300:]!r}")
+
+
 def run_quoted_placeholder(t: Tally) -> None:
     """A receipt that merely quotes the placeholder is read as ever."""
     with tempfile.TemporaryDirectory() as tmp:
@@ -1975,6 +2028,7 @@ def self_test() -> int:
     run_receipts(t)
     run_signed_merge(t)
     run_old_git(t)
+    run_no_shared_package(t)
     run_quoted_placeholder(t)
     run_scopes(t)
     run_unscopable(t)
