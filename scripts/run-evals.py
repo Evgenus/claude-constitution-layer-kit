@@ -152,7 +152,7 @@ from kit_evals import (
     shared_files,
     write_receipts,
 )
-from kit_module_doc import DocumentError, claude_env, module_folders, pinned_claude
+from kit_module_doc import DocumentError, claude_env, hiding_shared, module_folders, pinned_claude
 
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
@@ -1255,13 +1255,15 @@ def self_test() -> int:
             and first_file.read_text(encoding="utf-8").strip() == f"{box_root}/env/bin",
         )
         seen_file.unlink()
+        (Path(tmp) / "hide").mkdir()  # a folder of its own for PYTHONPATH, so that nothing else is put on it
         refused = subprocess.run(
             ["sh", "-c", then_for(
                 Path("const-x"), "none", ["claude", "plugin", "eval"], tmp=str(box_root / "tmp"),
                 out=str(box_root / "out"), plugin=str(box_root / "plugin"), env=str(box_root / "env-2"),
                 shared=str(box_root / "nothing"),
             )],
-            env=box_env, capture_output=True, text=True, check=False,
+            env=box_env | {"PYTHONPATH": hiding_shared(Path(tmp) / "hide")},  # a release is no copy either
+            capture_output=True, text=True, check=False,
         )  # fmt: skip
         importing = "failed while importing constitution_layer_kit from the mounted shared folder, and yaml: "
         case(

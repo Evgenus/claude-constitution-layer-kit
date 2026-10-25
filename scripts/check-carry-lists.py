@@ -82,7 +82,7 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
-from kit_module_doc import DocumentError, section
+from kit_module_doc import DocumentError, hiding_shared, section
 
 try:
     import yaml
@@ -1386,16 +1386,6 @@ def run_old_git(t: Tally) -> None:
     t.judge(ok, "a git that prints the trailer placeholders as text is named, exit 1")
 
 
-HIDE_RELEASE = (  # a sitecustomize that hides an installed release, so that only the kit's shared/ is found
-    "import sys\n"
-    "class Hide:\n"
-    "    def find_spec(self, name, path=None, target=None):\n"
-    "        if name.partition('.')[0] == 'constitution_layer_kit':\n"
-    "            raise ModuleNotFoundError(f'No module named {name!r}', name=name)\n"
-    "sys.meta_path.insert(0, Hide())\n"
-)
-
-
 def run_no_shared_package(t: Tally) -> None:
     """A kit whose shared/ lost the package, and no release to fall back on: the check cannot run, and says
     what to restore, never a traceback."""
@@ -1406,13 +1396,12 @@ def run_no_shared_package(t: Tally) -> None:
             (root / "scripts" / script).write_text(
                 (Path(__file__).parent / script).read_text(encoding="utf-8"), encoding="utf-8"
             )
-        (Path(tools) / "sitecustomize.py").write_text(HIDE_RELEASE, encoding="utf-8")
         ran = subprocess.run(
             [sys.executable, str(root / "scripts" / "check-carry-lists.py")],
             capture_output=True,
             text=True,
             check=False,
-            env={**os.environ, "PYTHONPATH": tools},
+            env={**os.environ, "PYTHONPATH": hiding_shared(Path(tools))},  # a release found no more
         )
         wanted = [  # typed by hand
             f"BROKEN: the shared package cannot be imported from {root}/shared (No module named"

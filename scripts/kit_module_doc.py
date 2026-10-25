@@ -109,6 +109,12 @@ folder, and derives each folder at the top of that `scripts/`, itself no link, t
 check-shared-links, check-bare-install, check-resolved-paths and list-message-literals read it; the gate
 list's `types-<module>` entry derives the same set in shell. check-shared-links proves it in its
 `--self-test`.
+
+`hiding_shared` is for a self-test that runs a check, or a container's script, with the shared package
+missing: it writes a `sitecustomize.py` into a folder that makes every import of `constitution_layer_kit`
+fail as a missing package does, wherever a copy stands, so that the case holds the same lines on a host
+with a release installed in python3's site-packages as on one without, such as the kit's CI.
+check-carry-lists and run-evals use it.
 """
 
 from __future__ import annotations
@@ -484,3 +490,21 @@ def enforcement(text: str, path: str) -> tuple[list[str], list[Problem]]:
                 elif MARK.search(SPAN.sub("", cell)) is None:
                     problems.append(Problem(number, Fault.UNMARKED, span))
     return sorted(scans), problems
+
+
+HIDE_SHARED = (  # the sitecustomize of `hiding_shared`
+    "import sys\n"
+    "class Hide:\n"
+    "    def find_spec(self, name, path=None, target=None):\n"
+    "        if name.partition('.')[0] == 'constitution_layer_kit':\n"
+    "            raise ModuleNotFoundError(f'No module named {name!r}', name=name)\n"
+    "sys.meta_path.insert(0, Hide())\n"
+)
+
+
+def hiding_shared(folder: Path) -> str:
+    """Write `HIDE_SHARED` as `folder/sitecustomize.py` and return the folder, for a self-test to set as
+    PYTHONPATH: every python3 started with it then fails to import `constitution_layer_kit`, as one with
+    no copy of the package does, whatever release its site-packages holds."""
+    (folder / "sitecustomize.py").write_text(HIDE_SHARED, encoding="utf-8")
+    return str(folder)
