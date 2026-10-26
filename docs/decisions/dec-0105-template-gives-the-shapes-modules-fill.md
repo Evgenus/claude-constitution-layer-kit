@@ -45,7 +45,7 @@ No real choice existed for these rulings. Each writes down a shape that the modu
 
 <a id="r5"></a>**R5.** The decisions section holds one record per entry, one line each, the record linked.
 
-<a id="r6"></a>**R6.** A module with an invariant and advisory rules states the invariant, then its advisory rules as a numbered list under the handles `<L>-a`, `<L>-b`, with a letter none of its message keys uses, each rule labeled `advisory`.
+<a id="r6"></a>**R6.** A module with an invariant and advisory rules states the invariant, then its advisory rules. The advisory rules of any module stand in a list whose items carry the handles `<L>-a`, `<L>-b` in bold, each rule labeled `advisory`. A module keeps the letter its rules have, since rule 8 of plc-0006-module-documents makes `<L>-a` a prefix apart from a message key's `<L><n>`.
 
 <a id="r7"></a>**R7.** Every row of the artifacts table stays: a component the module does not use reads `none`, with its reason in one line. The table has rows for the POSIX entry point, the Python entry file, the package, the shared code, which is none in the plugin, the dependencies, a third-party tool's configuration, the manifest and the tests.
 
@@ -57,11 +57,11 @@ No real choice existed for these rulings. Each writes down a shape that the modu
 
 <a id="r11"></a>**R11.** The dials table is `| dial | default | read by | meaning |`.
 
-<a id="r12"></a>**R12.** Each judgment-based boundary has at least three contrastive pairs, numbered straight through the section. A pair sets one side against the other, each with its verdict, where both sides may be allowed. A module with several advisory rules groups the pairs by rule, under the rule's handle.
+<a id="r12"></a>**R12.** Each judgment-based boundary has at least three contrastive pairs, numbered straight through the section. A pair sets one side against the other, each with its verdict, where both sides may be allowed. A module with several advisory rules groups the pairs under the handles of the rules they serve, one group serving one or several rules. Pairs that a text the module ships already holds are cited, not copied.
 
 <a id="r13"></a>**R13.** The enforcement table is `| # | artifact | kind |`, one artifact per row, for every artifact that runs or prints, the session-start printers included. The honest limits first cite the limits every gate shares and restate none, then list the module's own, each with its backstop or `none — accepted` and the reason.
 
-<a id="r14"></a>**R14.** The Runner line names `python3 -m pytest tests`, the run the kit makes through `scripts/check-aspects.py --run --module <name>`, and the item ranges the table holds. A fixture item's kind is `fixture, red→green` or `fixture, assertion`. A number once used is never used again, and a shared item the module does not claim is left out of the shared line. The template cites the policy's rule on handles and does not restate it.
+<a id="r14"></a>**R14.** The Runner line names `python3 -m pytest tests`, the run the kit makes through `scripts/check-aspects.py --run --module <name>`, and the ranges of the fixture items the table holds. A fixture item's kind is `fixture, red→green`, `fixture, assertion`, or `fixture, shared` for the line of the shared items. A number once used is never used again, and a shared item the module does not claim is left out of the shared line. The template cites the policy's rule on handles and does not restate it.
 
 <a id="r15"></a>**R15.** The siblings section names each external tool a gate preflights and what runs without it.
 
