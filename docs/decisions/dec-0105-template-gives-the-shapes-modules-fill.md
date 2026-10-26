@@ -15,7 +15,7 @@ Item 4.1 of [the rollout plan](../rollout-plan.md) asks to review the first four
 
 They found the template at fault in about thirty places, which the session sorted into three groups. First, shapes the template does not give, which every module invented the same way. All eleven modules write an enforcement table `| # | artifact | kind |`, which a kit check parses, and ten an error-message table `| key | first line | why | fix |`. All eleven have a `package` row in their artifacts table, a Requires paragraph in their install note and a Settings paragraph in their README. Second, template rules that the modules' practice had moved past. Third, skeleton files that contradict the template's own rules. Its `hooks.json` has no `args` and no `timeout`, against gate-script rule 11, and its example script is `bash`, not POSIX shell. They also found 38 places where a module departs from the template, among them two session-start printers that no enforcement table declares, against [law 5 of CLAUDE.md](../../CLAUDE.md#law-5).
 
-The session put five questions, one per message, in chat on 2026-10-26.
+The session put five questions, one per message, in chat on 2026-10-26; a seventh section records what the verifiers of the modules found.
 
 ## 1. The scope of the change
 
@@ -139,6 +139,12 @@ The session recommended A. The decider chose A in chat on 2026-10-26.
 
 <a id="r23"></a>**R23.** The deferrals every gate shares stand once in the deferred paragraph of [kit-shared-gate-code §1](../../shared/GATE.md#g1): Windows without a POSIX shell, and a clone of the kit without symbolic links; a run past the handler's timeout; a governed document with another extension. Each module cites them in its deferred section and restates none.
 
+## 7. Numbers that records cite
+
+The fresh verifiers of the eleven modules found four citations in accepted records broken by this change's renumbering: an install-note step of [`const-referencing`](../requirements.md#const-referencing) and of [`const-interaction`](../requirements.md#const-interaction), a row of the enforcement table of [`const-meta-types`](../requirements.md#const-meta-types), and a pair of [`const-task-close`](../requirements.md#const-task-close). An accepted record is not edited to follow a renumbering it never ruled. No real choice existed: the module keeps the number.
+
+<a id="r24"></a>**R24.** A number that an accepted record or a frozen research comparison cites — an entry of the decisions section, a platform fact, a limit, a pair, a row of the enforcement table, a step of the install note — is never moved. Where the template's order or numbering would move it, the module keeps the number and the order yields.
+
 ## Applied
 
 The change revised the template, its skeleton files, the deferred paragraph of the shared page, rule 10 of plc-0006-module-documents and two steps of "Developing a module" in [CLAUDE.md](../../CLAUDE.md). Each of the eleven modules was then brought to the template in one commit on a branch of its own, by a fresh implementer, and the branches were merged into the change. Item 4.1 of the plan is ticked in the change that lands this record.
@@ -164,3 +170,4 @@ The change revised the template, its skeleton files, the deferred paragraph of t
 17. R20, R21 — [the module template](../../module-template/MODULE.md#t10), section 10, its paragraph on rows.
 18. R22 — [the module template](../../module-template/MODULE.md#t6), its platform facts; [rule 10 of plc-0006-module-documents](../policies/plc-0006-module-documents.md#r10).
 19. R23 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the deferred parts; [the module template](../../module-template/MODULE.md#t12), section 12.
+20. R24 — [the module template](../../module-template/MODULE.md#t10), section 10, its paragraph on handles.
