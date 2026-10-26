@@ -150,9 +150,9 @@ The range check and the tree check are deterministic; the fixtures are their pai
 
 **Stalled or paused (T-b):**
 
-8. A task-record `active` for a month, its files untouched, its author gone → commit back what is real and set it `inactive`, or roll it back / *not* left as the write-head.
-9. A plan whose next step waits on a decision named as the blocker → paused, the blocker written in the record / *not* rolled back.
-9a. An `inactive` record a current-state page still cites for its reasoning → kept / *not* deleted for being old.
+- **8.** A task-record `active` for a month, its files untouched, its author gone → commit back what is real and set it `inactive`, or roll it back / *not* left as the write-head.
+- **9.** A plan whose next step waits on a decision named as the blocker → paused, the blocker written in the record / *not* rolled back.
+- **9a.** An `inactive` record a current-state page still cites for its reasoning → kept / *not* deleted for being old.
 
 **Commit before you edit (T-c):**
 
@@ -164,11 +164,11 @@ The range check and the tree check are deterministic; the fixtures are their pai
 
 **Declare, or update (T-d):**
 
-1. A gate's message text changes → its module document's error-message table is updated / *not* declared: the document states the text.
-2. A comment reworded in a script, no behaviour changed → `No-Doc-Impact: <pair> — comments only, no rule or message changed` / *not* an edit to the document to make the gate green.
-3. A dial's default changes → the document's dial table / *not* `No-Doc-Impact: … — small change`.
-4. A file moved inside the code territory, the document naming it by path → the document / *not* a declaration: the path in the page is now wrong.
-4a. A formatter pass over a script tree → a declaration naming the pass / *not* silence: the change is real and the reviewer should see it was judged.
+- **1.** A gate's message text changes → its module document's error-message table is updated / *not* declared: the document states the text.
+- **2.** A comment reworded in a script, no behaviour changed → `No-Doc-Impact: <pair> — comments only, no rule or message changed` / *not* an edit to the document to make the gate green.
+- **3.** A dial's default changes → the document's dial table / *not* `No-Doc-Impact: … — small change`.
+- **4.** A file moved inside the code territory, the document naming it by path → the document / *not* a declaration: the path in the page is now wrong.
+- **4a.** A formatter pass over a script tree → a declaration naming the pass / *not* silence: the change is real and the reviewer should see it was judged.
 
 **What is a working file (T-e):**
 

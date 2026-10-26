@@ -110,8 +110,8 @@ The advisory rules beside it:
   13. In a plugin skill `${CLAUDE_PLUGIN_ROOT}` is also substituted in the skill's Markdown content, which is how the skill hands over the mover's and the scan's commands. Source: [res-0005-const-locations](../../docs/research/res-0005-const-locations.md), p2, which cites the plugins reference page; verified 2026-09-22. Breaks: the commands the skill hands over would carry the variable's name, not the plugin's path.
   14. The model's Bash tool has no `${CLAUDE_PLUGIN_ROOT}` in its environment. Source: [res-0005-const-locations](../../docs/research/res-0005-const-locations.md), p2, which states it, and observed on Claude Code 2.1.251; verified 2026-09-22. Breaks: a Bash tool that exports the variable would let the fix lines of R3 and R5 print it.
 - **Cost and budget:**
-  1. Platform fact 9 above, which an accepted record cites, holds the hook budget the gate declares (`hook_seconds`, 25 s, the shared default of [kit-shared-gate-code §1](../../shared/GATE.md#g1)), the waits of a check after a write (the version probe, capped at 5 s, and the one 20 s budget), the tool handlers' timeout of 30 s and the measured costs; this sub-slot cites it and restates none of them.
-  2. What fact 9 does not hold: a git call is capped at 3 s, and the mover's own git calls have no clock (limit 16 of [kit-shared-gate-code §4](../../shared/GATE.md#g4)); a check before a write runs no checker, so only the reads of the covered texts draw on the 20 s; each `SessionStart` and `SubagentStart` handler has a timeout of 5 s and reads nothing.
+  1. Platform fact 9 above, which an accepted record cites, holds the hook budget the gate declares, the waits of a check after a write, the tool handlers' timeout and the measured costs; this sub-slot cites it for them.
+  2. What fact 9 does not hold: a git call is capped at 3 s, and the mover's own git calls have no clock (limit 16 of [kit-shared-gate-code §4](../../shared/GATE.md#g4)); a check before a write runs no checker, so only the reads of the covered texts draw on the budget of fact 9; each `SessionStart` and `SubagentStart` handler has a timeout of 5 s and reads nothing.
 - **Research:** [res-0004-const-referencing](../../docs/research/res-0004-const-referencing.md) (2026-09-21). Per row: [A5.3](../../docs/requirements.md#a5-3) `lychee` as the checker and the scan in CI as the gate — **confirmed**, and extended by the post-write check the comparison recommended; the specification's dial "lychee config" — **overturned**: the consumer's file can turn the verdict green unseen, so the module owns the invocation. [A5.1](../../docs/requirements.md#a5-1) and [A5.6](../../docs/requirements.md#a5-6) the syntax lint as a gate — **confirmed**, in the module's own Python, the project's forms through `lanes`. [A5.2](../../docs/requirements.md#a5-2) advisory — **overturned** for its one deterministic slice, R7. [A5.5](../../docs/requirements.md#a5-5) advisory — **confirmed**. [A5.7](../../docs/requirements.md#a5-7) advisory — **confirmed**, its carrier **overturned** from a skill to the `SessionStart` hook. [A5.8](../../docs/requirements.md#a5-8) — no scriptable tool moves a Markdown file and repairs its links, so the act is built here.
 
 **Error messages.** Each row is one function of this module's `messages.py`, under the same key; `{path}` is the document's repository-relative path and `{line}` a line number. Findings are `RED`, three lines each (what failed / why the rule exists / the exact fix), followed by the count line, and exit 2 — for the mover, its closing check's. A configuration failure exits 1: the shared ones, X1–X3, C5 and V5. The texts every gate shares are written out once, in [kit-shared-gate-code §3](../../shared/GATE.md#g3), with `{module}` standing for `const-referencing`. Every red carries, after the count line, the shared F10 of that section, which names the skill as `const-referencing:referencing`. Every value taken from a document, a dial, the link checker, git, the command line or the environment goes through a shared helper, so a line break in it leaves the line one line. What the reader opens, copies, types or acts on is shown whole, its backslashes and line breaks escaped, never cut: every path (`{path}` and the owner, target and moved paths), a document id typed into a fix, an anchor or fragment, the lane's `fix`, and the one-line diagnoses of lychee and git. What only points — a match, the lane's `names`, a link's text, a document id shown as that text, a link's destination or target as written, the checker's words, an argument or a mention's line — is cut at 80 characters with the cut said, then escaped. The plugin's own path inside a pasteable command stays raw.
@@ -160,10 +160,10 @@ The lint, resolution and R7 are deterministic; the fixtures are their pairs. The
 
 **F-a** — an id or a path:
 
-1. The target opens with an envelope → `[its-id](path)` / *not* `[the policy on records](path)`: the id as text is what the id repair works from.
-2. The target is a script → a bare relative path in a link / *not* an invented id.
-2a. The same document is cited five times in one page → the id as the text each time / *not* "ibid." or "the policy above": each link is found and repaired alone.
-2b. A reference definition at the foot of the page → `[the-id][label]` reads as well as an inline link and is judged the same / *not* a label that opens another document than the id it shows.
+- **1.** The target opens with an envelope → `[its-id](path)` / *not* `[the policy on records](path)`: the id as text is what the id repair works from.
+- **2.** The target is a script → a bare relative path in a link / *not* an invented id.
+- **2a.** The same document is cited five times in one page → the id as the text each time / *not* "ibid." or "the policy above": each link is found and repaired alone.
+- **2b.** A reference definition at the foot of the page → `[the-id][label]` reads as well as an inline link and is judged the same / *not* a label that opens another document than the id it shows.
 
 **F-b** — an anchor's key:
 
@@ -173,22 +173,22 @@ The lint, resolution and R7 are deterministic; the fixtures are their pairs. The
 
 **F-c** — code:
 
-6. "`read_event` in `events.py`" → survives edits above it / *not* "lines 19–50", unless the sentence is about today's diff.
-6a. "`Parser.error` in `cli.py`" → qualified by class and file / *not* "the error method": three classes have one.
-6b. A stack trace pasted into a record of what happened → its line numbers stay, it is evidence of that day / in a guide → *not*: cite the symbol.
+- **6.** "`read_event` in `events.py`" → survives edits above it / *not* "lines 19–50", unless the sentence is about today's diff.
+- **6a.** "`Parser.error` in `cli.py`" → qualified by class and file / *not* "the error method": three classes have one.
+- **6b.** A stack trace pasted into a record of what happened → its line numbers stay, it is evidence of that day / in a guide → *not*: cite the symbol.
 
 **F-d** — hashes:
 
-7. "Fixed in 70b7c39" in a commit message → fine / in a policy → *not*: a rebuilt history leaves it pointing at nothing.
-7a. A record of a decision says "applied in the commit that creates this record" → fine, it is a record's body / a current-state page says "since 70b7c39 the gate reads code" → *not*: say what the gate does.
-7b. Chat: "that is 1de11cd on the branch" → fine / the same sentence copied into the install note → *not*.
+- **7.** "Fixed in 70b7c39" in a commit message → fine / in a policy → *not*: a rebuilt history leaves it pointing at nothing.
+- **7a.** A record of a decision says "applied in the commit that creates this record" → fine, it is a record's body / a current-state page says "since 70b7c39 the gate reads code" → *not*: say what the gate does.
+- **7b.** Chat: "that is 1de11cd on the branch" → fine / the same sentence copied into the install note → *not*.
 
 **F-e** — moving:
 
-8. "Move the policies into `docs/policies/`" → the move act per file, then its list of mentions read one by one / *not* `git mv` and a search-and-replace: that rewrites code samples and sentences about the old place.
-9. The act lists "`old/path.md` was where this lived until March" → left as it is: it means the old place / *not* rewritten because a tool found it.
-9a. The act lists a script that opens the old path → the script gets the new path, by hand, and is run / *not* left because "the scan is green": the scan reads no script's paths.
-9b. A file was already moved with `git mv` by someone else → the repair after a move made by hand, with both paths / *not* a second move back and forth to let the act see it.
+- **8.** "Move the policies into `docs/policies/`" → the move act per file, then its list of mentions read one by one / *not* `git mv` and a search-and-replace: that rewrites code samples and sentences about the old place.
+- **9.** The act lists "`old/path.md` was where this lived until March" → left as it is: it means the old place / *not* rewritten because a tool found it.
+- **9a.** The act lists a script that opens the old path → the script gets the new path, by hand, and is run / *not* left because "the scan is green": the scan reads no script's paths.
+- **9b.** A file was already moved with `git mv` by someone else → the repair after a move made by hand, with both paths / *not* a second move back and forth to let the act see it.
 
 **F-f** — in chat:
 

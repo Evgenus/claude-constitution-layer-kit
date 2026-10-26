@@ -140,10 +140,10 @@ The test behind every pair: is the call the user's to make — recorded stakes, 
 
 **Q-a and Q-i — ask or decide** (this module's slice of the routine/recorded line of [kernel §4](../../kernel/CONVENTIONS.md#k4), aligned with the pairs of module `const-decision-records` where installed: the two modules share the triage, this one asking the question and that one writing the answer). Pairs 1 to 3 read *decide and note / ask*:
 
-1. Which of two directory names holds a scratch file → decide, one line in the commit / where the project's decision records live and how they are numbered → ask (`process`).
-2. The wording of a commit message, the name of a helper nobody else calls → decide / the name of a dial, a trailer key or a command-line flag that others will type → ask.
-3. A fact the session can find by reading the tree, the documents or the history → find it, never ask / a fact only the user holds — who decides, which consumer, a date — without which the work cannot proceed → ask, and if the user is absent, halt that part behind a named blocker.
-3a. The answer to a routine question → one line in the commit message saying what was chosen and why / the answer to a question asked at recorded stakes → recorded as the kernel asks, written through the record skill of module `const-decision-records` where it is installed, never left as a commit line.
+- **1.** Which of two directory names holds a scratch file → decide, one line in the commit / where the project's decision records live and how they are numbered → ask (`process`).
+- **2.** The wording of a commit message, the name of a helper nobody else calls → decide / the name of a dial, a trailer key or a command-line flag that others will type → ask.
+- **3.** A fact the session can find by reading the tree, the documents or the history → find it, never ask / a fact only the user holds — who decides, which consumer, a date — without which the work cannot proceed → ask, and if the user is absent, halt that part behind a named blocker.
+- **3a.** The answer to a routine question → one line in the commit message saying what was chosen and why / the answer to a question asked at recorded stakes → recorded as the kernel asks, written through the record skill of module `const-decision-records` where it is installed, never left as a commit line.
 
 **Q-b — the full shape or a plain question** ([A6.2](../../docs/requirements.md#a6-2), the exemption, and one decision per message):
 
@@ -159,21 +159,21 @@ The test behind every pair: is the call the user's to make — recorded stakes, 
 
 **Q-f — restate, do not guess** ([A6.6](../../docs/requirements.md#a6-6)):
 
-4. A request with two readings that lead to the same work → proceed on the stated reading, restated first / two readings that lead to materially different work → ask: a material assumption is a question, not an assumption.
-4a. Context-foreign or vague input → the reply opens with the reading taken, "I read this as: …" / the same input answered on a silent guess → violates.
-4b. Several plausible readings whose choice is below the line of Q-a → name them and the one chosen, and proceed / the choice above that line → ask.
+- **4.** A request with two readings that lead to the same work → proceed on the stated reading, restated first / two readings that lead to materially different work → ask: a material assumption is a question, not an assumption.
+- **4a.** Context-foreign or vague input → the reply opens with the reading taken, "I read this as: …" / the same input answered on a silent guess → violates.
+- **4b.** Several plausible readings whose choice is below the line of Q-a → name them and the one chosen, and proceed / the choice above that line → ask.
 
 **Q-g — resolved, not deferred** ([A6.7](../../docs/requirements.md#a6-7)):
 
-11. `TBD: who owns this` inside a delivered plan → *not* delivered; the part halts behind "blocked: <who> must name the owner" / a draft module document at manifest `0.0.x` carrying `[decide: …]` markers → the draft's own open slots, legitimate until publication.
-11a. "To be agreed with the team" written as a sentence in a delivered document → violates, though the gate sees no marker ([§9](#t9), limit 1) / the same part halted behind a named blocker → complies.
-11b. A draft taken out of `territories` by its own path, until it is delivered → complies / the same draft taken out by a wildcard that hides finished documents with it → violates.
+- **11.** `TBD: who owns this` inside a delivered plan → *not* delivered; the part halts behind "blocked: <who> must name the owner" / a draft module document at manifest `0.0.x` carrying `[decide: …]` markers → the draft's own open slots, legitimate until publication.
+- **11a.** "To be agreed with the team" written as a sentence in a delivered document → violates, though the gate sees no marker ([§9](#t9), limit 1) / the same part halted behind a named blocker → complies.
+- **11b.** A draft taken out of `territories` by its own path, until it is delivered → complies / the same draft taken out by a wildcard that hides finished documents with it → violates.
 
 **Q-h — the argument must reach the user** ([A6.9](../../docs/requirements.md#a6-9)):
 
-17. Under five options, no report of a missing argument, `pick` absent or `tool` → the platform's question tool follows the chat message and carries the letter and a short label alone / the user has reported an argument missing → every later decision of the session ends the turn on the chat message, the pick by letter, without the tool.
-18. A decider whose `preferences` entry says `pick: letter` → the letter path from the first decision / an entry with `pick` omitted → `tool`.
-19. Four options, the tool offered, no standing `pick: letter` → the question tool follows the chat message / five options, the same session → chat only, the pick by letter.
+12. Under five options, no report of a missing argument, `pick` absent or `tool` → the platform's question tool follows the chat message and carries the letter and a short label alone / the user has reported an argument missing → every later decision of the session ends the turn on the chat message, the pick by letter, without the tool.
+13. A decider whose `preferences` entry says `pick: letter` → the letter path from the first decision / an entry with `pick` omitted → `tool`.
+14. Four options, the tool offered, no standing `pick: letter` → the question tool follows the chat message / five options, the same session → chat only, the pick by letter.
 
 <a id="t9"></a>
 ## 9. Enforcement honesty
