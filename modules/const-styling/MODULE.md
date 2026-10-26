@@ -162,24 +162,24 @@ The twelve signatures, the closed vocabulary of `allow`, each the mechanical hal
 <a id="t8"></a>
 ## 8. Boundary examples
 
-Each pair reads *violates / complies*, or, where both sides are allowed, the two outcomes. The pairs of the ten defaults, the boundaries of the rules Y-b to Y-f, are the guide's own, in `plugin/skills/style-defaults/style-guide.md`, entries d1 to d10, and are not repeated here. Entry d2 holds two pairs of Y-c, a trivial drawing; its third pair, which the guide does not hold, stands below as pair 8. The boundaries this document adds are the module's own judgment lines, grouped by the rule they define:
+Each pair reads *violates / complies*, or, where both sides are allowed, the two outcomes. The pairs of the ten defaults, the boundaries of the rules Y-b to Y-f, are the guide's own, in `plugin/skills/style-defaults/style-guide.md`, entries d1 to d10, and are not repeated here. Entry d2 holds the pairs of Y-c, a trivial drawing, that stood here as pairs 1 to 3; they leave their numbers as gaps. The pair the guide does not hold stands below as pair 4. A pair keeps its number, so the numbers below are not in the order of the groups. The boundaries this document adds are the module's own judgment lines, grouped by the rule they define:
+
+**Y-c — a trivial drawing** ([A9.2](../../docs/requirements.md#a9-2)), the pair beside entry d2:
+
+4. A state machine in brackets and arrows across nine lines → a diagram / three states named in a sentence, or a Mermaid state diagram.
 
 **Y-a — a departure, or a fix** ([A9.1](../../docs/requirements.md#a9-1)):
 
-1. One matrix whose group rows hold nothing on purpose, an entry by path with that reason → a departure / the same reason written as a comment in the matrix — a mark in the document, which the module rules out.
-2. A fence with no language because the author forgot → a fix, `text` / an entry allowing `fence-language` for the whole tree — a departure that hides a defect.
-3. Every comparison of a kind holding a PlantUML timing diagram → an entry by the kind's territory / one entry per document — the second document is the signal to widen.
-4. A finding fixed by taking the document out of `territories` → hides every other default there / a departure naming the one signature.
+5. One matrix whose group rows hold nothing on purpose, an entry by path with that reason → a departure / the same reason written as a comment in the matrix — a mark in the document, which the module rules out.
+6. A fence with no language because the author forgot → a fix, `text` / an entry allowing `fence-language` for the whole tree — a departure that hides a defect.
+7. Every comparison of a kind holding a PlantUML timing diagram → an entry by the kind's territory / one entry per document — the second document is the signal to widen.
+8. A finding fixed by taking the document out of `territories` → hides every other default there / a departure naming the one signature.
 
 **Y-g — a default, or a document's own call** ([A9.3](../../docs/requirements.md#a9-3)):
 
-5. The first document that needs a rule on numbers and units → the rule answered in that document's commit note / put through the decision path and added as entry 11 of the guide, with the document named.
-6. A template that departs from the guide for its kind → the template's opening note excusing it / the kind's entry in the dial, and the template showing the form.
-7. A reviewer's preference for sentence-per-line source → an edit of one document / a proposal to change entry 5 of the guide, priced by the constitution.
-
-**Y-c — a trivial drawing** ([A9.2](../../docs/requirements.md#a9-2)), its third pair beside the two of entry d2:
-
-8. A state machine in brackets and arrows across nine lines → a diagram / three states named in a sentence, or a Mermaid state diagram.
+9. The first document that needs a rule on numbers and units → the rule answered in that document's commit note / put through the decision path and added as entry 11 of the guide, with the document named.
+10. A template that departs from the guide for its kind → the template's opening note excusing it / the kind's entry in the dial, and the template showing the form.
+11. A reviewer's preference for sentence-per-line source → an edit of one document / a proposal to change entry 5 of the guide, priced by the constitution.
 
 <a id="t9"></a>
 ## 9. Enforcement honesty
