@@ -162,7 +162,7 @@ The twelve signatures, the closed vocabulary of `allow`, each the mechanical hal
 <a id="t8"></a>
 ## 8. Boundary examples
 
-Each pair reads *violates / complies*, or, where both sides are allowed, the two outcomes. The pairs of the ten defaults, the boundaries of the rules Y-b to Y-f, are the guide's own, in `plugin/skills/style-defaults/style-guide.md`, entries d1 to d10, and are not repeated here: the four pairs of Y-c, a trivial drawing, are entry d2 of the guide. The boundaries this document adds are the module's own judgment lines, grouped by the rule they define:
+Each pair reads *violates / complies*, or, where both sides are allowed, the two outcomes. The pairs of the ten defaults, the boundaries of the rules Y-b to Y-f, are the guide's own, in `plugin/skills/style-defaults/style-guide.md`, entries d1 to d10, and are not repeated here. Entry d2 holds two pairs of Y-c, a trivial drawing; its third pair, which the guide does not hold, stands below as pair 8. The boundaries this document adds are the module's own judgment lines, grouped by the rule they define:
 
 **Y-a — a departure, or a fix** ([A9.1](../../docs/requirements.md#a9-1)):
 
@@ -176,6 +176,10 @@ Each pair reads *violates / complies*, or, where both sides are allowed, the two
 5. The first document that needs a rule on numbers and units → the rule answered in that document's commit note / put through the decision path and added as entry 11 of the guide, with the document named.
 6. A template that departs from the guide for its kind → the template's opening note excusing it / the kind's entry in the dial, and the template showing the form.
 7. A reviewer's preference for sentence-per-line source → an edit of one document / a proposal to change entry 5 of the guide, priced by the constitution.
+
+**Y-c — a trivial drawing** ([A9.2](../../docs/requirements.md#a9-2)), its third pair beside the two of entry d2:
+
+8. A state machine in brackets and arrows across nine lines → a diagram / three states named in a sentence, or a Mermaid state diagram.
 
 <a id="t9"></a>
 ## 9. Enforcement honesty
