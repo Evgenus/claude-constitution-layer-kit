@@ -144,39 +144,39 @@ Namespace `const-locations`. No `severity`: this module blocks nothing, and the 
 
 **L-a — a governed document is created through the command.**
 
-1. *Violates:* asked for a policy on test naming, the session writes `docs/test-naming.md` with the frontmatter it last saw. *Complies:* it runs `new-document --kind <root policy id> --stem <stem> --title …`, which lands the policy where policies live with `type: current-state` from the root's template, then fills the body.
-2. *Violates:* to create a research comparison, the session copies the previous comparison and edits the copy. *Complies:* it runs the command; where the kind has no template the envelope alone is written and the body is the title's heading, and the previous comparison is read for its shape, not copied.
-3. *Violates:* the command's first `BROKEN:` line names a missing interpreter, library or git, and the session writes the file by hand and calls it done. *Complies:* it installs what the line names and runs the command again.
+- **1.** *Violates:* asked for a policy on test naming, the session writes `docs/test-naming.md` with the frontmatter it last saw. *Complies:* it runs `new-document --kind <root policy id> --stem <stem> --title …`, which lands the policy where policies live with `type: current-state` from the root's template, then fills the body.
+- **3.** *Violates:* to create a research comparison, the session copies the previous comparison and edits the copy. *Complies:* it runs the command; where the kind has no template the envelope alone is written and the body is the title's heading, and the previous comparison is read for its shape, not copied.
+- **3a.** *Violates:* the command's first `BROKEN:` line names a missing interpreter, library or git, and the session writes the file by hand and calls it done. *Complies:* it installs what the line names and runs the command again.
 
 **L-b — a kind has its policy before its first document.**
 
-4. *Violates:* asked for a working note, the session invents `docs/notes/` and writes there, no policy claiming it. *Complies:* it names the missing kind, and the notes policy is created first — a `process` decision, the policy through the command, a `notes-policy: {territory: ["docs/notes/**"]}` line by hand — then the note.
-5. *Violates:* a request fits an existing kind's shape and rules, and the session opens a new policy for it. *Complies:* the kind exists, and the document goes there through the `new-document` skill.
-6. *Violates:* in a repository with no `constitution.yaml`, the session writes a governed document anyway. *Complies:* it bootstraps once by hand — the dials file with `root_policy` and `module_prefix`, then the root policy — and from there the command works.
+- **2.** *Violates:* asked for a working note, the session invents `docs/notes/` and writes there, no policy claiming it. *Complies:* it names the missing kind, and the notes policy is created first — a `process` decision, the policy through the command, a `notes-policy: {territory: ["docs/notes/**"]}` line by hand — then the note.
+- **2a.** *Violates:* a request fits an existing kind's shape and rules, and the session opens a new policy for it. *Complies:* the kind exists, and the document goes there through the `new-document` skill.
+- **2b.** *Violates:* in a repository with no `constitution.yaml`, the session writes a governed document anyway. *Complies:* it bootstraps once by hand — the dials file with `root_policy` and `module_prefix`, then the root policy — and from there the command works.
 
 **L-c — the home follows from the territory.**
 
-7. *Violates:* asked for a second intent page, the session creates `INTENT-2.md`. *Complies:* the command refuses — the territory is a single path, nothing new is born in it — and the session says so.
-8. *Violates:* a kind's territory is two patterns, and the session picks one of them as the home. *Complies:* the command refuses with no home, and the document is written by hand inside the territory.
-9. *Violates:* a kind with the territory `packages/*/README.md` is given `--stem readme`. *Complies:* it is given `--segment alpha`, and the document is born at `packages/alpha/README.md`.
+- **6.** *Violates:* asked for a second intent page, the session creates `INTENT-2.md`. *Complies:* the command refuses — the territory is a single path, nothing new is born in it — and the session says so.
+- **6a.** *Violates:* a kind's territory is two patterns, and the session picks one of them as the home. *Complies:* the command refuses with no home, and the document is written by hand inside the territory.
+- **6b.** *Violates:* a kind with the territory `packages/*/README.md` is given `--stem readme`. *Complies:* it is given `--segment alpha`, and the document is born at `packages/alpha/README.md`.
 
 **L-d — a template is input, never an exemplar.**
 
-10. *Violates:* after the command, the session rewrites the envelope's `id`, `type` or `status`. *Complies:* it leaves them as they are, and changes `title` only if the title was wrong.
-11. *Violates:* the session adds sections the template does not ask for. *Complies:* it fills each placeholder, deletes the alternatives the template marks for deletion, and adds nothing else.
-12. *Violates:* the kind has a template that fixes its `type`, and the session passes `--type` with another value. *Complies:* it drops `--type` and the template decides.
+- **7.** *Violates:* after the command, the session rewrites the envelope's `id`, `type` or `status`. *Complies:* it leaves them as they are, and changes `title` only if the title was wrong.
+- **8.** *Violates:* the session adds sections the template does not ask for. *Complies:* it fills each placeholder, deletes the alternatives the template marks for deletion, and adds nothing else.
+- **9.** *Violates:* the kind has a template that fixes its `type`, and the session passes `--type` with another value. *Complies:* it drops `--type` and the template decides.
 
 **L-e — what another procedure owns stays there.**
 
-13. *Violates:* a decision record is created through the command alone and left with `stakes` and `decider` unfilled. *Complies:* the record's procedure creates it — with this command's dry run for the home, or with the command writing the record template the dial names — and fills its own fields.
-14. *Violates:* for a numbered kind, the session makes up the stem from the highest number it saw. *Complies:* it takes the whole stem from the project's numbering procedure and gives it as `--stem`.
-15. *Violates:* for a kind whose own procedure writes the file, the session runs the command for real and then lets the procedure write the same path. *Complies:* it runs `--dry-run` first and hands the `HOME:` line to the procedure.
+- **4.** *Violates:* a decision record is created through the command alone and left with `stakes` and `decider` unfilled. *Complies:* the record's procedure creates it — with this command's dry run for the home, or with the command writing the record template the dial names — and fills its own fields.
+- **4a.** *Violates:* for a numbered kind, the session makes up the stem from the highest number it saw. *Complies:* it takes the whole stem from the project's numbering procedure and gives it as `--stem`.
+- **4b.** *Violates:* for a kind whose own procedure writes the file, the session runs the command for real and then lets the procedure write the same path. *Complies:* it runs `--dry-run` first and hands the `HOME:` line to the procedure.
 
 **L-f — the dials file is edited by hand.**
 
-16. *Violates:* the new kind's namespace is added by a script that rewrites `constitution.yaml`, losing its comments and renaming its anchors. *Complies:* three lines are appended by hand, and the next write of any gate validates them.
-17. *Violates:* the new kind's territory is `docs/**`, which overlaps the root policy's territory. *Complies:* it is `docs/runbooks/**`, which no other territory touches.
-18. *Violates:* a kind that holds many documents claims the single path `docs/runbooks/index.md`. *Complies:* it claims `docs/runbooks/**`, so a home follows for every new document.
+- **5.** *Violates:* the new kind's namespace is added by a script that rewrites `constitution.yaml`, losing its comments and renaming its anchors. *Complies:* three lines are appended by hand, and the next write of any gate validates them.
+- **5a.** *Violates:* the new kind's territory is `docs/**`, which overlaps the root policy's territory. *Complies:* it is `docs/runbooks/**`, which no other territory touches.
+- **5b.** *Violates:* a kind that holds many documents claims the single path `docs/runbooks/index.md`. *Complies:* it claims `docs/runbooks/**`, so a home follows for every new document.
 
 <a id="t9"></a>
 ## 9. Enforcement honesty
