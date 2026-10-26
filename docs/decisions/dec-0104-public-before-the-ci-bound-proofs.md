@@ -57,7 +57,7 @@ The session recommended A: only A unblocks the seven proofs without waiting for 
 
 <a id="r5"></a>**R5.** Item 10.8, to verify in a session the team access to the private repository, leaves the plan: after the switch no private repository is left to verify. Its number stays as a gap.
 
-<a id="r6"></a>**R6.** The change that makes the repository public also updates every text that calls it private. Among them are the rule "Work starts on a branch" of [CLAUDE.md](../../CLAUDE.md), which names the kit's private GitHub remote; prerequisite 2 of [the install guide](../../INSTALL.md#s1); a step name of the CI workflow; and docstrings, comments and fix texts of the kit's scripts `scripts/check-bare-install.py`, `scripts/check-install-guide.py`, `scripts/gate-list.sh` and `scripts/kit_module_doc.py`.
+<a id="r6"></a>**R6.** The change that makes the repository public also updates every text that calls it private, save the decision records and the done items of the plan, which are history. Among them are the rule "Work starts on a branch" of [CLAUDE.md](../../CLAUDE.md), which names the kit's private GitHub remote; prerequisite 2 of [the install guide](../../INSTALL.md#s1); a step name of the CI workflow; and docstrings, comments and fix texts of the kit's scripts `scripts/check-bare-install.py`, `scripts/check-install-guide.py`, `scripts/gate-list.sh` and `scripts/kit_module_doc.py`.
 
 ## Applied
 
