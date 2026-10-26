@@ -6,7 +6,7 @@ reported at session start and on the first `Write` or `Edit` of any file, a miss
 one of a Markdown file, each with the fix on the first line; nothing is silently skipped.
 
 The shared code is the Python package `constitution-layer-kit`, which brings PyYAML with it. A project
-installs it once, for the `python3` its hooks run:
+installs it once, for the `python3` its hooks run, at the tag of the highest `REQUIRES` among the entry files:
 ```bash
 python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
 ```
@@ -72,7 +72,7 @@ A line that starts `BROKEN: const-catalogs needs the Python package constitution
    Set `log_dir` to keep it inside the repository instead; the directory must be git-ignored,
    and the gate refuses to run otherwise. The log rotates at 1 MiB.
 6. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-catalogs/tests -p no:cacheprovider` — all green.
-7. CLAUDE.md pointer: none. The skill `/const-catalogs:catalog-item` is named at the moments it
+7. CLAUDE.md line: none. The skill `/const-catalogs:catalog-item` is named at the moments it
    applies: by a pointer line printed at every session start and at every subagent's start (226
    characters, advisory), and by a line after every red of the gate.
 
