@@ -149,25 +149,25 @@ What the gate hands to Vale: the document with its envelope — from a first lin
 <a id="t8"></a>
 ## 8. Boundary examples
 
-Each pair reads *violates / complies*. The gate's own lines are numbers; the pairs below are the module's judgment lines, one group per advisory rule of [§5](#t5), then the moments where a number is not the answer. All prove [A10.1](../../docs/requirements.md#a10-1), the last group [A10.2](../../docs/requirements.md#a10-2) too.
+Each pair reads *violates / complies*. The gate's own lines are numbers; the pairs below are the module's judgment lines, one group per advisory rule of [§5](#t5), then the moments where a number is not the answer. All prove [A10.1](../../docs/requirements.md#a10-1), pair 9 [A10.2](../../docs/requirements.md#a10-2) too.
 
 **L-a**
 
-1. A 40-word sentence that lists four cases with a semicolon each → L2, split into a sentence per case / a 24-word sentence holding two ideas — passes the gate, fails rule L-a, and is the writer's to split.
-2. A 30-word sentence cut to 25 by dropping a qualifier, its two ideas kept → squeezed, the gate green and the reader still meeting two ideas / the same sentence split at its "and" into two sentences of 15 words.
-3. A heading of 26 words → L2, a heading is a sentence to the limit / a short heading with its detail in the first sentence under it.
+3. A 40-word sentence that lists four cases with a semicolon each → L2, split into a sentence per case / a 24-word sentence holding two ideas — passes the gate, fails rule L-a, and is the writer's to split.
+3a. A 30-word sentence cut to 25 by dropping a qualifier, its two ideas kept → squeezed, the gate green and the reader still meeting two ideas / the same sentence split at its "and" into two sentences of 15 words.
+3b. A heading of 26 words → L2, a heading is a sentence to the limit / a short heading with its detail in the first sentence under it.
 
 **L-f**
 
-4. `Leverage the cache` in a design note → L4, write `use` / a project whose product is named `Leverage` lists `leverage` in `exceptions`, once, with the reason in the commit.
-5. A phrase the project keeps, defended by a Vale comment in the document → L6, a mark in the document / the phrase named in `exceptions`, where every reader sees it.
-6. A frozen record that no rule allows editing, red under the ceiling → a departure over its number range allowing the rules it fails, with the reason that accepted records stand as written, the gate still reading it for the rest / a Vale comment written into the record — a mark the gate reports, and an edit of a frozen document; or a negated pattern taking it out of the territory, which hides it from every rule.
+1. `Leverage the cache` in a design note → L4, write `use` / a project whose product is named `Leverage` lists `leverage` in `exceptions`, once, with the reason in the commit.
+1a. A phrase the project keeps, defended by a Vale comment in the document → L6, a mark in the document / the phrase named in `exceptions`, where every reader sees it.
+1b. An accepted record whose long sentence a split would fix, declared a departure at once → the wording edit its policy allows is skipped / the sentence split first, a departure kept for what no such edit meets.
 
 **L-b**
 
-7. `Run the scan prior to the merge` → L4, write `before` / `Run the scan before the merge`.
-8. A comparison quoting the phrase `in order to` in a code span → not a finding: code is not prose / the same phrase in running text explaining why it is forbidden → L4, and the exception is the wrong fix; put the phrase in a code span.
-9. `In the event that the scan fails` → L4, write `if` / `If the scan fails`.
+4. A comparison quoting the phrase `in order to` in a code span → not a finding: code is not prose / the same phrase in running text explaining why it is forbidden → L4, and the exception is the wrong fix; put the phrase in a code span.
+4a. `Run the scan prior to the merge` → L4, write `before` / `Run the scan before the merge`.
+4b. `In the event that the scan fails` → L4, write `if` / `If the scan fails`.
 
 **L-c**
 
@@ -177,21 +177,22 @@ Each pair reads *violates / complies*. The gate's own lines are numbers; the pai
 
 **L-d**
 
-13. "The record was accepted" in a policy where the actor is the decider → a passive the reader must resolve, name the decider / "the record is accepted" in the same policy where who accepts is stated in the sentence before — the passive kept by `levels.passive: warning`, the note read and left.
-14. "The finding is reported" → a passive, a note by default; write "the scan reports the finding" / the same sentence in the active voice.
-15. "The scan was run" in a review of who ran it → the actor matters, name who ran it / "The backup is copied every night", where the actor does not matter — the passive stays, the note read and left.
+2. "The record was accepted" in a policy where the actor is the decider → a passive the reader must resolve, name the decider / "the record is accepted" in the same policy where who accepts is stated in the sentence before — the passive kept by `levels.passive: warning`, the note read and left.
+2a. "The finding is reported" → a passive, a note by default; write "the scan reports the finding" / the same sentence in the active voice.
+2b. "The scan was run" in a review of who ran it → the actor matters, name who ran it / "The backup is copied every night", where the actor does not matter — the passive stays, the note read and left.
 
-**L-e**
+**L-e**, and the chat half
 
-16. A term of the project's own used without a definition → rule L-e, the writer's, no finding / a definition demanded by a gate — judgment dressed as a check, which the module does not ship.
-17. "The `departures` dial stays empty" for a reader who has not met the dial → the term undefined / "The `departures` dial, the list of documents that stand as written, stays empty" — one clause at first use.
-18. A term defined in a glossary two sections after its first use → defined too late / the term defined in one clause where it first appears.
+8. A term of the project's own used without a definition → rule L-e, the writer's, no finding / a definition demanded by a gate — judgment dressed as a check, which the module does not ship.
+8a. "The `departures` dial stays empty" for a reader who has not met the dial → the term undefined / "The `departures` dial, the list of documents that stand as written, stays empty" — one clause at first use.
+8b. A term defined in a glossary two sections after its first use → defined too late / the term defined in one clause where it first appears.
+9. A reply in chat of 70-word sentences → the sibling's session-start rule, no measurement / the last reply run through Vale at `Stop` — rejected: the reply is shown before the hook runs, and a block there is a second reply that restates the first.
 
-**Adoption and reach**
+**Adoption and frozen documents**
 
-19. A repository of dense documents adopting the gate → `grade_ceiling` raised to what the tree bears and lowered in steps, each a commit with the number and the reason / the ceiling raised once to where nothing is red and left there — a gate that reds nothing.
-20. A kernel document at grade 12 under a ceiling of 10 → rewritten under its own change with its own audit, the ceiling above it until then / rewritten inside another module's change as a side effect.
-21. A reply in chat of 70-word sentences → the sibling's session-start rule, no measurement / the last reply run through Vale at `Stop` — rejected: the reply is shown before the hook runs, and a block there is a second reply that restates the first.
+5. A repository of dense documents adopting the gate → `grade_ceiling` raised to what the tree bears and lowered in steps, each a commit with the number and the reason / the ceiling raised once to where nothing is red and left there — a gate that reds nothing.
+6. A frozen record that no rule allows editing, red under the ceiling → a departure over its number range allowing the rules it fails, with the reason that accepted records stand as written, the gate still reading it for the rest / a Vale comment written into the record — a mark the gate reports, and an edit of a frozen document; or a negated pattern taking it out of the territory, which hides it from every rule.
+7. A kernel document at grade 12 under a ceiling of 10 → rewritten under its own change with its own audit, the ceiling above it until then / rewritten inside another module's change as a side effect.
 
 <a id="t9"></a>
 ## 9. Enforcement honesty
