@@ -144,21 +144,15 @@ The range check and the tree check are deterministic; the fixtures are their pai
 
 **Close as one act (T-a):**
 
-1. The documents, the deletions and the status change → one change, its message naming the close / *not* the status change left for a later commit.
-2. A document edited to say what the code now does → the state as it is / *not* a changelog, "as of this task".
-3. Intent that is not yet real → the task's record / *not* a current-state page.
-
-**What is a working file (T-e):**
-
-4. A scratch script written to try a fixture → deleted at close / *not* kept "in case".
-5. A note that became the record's reasoning → the record / *not* the note beside it.
-6. A fixture the gate runs → code, not a working file / *not* deleted because it was written during the task.
+15. The documents, the deletions and the status change → one change, its message naming the close / *not* the status change left for a later commit.
+16. A document edited to say what the code now does → the state as it is / *not* a changelog, "as of this task".
+17. Intent that is not yet real → the task's record / *not* a current-state page.
 
 **Stalled or paused (T-b):**
 
-7. A task-record `active` for a month, its files untouched, its author gone → commit back what is real and set it `inactive`, or roll it back / *not* left as the write-head.
-8. A plan whose next step waits on a decision named as the blocker → paused, the blocker written in the record / *not* rolled back.
-9. An `inactive` record a current-state page still cites for its reasoning → kept / *not* deleted for being old.
+8. A task-record `active` for a month, its files untouched, its author gone → commit back what is real and set it `inactive`, or roll it back / *not* left as the write-head.
+9. A plan whose next step waits on a decision named as the blocker → paused, the blocker written in the record / *not* rolled back.
+9a. An `inactive` record a current-state page still cites for its reasoning → kept / *not* deleted for being old.
 
 **Commit before you edit (T-c):**
 
@@ -170,11 +164,17 @@ The range check and the tree check are deterministic; the fixtures are their pai
 
 **Declare, or update (T-d):**
 
-15. A gate's message text changes → its module document's error-message table is updated / *not* declared: the document states the text.
-16. A comment reworded in a script, no behaviour changed → `No-Doc-Impact: <pair> — comments only, no rule or message changed` / *not* an edit to the document to make the gate green.
-17. A dial's default changes → the document's dial table / *not* `No-Doc-Impact: … — small change`.
-18. A file moved inside the code territory, the document naming it by path → the document / *not* a declaration: the path in the page is now wrong.
-19. A formatter pass over a script tree → a declaration naming the pass / *not* silence: the change is real and the reviewer should see it was judged.
+1. A gate's message text changes → its module document's error-message table is updated / *not* declared: the document states the text.
+2. A comment reworded in a script, no behaviour changed → `No-Doc-Impact: <pair> — comments only, no rule or message changed` / *not* an edit to the document to make the gate green.
+3. A dial's default changes → the document's dial table / *not* `No-Doc-Impact: … — small change`.
+4. A file moved inside the code territory, the document naming it by path → the document / *not* a declaration: the path in the page is now wrong.
+4a. A formatter pass over a script tree → a declaration naming the pass / *not* silence: the change is real and the reviewer should see it was judged.
+
+**What is a working file (T-e):**
+
+5. A scratch script written to try a fixture → deleted at close / *not* kept "in case".
+6. A note that became the record's reasoning → the record / *not* the note beside it.
+7. A fixture the gate runs → code, not a working file / *not* deleted because it was written during the task.
 
 <a id="t9"></a>
 ## 9. Enforcement honesty
