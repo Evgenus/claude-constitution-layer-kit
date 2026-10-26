@@ -148,34 +148,33 @@ The range check and the tree check are deterministic; the fixtures are their pai
 2. A document edited to say what the code now does → the state as it is / *not* a changelog, "as of this task".
 3. Intent that is not yet real → the task's record / *not* a current-state page.
 
+**What is a working file (T-e):**
+
+4. A scratch script written to try a fixture → deleted at close / *not* kept "in case".
+5. A note that became the record's reasoning → the record / *not* the note beside it.
+6. A fixture the gate runs → code, not a working file / *not* deleted because it was written during the task.
+
 **Stalled or paused (T-b):**
 
-4. A task-record `active` for a month, its files untouched, its author gone → commit back what is real and set it `inactive`, or roll it back / *not* left as the write-head.
-5. A plan whose next step waits on a decision named as the blocker → paused, the blocker written in the record / *not* rolled back.
-6. An `inactive` record a current-state page still cites for its reasoning → kept / *not* deleted for being old.
-7. An `inactive` record nothing should reference any longer → deleted, git history its archive / *not* kept as clutter.
+7. A task-record `active` for a month, its files untouched, its author gone → commit back what is real and set it `inactive`, or roll it back / *not* left as the write-head.
+8. A plan whose next step waits on a decision named as the blocker → paused, the blocker written in the record / *not* rolled back.
+9. An `inactive` record a current-state page still cites for its reasoning → kept / *not* deleted for being old.
 
 **Commit before you edit (T-c):**
 
-8. The first edit of any change is about to start on a dirty tree → commit first, then edit / *not* "the rewind will cover it": it covers nothing done through the shell.
-9. A turn ends with one coherent change done → commit / *not* "next turn".
-10. A turn ends mid-change, a test still red → commit as work in progress, the message saying so / *not* a clean-looking silence; or stash, and say so.
-11. The hook blocks a turn that was a question with no edits → impossible: a clean tree is silent; a dirty one was left by earlier work, and that is what it names.
-12. A turn ends while a `process` record waits for its yes → commit the change on its own branch; the yes is named in the merge that lands it / *not* left dirty to wait, and *not* committed onto the trunk before the yes.
+10. The first edit of any change is about to start on a dirty tree → commit first, then edit / *not* "the rewind will cover it": it covers nothing done through the shell.
+11. A turn ends with one coherent change done → commit / *not* "next turn".
+12. A turn ends mid-change, a test still red → commit as work in progress, the message saying so / *not* a clean-looking silence; or stash, and say so.
+13. The hook blocks a turn that was a question with no edits → impossible: a clean tree is silent; a dirty one was left by earlier work, and that is what it names.
+14. A turn ends while a `process` record waits for its yes → commit the change on its own branch; the yes is named in the merge that lands it / *not* left dirty to wait, and *not* committed onto the trunk before the yes.
 
 **Declare, or update (T-d):**
 
-13. A gate's message text changes → its module document's error-message table is updated / *not* declared: the document states the text.
-14. A comment reworded in a script, no behaviour changed → `No-Doc-Impact: <pair> — comments only, no rule or message changed` / *not* an edit to the document to make the gate green.
-15. A dial's default changes → the document's dial table / *not* `No-Doc-Impact: … — small change`.
-16. A file moved inside the code territory, the document naming it by path → the document / *not* a declaration: the path in the page is now wrong.
-17. A formatter pass over a script tree → a declaration naming the pass / *not* silence: the change is real and the reviewer should see it was judged.
-
-**What is a working file (T-e):**
-
-18. A scratch script written to try a fixture → deleted at close / *not* kept "in case".
-19. A note that became the record's reasoning → the record / *not* the note beside it.
-20. A fixture the gate runs → code, not a working file / *not* deleted because it was written during the task.
+15. A gate's message text changes → its module document's error-message table is updated / *not* declared: the document states the text.
+16. A comment reworded in a script, no behaviour changed → `No-Doc-Impact: <pair> — comments only, no rule or message changed` / *not* an edit to the document to make the gate green.
+17. A dial's default changes → the document's dial table / *not* `No-Doc-Impact: … — small change`.
+18. A file moved inside the code territory, the document naming it by path → the document / *not* a declaration: the path in the page is now wrong.
+19. A formatter pass over a script tree → a declaration naming the pass / *not* silence: the change is real and the reviewer should see it was judged.
 
 <a id="t9"></a>
 ## 9. Enforcement honesty
@@ -245,7 +244,7 @@ The run needs git, 2.45 or newer for item 36's two ref stores, Python 3.12 and t
 <a id="t11"></a>
 ## 11. Siblings
 
-**Depends on:** [kernel §1](../../kernel/CONVENTIONS.md#k1) (the lifecycle rule; `status`), [§2](../../kernel/CONVENTIONS.md#k2) (task close as a single act, the defect rule, stalled drift), [§6](../../kernel/CONVENTIONS.md#k6) (the dials file, the dialect, portability). Beside the kernel it needs git, which the hook and the scan preflight, and Python 3.12 or newer with PyYAML and the Python package `constitution-layer-kit`, which pip installs. That package is the kit's shared gate code and no sibling ([law 3 of CLAUDE.md](../../CLAUDE.md#law-3)). Nothing else. **Kernel alone, with that package installed:** on a bare repository with no `constitution.yaml` the hook is a visible skip and the scan too; with a dials file that holds only `module_prefix: const-` the hook judges the tree and the scan examines zero pairs and says so; with a map, the scan judges every change. No policy is read, no envelope is judged: a task-record's `status` is set by the skill, in words. **Without git,** the hook and the scan stop in the shared configuration failure for a missing git and examine nothing; the pointer line, which a POSIX shell prints and no Python reads, and the two skills, which are prose, still work. Without Python or PyYAML the hook and the scan stop in the shared failures `C1` and `C2`, with this gate's own closing clause.
+**Depends on:** [kernel §1](../../kernel/CONVENTIONS.md#k1) (the lifecycle rule; `status`), [§2](../../kernel/CONVENTIONS.md#k2) (task close as a single act, the defect rule, stalled drift), [§6](../../kernel/CONVENTIONS.md#k6) (the dials file, the dialect, portability). Beside the kernel it needs git, and Python 3.12 or newer with PyYAML and the Python package `constitution-layer-kit`, which pip installs. That package is the kit's shared gate code and no sibling ([law 3 of CLAUDE.md](../../CLAUDE.md#law-3)). Nothing else. **Kernel alone, with that package installed:** on a bare repository with no `constitution.yaml` the hook is a visible skip and the scan too; with a dials file that holds only `module_prefix: const-` the hook judges the tree and the scan examines zero pairs and says so; with a map, the scan judges every change. No policy is read, no envelope is judged: a task-record's `status` is set by the skill, in words. **Without git,** the hook and the scan stop at their first call to it, in the shared configuration failure `C3`, and examine nothing; the pointer line, which a POSIX shell prints and no Python reads, and the two skills, which are prose, still work. Without Python or PyYAML the hook and the scan stop in the shared failures `C1` and `C2`, with this gate's own closing clause.
 
 1. When module `const-decision-records` is installed, its record skill defines when a record is `inactive` and this module's close skill performs it at close; neither reads the other's dial.
 2. When module `const-locations` is installed, a document a pair names that does not exist yet is created through its command, at the home its policy implies.
