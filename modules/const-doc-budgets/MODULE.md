@@ -47,7 +47,7 @@ A document a project keeps grows with every change that touches it, and nobody m
 14. [dec-0053-drafts-keep-their-versions](../../docs/decisions/dec-0053-drafts-keep-their-versions.md) — a finding of the consumer-live proof is a fix, with a version bump once the module is published.
 15. [dec-0068-enforcement-tables-destination-classes-and-kit-checks-held](../../docs/decisions/dec-0068-enforcement-tables-destination-classes-and-kit-checks-held.md) — the history report's row of the enforcement table says it is no tree scan, so the kit's gate list does not hold it as a declared scan.
 16. [dec-0079-skills-named-at-their-moment](../../docs/decisions/dec-0079-skills-named-at-their-moment.md) — every red names the skill `set-ceilings` after its count line, and the skill's description opens with the order to load it before its moment.
-17. [dec-0099-shared-code-installed-as-a-pip-package](../../docs/decisions/dec-0099-shared-code-installed-as-a-pip-package.md) — the plugin holds no shared code: its entry files import the installed package `constitution-layer-kit` and stop with `C15`, `C16` or `C17` when it is missing or too old; the tests keep their links.
+17. [dec-0099-shared-code-installed-as-a-pip-package](../../docs/decisions/dec-0099-shared-code-installed-as-a-pip-package.md) — the plugin holds no shared code: its entry files import the installed package `constitution-layer-kit` and stop with `C15`, `C16` or `C17` when it is missing or its release does not serve the module; the tests keep their links.
 
 <a id="t5"></a>
 ## 5. Invariant
@@ -97,7 +97,7 @@ The advisory rules beside it, each `advisory` in its own text, stated in the ski
   5. A plugin ships hooks in `hooks/hooks.json` in the shape of the settings' `hooks` object and skills under `skills/<name>/SKILL.md`; scripts run with `${CLAUDE_PLUGIN_ROOT}` substituted. Source: [plugin components](https://code.claude.com/docs/en/plugins/components) and [skills](https://code.claude.com/docs/en/skills); 2026-09-28. Breaks: the wiring.
   6. A skill's listing text is capped at 1,536 characters. Source: [skills](https://code.claude.com/docs/en/skills), and the comparison, p6; 2026-09-28. Breaks: the skill's listing.
   7. A `PostToolUse` hook on `Edit|Write` does not run when a shell command or another program rewrites the file. Source: [hooks](https://code.claude.com/docs/en/hooks), and the comparison, p4; 2026-09-28. Breaks: nothing of the design; it is the shared limit 1, backstopped by the scan.
-- **Cost and budget:** [§9](#t9) and [§10](#t10) cite this sub-slot.
+- **Cost and budget:** the hook row above and items T19 and L2 of [§10](#t10) cite this sub-slot.
   1. The hook budget: a hook run of either hook has the shared deadline of `hook_seconds`, 25 s, the identity's default, within which each git call of the run takes the smaller of 3 s and what is left (limit 16 of [kit-shared-gate-code §4](../../shared/GATE.md#g4)). The module makes no other wait in a hook run: its git calls all go through the shared function. A scan and the history report have no clock.
   2. Each handler's `timeout`: 30 s for the `PostToolUse` handler and 30 s for the `SessionStart` handler, `hook_seconds` plus the 5 s margin of limit 16, the tie that S165 of [kit-shared-gate-code §5](../../shared/GATE.md#g5) holds.
   3. Measured, on Claude Code 2.1.282, 2026-09-29, in this repository: the scan over 130 Markdown files, 0.8 s; the history report over 92 commits, 2.6 s. Measured on the comparison's own script, 2026-09-28: a count of 128 files, 0.2 s ([res-0011-const-doc-budgets](../../docs/research/res-0011-const-doc-budgets.md), E11).
@@ -166,7 +166,7 @@ Each pair reads *violates / complies*. The gate's own lines are numbers; the bou
 
 Exit codes: `0` green, a report, or nothing examined (the count line says which); `2` a finding — a held document is over a ceiling at level error; `1` a configuration failure — the checker could not run: the shared failures, this module's C5 and C12. Nothing exits 0 on error.
 
-**Honest limits** *(slot)*: the limits every gate shares, [kit-shared-gate-code §4](../../shared/GATE.md#g4). This module's own, each with its backstop:
+**Honest limits:** the limits every gate shares, [kit-shared-gate-code §4](../../shared/GATE.md#g4). This module's own, each with its backstop:
 
 1. **The window is declared, not proven.** The gate checks that `to` is 30 days or more after `from`; it cannot check that the data of those days were read, or that the number came from them. Backstop: the report prints the window and the rule of thumb beside the number set; review, at the change that sets it.
 2. **A document already over its ceiling is reported after every write to it,** the finding saying the length and not how much this write changed it. Backstop: the first finding says how much to cut; a departure where the document must stand.
@@ -215,6 +215,7 @@ Runner: `python3 -m pytest tests`, from the module's folder, which the kit runs 
 | L3 | review | [A11.2](../../docs/requirements.md#a11-2), [A11.3](../../docs/requirements.md#a11-3) | the rule of thumb, the eighteen numbers of the kit, the skill, the pairs of [§8](#t8) and the error texts of [§6](#t6), at the one yes |
 | L4 | live, deferred | [A11.2](../../docs/requirements.md#a11-2), [A11.3](../../docs/requirements.md#a11-3) | the consumer-live proof, [step 5 of the rollout plan](../../docs/rollout-plan.md#s5) (decision [dec-0015-pre-module-audit-rulings](../../docs/decisions/dec-0015-pre-module-audit-rulings.md) section 3): the report over the project's history, its ceilings set from it at warning, the scan in its CI; a finding there is a fix, with a version bump once the module is published |
 | L5 | eval | [A11.3](../../docs/requirements.md#a11-3) | case `evals/set-ceilings/`: setting a character ceiling loads the ceiling skill before the dials file is edited; three runs on the pinned model, its result read from the kit's receipt |
+
 <a id="t11"></a>
 ## 11. Siblings
 
