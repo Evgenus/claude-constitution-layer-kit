@@ -118,6 +118,7 @@ The advisory rules beside it, each `advisory` in its own text and carried by the
 | F9 | the count tail of the scan: `{d} document(s) examined for {m} marker(s), {n} Markdown file(s) scanned`; in hook mode `1 document examined, a covered document` or `0 documents examined — {the skip reason}`, zero said as zero | — | — |
 | C5 | this module's dial failures, `BROKEN: constitution.yaml: {detail} — fix: {fix}`: a key that is no dial of this module is the shared [C5.10](../../shared/GATE.md#g3), the list it gives being the six keys; `const-questions.territories must be a non-empty list of path patterns` — `write the patterns of the documents to cover, one per line under "- ", or leave the key out to cover every Markdown file; an empty list would examine nothing in silence`; `const-questions.markers must be a non-empty list of non-empty one-line texts` — a text holding a line break could never match — `write the marker texts to look for, one per line under "- ", in single quotes, or leave the key out for the defaults '[decide:', 'TODO', 'TBD', 'FIXME'; an empty list would examine nothing in silence` | — | — |
 | C12 | this module's own: `BROKEN: hook input names the event '{name}', which this gate is not wired to — fix: wire the gate to PreToolUse on Write\|Edit, as the plugin's hooks file does; to check a repository by hand run it with --scan [<dir>]` | — | — |
+
 <a id="t7"></a>
 ## 7. Dials
 
@@ -172,7 +173,7 @@ The test behind every pair: is the call the user's to make — recorded stakes, 
 
 17. Under five options, no report of a missing argument, `pick` absent or `tool` → the platform's question tool follows the chat message and carries the letter and a short label alone / the user has reported an argument missing → every later decision of the session ends the turn on the chat message, the pick by letter, without the tool.
 18. A decider whose `preferences` entry says `pick: letter` → the letter path from the first decision / an entry with `pick` omitted → `tool`.
-19. A session where the platform offers no question tool → the letter path, on its own / five or more options → chat only, the pick by letter.
+19. Four options, the tool offered, no standing `pick: letter` → the question tool follows the chat message / five options, the same session → chat only, the pick by letter.
 
 <a id="t9"></a>
 ## 9. Enforcement honesty
