@@ -53,11 +53,11 @@ The session recommended A: only A unblocks the seven proofs without waiting for 
 
 <a id="r3"></a>**R3.** The decision on the author's email, which R5 of [dec-0063-apache-license-with-notice](dec-0063-apache-license-with-notice.md#r5) left to step 10, is made at step 5a, before the switch.
 
-<a id="r4"></a>**R4.** The signal of R20 of [dec-0099-shared-code-installed-as-a-pip-package](dec-0099-shared-code-installed-as-a-pip-package.md#r20), "the repository goes public at step 10 of the rollout plan", is the switch of step 5a.
+<a id="r4"></a>**R4.** The signal of R20 of [dec-0099-shared-code-installed-as-a-pip-package](dec-0099-shared-code-installed-as-a-pip-package.md#r20), "the repository goes public at step 10 of the rollout plan", is reaching step 5a: the question is decided there, at item 5a.3, before the switch.
 
 <a id="r5"></a>**R5.** Item 10.8, to verify in a session the team access to the private repository, leaves the plan: after the switch no private repository is left to verify. Its number stays as a gap.
 
-<a id="r6"></a>**R6.** The change that makes the repository public also changes the texts that call it private: the rule "Work starts on a branch" of [CLAUDE.md](../../CLAUDE.md), which names the kit's private GitHub remote, and prerequisite 2 of [the install guide](../../INSTALL.md#s1).
+<a id="r6"></a>**R6.** The change that makes the repository public also updates every text that calls it private and that the switch makes untrue. Among them are the rule "Work starts on a branch" of [CLAUDE.md](../../CLAUDE.md), which names the kit's private GitHub remote; prerequisite 2 of [the install guide](../../INSTALL.md#s1); a step name of the CI workflow; and docstrings, comments and fix texts of the kit's scripts `scripts/check-bare-install.py`, `scripts/check-install-guide.py`, `scripts/gate-list.sh` and `scripts/kit_module_doc.py`.
 
 ## Applied
 
