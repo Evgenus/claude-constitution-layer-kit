@@ -24,7 +24,7 @@ A line that starts `BROKEN: const-interaction needs the Python package constitut
    reason — what matched, why the act is hard to reverse, the reversible alternative — labelled with
    the plugin's name; you confirm at the prompt, once per command. Where no prompt can be shown, in a
    headless session, the platform denies the command with that reason and the model waits.
-2. Calibration, all optional. **Zero configuration works** in a repository whose `constitution.yaml`
+2. **Zero configuration works** in a repository whose `constitution.yaml`
    has `module_prefix` and no key of this namespace: the default list gates a forced push, a hard reset, a forced checkout, `git restore`,
    `git clean -f`, `git branch -D` and `-f`, `git stash drop` and `clear`, `git rebase`, `git filter-branch`,
    `git filter-repo`, `git reflog expire`, `git gc --prune=now` and a recursive `rm`; the list scan
@@ -41,9 +41,10 @@ A line that starts `BROKEN: const-interaction needs the Python package constitut
    `bash`, `sh`, `zsh`, `dash`, `ksh`, `fish`, `ash`, `mksh`, `yash`, `posh`, `csh` and `tcsh`, each
    with its options, which the module document lists. A command built from a variable, an `eval`, a
    here-string or an interpreter's `-c` string hides its verb, and so does a wrapper or a shell no
-   dial names, such as `uv run`; the explain (step 4) shows any reading. A flag matches anywhere after the words and before a `--`: a short one
+   dial names, such as `uv run`; the explain (step 5) shows any reading. A flag matches anywhere after the words and before a `--`: a short one
    inside a cluster (`rm -rf`), a long one as the whole token (`--force`, never
-   `--force-with-lease`). The calibration, in the project's `constitution.yaml`:
+   `--force-with-lease`).
+3. Calibration, all optional, in the project's `constitution.yaml`:
    ```yaml
    const-interaction:
      destructive:              # the listed patterns; leave the key out for the default list; [] gates nothing
@@ -58,7 +59,7 @@ A line that starts `BROKEN: const-interaction needs the Python package constitut
      boundary_examples: []     # the project's own pairs, printed at session start: [{violates: "…", complies: "…"}]
      verbosity: triggered      # the one value: assumption and restatement lines only when triggered
      severity: block           # block (default) | warn
-     # log_dir: .gate-logs     # optional; see step 5
+     # log_dir: .gate-logs     # optional; see step 7
    ```
    `destructive` is a list of entries — `command` a list of words, `flags` optional, `teach` and
    `alternative` texts. A malformed entry is refused naming it. So is an entry whose words the
@@ -73,11 +74,11 @@ A line that starts `BROKEN: const-interaction needs the Python package constitut
    is refused, since it would examine nothing or find everything red in silence. A key of this
    namespace that is none of the nine above is refused with exit 1: a misspelt dial is never a
    setting ignored in silence.
-3. **Adoption** onto a repository whose scripts the list would stop at every turn: set
+4. **Adoption** onto a repository whose scripts the list would stop at every turn: set
    `severity: warn` meanwhile — the match is then reported to the model and the user and the
    command runs — or tune `destructive`; onto a repository whose documents carry unhandled lists:
-   run the scan (step 4), fix or exempt what it lists.
-4. **Run the list scan in CI and before a merge**, from anywhere in the repository:
+   run the scan (step 5), fix or exempt what it lists.
+5. **Run the list scan in CI and before a merge**, from anywhere in the repository:
    ```bash
    sh <plugin root>/scripts/check-list-handles.sh --scan
    ```
@@ -86,15 +87,15 @@ A line that starts `BROKEN: const-interaction needs the Python package constitut
    ```bash
    sh <plugin root>/scripts/check-destructive.sh --scan --command 'git push --force origin main'
    ```
-5. Output log: everything the hooks and the scans print is also appended, one JSON line per print
+6. CLAUDE.md line: none. The rules ride on the session-start hook; the gate on the shell hook. A
+   consumer that cannot run hooks may copy `scripts/rules.txt` into the project's own `CLAUDE.md`
+   by hand, as a fallback. The copy drifts on every version bump and the gate does not run — say so in the copy.
+7. Output log: everything the hooks and the scans print is also appended, one JSON line per print
    (timestamp, module, gate, mode, session, stream, text), to `const-interaction.jsonl` — a
    prompt's reason and a denied command leave no trace in git. By default it lives in the
    platform's per-plugin data directory. Set `log_dir` to keep it inside the repository; the
    directory must be git-ignored, and the gate refuses to run otherwise.
-6. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the commit the install records (`gitCommitSha` in `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-interaction/tests -p no:cacheprovider` — all green.
-7. CLAUDE.md line: none. The rules ride on the session-start hook; the gate on the shell hook. A
-   consumer that cannot run hooks may copy `scripts/rules.txt` into the project's own `CLAUDE.md`
-   by hand. The copy drifts on every version bump and the gate does not run — say so in the copy.
+8. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the commit the install records (`gitCommitSha` in `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-interaction/tests -p no:cacheprovider` — all green.
 
 What this module does not check: a command given to the `PowerShell` tool, since the gate is wired
 to `Bash` alone; a destructive act the list does not name — an interpreter
