@@ -7,7 +7,7 @@ https://vale.sh/docs/install. A missing `python3`, library or `vale`, or a `vale
 floor, is reported by the check with the fix on its first line; nothing is silently skipped.
 
 The shared code is the Python package `constitution-layer-kit`, which brings PyYAML with it. A project
-installs it once, for the `python3` its hooks run:
+installs it once, for the `python3` its hooks run, at the tag of the highest `REQUIRES` among the entry files:
 ```bash
 python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
 ```
@@ -22,7 +22,7 @@ A line that starts `BROKEN: const-language needs the Python package constitution
    `plain-language`, is for the model to load before prose is written and when a finding is read.
    The two pointer hooks, at session start and at each subagent's start, print one line naming
    it (183 characters, advisory); a line after the count line of every red names it too.
-2. **What is checked.** The prose of a covered document — the envelope, headings, code spans,
+   **What is checked.** The prose of a covered document — the envelope, headings, code spans,
    code blocks and table cells left out of the grade — against five rules, each generated for
    Vale from the dials on every run: the document's Flesch–Kincaid grade against a ceiling; each
    sentence's words against a limit; a list of idioms and formal phrases plain language avoids;
@@ -32,11 +32,11 @@ A line that starts `BROKEN: const-language needs the Python package constitution
    switches a rule off. The check reads only the configuration it generates (`--config`,
    `--no-global`) and never a `.vale.ini` or a `StylesPath` of the repository, so Vale run by
    hand beside it sees a second configuration.
-3. **Zero configuration works** in a repository whose `constitution.yaml` has `module_prefix`
+2. **Zero configuration works** in a repository whose `constitution.yaml` has `module_prefix`
    and no key of this namespace: every Markdown file git lists is covered, the ceiling is grade 10,
    the limit 25 words, the four rules red and the passive a note. Without that file every run is a
-   visible skip naming it; `module_prefix: const-` alone is enough.
-4. Calibration, all optional, in the project's `constitution.yaml`:
+   visible skip naming it; `module_prefix: const-` alone is enough. Calibration, all optional, in
+   the project's `constitution.yaml`:
    ```yaml
    const-language:
      severity: block                              # block: the findings reach the model as a block after the write; warn: as context
@@ -57,7 +57,7 @@ A line that starts `BROKEN: const-language needs the Python package constitution
        - paths: ["docs/records/rec-00[0-3]*.md"]  # a pattern for a kind, a number range, or one file by path
          allow: [grade, sentence]                 # the rule keys the check passes there; the rest still apply
          reason: accepted records stand as written
-     # log_dir: .gate-logs     # optional, and the directory must be git-ignored; see step 8
+     # log_dir: .gate-logs     # optional, and the directory must be git-ignored; see step 5
    ```
    A key of this namespace that is none of the above, or a value that is not of its shape — a
    ceiling below zero or not a finite number, a limit below one or not a whole number, a level
@@ -67,30 +67,31 @@ A line that starts `BROKEN: const-language needs the Python package constitution
    not know or carries an empty or multi-line reason — is refused with exit 1, and the message
    names the key and the fix; a misspelt dial is never a setting ignored in silence. A departure
    whose paths match no covered document is reported as a note on every scan until it is removed.
-5. **Run the scan in CI and before a merge**, from anywhere in the repository:
+3. **Adoption onto a repository with many findings:** set `severity: warn`, so that a finding
+   reaches the session as context and the write goes through, while the documents written before
+   the module are fixed; `block` is the default. Set `grade_ceiling` and `sentence_words` to
+   what the documents bear today, the rules the project is not ready for to `warning`, rewrite
+   the documents kind by kind, and lower the numbers in steps. A document that must not be edited
+   takes first the wording edits its policy allows, if any; what they cannot meet is declared as a
+   departure with its reason, allowing the rules it cannot meet; the check still reads it for the
+   rest. A departure is declared, never marked: an exception, a level, a threshold, a departure
+   all stand in the dials file, where every reader sees them, and a Vale comment in a document,
+   outside a fence or a code span, is a finding.
+4. **Run the scan in CI and before a merge**, from anywhere in the repository:
    ```bash
    sh <plugin root>/scripts/check-language.sh --scan
    ```
    Exit 0 green, 2 findings, 1 the checker could not run. The scan is red on any finding whatever
    `severity` says; a rule at `warning` prints notes and never turns it red.
-6. **Adoption onto a repository with many findings:** set `grade_ceiling` and `sentence_words` to
-   what the documents bear today, the rules the project is not ready for to `warning`, rewrite
-   the documents kind by kind, and lower the numbers in steps. A document that must not be edited
-   takes first the wording edits its policy allows, if any; what they cannot meet is declared as a
-   departure with its reason, allowing the rules it cannot meet; the check still reads it for the
-   rest, and nothing is marked in the document.
-7. **A departure is declared, never marked.** An exception, a level, a threshold, a departure: all
-   in the dials file, where every reader sees them; a Vale comment in a document, outside a fence
-   or a code span, is a finding.
-8. Output log: everything the check prints is also appended, one JSON line per print (timestamp,
+5. Output log: everything the check prints is also appended, one JSON line per print (timestamp,
    module, gate, mode, session, stream, text), to `const-language.jsonl`. By default it lives in
    the platform's per-plugin data directory. Set `log_dir` to keep it inside the repository; the
    directory must be git-ignored, and the check refuses to run otherwise.
-9. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-language/tests -p no:cacheprovider` — all green; the tests need
+6. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-language/tests -p no:cacheprovider` — all green; the tests need
    `vale` on PATH like the check.
-10. CLAUDE.md pointer: none. The skill is named by the pointer line at session start, by the same
-    line at every subagent's start and by the line after the count line of every red of the check, so no line in
-    CLAUDE.md is needed to reach it. The rules ride on the check and the skill.
+7. CLAUDE.md line: none. The skill is named by the pointer line at session start, by the same
+   line at every subagent's start and by the line after the count line of every red of the check, so no line in
+   CLAUDE.md is needed to reach it. The rules ride on the check and the skill.
 
 What this module does not check: whether a term is defined at first use; whether a sentence
 under the limit holds one idea; whether a passive was chosen; a phrase in a code span or a code
