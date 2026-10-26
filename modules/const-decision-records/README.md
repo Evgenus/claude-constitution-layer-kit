@@ -5,7 +5,7 @@
 
 Write-time gate on decision records: a document governed by a record policy carries type task-record, stakes (process | product | architecture) and a decider. Plus skills for pricing and recording a decision, and for promoting recurring commit notes.
 
-In plain words: a page in the folder for decision records must say what was at stake and who decided, or it is not written. One skill helps decide whether a question deserves a record at all, and writes the record in a fixed shape. The other finds the small calls that keep coming back in commit messages and turns them into a rule.
+In plain words: a decision record is a page that keeps a ruling and the reasons for it. A project names one policy, a page of rules, that says where its records live; a page there is the one the module checks. The check runs when the file is written, so a bad page is refused before it exists. Every record must carry three fields at its top: its type, `task-record`; its stakes, which says how hard the ruling is to undo (`process` for the way the project works, `product` for what users see, `architecture` for structure that is hard to change); and its decider, the person or role who made the choice. One skill helps decide whether a question deserves a record at all, and writes the record in a fixed shape. The other reads recent commit messages, finds the small calls that keep coming back, and proposes a record or a written procedure for them.
 
 <a id="a2"></a>
 ## Why use it
@@ -30,13 +30,15 @@ Two skills load on their own. `record-decision` loads when a ruling is being mad
 <a id="a4"></a>
 ## How it works
 
-**Before a write.** A hook runs before every `Write` and `Edit` of the platform's file tools. It reads the file as it would be after the write and finds whether a named record policy governs its path. It checks the three fields and lets the write through or refuses it. It cannot see a file written by a shell command, a script or another person. It does not judge the rest of the envelope, the body of the record, or whether a record was due at all.
+**Before a write (hook on `PreToolUse`).** A hook runs before every `Write` and `Edit` of the platform's file tools. It reads the file as it would be after the write and finds whether a named record policy governs its path. It checks the three fields and lets the write through or refuses it. It cannot see a file written by a shell command, a script or another person. It does not judge the rest of the envelope, the body of the record, or whether a record was due at all.
 
-**At session start.** A hook prints one line into the session's context while no record policy is named. The line says that no document is examined and which dial to write. Once a policy is named it prints nothing.
+**At session start (hook on `SessionStart`).** A hook prints one line into the session's context while no record policy is named. The line says that no document is examined and which dial to write. Once a policy is named it prints nothing.
 
 **The scan.** The same check over every Markdown file git lists, run from the command line. It reports every finding with exit code 2 and says how many records it examined. Run it in CI and before a merge.
 
-**The two skills.** Procedures in prose, loaded when their activity occurs. Nothing in them blocks a write. The shape of a record's body is theirs, not the gate's.
+**The skill `record-decision`.** A procedure in prose, loaded when a ruling is made or has just been made in the dialog. It prices the decision, names the decider, writes the record from a template beside it, and says how to correct or reverse an earlier record. Nothing in it blocks a write. The shape of a record's body is the skill's, not the gate's.
+
+**The skill `promote-recurring-notes`.** A procedure in prose, loaded when recent history is reviewed. It reads the commit messages, groups the routine calls by the question they answer, and proposes a record or a written procedure for a theme that keeps coming back. Where the project uses a commit trailer for these notes, it counts them with one git command. Nothing in it blocks a write.
 
 **Settings.** The module works with no configuration beyond the one dial that switches it on: the list of record policies. Three more dials are read by the skills alone, as written. They hold the project's own examples of a routine call beside a recorded one. They name who may decide at each stakes level, and the commit trailer under which routine notes carry a theme. Two dials are every gate's: how loud a finding is, and where the log goes. The quieter setting reports the finding and lets the write through.
 
@@ -51,7 +53,7 @@ For one session, from a clone of the kit:
 claude --plugin-dir <path to this module>/plugin
 ```
 
-Or install it from the marketplace the kit's install guide names: `claude plugin install const-decision-records@<marketplace name> --scope project`. Then run the scan from the project's root:
+Or install it from the kit's marketplace: `claude plugin install const-decision-records@claude-constitution-layer-kit --scope project`. Then run the scan from the project's root:
 
 ```bash
 sh <plugin root>/scripts/check-decision-record.sh --scan
