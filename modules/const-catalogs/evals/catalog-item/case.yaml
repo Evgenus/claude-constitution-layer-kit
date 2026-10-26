@@ -28,6 +28,18 @@ graders:
     pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill","input":\{"skill":"[^"]*catalog-item"'
     flags: "s"
     match: contains
+  - type: tool_used
+    name: runs-the-scan
+    tool: Bash
+    input_match: check-catalog-item
+  - type: tool_order
+    name: catalog-item-before-bash
+    before:
+      tool: Skill
+      input_match: catalog-item
+    after:
+      tool: Bash
+      input_match: check-catalog-item
   - type: file_exists
     name: the-record-is-made
     path: "docs/decisions/adr-0002-*.md"
