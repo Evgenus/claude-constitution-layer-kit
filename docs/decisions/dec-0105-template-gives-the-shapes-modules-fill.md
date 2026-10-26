@@ -2,7 +2,7 @@
 id: dec-0105-template-gives-the-shapes-modules-fill
 type: task-record
 title: The module template gives the shapes every module fills and four rules its practice settled, and all eleven modules follow it
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
@@ -47,7 +47,7 @@ No real choice existed for these rulings. Each writes down a shape that the modu
 
 <a id="r6"></a>**R6.** A module with an invariant and advisory rules states the invariant, then its advisory rules. The advisory rules of any module stand in a list whose items carry the handles `<L>-a`, `<L>-b` in bold, each rule labeled `advisory`. A module keeps the letter its rules have, since rule 8 of plc-0006-module-documents makes `<L>-a` a prefix apart from a message key's `<L><n>`.
 
-<a id="r7"></a>**R7.** Every row of the artifacts table stays: a component the module does not use reads `none`, with its reason in one line. The table has rows for the POSIX entry point, the Python entry file, the package, the shared code, which is none in the plugin, the dependencies, a third-party tool's configuration, the manifest and the tests.
+<a id="r7"></a>**R7.** Every row of the artifacts table stays: a component the module does not use reads `none`, with its reason in one line. A module with several skills has one skill row per skill. The table has rows for the POSIX entry point, the Python entry file, the package, the shared code, which is none in the plugin, the dependencies, a third-party tool's configuration, the manifest and the tests.
 
 <a id="r8"></a>**R8.** The always-on budget counts the lines the module's `SessionStart` and `SubagentStart` hooks print and each skill's description as the skill listing carries it. A line that holds a value is sized as its fixed text, the placeholder named. The sub-slot ends with the pointer line, or `Pointer line: none` and its reason. The line a project may add to its own `CLAUDE.md` is called the CLAUDE.md line.
 
@@ -119,7 +119,7 @@ The template asked a fact for its date and what breaks, and for no source.
 
 The session recommended B. The decider chose B in chat on 2026-10-26.
 
-<a id="r22"></a>**R22.** Each platform fact carries its source: a page of the official documentation, the module's research comparison with the fact's handle, or `observed on Claude Code <version>` with what was run. It also carries one date of its own and what breaks if it changes.
+<a id="r22"></a>**R22.** Each platform fact carries its source: a page of the official documentation, the module's research comparison with the fact's handle, or `observed on Claude Code <version>` with what was run; a comparison that gives a fact no handle is cited by section and item. It also carries one date of its own and what breaks if it changes.
 
 ## 6. Where the deferrals every gate shares live
 
@@ -138,6 +138,10 @@ Three modules wrote the same deferral, "for every gate alike", in their own word
 The session recommended A. The decider chose A in chat on 2026-10-26.
 
 <a id="r23"></a>**R23.** The deferrals every gate shares stand once in the deferred paragraph of [kit-shared-gate-code §1](../../shared/GATE.md#g1): Windows without a POSIX shell, and a clone of the kit without symbolic links; a run past the handler's timeout; a governed document with another extension. Each module cites them in its deferred section and restates none.
+
+## Applied
+
+The change revised the template, its skeleton files, the deferred paragraph of the shared page, rule 10 of plc-0006-module-documents and two steps of "Developing a module" in [CLAUDE.md](../../CLAUDE.md). Each of the eleven modules was then brought to the template in one commit on a branch of its own, by a fresh implementer, and the branches were merged into the change. Item 4.1 of the plan is ticked in the change that lands this record.
 
 ## Carry list
 
