@@ -6,7 +6,7 @@ reported at the first turn end, a missing git too, each with the fix on the firs
 silently skipped.
 
 The shared code is the Python package `constitution-layer-kit`, which brings PyYAML with it. A project
-installs it once, for the `python3` its hooks run:
+installs it once, for the `python3` its hooks run, at the tag of the highest `REQUIRES` among the entry files:
 ```bash
 python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
 ```
@@ -19,12 +19,8 @@ A line that starts `BROKEN: const-task-close needs the Python package constituti
    examined, and a dirty tree — any tracked change or untracked file git does not ignore — is
    reported once: under the default `severity: block` the model receives the finding and the
    turn continues once, for the commit; under `warn` the user is shown the finding as a notice
-   and the model sees nothing. The second stop of a turn always lets it end. In a session that
-   cannot ask — `claude -p`, `dontAsk`, `--permission-prompts none` — a block costs that one
-   continuation and leaves the tree dirty unless the commit the finding teaches is allowed: it
-   is the compound `git add -A && git commit …`, and a rule must match each part on its own, so
-   both `Bash(git add *)` and `Bash(git commit *)` go in `permissions.allow` or `--allowedTools`;
-   or set `severity: warn`.
+   and the model sees nothing. The second stop of a turn always lets it end. The scan, step 5,
+   examines a change before a merge.
 2. **Zero configuration works** in a repository whose `constitution.yaml` has `module_prefix`,
    whatever else it says: the turn-end hook judges the tree, and the range check examines zero pairs and says so.
    Without that file every run is a visible skip naming it; `module_prefix: const-` alone is enough.
@@ -54,7 +50,14 @@ A line that starts `BROKEN: const-task-close needs the Python package constituti
    directory an earlier pattern excluded. A document listed under `docs` that also matches the pair's `code` is
    not its own trigger. Each document is an existing file at HEAD: a path that does not exist, or
    that names a directory, is a configuration failure, not a finding.
-4. **Run the range check before a merge**, from anywhere in the repository:
+4. **Adoption.** `severity: warn` shows the turn-end finding to the user as a notice and lets the
+   turn end, the model seeing nothing: use it in a session that must not be asked to commit. In a session that
+   cannot ask — `claude -p`, `dontAsk`, `--permission-prompts none` — a block costs that one
+   continuation and leaves the tree dirty unless the commit the finding teaches is allowed: it
+   is the compound `git add -A && git commit …`, and a rule must match each part on its own, so
+   both `Bash(git add *)` and `Bash(git commit *)` go in `permissions.allow` or `--allowedTools`;
+   or set `severity: warn`. The range check ignores `severity` and always reports.
+5. **Run the range check before a merge**, from anywhere in the repository:
    ```bash
    sh <plugin root>/scripts/check-task-close.sh --scan
    ```
@@ -63,7 +66,7 @@ A line that starts `BROKEN: const-task-close needs the Python package constituti
    `--since <ref>` names the base; `--change <commit>` examines one landed change — a merge by its
    first-parent diff. Exit 0 green, 2 findings, 1 the checker could not run. The check compares
    commits: an update still sitting in the working tree does not count until it is committed.
-5. **Declare no impact where it is true.** One line per pair, either as a trailer on a commit of
+   Declare no impact where it is true: one line per pair, either as a trailer on a commit of
    the change — in the message's last paragraph, where every line is `Key: value`; one line without
    a colon hides the whole paragraph from git — or on its own line in the pull request's
    description:
@@ -89,9 +92,9 @@ A line that starts `BROKEN: const-task-close needs the Python package constituti
    per-plugin data directory. Set `log_dir` to keep it inside the repository; the directory must
    be git-ignored, and the gate refuses to run otherwise.
 8. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-task-close/tests -p no:cacheprovider` — all green. The fixtures need
-   git 2.45 or newer, since item 36 builds a repository in each ref store; on an older git that item
+   git 2.45 or newer, since one of them builds a repository in each ref store; on an older git that fixture
    is red and the rest run.
-9. CLAUDE.md pointer: none. The skills `/const-task-close:close-task` and
+9. CLAUDE.md line: none. The skills `/const-task-close:close-task` and
    `/const-task-close:commit-before-edit` are named at their moment: by the pointer line printed at
    session start and at each subagent's start (326 characters, advisory), and by the line after the count line of every red of the turn-end hook the model reads, and of the scan.
 
