@@ -1,10 +1,12 @@
-#!/usr/bin/env bash
-# Deterministic invariant check. Exit 2 blocks the action.
-# Error message contract (see MODULE.md): what failed, why the rule
-# exists (one clause), the exact fix.
-# Example:
-#   echo "document lacks 'type' frontmatter — every governed document
-#   declares a meta-type so sessions know its authority; add
-#   type: current-state | task-record | non-authoritative" >&2
-#   exit 2
-exit 0
+#!/bin/sh
+# const-<aspect-name>: POSIX entry point of the gate. Reads no YAML. Finds python3, then hands
+# stdin and arguments to the Python entry point, which checks the interpreter floor and the shared
+# package. A missing interpreter is a configuration failure: exit 1 with the fix on the first line,
+# never a silent pass. Replace <what passes unchecked> with what the gate stops guarding.
+here=$(dirname "$0")
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "BROKEN: const-<aspect-name> needs python3 — fix: install Python 3.12 or newer (https://www.python.org/downloads/) — until then <what passes unchecked>" >&2
+  echo "BROKEN: the check could not run — 0 <items> examined" >&2
+  exit 1
+fi
+exec python3 "$here/check-example.py" "$@"

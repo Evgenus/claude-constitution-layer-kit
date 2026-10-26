@@ -13,5 +13,10 @@ description: >
 
 Replace with the procedure. Instructions here load only when the activity
 occurs — this is where rule detail lives, never in always-on context.
-Reference kernel vocabulary (meta-types, stakes, envelope) by name;
-never restate kernel definitions.
+A consumer installs the plugin without the kit, so the skill cites no
+file of the kit: it states in plain words what the session needs of the
+kernel's terms (meta-types, stakes, envelope), and points to "the
+constitution's conventions page the project adopted" for the rest. A
+file the procedure needs, such as a template, sits beside this one and
+is named through ${CLAUDE_SKILL_DIR}. Where the skill applies only to
+some files, the frontmatter key `paths:` names them.
