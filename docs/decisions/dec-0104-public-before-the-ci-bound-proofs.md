@@ -57,11 +57,11 @@ The session recommended A: only A unblocks the seven proofs without waiting for 
 
 <a id="r5"></a>**R5.** Item 10.8, to verify in a session the team access to the private repository, leaves the plan: after the switch no private repository is left to verify. Its number stays as a gap.
 
-<a id="r6"></a>**R6.** The change that makes the repository public also updates every text that calls it private and that the switch makes untrue. Among them are the rule "Work starts on a branch" of [CLAUDE.md](../../CLAUDE.md), which names the kit's private GitHub remote; prerequisite 2 of [the install guide](../../INSTALL.md#s1); a step name of the CI workflow; and docstrings, comments and fix texts of the kit's scripts `scripts/check-bare-install.py`, `scripts/check-install-guide.py`, `scripts/gate-list.sh` and `scripts/kit_module_doc.py`.
+<a id="r6"></a>**R6.** The change that makes the repository public also updates every text that calls it private. Among them are the rule "Work starts on a branch" of [CLAUDE.md](../../CLAUDE.md), which names the kit's private GitHub remote; prerequisite 2 of [the install guide](../../INSTALL.md#s1); a step name of the CI workflow; and docstrings, comments and fix texts of the kit's scripts `scripts/check-bare-install.py`, `scripts/check-install-guide.py`, `scripts/gate-list.sh` and `scripts/kit_module_doc.py`.
 
 ## Applied
 
-The change adds step 5a and its five items to the plan, with its row in the status matrix; narrows item 5.2; removes items 10.3, 10.4, 10.5 and 10.8; and moves the link of the package index's signal in [kit-shared-gate-code](../../shared/GATE.md#g1) to step 5a. Every item has its home in the commit that creates this record, so the record is born `inactive`.
+The change adds step 5a and its five items to the plan, with its row in the status matrix; narrows item 5.2; removes items 10.3, 10.4, 10.5 and 10.8; and rewords the package index's signal in [kit-shared-gate-code](../../shared/GATE.md#g1) to name step 5a. Every item has its home in the commit that creates this record, so the record is born `inactive`.
 
 ## Carry list
 
