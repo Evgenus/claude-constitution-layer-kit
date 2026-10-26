@@ -5,7 +5,7 @@ Requires: git, Python 3.12 or newer as `python3`, and the libraries in `requirem
 reported by the scan with the fix on its first line; nothing is silently skipped.
 
 The shared code is the Python package `constitution-layer-kit`, which brings PyYAML with it. A project
-installs it once, for the `python3` its hooks run:
+installs it once, for the `python3` its hooks run, at the tag of the highest `REQUIRES` among the entry files:
 ```bash
 python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
 ```
@@ -48,7 +48,7 @@ A line that starts `BROKEN: const-styling needs the Python package constitution-
        - paths: ["/docs/matrix.md"]
          allow: [table-empty-cell]
          reason: the group rows of the matrix hold nothing on purpose
-     # log_dir: .gate-logs     # optional, and the directory must be git-ignored; see step 7
+     # log_dir: .gate-logs     # optional, and the directory must be git-ignored; see step 6
    ```
    The signature keys: `plantuml` (a `plantuml` or `puml` fence, or a line opening with
    `@startuml`), `formula` (a `math`, `latex` or `tex` fence, or a line opening with `$$`),
@@ -61,6 +61,14 @@ A line that starts `BROKEN: const-styling needs the Python package constitution-
    does not know, or a key of this namespace that is none of the four above is refused with exit 1
    — a misspelt dial is never a setting ignored in silence. An entry whose paths match no covered
    document is reported as a note on every scan until it is removed.
+
+   **A departure is declared, never marked.** Nothing is written into a document to excuse it;
+   the entry in the dials file is the record, and the reason is required. The scan holds the
+   shipped values of three defaults: three heading levels at most, the dash for a bullet, the
+   asterisk for emphasis. If your guide changes one of them, declare a departure for that
+   signature over your whole tree, with the reason naming the guide's entry. The scan then stops
+   checking that signature and does not check your new value; the guide's entry and review hold
+   it.
 5. **Run the scan in CI and before a merge**, from anywhere in the repository:
    ```bash
    sh <plugin root>/scripts/check-style.sh --scan
@@ -68,19 +76,12 @@ A line that starts `BROKEN: const-styling needs the Python package constitution-
    Exit 0 green, 2 findings, 1 the checker could not run. Adoption onto a repository with many
    findings: fix them, or declare the departures for the kinds that keep their form, one entry
    each with its reason; there is no warn mode, since the scan blocks no write.
-6. **A departure is declared, never marked.** Nothing is written into a document to excuse it;
-   the entry in the dials file is the record, and the reason is required. The scan holds the
-   shipped values of three defaults: three heading levels at most, the dash for a bullet, the
-   asterisk for emphasis. If your guide changes one of them, declare a departure for that
-   signature over your whole tree, with the reason naming the guide's entry. The scan then stops
-   checking that signature and does not check your new value; the guide's entry and review hold
-   it.
-7. Output log: everything the scan prints is also appended, one JSON line per print (timestamp,
+6. Output log: everything the scan prints is also appended, one JSON line per print (timestamp,
    module, gate, mode, session, stream, text), to `const-styling.jsonl`. By default it lives in
    the platform's per-plugin data directory. Set `log_dir` to keep it inside the repository; the
    directory must be git-ignored, and the scan refuses to run otherwise.
-8. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-styling/tests -p no:cacheprovider` — all green.
-9. CLAUDE.md pointer: none. The skill is named by a pointer line of 196 characters, advisory, that the
+7. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-styling/tests -p no:cacheprovider` — all green.
+8. CLAUDE.md line: none. The skill is named by a pointer line of 196 characters, advisory, that the
    plugin prints at session start and gives to every subagent at its start, and by the last line of
    every red of the scan; the defaults ride on the skill and the traces on the scan. The scan itself
    runs no hook.
