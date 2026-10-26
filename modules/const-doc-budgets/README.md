@@ -5,7 +5,7 @@
 
 A character ceiling per group of documents, measured after every write and in a scan: each ceiling names its documents by path patterns, its number and the days of data it was set from, and warns until 30 days of data stand behind it; a history report over git gives those data; a document that must stand over its ceiling is declared as a departure in the dials file. Plus a skill for setting a ceiling and reading a finding.
 
-In plain words: each group of documents gets a ceiling in characters, set from the group's own history. Every page is measured against it after a write and in a scan. A ceiling warns until 30 days of data stand behind it; then it may block. A page that must stand over its ceiling is declared in the dials file with its reason.
+In plain words: a group of documents is the set of files that some path patterns name, such as everything under one folder. A ceiling is the longest length, counted in characters, that a document of the group may have. The number is set from the group's own history, which the history report reads out of git. A scan is a run over all the documents at once, from the command line or in CI. After a write, or in a scan, each document is measured against its ceiling. The days of data are the days of that history that the number was set from. A ceiling warns until 30 days of data stand behind it; then it may block. A departure is a document that must stand over its ceiling. It is declared with its reason in the dials file, which is the project's `constitution.yaml`. The skill is a written procedure that Claude loads when a ceiling is set or a finding is read.
 
 <a id="a2"></a>
 ## Why use it
@@ -30,13 +30,15 @@ The skill `set-ceilings` loads on its own when a ceiling is set, raised or lower
 <a id="a4"></a>
 ## How it works
 
-**After a write.** A hook runs after every `Write` and `Edit` of a Markdown file a ceiling holds. It counts the whole file in characters, as a reader loads it, never tokens or bytes, and compares the count with the ceiling. It cannot see a file written by a shell command or another person. It does not say how much this one write added.
+**The hook after a write (`PostToolUse`).** It runs after every `Write` and `Edit` of a Markdown file a ceiling holds. It counts the whole file in characters, as a reader loads it, never tokens or bytes, and compares the count with the ceiling. It cannot see a file written by a shell command or another person. It does not say how much this one write added.
 
 **The scan.** The same measurement over every held document git lists, from the command line. It exits with code 2 on a finding at level error. It prints one note per ceiling: what it holds, the longest document, and the margin left. Run it in CI and before a merge.
 
 **The history report.** The scan with a start date. It walks the repository's history and prints, per day and per ceiling, the longest held document. Then it prints the window's longest and the rule of thumb beside the number set now. It judges nothing and exits 0; it is where a ceiling's number comes from. A shallow clone is refused until the whole history is fetched.
 
-**At session start, and the skill.** One line while nothing is measured, printed by a hook; and the procedure, loaded when the activity occurs.
+**The hook at session start (`SessionStart`).** It prints one line while nothing is measured, saying so. With a ceiling set it prints nothing. It reads the dials file and git, and decides nothing.
+
+**The skill `set-ceilings`.** The procedure for setting a ceiling and reading a finding, loaded when the activity occurs. It is advice: it shapes the numbers and the cuts, and the checks above hold the count.
 
 **Settings.** The module ships no number: with no ceiling set, nothing is measured. One dial holds the ceilings, each with its name, paths, maximum, level and window. A document two ceilings hold is refused. Another holds the departures, each an entry of paths, the ceilings it lifts there, and a one-line reason. Two dials are every gate's: whether a finding reaches the session as a block or as context, and where the log goes.
 
@@ -51,7 +53,7 @@ For one session, from a clone of the kit:
 claude --plugin-dir <path to this module>/plugin
 ```
 
-Or install it from the marketplace the kit's install guide names: `claude plugin install const-doc-budgets@<marketplace name> --scope project`. Then run the scan from the project's root:
+Or install it from the kit's marketplace: `claude plugin install const-doc-budgets@claude-constitution-layer-kit --scope project`. Then run the scan from the project's root:
 
 ```bash
 sh <plugin root>/scripts/check-budgets.sh --scan
