@@ -158,7 +158,7 @@ R12 first said that pairs are numbered straight through the section, and several
 
 The session recommended A: the kit already has a rule for this, which R12's first wording broke by accident. The decider chose A in chat on 2026-10-26.
 
-<a id="r25"></a>**R25.** A boundary pair keeps the number it was given, as rule 8 of plc-0006-module-documents says of every handle: a pair added later takes the next unused number or a letter beside the pair it joins, a removed pair leaves a gap, and a group under a rule's handle may hold numbers out of order. The modules that renumbered their pairs in this change restore the numbers they had before it.
+<a id="r25"></a>**R25.** A boundary pair keeps the number it was given, as rule 8 of plc-0006-module-documents says of every handle: a pair added later takes a letter beside the pair it follows in its list, so that the list's whole numbers run without a jump as the style scan asks, or the next unused number where it opens a list of its own, a removed pair leaves a gap, and a group under a rule's handle may hold numbers out of order. The modules that renumbered their pairs in this change restore the numbers they had before it.
 
 ## Applied
 
