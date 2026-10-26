@@ -15,7 +15,7 @@ On 2026-10-24 a session reviewed [the rollout plan](../rollout-plan.md) against 
 
 Seven of those items ask for the module's scan in the project's CI: L5 of [`const-catalogs`](../requirements.md#const-catalogs), L4 of [`const-referencing`](../requirements.md#const-referencing), L4 of [`const-questions`](../requirements.md#const-questions), V4 of [`const-interaction`](../requirements.md#const-interaction), L4 of [`const-styling`](../requirements.md#const-styling), V4 of [`const-language`](../requirements.md#const-language) and L4 of [`const-doc-budgets`](../requirements.md#const-doc-budgets). The project has no remote and no CI. Its scans run from a clone of the kit, and the kit's repository is private, so a CI job of the project needs a token to read the kit. R1 of [dec-0057-pr-flow-merge-names-the-yes](dec-0057-pr-flow-merge-names-the-yes.md#r1) makes the repository public only after the first consumer project's live proof. On 2026-10-25 GitHub also refused to start the kit's own CI jobs for a billing reason; on a public repository GitHub runs them free.
 
-The session put two questions, one per message, in chat on 2026-10-26.
+The session put three questions, one per message, in chat on 2026-10-26.
 
 ## 1. How the seven CI-bound live items are proven
 
@@ -49,7 +49,7 @@ By [rule 5 of plc-0008-rollout-plan](../policies/plc-0008-rollout-plan.md#r5), a
 
 The session recommended A: only A unblocks the seven proofs without waiting for step 9, and the forks and the package index belong beside the switch. The decider chose A in chat on 2026-10-26.
 
-<a id="r2"></a>**R2.** A new step 5a, "Make the repository public", follows step 5 in phase B. Its items are, in this order: the decision whether the author's email stays in the history; the decision how a pull request from a fork is checked; the decision whether the shared package is also published on PyPI; the switch itself, after those three; and the parts of the live items that need the project's CI, after the switch. Items 10.3, 10.4 and 10.5 leave step 10, and their numbers stay as gaps. Item 5.2 keeps the scans, the runners and the parts of the live items that need no CI.
+<a id="r2"></a>**R2.** A new step 5a, "Make the repository public", follows step 5 in phase B. Its items are, in this order: the decision whether the author's email stays in the history; the decision how a pull request from a fork is checked; the decision whether the shared package is also published on PyPI; the check of R6; the switch itself, after those four; and the parts of the live items that need the project's CI, after the switch. Items 10.3, 10.4 and 10.5 leave step 10, and their numbers stay as gaps. Item 5.2 keeps the scans, the runners and the parts of the live items that need no CI.
 
 <a id="r3"></a>**R3.** The decision on the author's email, which R5 of [dec-0063-apache-license-with-notice](dec-0063-apache-license-with-notice.md#r5) left to step 10, is made at step 5a, before the switch.
 
@@ -57,9 +57,27 @@ The session recommended A: only A unblocks the seven proofs without waiting for 
 
 <a id="r5"></a>**R5.** The change that makes the repository public also updates every text that calls it private, save the decision records and the done items of the plan, which are history. Among them are the rule "Work starts on a branch" of [CLAUDE.md](../../CLAUDE.md), which names the kit's private GitHub remote; prerequisite 2 of [the install guide](../../INSTALL.md#s1); a step name of the CI workflow; and docstrings, comments and fix texts of the kit's scripts `scripts/check-bare-install.py`, `scripts/check-install-guide.py`, `scripts/gate-list.sh` and `scripts/kit_module_doc.py`.
 
+## 3. The check of team access to the private repository
+
+Item 10.8 of the plan reads "For that marketplace, verify private-repo team access in-session", the marketplace that item 10.7 names. The session first proposed to drop it, since after the switch no private repository is left to verify; the decider said to keep it. A confirming reader of the carry audit then found that, kept in step 10, the item comes after the switch, and so cannot be done as written.
+
+- **A. The check is done before the switch.** Item 10.8 moves into step 5a, as item 5a.3a, done while the repository is still private; the switch waits for it.
+  - **Pros:** the item keeps its words and its purpose; it proves the path a team with a private copy of the kit would use.
+  - **Cons:** it checks a setup the kit is about to leave; one more piece of work stands before the switch and the seven proofs.
+- **B. Item 10.8 is reworded to what still matters after the switch.** It stays in step 10 and checks in a session that a team member gets the modules through the project's settings, from the public repository.
+  - **Pros:** it checks the path every team will use after publication; nothing more stands before the switch.
+  - **Cons:** the private case is never checked; the item's words change.
+- **C. Item 10.8 stays as it is, and the change of item 5a.4 rewrites it.**
+  - **Pros:** no further edit now.
+  - **Cons:** until then the plan holds an item its own order makes impossible.
+
+The session recommended B: after the switch, what a team needs is access through the project's settings, and A delays the proofs that the choice of section 1 was made to unblock. The decider chose A in chat on 2026-10-26.
+
+<a id="r6"></a>**R6.** Item 10.8, to verify in a session the team access to the kit's marketplace while the repository is private, moves into step 5a as item 5a.3a, done before the switch, and the switch waits for it. Its number in step 10 stays as a gap.
+
 ## Applied
 
-The change adds step 5a and its five items to the plan, with its row in the status matrix; narrows item 5.2; removes items 10.3, 10.4 and 10.5; and rewords the package index's signal in [kit-shared-gate-code](../../shared/GATE.md#g1) to name step 5a. Every item has its home in the commit that creates this record, so the record is born `inactive`.
+The change adds step 5a and its items to the plan, with its row in the status matrix; narrows item 5.2; removes items 10.3, 10.4 and 10.5; moves item 10.8 into step 5a as item 5a.3a; and rewords the package index's signal in [kit-shared-gate-code](../../shared/GATE.md#g1) to name step 5a. Every item has its home in the commit that creates this record, so the record is born `inactive`.
 
 ## Carry list
 
@@ -68,3 +86,4 @@ The change adds step 5a and its five items to the plan, with its row in the stat
 3. R3 — pending: [item 5a.1 of the rollout plan](../rollout-plan.md#s5a-1).
 4. R4 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the deferred parts.
 5. R5 — pending: [item 5a.4 of the rollout plan](../rollout-plan.md#s5a-4).
+6. R6 — pending: [item 5a.3a of the rollout plan](../rollout-plan.md#s5a-3a). The removal of item 10.8 from step 10 is history.
