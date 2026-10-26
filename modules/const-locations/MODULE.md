@@ -162,9 +162,9 @@ Namespace `const-locations`. No `severity`: this module blocks nothing, and the 
 
 **L-d — a template is input, never an exemplar.**
 
-- **7.** *Violates:* after the command, the session rewrites the envelope's `id`, `type` or `status`. *Complies:* it leaves them as they are, and changes `title` only if the title was wrong.
-- **8.** *Violates:* the session adds sections the template does not ask for. *Complies:* it fills each placeholder, deletes the alternatives the template marks for deletion, and adds nothing else.
-- **9.** *Violates:* the kind has a template that fixes its `type`, and the session passes `--type` with another value. *Complies:* it drops `--type` and the template decides.
+7. *Violates:* after the command, the session rewrites the envelope's `id`, `type` or `status`. *Complies:* it leaves them as they are, and changes `title` only if the title was wrong.
+8. *Violates:* the session adds sections the template does not ask for. *Complies:* it fills each placeholder, deletes the alternatives the template marks for deletion, and adds nothing else.
+9. *Violates:* the kind has a template that fixes its `type`, and the session passes `--type` with another value. *Complies:* it drops `--type` and the template decides.
 
 **L-e — what another procedure owns stays there.**
 
