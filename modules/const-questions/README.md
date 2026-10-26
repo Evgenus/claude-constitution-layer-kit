@@ -5,7 +5,7 @@
 
 Ask only at recorded stakes or a genuine blocker, else decide and note; one decision per message in a fixed shape — lettered options with pros and cons, one recommendation, the decider named — printed at every session start; questions derived from open slots, closed vocabularies as the options, defaults with override, vague input restated; no open question inside a deliverable, with a gate on open-question markers in delivered documents.
 
-In plain words: a session asks only when it must, and asks well when it does. The shape of a decision message is printed into every session: lettered options, pros and cons, one recommendation, the decider named. A marker such as `TODO` in a delivered document is refused at the write.
+In plain words: a session asks only when it must, and asks well when it does. A question is asked at recorded stakes, which means a choice that sets a policy, a procedure or the structure of the work, and so is worth a written record. It is also asked at a genuine blocker, which is a fact only the user holds, without which the work cannot go on. A smaller call is made at once and noted in the commit. The shape of a decision message is printed into every session: lettered options, pros and cons, one recommendation, the decider named. An open slot is a place in a template, a plan or a settings file that still waits for a value, and the questions follow those slots in order. A closed vocabulary is a fixed list of allowed values, and it becomes the list of options. A default is the value used when nobody objects, so the question is "accept or override?". When a request is vague, the session first says how it read the request. A deliverable is a document handed over as finished. An open-question marker is a text such as `TODO` that says a question is still open, and it is refused in a deliverable at the write.
 
 <a id="a2"></a>
 ## Why use it
@@ -30,7 +30,7 @@ The skill `ask-or-decide` loads before any message that puts a choice to the use
 <a id="a4"></a>
 ## How it works
 
-**At session start.** A hook prints the shape of a decision message, about 650 characters, into the session's context. It prints again after a resume, a compaction or a clear, when the earlier print is gone.
+**At session start.** A hook prints the shape of a decision message, about 650 characters, into the session's context. It reads nothing and decides nothing, so no configuration changes it. It prints again after a resume, a compaction or a clear, when the earlier print is gone. It cannot see whether the session follows the shape.
 
 **Before a write.** A hook runs before every `Write` and `Edit` of a Markdown file. It reads the file as it would be after the write and looks for the markers outside code spans and fenced blocks. A marker that begins or ends with a letter or a digit counts only as a whole word, so `TODOs` passes. A finding refuses the write. The hook cannot see a deferred question written in prose, with no marker. That is the skill's rule and the reviewer's.
 
@@ -51,7 +51,7 @@ For one session, from a clone of the kit:
 claude --plugin-dir <path to this module>/plugin
 ```
 
-Or install it from the marketplace the kit's install guide names: `claude plugin install const-questions@<marketplace name> --scope project`. Then run the scan from the project's root:
+Or install it from the kit's marketplace: `claude plugin install const-questions@claude-constitution-layer-kit --scope project`. Then run the scan from the project's root:
 
 ```bash
 sh <plugin root>/scripts/check-open-questions.sh --scan
