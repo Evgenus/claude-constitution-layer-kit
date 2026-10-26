@@ -166,7 +166,7 @@ Each pair reads *violates / complies*, or, where both sides are allowed, the two
 
 **Y-c — a trivial drawing** ([A9.2](../../docs/requirements.md#a9-2)), the pair beside entry d2:
 
-4. A state machine in brackets and arrows across nine lines → a diagram / three states named in a sentence, or a Mermaid state diagram.
+**4.** A state machine in brackets and arrows across nine lines → a diagram / three states named in a sentence, or a Mermaid state diagram.
 
 **Y-a — a departure, or a fix** ([A9.1](../../docs/requirements.md#a9-1)):
 

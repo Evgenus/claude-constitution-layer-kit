@@ -189,7 +189,7 @@ Each pair reads *violates / complies*. The gate's own lines are numbers; the pai
 
 **[A10.2](../../docs/requirements.md#a10-2) — the chat half**, the sibling's row this module ships nothing for
 
-9. A reply in chat of 70-word sentences → the sibling's session-start rule, no measurement / the last reply run through Vale at `Stop` — rejected: the reply is shown before the hook runs, and a block there is a second reply that restates the first.
+**9.** A reply in chat of 70-word sentences → the sibling's session-start rule, no measurement / the last reply run through Vale at `Stop` — rejected: the reply is shown before the hook runs, and a block there is a second reply that restates the first.
 
 **Adoption and frozen documents**
 
