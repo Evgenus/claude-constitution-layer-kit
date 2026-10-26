@@ -55,13 +55,11 @@ The session recommended A: only A unblocks the seven proofs without waiting for 
 
 <a id="r4"></a>**R4.** The signal of R20 of [dec-0099-shared-code-installed-as-a-pip-package](dec-0099-shared-code-installed-as-a-pip-package.md#r20), "the repository goes public at step 10 of the rollout plan", is reaching step 5a: the question is decided there, at item 5a.3, before the switch.
 
-<a id="r5"></a>**R5.** Item 10.8, to verify in a session the team access to the private repository, leaves the plan: after the switch no private repository is left to verify. Its number stays as a gap.
-
-<a id="r6"></a>**R6.** The change that makes the repository public also updates every text that calls it private, save the decision records and the done items of the plan, which are history. Among them are the rule "Work starts on a branch" of [CLAUDE.md](../../CLAUDE.md), which names the kit's private GitHub remote; prerequisite 2 of [the install guide](../../INSTALL.md#s1); a step name of the CI workflow; and docstrings, comments and fix texts of the kit's scripts `scripts/check-bare-install.py`, `scripts/check-install-guide.py`, `scripts/gate-list.sh` and `scripts/kit_module_doc.py`.
+<a id="r5"></a>**R5.** The change that makes the repository public also updates every text that calls it private, save the decision records and the done items of the plan, which are history. Among them are the rule "Work starts on a branch" of [CLAUDE.md](../../CLAUDE.md), which names the kit's private GitHub remote; prerequisite 2 of [the install guide](../../INSTALL.md#s1); a step name of the CI workflow; and docstrings, comments and fix texts of the kit's scripts `scripts/check-bare-install.py`, `scripts/check-install-guide.py`, `scripts/gate-list.sh` and `scripts/kit_module_doc.py`.
 
 ## Applied
 
-The change adds step 5a and its five items to the plan, with its row in the status matrix; narrows item 5.2; removes items 10.3, 10.4, 10.5 and 10.8; and rewords the package index's signal in [kit-shared-gate-code](../../shared/GATE.md#g1) to name step 5a. Every item has its home in the commit that creates this record, so the record is born `inactive`.
+The change adds step 5a and its five items to the plan, with its row in the status matrix; narrows item 5.2; removes items 10.3, 10.4 and 10.5; and rewords the package index's signal in [kit-shared-gate-code](../../shared/GATE.md#g1) to name step 5a. Every item has its home in the commit that creates this record, so the record is born `inactive`.
 
 ## Carry list
 
@@ -69,5 +67,4 @@ The change adds step 5a and its five items to the plan, with its row in the stat
 2. R2 — pending: [step 5a of the rollout plan](../rollout-plan.md#s5a), and [item 5.2](../rollout-plan.md#s5-2) for the parts that need no CI. The removal of items 10.3, 10.4 and 10.5 is history.
 3. R3 — pending: [item 5a.1 of the rollout plan](../rollout-plan.md#s5a-1).
 4. R4 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the deferred parts.
-5. R5 — history only: the removal of item 10.8, a one-time act.
-6. R6 — pending: [item 5a.4 of the rollout plan](../rollout-plan.md#s5a-4).
+5. R5 — pending: [item 5a.4 of the rollout plan](../rollout-plan.md#s5a-4).
