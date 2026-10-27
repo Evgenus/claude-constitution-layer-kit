@@ -867,7 +867,7 @@ def run_unread(c: Cases, root: Path) -> None:
         seen(root, "modules/const-x/scripts/gate.py", "MODULE.md dec-0049 /home/ann/x GATE.md\n") == [],
         "a scripts/ folder beside plugin/ is not read: only plugin/ installs",
     )
-    for path in ("shared/GATE.md", "shared/tests/run.py"):
+    for path in ("shared/GATE.md", "shared/pyproject.toml"):
         c.case(
             seen(root, path, "MODULE.md dec-0049 GATE.md docs/decisions\n") == [],
             f"{path} is not read: only {SHARED}/ is",

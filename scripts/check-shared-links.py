@@ -2,37 +2,39 @@
 """Kit check: no plugin holds the shared gate code, every module's fixture runner reaches it through a
 link, and the link leads to the one source; the runner reaches the module's own packages the same way.
 
-The shared code has one source in the kit: shared/constitution_layer_kit/ for the gates, shared/tests/
-for the fixture harness. A plugin holds none of it: its entry files import the Python package
-constitution-layer-kit that pip installed for python3 (decision
+The shared code has one source in the kit: shared/constitution_layer_kit/, the gates' package, whose
+subpackage testing/ holds the fixture harness. A plugin holds none of it: its entry files import the Python
+package constitution-layer-kit that pip installed for python3 (decision
 dec-0099-shared-code-installed-as-a-pip-package). So nothing may stand at
 plugin/scripts/constitution_layer_kit, in any module, whether or not the module uses the shared code: no
 link, no copy, no file, a dangling link included, since a script's folder comes first on Python's path and
 whatever stood there would shadow the installed package. The finding names what stands there and teaches
-`git rm -r` of the path. The tests keep their links: a module's tests/constitution_layer_kit and the harness
-files in its tests/ are symbolic links to the source, relative ones leading straight to it, never through
-another link, so that they survive a clone into any directory, and the fixtures test the modules and the
-shared code of one commit together. The tests, run by pytest, import from their own folder, which pytest puts
-first on the import path, so they reach each package of the module's plugin/scripts/ through a link
-tests/<package> -> ../plugin/scripts/<package>: they never edit their own import path, and never import a
-copy that has drifted from what the gate runs.
+`git rm -r` of the path. The tests keep their links: a module's tests/constitution_layer_kit is a symbolic
+link to the source, a relative one leading straight to it, never through another link, so that it survives
+a clone into any directory, and the fixtures test the modules and the shared code of one commit together;
+the shared test files come with it, as constitution_layer_kit.testing, and are linked no more. The tests,
+run by pytest, import from their own folder, which pytest puts first on the import path, so they reach each
+package of the module's plugin/scripts/ through a link tests/<package> -> ../plugin/scripts/<package>:
+they never edit their own import path, and never import a copy that has drifted from what the gate runs.
 
 The links a module owes are derived from the folders, never typed apart from them:
-tests/constitution_layer_kit, each `.py` file at the top of shared/tests/ whose name starts with neither `.`
-nor `_`, as tests/<name>, and each folder at the top of the module's plugin/scripts/, itself no link, that
-holds an `__init__.py`, whose name starts with neither `.` nor `_`, save constitution_layer_kit, as
+tests/constitution_layer_kit, and each folder at the top of the module's plugin/scripts/, itself no link,
+that holds an `__init__.py`, whose name starts with neither `.` nor `_`, save constitution_layer_kit, as
 tests/<name>. The check is a failure to run (BROKEN) when shared/constitution_layer_kit/ is no directory or
-when shared/tests/ lacks one of the four files shared/GATE.md names (the FLOOR), so that a list read from the
-folders cannot shrink in silence. The modules are the folders of `kit_module_doc.module_folders`, the kit's
-one listing — each folder under modules/ whose name starts with neither `.` nor `_` and holds its MODULE.md,
-a folder without it a BROKEN whether it uses the shared code or not. A module owes the links when it has
-plugin/hooks/hooks.json, when a line of a `.py` file under its plugin/scripts/, at any depth, begins, after
-white space, with `from constitution_layer_kit` or `import constitution_layer_kit` (a folder
-plugin/scripts/constitution_layer_kit is not entered; a comment, a string on one line, a shell script and a
-`__pycache__` are no import, while such a line inside a string of several lines counts), or when it already
-has one of the links. A module of skills alone owes none. Findings come by module, what stands at
-plugin/scripts/constitution_layer_kit first, then the gate package in tests/, then the shared files by name,
-then the module's own packages by name.
+when shared/constitution_layer_kit/testing/ lacks one of harness.py, consumer.py, acceptance.py and
+items.py (the FLOOR), so that the harness every module's tests import cannot vanish in silence. A link
+left in a module's tests/ that leads into shared/ and is none of the links the module owes, such as the
+link to a shared test file of the layout before the subpackage, is a finding, whether it dangles or not.
+The modules are the folders of `kit_module_doc.module_folders`, the kit's one listing — each folder under
+modules/ whose name starts with neither `.` nor `_` and holds its MODULE.md, a folder without it a BROKEN
+whether it uses the shared code or not. A module owes the links when it has plugin/hooks/hooks.json, when a
+line of a `.py` file under its plugin/scripts/, at any depth, begins, after white space, with `from
+constitution_layer_kit` or `import constitution_layer_kit` (a folder plugin/scripts/constitution_layer_kit
+is not entered; a comment, a string on one line, a shell script and a `__pycache__` are no import, while
+such a line inside a string of several lines counts), or when it already has one of the links. A module of
+skills alone owes none. Findings come by module, what stands at plugin/scripts/constitution_layer_kit
+first, then the gate package in tests/, then the module's own packages by name, then a stale link of
+tests/ by name.
 
 Modes:  no arguments   check every module under modules/;
         --self-test    prove the check on a throwaway tree: red for a link, a copy, a copy that is a
@@ -40,12 +42,12 @@ Modes:  no arguments   check every module under modules/;
                        at plugin/scripts/constitution_layer_kit, in a module with a hook and in one of
                        skills alone; red for a missing runner link to the gate package, a copy, a package
                        copy, a dangling, misdirected or absolute link, a text file left by a checkout
-                       without symlink support, and a link through plugin/scripts/, and for a shared test
-                       file no module links, in one module and in two; a missing, copied, misdirected,
-                       dangling or absolute link to the module's own package, one through another link,
-                       and a text file in its place; green for the right links, a `.`, `_`, README or
-                       folder in shared/tests/ no one owes, a folder of plugin/scripts/ that is no
-                       package, and the imports read over their cases;
+                       without symlink support, and a link through plugin/scripts/; a missing, copied,
+                       misdirected, dangling or absolute link to the module's own package, one through
+                       another link, and a text file in its place; red for a stale link of tests/ into
+                       shared/, dangling, resolving, absolute or in a module of skills alone; green for the
+                       right links, a plain file or a link outside shared/ in tests/, a folder of
+                       plugin/scripts/ that is no package, and the imports read over their cases;
                        a folder `.x` or `_x` skipped, a plain file of modules/ and a name without
                        `const-` by the listing's rule; BROKEN for a missing gate package or a
                        missing floor file, a folder without its MODULE.md and no modules/.
@@ -77,7 +79,13 @@ RUNNER_GATE_LINK = (
     "tests/constitution_layer_kit",
     "shared/constitution_layer_kit",
 )  # the gate package, for the fixture runner: link in a module -> its source
-FLOOR = ("harness.py", "consumer.py", "acceptance.py", "test_shared_items.py")  # those GATE.md item 7 names
+TESTING = "shared/constitution_layer_kit/testing"  # the shared fixture harness, a subpackage of the gates
+FLOOR = (
+    "harness.py",
+    "consumer.py",
+    "acceptance.py",
+    "items.py",
+)  # the files of it every module's tests import
 IMPORT = re.compile(
     r"^\s*(from|import)\s+constitution_layer_kit\b"
 )  # a line that imports the shared gate package
@@ -87,6 +95,10 @@ PLUGIN_WHY = (
     " it, since a script's folder comes first on Python's path"
 )
 OWN_WHY = "the runner must import the code the gate runs; a copy in tests/ drifts from it silently"
+STALE_WHY = (
+    "the shared test code is the subpackage testing of the package that tests/constitution_layer_kit links,"
+    " so a link to a file of the old layout points at nothing, or at a second source that goes stale"
+)
 
 
 class Broken(Exception):
@@ -104,24 +116,18 @@ class Finding:
 
 
 def links_of(kit: Path) -> dict[str, str]:
-    """Every link a module that uses the shared code owes, link inside the module -> its one source
-    in the kit: the gate package for the runner, and each regular .py file at the top of shared/tests/
-    whose name starts with neither . nor _. Broken when the gate package is no directory, or when
-    shared/tests/ lacks a file of the floor, so a derived list cannot shrink in silence."""
+    """Every link a module that uses the shared code owes to the shared code, link inside the module -> its
+    one source in the kit: the gate package, for the runner. Broken when the gate package is no directory,
+    or when its subpackage testing lacks a file of the floor, so the harness cannot vanish in silence."""
     if not (kit / RUNNER_GATE_LINK[1]).is_dir():
         raise Broken(f"{RUNNER_GATE_LINK[1]}/ is no directory — fix: restore it from the kit's history")
-    tests = kit / "shared" / "tests"
-    names = sorted(
-        path.name
-        for path in (tests.iterdir() if tests.is_dir() else [])
-        if path.name.endswith(".py") and not path.name.startswith((".", "_")) and path.is_file()
-    )
-    if lacking := [name for name in FLOOR if name not in names]:
+    testing = kit / TESTING
+    if lacking := [name for name in FLOOR if not (testing / name).is_file()]:
         raise Broken(
-            f"shared/tests/ lacks {', '.join(lacking)}, which shared/GATE.md names for every module's tests/"
+            f"{TESTING}/ lacks {', '.join(lacking)}, which every module's tests import"
             " — fix: restore it from the kit's history"
         )
-    return dict([RUNNER_GATE_LINK, *((f"tests/{name}", f"shared/tests/{name}") for name in names)])
+    return dict([RUNNER_GATE_LINK])
 
 
 def own_links_of(kit: Path, module: Path) -> dict[str, str]:
@@ -218,6 +224,29 @@ def check_plugin_path(kit: Path, module: Path) -> Finding | None:
     )
 
 
+def check_stale(kit: Path, module: Path, owed: set[str]) -> list[Finding]:
+    """The links at the top of the module's tests/ that lead into shared/ and are none of the `owed` names:
+    what a module held before the shared test files became a subpackage, dangling or not."""
+    tests = module / "tests"
+    if not tests.is_dir():
+        return []
+    shared = Path(os.path.realpath(kit / "shared"))
+    found = []
+    for path in sorted(tests.iterdir(), key=lambda each: each.name):
+        if not path.is_symlink() or path.name in owed or shared not in Path(os.path.realpath(path)).parents:
+            continue
+        shown = path.relative_to(kit).as_posix()
+        found.append(
+            Finding(
+                f"{shown} is a link into shared/, to {os.readlink(path)}, and no link the module owes",
+                f"git rm {shown} (rm where it is not tracked); the shared test code is imported from"
+                " constitution_layer_kit.testing, reached through tests/constitution_layer_kit",
+                STALE_WHY,
+            )
+        )
+    return found
+
+
 def check_kit(kit: Path) -> tuple[list[Finding], int, int]:
     links = links_of(kit)
     try:
@@ -239,6 +268,7 @@ def check_kit(kit: Path) -> tuple[list[Finding], int, int]:
             for link, source, why in owed.get(module, [])
             if (finding := check_link(kit, module, link, source, why)) is not None
         ]
+        findings += check_stale(kit, module, {Path(link).name for link, _, _ in owed.get(module, [])})
     return findings, len(modules), sum(len(each) for each in owed.values())
 
 
@@ -288,7 +318,7 @@ def listed_in_reverse() -> Iterator[None]:
         Path.iterdir = real  # type: ignore[method-assign]
 
 
-OWED = 1 + len(FLOOR)  # the links a module owes on a fresh tree: the runner's gate package, the floor
+OWED = 1  # the links a module owes on a fresh tree: the runner's gate package
 
 
 @dataclass
@@ -330,10 +360,9 @@ def add_module(root: Path, name: str) -> Path:
 def fresh_kit(root: Path) -> Path:
     """A kit with one module and every link it owes; returns the anchor, the path where its plugin holds
     nothing."""
-    (root / "shared" / "constitution_layer_kit").mkdir(parents=True)
-    (root / "shared" / "tests").mkdir()
+    (root / TESTING).mkdir(parents=True)
     for name in FLOOR:
-        (root / "shared" / "tests" / name).write_text("", encoding="utf-8")
+        (root / TESTING / name).write_text("", encoding="utf-8")
     return add_module(root, "const-sample") / PLUGIN_PATH
 
 
@@ -422,41 +451,11 @@ def skills_only_with_stray(anchor: Path) -> None:
     stray_link(folder / PLUGIN_PATH)
 
 
-def harness_as_copy(link: Path) -> None:
-    harness = module_of(link) / "tests" / "harness.py"
-    harness.unlink()
-    harness.write_text("", encoding="utf-8")
-
-
-def new_shared(root: Path) -> None:
-    (root / "shared" / "tests" / "new.py").write_text("", encoding="utf-8")
-
-
-def new_file_unlinked(link: Path) -> None:
-    """A fourth shared test file appears; no module links it."""
-    new_shared(root_of(link))
-
-
-def new_file_in_two_modules(link: Path) -> None:
-    """The same, with a second linking module: each owes the file."""
-    add_module(root_of(link), "const-other")
-    new_shared(root_of(link))
-
-
-def new_file_as_copy(link: Path) -> None:
-    """The wrong fix: a plain copy of the new file in the module's tests/."""
-    new_shared(root_of(link))
-    (module_of(link) / "tests" / "new.py").write_text("", encoding="utf-8")
-
-
 def hookless(path: str, text: str | bytes, keep: str | None = None) -> Callable[[Path], None]:
     """No hook; the links gone, bar the one kept; one script written at `path` under plugin/scripts/."""
 
     def damage(link: Path) -> None:
         module = module_of(link)
-        if keep == "new.py":  # a shared file the module alone links
-            new_shared(root_of(link))
-            os.symlink("../../../shared/tests/new.py", module / "tests" / "new.py")
         (module / "plugin" / "hooks" / "hooks.json").unlink()
         (module / "plugin" / "hooks").rmdir()
         for each in links_of(root_of(link)):  # only the import or the kept link can make the module owe
@@ -491,14 +490,6 @@ def hidden_folders(link: Path) -> None:
         )
 
 
-def not_shared_files(link: Path) -> None:
-    """Files of shared/tests/ that are no .py file at its top: a README, a folder with a .py in it."""
-    tests = root_of(link) / "shared" / "tests"
-    (tests / "README.md").write_text("", encoding="utf-8")
-    (tests / "__pycache__").mkdir()
-    (tests / "__pycache__" / "inner.py").write_text("", encoding="utf-8")
-
-
 def unlinked_module(name: str, document: bool = True) -> Callable[[Path], None]:
     """A folder of modules/ that has a hook and none of the links, its MODULE.md written or not."""
 
@@ -526,24 +517,51 @@ def modules_gone(link: Path) -> None:
     shutil.rmtree(root_of(link) / "modules")
 
 
-def without_harness(link: Path) -> None:
-    (root_of(link) / "shared" / "tests" / "harness.py").unlink()
+def without_floor_file(name: str) -> Callable[[Path], None]:
+    """The shared fixture harness lacking one file of the floor."""
+    return lambda link: (root_of(link) / TESTING / name).unlink()
 
 
 def without_gate(link: Path) -> None:
     shutil.rmtree(root_of(link) / "shared" / "constitution_layer_kit")
 
 
-def tests_emptied(link: Path) -> None:
+def testing_emptied(link: Path) -> None:
     for name in FLOOR:
-        (root_of(link) / "shared" / "tests" / name).unlink()
+        (root_of(link) / TESTING / name).unlink()
 
 
-def tests_gone(link: Path) -> None:
-    tests = root_of(link) / "shared" / "tests"
-    for name in FLOOR:
-        (tests / name).unlink()
-    tests.rmdir()
+def testing_gone(link: Path) -> None:
+    shutil.rmtree(root_of(link) / TESTING)
+
+
+def stale_link(target: str, name: str = "harness.py", module: str = "const-sample") -> Callable[[Path], None]:
+    """A link `name` in the tests/ of `module`, as the layout before the subpackage left it, made to
+    `target`; the module's tests/ is made when it has none."""
+
+    def damage(link: Path) -> None:
+        tests = root_of(link) / "modules" / module / "tests"
+        tests.mkdir(exist_ok=True)
+        os.symlink(target, tests / name)
+
+    return damage
+
+
+def plain_harness(link: Path) -> None:
+    """A plain file harness.py in tests/, as a copy leaves it: no link, so no stale link."""
+    (module_of(link) / "tests" / "harness.py").write_text("", encoding="utf-8")
+
+
+def stale_link_in_skills_module(link: Path) -> None:
+    """A module of skills alone, owing no link, with a stale link in its tests/."""
+    folder = root_of(link) / "modules" / "const-skills"
+    (folder / "plugin" / "skills").mkdir(parents=True)
+    (folder / "MODULE.md").write_text("A module.\n", encoding="utf-8")
+    stale_link("../../../shared/tests/harness.py", module="const-skills")(link)
+
+
+def stale_link_absolute(link: Path) -> None:
+    stale_link(str(root_of(link) / TESTING / "harness.py"))(link)
 
 
 def own_package(name: str = "sample_gate", linked: str | None = None) -> Callable[[Path], None]:
@@ -602,20 +620,6 @@ def not_packages(link: Path) -> None:
     (scripts / "linked_gate").symlink_to(shared_gate)  # a link to a package, no package of its own
 
 
-# the name filter over its whole set: name, a folder, owed, and why
-NAME_CASES = (
-    ("a.py", False, True, "a .py file at the top"),
-    ("_a.py", False, False, "starts with _"),
-    (".a.py", False, False, "starts with ."),
-    ("a.pyc", False, False, "does not end in .py"),
-    ("a.py.bak", False, False, "does not end in .py"),
-    ("A.PY", False, False, "the suffix is .py, matched as written"),
-    ("d.py", True, False, "a folder, no regular file"),
-    ("__pycache__", True, False, "a folder, and starts with _"),
-    ("README.md", False, False, "does not end in .py"),
-)
-
-
 def wrong_cases() -> dict[str, tuple[Callable[[Path], None], int]]:
     """The damages to a kit that must each be red, by case, with the findings each earns."""
     return {  # the damage, and the findings it earns
@@ -637,7 +641,6 @@ def wrong_cases() -> dict[str, tuple[Callable[[Path], None], int]]:
             lambda link: own_package(linked=str(link.parent / "sample_gate"))(link),
             1,
         ),
-        "a copied harness in tests/": (harness_as_copy, 1),
         "a hookless module importing the shared code, its links missing": (
             hookless("generate.py", "from constitution_layer_kit import cli\n"),
             OWED,
@@ -680,13 +683,24 @@ def wrong_cases() -> dict[str, tuple[Callable[[Path], None], int]]:
             hookless("y.py", "from constitution_layer_kit.cli import y\n"),
             OWED,
         ),
-        "a hookless module that has only the link of a new shared file": (
-            hookless("empty.txt", "", keep="new.py"),
-            OWED,  # the gate package and the four of the floor, of the six links it owes
+        "a hookless module that has only the gate package link, its own package unlinked": (
+            hookless("sample_gate/__init__.py", "", keep="constitution_layer_kit"),
+            1,  # the link it has makes it owe the links: the own package's
         ),
-        "a hookless module that has only one link": (hookless("empty.txt", "", keep="consumer.py"), OWED - 1),
-        "a shared test file no module links": (new_file_unlinked, 1),
-        "a shared test file no one of two linking modules links": (new_file_in_two_modules, 2),
+        "a stale link to a shared test file of the old layout, dangling": (
+            stale_link("../../../shared/tests/harness.py"),
+            1,
+        ),
+        "a stale link to a shared test file of the package, resolving": (
+            stale_link("../../../shared/constitution_layer_kit/testing/harness.py"),
+            1,
+        ),
+        "a stale link to the testing folder": (
+            stale_link("../../../shared/constitution_layer_kit/testing"),
+            1,
+        ),
+        "an absolute stale link into shared/": (stale_link_absolute, 1),
+        "a stale link in a module of skills alone": (stale_link_in_skills_module, 1),
         "a folder named without const- that uses the shared code, its links missing": (
             unlinked_module("glossary"),
             OWED,  # the listing has no name rule: the folder owes the links like any module
@@ -715,25 +729,33 @@ def reads_cases() -> dict[str, tuple[Callable[[Path], None], int, tuple[str, ...
     """The damages whose plain run must print the given words and give the given exit code."""
     # what the plain run prints: the damage, the exit code, the words the output must hold
     return {
-        "a shared test file no module links, taught with its ln -s": (
-            new_file_in_two_modules,
+        "a stale link to a file of the old layout, taught with its git rm": (
+            stale_link("../../../shared/tests/harness.py"),
             EXIT_RED,
             (
-                "RED: 2 finding(s) — 12 link(s) in 2 module(s) examined",
-                "RED: modules/const-sample/tests/new.py is missing",
-                "fix: from modules/const-sample/tests/ run: ln -s ../../../shared/tests/new.py new.py",
-                "RED: modules/const-other/tests/new.py is missing",
+                "RED: modules/const-sample/tests/harness.py is a link into shared/, to"
+                " ../../../shared/tests/harness.py, and no link the module owes",
+                f"why: {STALE_WHY}",
+                "fix: git rm modules/const-sample/tests/harness.py (rm where it is not tracked); the shared"
+                " test code is imported from constitution_layer_kit.testing, reached through"
+                " tests/constitution_layer_kit",
+                "RED: 1 finding(s) — 1 link(s) in 1 module(s) examined",
             ),
         ),
-        "a plain copy of a new shared test file": (
-            new_file_as_copy,
-            EXIT_RED,
-            ("modules/const-sample/tests/new.py is a plain file, not a link to shared/tests/new.py",),
+        "a link of tests/ leading outside shared/ is no stale link": (
+            stale_link("../plugin", name="plugin_alias"),
+            EXIT_GREEN,
+            ("GREEN:", "1 link(s) in 1 module(s) examined"),
+        ),
+        "a plain file of tests/ named like an old shared test file is no stale link": (
+            plain_harness,
+            EXIT_GREEN,
+            ("GREEN:", "1 link(s) in 1 module(s) examined"),
         ),
         "the module's own package, linked from tests/, taught and counted": (
             own_package(linked="../plugin/scripts/sample_gate"),
             EXIT_GREEN,
-            ("GREEN:", "6 link(s) in 1 module(s) examined"),
+            ("GREEN:", "2 link(s) in 1 module(s) examined"),
         ),
         "the runner's gate package link missing, taught with its ln -s": (
             on_runner(as_missing),
@@ -743,7 +765,7 @@ def reads_cases() -> dict[str, tuple[Callable[[Path], None], int, tuple[str, ...
                 f"why: {WHY}",
                 "fix: from modules/const-sample/tests/ run:"
                 " ln -s ../../../shared/constitution_layer_kit constitution_layer_kit",
-                "RED: 1 finding(s) — 5 link(s) in 1 module(s) examined",
+                "RED: 1 finding(s) — 1 link(s) in 1 module(s) examined",
             ),
         ),
         "a link to the shared code in a plugin, taught with git rm": (
@@ -755,7 +777,7 @@ def reads_cases() -> dict[str, tuple[Callable[[Path], None], int, tuple[str, ...
                 f"why: {PLUGIN_WHY}",
                 "fix: git rm -r modules/const-sample/plugin/scripts/constitution_layer_kit (rm -r where it"
                 " is not tracked)",
-                "RED: 1 finding(s) — 5 link(s) in 1 module(s) examined",
+                "RED: 1 finding(s) — 1 link(s) in 1 module(s) examined",
             ),
         ),
         "a copy in a plugin, named as a directory": (
@@ -764,7 +786,7 @@ def reads_cases() -> dict[str, tuple[Callable[[Path], None], int, tuple[str, ...
             (
                 "RED: modules/const-sample/plugin/scripts/constitution_layer_kit exists, a directory, in a"
                 " plugin that holds no shared code",
-                "RED: 1 finding(s) — 5 link(s) in 1 module(s) examined",
+                "RED: 1 finding(s) — 1 link(s) in 1 module(s) examined",
             ),
         ),
         "a plain file in a plugin, named as one": (
@@ -788,7 +810,7 @@ def reads_cases() -> dict[str, tuple[Callable[[Path], None], int, tuple[str, ...
             EXIT_RED,
             (
                 "RED: modules/const-skills/plugin/scripts/constitution_layer_kit exists, a link to",
-                "RED: 1 finding(s) — 5 link(s) in 1 module(s) examined",
+                "RED: 1 finding(s) — 1 link(s) in 1 module(s) examined",
             ),
         ),
         "the module's own package missing in tests/, taught with its ln -s": (
@@ -798,28 +820,23 @@ def reads_cases() -> dict[str, tuple[Callable[[Path], None], int, tuple[str, ...
                 "RED: modules/const-sample/tests/sample_gate is missing",
                 f"why: {OWN_WHY}",
                 "fix: from modules/const-sample/tests/ run: ln -s ../plugin/scripts/sample_gate sample_gate",
-                "RED: 1 finding(s) — 6 link(s) in 1 module(s) examined",
+                "RED: 1 finding(s) — 2 link(s) in 1 module(s) examined",
             ),
         ),
         "folders of plugin/scripts/ that are no package of the module's own owe nothing": (
             not_packages,
             EXIT_GREEN,
-            ("GREEN:", "5 link(s) in 1 module(s) examined"),
+            ("GREEN:", "1 link(s) in 1 module(s) examined"),
         ),
         "folders . and _ of modules/ holding a hook skipped": (
             hidden_folders,
             EXIT_GREEN,
-            ("GREEN:", "5 link(s) in 1 module(s) examined"),
+            ("GREEN:", "1 link(s) in 1 module(s) examined"),
         ),
         "a plain file of modules/ named like a module is no module": (
             plain_file,
             EXIT_GREEN,
-            ("GREEN:", "5 link(s) in 1 module(s) examined"),
-        ),
-        "a README and a folder in shared/tests/ not owed": (
-            not_shared_files,
-            EXIT_GREEN,
-            ("GREEN:", "5 link(s) in 1 module(s) examined"),
+            ("GREEN:", "1 link(s) in 1 module(s) examined"),
         ),
         "a comment holding the word constitution_layer_kit owes nothing": (
             hookless("tool.py", "# constitution_layer_kit\n"),
@@ -865,14 +882,20 @@ def reads_cases() -> dict[str, tuple[Callable[[Path], None], int, tuple[str, ...
                 "RED: 1 finding(s) — 0 link(s) in 0 module(s) examined",
             ),
         ),
-        "shared/tests/harness.py removed": (
-            without_harness,
+        "the testing folder without harness.py": (
+            without_floor_file("harness.py"),
             EXIT_BROKEN,
             (
-                "BROKEN: shared/tests/ lacks harness.py, which shared/GATE.md names",
+                "BROKEN: shared/constitution_layer_kit/testing/ lacks harness.py, which every module's tests"
+                " import",
                 "fix: restore it from the kit's history",
                 "BROKEN: the check could not run — 0 links examined",
             ),
+        ),
+        "the testing folder without items.py": (
+            without_floor_file("items.py"),
+            EXIT_BROKEN,
+            ("BROKEN: shared/constitution_layer_kit/testing/ lacks items.py, which",),
         ),
         "shared/constitution_layer_kit/ removed": (
             without_gate,
@@ -882,12 +905,12 @@ def reads_cases() -> dict[str, tuple[Callable[[Path], None], int, tuple[str, ...
                 " history",
             ),
         ),
-        "shared/tests/ emptied": (
-            tests_emptied,
+        "the testing folder emptied": (
+            testing_emptied,
             EXIT_BROKEN,
             (
-                "BROKEN: shared/tests/ lacks harness.py, consumer.py, acceptance.py, test_shared_items.py,"
-                " which",
+                "BROKEN: shared/constitution_layer_kit/testing/ lacks harness.py, consumer.py,"
+                " acceptance.py, items.py, which",
             ),
         ),
         "a hooked folder without its MODULE.md": (
@@ -914,12 +937,12 @@ def reads_cases() -> dict[str, tuple[Callable[[Path], None], int, tuple[str, ...
                 "BROKEN: the check could not run — 0 links examined",
             ),
         ),
-        "shared/tests/ gone": (
-            tests_gone,
+        "the testing folder gone": (
+            testing_gone,
             EXIT_BROKEN,
             (
-                "BROKEN: shared/tests/ lacks harness.py, consumer.py, acceptance.py, test_shared_items.py,"
-                " which",
+                "BROKEN: shared/constitution_layer_kit/testing/ lacks harness.py, consumer.py,"
+                " acceptance.py, items.py, which",
             ),
         ),
     }
@@ -971,8 +994,11 @@ def judge_order(tally: Tally) -> None:
                     "", encoding="utf-8"
                 )
             stray_link(root / "modules" / module / PLUGIN_PATH)
+            (root / "modules" / module / "tests").mkdir()
+            for old in ("old_b", "old_a"):  # made in reverse: the finding order is the names'
+                os.symlink(f"../../../shared/tests/{old[-1]}.py", root / "modules" / module / "tests" / old)
         out = io.StringIO()
-        # modules/ and shared/tests/ are listed reversed, whatever the filesystem lists
+        # modules/ and tests/ are listed reversed, whatever the filesystem lists
         with contextlib.redirect_stdout(out), listed_in_reverse():
             code_after = run(root)
     heads = [line for line in out.getvalue().splitlines() if line.startswith("RED: modules/")]
@@ -984,55 +1010,30 @@ def judge_order(tally: Tally) -> None:
             " ../../../../shared/constitution_layer_kit, in a plugin that holds no shared code",
             *(
                 f"RED: modules/{module}/{link} is missing"
-                for link in (
-                    "tests/constitution_layer_kit",
-                    "tests/acceptance.py",
-                    "tests/consumer.py",
-                    "tests/harness.py",
-                    "tests/test_shared_items.py",
-                    "tests/a_gate",
-                    "tests/b_gate",
-                )
+                for link in ("tests/constitution_layer_kit", "tests/a_gate", "tests/b_gate")
             ),
+            f"RED: modules/{module}/tests/old_a is a link into shared/, to ../../../shared/tests/a.py,"
+            " and no link the module owes",
+            f"RED: modules/{module}/tests/old_b is a link into shared/, to ../../../shared/tests/b.py,"
+            " and no link the module owes",
         )
     ]
     ok = code_after == EXIT_RED and heads == expected
     tally.judge(
         ok,
         "findings by module, what stands in plugin/scripts/ then the gate package in tests/,"
-        " the shared files by name, then the module's own packages by name",
+        " the module's own packages by name, then the stale links by name",
     )
-
-
-def judge_names(tally: Tally) -> None:
-    """A file or folder at the top of shared/tests/ is owed a link by its name alone."""
-    for name, folder, is_owed, why in NAME_CASES:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp).resolve()
-            fresh_kit(root)
-            path = root / "shared" / "tests" / name
-            if folder:
-                path.mkdir()
-                (path / "inner.py").write_text("", encoding="utf-8")
-            else:
-                path.write_text("", encoding="utf-8")
-            found = check_kit(root)[0]
-        ok = len(found) == (1 if is_owed else 0) and (
-            not is_owed or f"tests/{name} is missing" in found[0].headline
-        )
-        shown, verdict = name + ("/" if folder else ""), "owed" if is_owed else "not owed"
-        tally.judge(ok, f"shared/tests/{shown} is {verdict}: {why}")
 
 
 def self_test() -> int:
     """Red→green on a throwaway kit: each wrong state must be red, the right link green; what a module
-    owes follows the folders (a new shared test file is owed at once, a name that starts `.` or `_` or is
-    no `.py` file is not), and the shared code missing its floor is BROKEN."""
+    owes follows the folders (a new package of its plugin/scripts/ is owed at once), a stale link into
+    shared/ is red, and the shared code missing its floor is BROKEN."""
     tally = Tally()
     judge_wrong(tally)
     judge_reads(tally)
     judge_order(tally)
-    judge_names(tally)
     print(f"{tally.judged - tally.failed}/{tally.judged} red→green cases green")
     return EXIT_GREEN if tally.failed == 0 else EXIT_RED
 

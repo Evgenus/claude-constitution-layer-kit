@@ -31,8 +31,9 @@ The gate, a plain run, reads the documents and runs nothing. It is red on:
     `template`, typed here once with their patterns and matched at the start of the cell, its links
     read for their text, a name that goes on in a word or a digit that is not ASCII being none;
   - a shared acceptance item whose number does not follow the one before it, the numbers of the
-    `@item(<n>, …)` markers of `shared/tests/test_shared_items.py` standing unique and rising from 101
-    (an item's number is never reissued, rule 4 of plc-0009-shared-code), and every `S<n>` handle and
+    `@item(<n>, …)` markers of `shared/constitution_layer_kit/testing/items.py`
+    standing unique and rising from 101 (an item's number is never reissued, rule 4 of
+    plc-0009-shared-code), and every `S<n>` handle and
     range `S<n>–S<m>` (a hyphen too) in section 5 of `shared/GATE.md`, its table and its prose, anchor
     `g5` to the next `g<n>` anchor or the end of the file, that names a number the shared tests do not
     hold, a range whose end is not above its start included. Every run holds them, `--run --module`
@@ -48,10 +49,10 @@ check could not run (BROKEN, exit 1), with the fix, on
   - a preamble without the sentence "Destination classes: …", or one whose bold names are not exactly
     the four classes the check types, so that the typed set never drifts from the preamble (every
     run reads it, `--run --module` too);
-  - `shared/tests/test_shared_items.py`, read by `ast` and never by import, when it cannot be parsed,
-    holds no top-level test marked `@item(<n>, …)`, or has such a marker that opens with no int literal
-    (a string, a float, a boolean, a negative number, a keyword); and `shared/GATE.md` without its
-    anchor `g5` alone on a line, or with it twice;
+  - `shared/constitution_layer_kit/testing/items.py`, read by `ast` and never by
+    import, when it cannot be parsed, holds no top-level test marked `@item(<n>, …)`, or has such a
+    marker that opens with no int literal (a string, a float, a boolean, a negative number, a keyword);
+    and `shared/GATE.md` without its anchor `g5` alone on a line, or with it twice;
   - a module folder with no MODULE.md, or no modules/ at all (the folders are those of
     `kit_module_doc.module_folders`, the kit's one listing: sorted by name, a folder whose name opens
     with a dot or an underscore and a plain file no module, a name without `const-` one), and a module
@@ -273,7 +274,8 @@ WHY_CLASSES = (
 # The shared acceptance items (shared/GATE.md section 5): the pinned numbers of their tests' markers,
 # read by `ast`, and the handles of the section's table, from its anchor to the next `g<n>` anchor or the
 # file's end.
-SHARED_TESTS = "shared/tests/test_shared_items.py"  # the shared items as pytest tests, `@item(<n>, …)` each
+# the shared items as pytest tests, `@item(<n>, …)` each
+SHARED_TESTS = "shared/constitution_layer_kit/testing/items.py"
 SHARED_MARKER = "item"
 SHARED_GATE = "shared/GATE.md"
 SHARED_FIRST = 101
@@ -1492,7 +1494,7 @@ def entries(*numbers: int) -> list[str]:
 def shared_source(tests: list[str], head: str = "", tail: str = "") -> str:
     """A shared test file: `head`, the import of the marker, the tests, then `tail`."""
     body = "".join(f"{test}\n\n" for test in tests)
-    return f"{head}from acceptance import item\n\n\n{body}{tail}"
+    return f"{head}from .acceptance import item\n\n\n{body}{tail}"
 
 
 def gate_text(rows: list[str], after: str = "") -> str:
@@ -1518,7 +1520,9 @@ def build(
     shared: str = SHARED_GOOD,
     gate: str = GATE_GOOD,
 ) -> None:
-    (root / "shared" / "tests").mkdir(parents=True, exist_ok=True)
+    (root / SHARED_TESTS).parent.mkdir(parents=True, exist_ok=True)
+    for init in (root / SHARED_TESTS).parents[:2]:
+        (init / "__init__.py").write_text("", encoding="utf-8")
     (root / SHARED_TESTS).write_text(shared, encoding="utf-8")
     (root / SHARED_GATE).write_text(gate, encoding="utf-8")
     (root / "docs").mkdir(parents=True, exist_ok=True)
@@ -1994,8 +1998,8 @@ def shared_literal_data() -> dict[str, tuple[str, str, list[str]]]:
             shared_source(entries(101, 103, 102)),
             gate_text(["S101–S103"]),
             [
-                "RED: shared/tests/test_shared_items.py:14: the shared item numbered 102 follows 103, and the"
-                " numbers are not unique and rising",
+                "RED: shared/constitution_layer_kit/testing/items.py:14: the shared item numbered 102"
+                " follows 103, and the numbers are not unique and rising",
                 f"  why: {WHY_NUMBERS_TYPED}",
                 f"  fix: {FIX_FOLLOWS_TYPED}",
                 "RED: 1 finding(s) — 3 row(s) of the matrix, 1 module document(s), 5 acceptance item(s)"
@@ -2006,7 +2010,8 @@ def shared_literal_data() -> dict[str, tuple[str, str, list[str]]]:
             shared_source(entries(102, 103)),
             gate_text(["S102–S103"]),
             [
-                "RED: shared/tests/test_shared_items.py:4: the first shared item is numbered 102, not 101",
+                "RED: shared/constitution_layer_kit/testing/items.py:4: the first shared item"
+                " is numbered 102, not 101",
                 f"  why: {WHY_NUMBERS_TYPED}",
                 "  fix: number the first item 101, and give a new item a number no item has had, at the end"
                 " of the file",
@@ -2020,8 +2025,8 @@ def shared_literal_data() -> dict[str, tuple[str, str, list[str]]]:
             [
                 "RED: shared/GATE.md:14: the range S101–S165 names S165, which the shared tests do not hold",
                 f"  why: {WHY_TABLE_TYPED}",
-                "  fix: change the range to numbers shared/tests/test_shared_items.py holds, or give the item"
-                " that number in its marker",
+                "  fix: change the range to numbers shared/constitution_layer_kit/testing/items.py"
+                " holds, or give the item that number in its marker",
                 "RED: 1 finding(s) — 3 row(s) of the matrix, 1 module document(s), 5 acceptance item(s)"
                 " examined, 64 shared item(s)",
             ],
@@ -2032,8 +2037,8 @@ def shared_literal_data() -> dict[str, tuple[str, str, list[str]]]:
             [
                 "RED: shared/GATE.md:15: the handle S170 names an item the shared tests do not hold",
                 f"  why: {WHY_TABLE_TYPED}",
-                "  fix: change the handle to numbers shared/tests/test_shared_items.py holds, or give the"
-                " item that number in its marker",
+                "  fix: change the handle to numbers shared/constitution_layer_kit/testing/items.py"
+                " holds, or give the item that number in its marker",
                 "RED: 1 finding(s) — 3 row(s) of the matrix, 1 module document(s), 5 acceptance item(s)"
                 " examined, 64 shared item(s)",
             ],
@@ -2153,14 +2158,15 @@ ACCEPTANCE_GATE = (  # a fake gate: MODE decides whether it blocks the text it i
     "print('GREEN: const-sample: 1 document examined, a covered document')\n"
 )
 ACCEPTANCE_CONFTEST = (
-    "import acceptance\nimport pytest\n\n\n"
+    "import pytest\nfrom constitution_layer_kit.testing import acceptance\n\n\n"
     "def pytest_configure(config: pytest.Config) -> None:\n    acceptance.configure(config)\n\n\n"
     "def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:\n    acceptance.collected(items)\n"
 )
 ACCEPTANCE_TESTS = (
     "from enum import StrEnum\nfrom pathlib import Path\n\nimport pytest\n"
-    "from acceptance import check_case, item\nfrom constitution_layer_kit.model import Finding\n"
-    "from harness import Case, Harness, Write\n\n\n"
+    "from constitution_layer_kit.model import Finding\n"
+    "from constitution_layer_kit.testing.acceptance import check_case, item\n"
+    "from constitution_layer_kit.testing.harness import Case, Harness, Write\n\n\n"
     "class Key(StrEnum):\n    X1 = 'X1'\n\n\n"
     "H = Harness(Path(__file__).resolve().parent.parent / 'plugin' / 'scripts',\n"
     "            'gate.sh', 'gate.py', 'const-sample')\n"
@@ -2182,8 +2188,6 @@ def acceptance_tree(root: Path, mode: str, extra: str = "") -> Path:
     tests.mkdir()
     (scripts / "gate.sh").write_text('exec python3 "$(dirname "$0")/gate.py"\n', encoding="utf-8")
     (scripts / "gate.py").write_text(f"MODE = {mode!r}\n{ACCEPTANCE_GATE}", encoding="utf-8")
-    for name in ("acceptance.py", "harness.py", "consumer.py"):
-        (tests / name).symlink_to(KIT / "shared" / "tests" / name)
     (tests / "constitution_layer_kit").symlink_to(KIT / "shared" / "constitution_layer_kit")
     (tests / "conftest.py").write_text(ACCEPTANCE_CONFTEST, encoding="utf-8")
     (tests / "test_sample.py").write_text(ACCEPTANCE_TESTS + extra, encoding="utf-8")
@@ -2196,7 +2200,8 @@ def acceptance_cases() -> dict[str, tuple[str, str, list[str], int, list[str]]]:
     doubled = "\n\n@item(1, 'again')\ndef test_again() -> None:\n    pass\n"
     unmarked = "\n\ndef test_unmarked() -> None:\n    pass\n"
     checks = (  # expect and broken_first_line on the results RUN, EXIT and FIRST, typed after them
-        "\n\nfrom acceptance import broken_first_line, expect\nfrom harness import Result\n\n\n"
+        "\n\nfrom constitution_layer_kit.testing.acceptance import broken_first_line, expect\n"
+        "from constitution_layer_kit.testing.harness import Result\n\n\n"
         "@item(2, 'expect')\ndef test_expect() -> None:\n"
         "    expect(RUN, 2, 'RED: x', 'stderr', label='case a')\n    expect(EXIT, 2, 'RED: x')\n\n\n"
         "@item(3, 'first line')\ndef test_first() -> None:\n    broken_first_line(FIRST, 'BROKEN: a')\n"
@@ -2353,7 +2358,8 @@ def sample_tests(
     names its number, item 2 running the module's gate as a child process; then `extra`."""
     tests = root / "modules" / module / "tests"
     (tests / "conftest.py").write_text(conftest, encoding="utf-8")
-    body = "import subprocess\nfrom pathlib import Path\n\nfrom acceptance import item\n\n"
+    body = "import subprocess\nfrom pathlib import Path\n\n"
+    body += "from constitution_layer_kit.testing.acceptance import item\n\n"
     body += "ENTRY = Path(__file__).resolve().parent.parent / 'plugin' / 'scripts' / 'entry.sh'\n"
     seen: set[int] = set()
     for index, (number, title) in enumerate(named):
@@ -2376,11 +2382,8 @@ def sample_module(root: Path, module: str = "const-sample") -> None:
     (scripts / "entry.sh").write_text('exec python3 "$(dirname "$0")/gate.py"\n', encoding="utf-8")
     (scripts / "gate.py").write_text(COVERED_GATE, encoding="utf-8")
     (scripts / "unused.py").write_text("print('never run')\n", encoding="utf-8")
-    links = {name: KIT / "shared" / "tests" / name for name in ("acceptance.py", "harness.py", "consumer.py")}
-    links["constitution_layer_kit"] = KIT / "shared" / "constitution_layer_kit"
-    for name, target in links.items():
-        if not (tests / name).is_symlink():
-            (tests / name).symlink_to(target)
+    if not (tests / "constitution_layer_kit").is_symlink():
+        (tests / "constitution_layer_kit").symlink_to(KIT / "shared" / "constitution_layer_kit")
     sample_tests(root, module=module)
 
 
@@ -2395,7 +2398,7 @@ def pytest_run_cases() -> dict[str, tuple[tuple[int, ...], str, str, str | None,
         "    if not session.config.getoption('collectonly'):\n        session.exitstatus = 1\n"
     )
     bare = (  # a conftest that registers the marker and hands no number to the report
-        "import acceptance\nimport pytest\n\n\n"
+        "import pytest\nfrom constitution_layer_kit.testing import acceptance\n\n\n"
         "def pytest_configure(config: pytest.Config) -> None:\n    acceptance.configure(config)\n"
     )
     doubled = "\n\n@item(3, 'again')\ndef test_again() -> None:\n    pass\n"
@@ -2580,8 +2583,6 @@ def case_pytest_runs(tally: Tally) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             build(root, GOOD_TABLE)
-            (root / "shared" / "constitution_layer_kit").mkdir()
-            (root / "shared" / "constitution_layer_kit" / "__init__.py").write_text("", encoding="utf-8")
             folder = root / "coverage-out"
             os.environ[kit_coverage.ENV] = str(folder)
             if jobs is not None:
@@ -2659,8 +2660,6 @@ def self_test_coverage() -> tuple[int, int]:
             root = Path(tmp).resolve()
             build(root, GOOD_TABLE)
             sample_tests(root, red)
-            (root / "shared" / "constitution_layer_kit").mkdir()
-            (root / "shared" / "constitution_layer_kit" / "__init__.py").write_text("", encoding="utf-8")
             out = root / "coverage-out"
             if variable == "file":
                 out.write_text("a file where the folder would go\n", encoding="utf-8")

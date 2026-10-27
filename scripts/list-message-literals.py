@@ -15,9 +15,10 @@ filled in — and asks whether one piece of at least 15 characters, its edge pun
 stands inside a string of the fixtures that run it: the module's own test file,
 tests/test_<name>.py, `<name>` the folder's name without `const-`, hyphens made underscores, for a
 module's messages; for the shared ones every module's own test file, the shared tests
-shared/constitution_layer_kit/testing/items.py and the harness that runs them, shared/constitution_layer_kit/testing/harness.py. A string
-of a fixture is a literal, an f-string or a `+` chain, docstrings aside. A function with no piece
-that long is listed apart: its text is too short to find, and the review reads it whole.
+shared/constitution_layer_kit/testing/items.py and the harness that runs them,
+shared/constitution_layer_kit/testing/harness.py. A string of a fixture is a literal, an f-string or a
+`+` chain, docstrings aside. A function with no piece that long is listed apart: its text is too short to
+find, and the review reads it whole.
 
 What it cannot see: whether the typed line is compared with that function's output (a fixture may
 hold the text as input), text built at run time, and a branch of a function whose other piece is
@@ -50,7 +51,10 @@ KIT = Path(__file__).resolve().parent.parent
 LENGTH = 15  # the shortest piece of a message's text the list looks for
 TRIM = " .,:;'\"(){}[]—-"
 SHARED = "shared/constitution_layer_kit/messages.py"
-SHARED_TESTS = ("shared/constitution_layer_kit/testing/items.py", "shared/constitution_layer_kit/testing/harness.py")
+SHARED_TESTS = (
+    "shared/constitution_layer_kit/testing/items.py",
+    "shared/constitution_layer_kit/testing/harness.py",
+)
 
 
 class Broken(Exception):
