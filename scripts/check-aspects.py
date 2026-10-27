@@ -2373,7 +2373,7 @@ def sample_tests(
 
 def sample_module(root: Path, module: str = "const-sample") -> None:
     """The sample module's scripts and tests: a gate one item runs and a file no item runs, the kit's own
-    shared test files linked, and the items of SAMPLE_ITEMS, each green."""
+    shared package linked, which holds the shared test files, and the items of SAMPLE_ITEMS, each green."""
     folder = root / "modules" / module
     tests = folder / "tests"
     scripts = folder / "plugin" / "scripts"

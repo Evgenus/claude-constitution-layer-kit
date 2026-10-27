@@ -26,9 +26,9 @@ The files also held this kit's layout: one dials file, `constitution.yaml`, the 
 
 The session recommended A: the items exist to prove one release, and a subpackage cannot be paired with another. The decider chose A in chat on 2026-10-27.
 
-<a id="r1"></a>**R1.** The shared test files are the subpackage `constitution_layer_kit.testing` of the distribution: `harness`, `consumer`, `acceptance` and `items`, the last the shared items that stood in `test_shared_items.py`, each importing the others relatively. No gate imports the subpackage. pytest is the distribution's extra `testing`. `scripts/check-shared-package.py` installs the wheel with that extra, since it imports every submodule.
+<a id="r1"></a>**R1.** The shared test files are the subpackage `constitution_layer_kit.testing` of the distribution: `harness`, `consumer`, `acceptance` and `items`, the last the shared items that stood in `test_shared_items.py`, each importing the others relatively. No gate imports the subpackage, which review holds. pytest is the distribution's extra `testing`. R1 builds what R21 of [dec-0099-shared-code-installed-as-a-pip-package](dec-0099-shared-code-installed-as-a-pip-package.md#r21) deferred, so that deferral ends. `scripts/check-shared-package.py` installs the wheel with that extra, since it imports every submodule.
 
-<a id="r2"></a>**R2.** A module's `tests/` holds one link to the shared package, which holds the test files, beside its links to its own packages, and one plain file, `tests/test_shared_items.py`, which brings the shared items into its run with a star import from `constitution_layer_kit.testing.items`. Its own tests import from `constitution_layer_kit.testing`. `scripts/check-shared-links.py` owes no link to a shared test file, fails to run when the package or one of the four files of `testing/` is gone, and is red for a link of `tests/` into `shared/` that is not owed, its fix `git rm` of the link.
+<a id="r2"></a>**R2.** A module's `tests/` holds one link to the shared package, which holds the test files, beside its links to its own packages, and one plain file, `tests/test_shared_items.py`, which brings the shared items into its run with a star import from `constitution_layer_kit.testing.items`. Its own tests import from `constitution_layer_kit.testing`. `scripts/check-shared-links.py` owes no link to a shared test file, fails to run when the package or one of the four files of `testing/` is gone, and is red for a link of `tests/` into `shared/` that is not owed, its fix `git rm` of the link. This replaces R6 of [dec-0068-enforcement-tables-destination-classes-and-kit-checks-held](dec-0068-enforcement-tables-destination-classes-and-kit-checks-held.md#r6) and the links to the shared test files of R8 of [dec-0099-shared-code-installed-as-a-pip-package](dec-0099-shared-code-installed-as-a-pip-package.md#r8). It narrows R2 of [dec-0073-packages-resolve-their-own-file](dec-0073-packages-resolve-their-own-file.md#r2), whose check now reads the test files with the package, and R4 of [dec-0061-ci-runs-one-job-per-module](dec-0061-ci-runs-one-job-per-module.md#r4), whose kit types now cover them with the package.
 
 ## 2. How far the files serve another layer
 
@@ -82,12 +82,12 @@ The session recommended B, which keeps held what a grep can hold there. The deci
 
 ## Applied
 
-The record was born `active`: its rulings were applied in the commits of the branch `work/shared-package-two-layers` while its last question was still open. It was set `inactive` by the commit that applied R6 to requirement A12.1, the last of its homes.
+The record was born `active`: its rulings were applied in the commits of the branch `work/shared-package-two-layers` while its last question was still open. It was set `inactive` by the commit that applied R6 to [requirement A12.1](../requirements.md#a12-1), the last of its homes.
 
 ## Carry list
 
-1. R1 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the row of `testing` and the paragraph of the delivery; [testing](../../shared/constitution_layer_kit/testing/__init__.py), its docstring; [the distribution](../../shared/pyproject.toml), `optional-dependencies`.
-2. R2 — [kit-shared-gate-code §2](../../shared/GATE.md#g2), item 7, and [§5](../../shared/GATE.md#g5), K1; [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module".
+1. R1 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the row of `testing`, the paragraph of the delivery and that of the deferred parts; [testing](../../shared/constitution_layer_kit/testing/__init__.py), its docstring; [the distribution](../../shared/pyproject.toml), `optional-dependencies`.
+2. R2 — [kit-shared-gate-code §2](../../shared/GATE.md#g2), item 7, and [§5](../../shared/GATE.md#g5), K1; [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module"; [rule 14 of template §6](../../module-template/MODULE.md#t6). What it replaces and narrows is history.
 3. R3 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the row of `testing`, and [§2](../../shared/GATE.md#g2), item 8.
 4. R4 — [kit-shared-gate-code §2](../../shared/GATE.md#g2), item 8, and [§5](../../shared/GATE.md#g5), K2; [CLAUDE.md](../../CLAUDE.md), the gate list and CI.
 5. R5 — [rule 11 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r11).

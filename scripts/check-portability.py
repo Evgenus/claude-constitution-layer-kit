@@ -41,8 +41,8 @@ read as any other, so `#!/usr/bin/env` passes and a home path there does not.
 
 The files under `shared/constitution_layer_kit/testing/` are read with two forms off, the relative path and
 the kit's document folder, and with every other form on, since their fixture data builds a consumer's
-repository and so names its paths. A kit path written as a plain relative path there, such as
-`docs/decisions/index.md`, passes unseen, which review holds.
+repository and so names its paths. A kit path or a kit document folder written as a plain relative path
+there, such as `docs/decisions/index.md` or `docs/decisions`, passes unseen, which review holds.
 
 One more form, over the same files and the same shared code, a kit document's name; each is a
 finding, with its why and its fix:
