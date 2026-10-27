@@ -78,7 +78,7 @@ The check that holds [law 2 of CLAUDE.md](../../CLAUDE.md#law-2) by grep, `scrip
 
 The session recommended B, which keeps held what a grep can hold there. The decider chose B in chat on 2026-10-27.
 
-<a id="r6"></a>**R6.** The portability check reads the files under `shared/constitution_layer_kit/testing/` with two forms switched off, the relative path and the kit's document folder, since the consumer the items build must be given paths. Every other form stays on there, and every form stays on for the rest of the shared code. A kit path written as a plain relative path in the test files is held by review.
+<a id="r6"></a>**R6.** The portability check reads the files under `shared/constitution_layer_kit/testing/` with two forms switched off, the relative path and the kit's document folder, since the consumer the items build must be given paths. Every other form stays on there, and every form stays on for the rest of the shared code. A path or a document folder of the kit written as a plain relative path in the test files is held by review.
 
 ## Applied
 
