@@ -86,7 +86,7 @@ The advisory rules beside it, under the handles `Y-a` to `Y-g`, each `advisory` 
 | dependencies | `plugin/requirements.txt` | PyYAML. |
 | configuration | none | the scan reads Markdown by its own code and runs no third-party tool, so no tool configuration ships. |
 | manifest | `plugin/.claude-plugin/plugin.json` | The plugin's name, version and description — the only file inside `.claude-plugin/`; `0.0.x` marks a draft. |
-| tests | `tests/`: `test_styling.py`, `conftest.py`, the shared test files linked from `shared/tests/`, `constitution_layer_kit` from `shared/constitution_layer_kit`, `styling_gate` from this module's `plugin/scripts/` | The fixtures of [§10](#t10). |
+| tests | `tests/`: `test_styling.py`, `conftest.py`, `test_shared_items.py`, which brings in the shared items, `constitution_layer_kit` linked from `shared/constitution_layer_kit`, which holds the shared test files in `testing/`, `styling_gate` from this module's `plugin/scripts/` | The fixtures of [§10](#t10). |
 | install note | `plugin/INSTALL.md` | The requirements, the install command of the shared package at the tag the module requires, the guide's creation, zero-configuration behaviour, the four dials with a worked example and the twelve keys, the scan, the departure rule, the output log, the fixtures from a clone, what the module does not check. `CLAUDE.md line: none`, since the pointer line and the last line of every red name the skill. |
 
 - **Always-on content**, sizes in characters, each line as the platform loads it:

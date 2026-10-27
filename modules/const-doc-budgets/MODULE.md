@@ -79,7 +79,7 @@ The advisory rules beside it, each `advisory` in its own text, stated in the ski
 | dependencies | `plugin/requirements.txt` | PyYAML. |
 | configuration | none | no third-party tool: the count and the history read are the module's own code and git. |
 | manifest | `plugin/.claude-plugin/plugin.json` | The plugin's name, version and description; `0.0.x` marks a draft. |
-| tests | `tests/`: `test_doc_budgets.py`, `conftest.py`, the shared test files linked from `shared/tests/`, `constitution_layer_kit` from `shared/constitution_layer_kit`, `budgets_gate` from this module's `plugin/scripts/` | The fixtures of [§10](#t10). |
+| tests | `tests/`: `test_doc_budgets.py`, `conftest.py`, `test_shared_items.py`, which brings in the shared items, `constitution_layer_kit` linked from `shared/constitution_layer_kit`, which holds the shared test files in `testing/`, `budgets_gate` from this module's `plugin/scripts/` | The fixtures of [§10](#t10). |
 | install note | `plugin/INSTALL.md` | Requirements, the install command of the shared package at the tag the module requires, the hook and the scan, zero-configuration behaviour, the four dials with a worked example, the report, the scan in CI, adoption, the output log. `CLAUDE.md line: none`: the rules ride on the check and the skill. |
 
 - **Always-on content:** the module's whole always-on budget is these lines, each sized in characters.

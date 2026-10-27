@@ -180,7 +180,7 @@ const-<aspect-name>/
 │       ├── print-skill-pointer.sh  # optional: the pointer line, at session start and, with --subagent, at a subagent's start
 │       └── <module>_gate/   # the module's own package: model, messages, checks, modes, start, dials, session
 ├── evals/<case>/case.yaml   # the eval cases, each naming its plugin (plugins: ../../plugin), scaffold.sh beside one that needs a project; evals/results/ ignored by git; never installed
-└── tests/                   # conftest.py, test_<name>.py; constitution_layer_kit and the shared test files linked from shared/; <module>_gate from ../plugin/scripts/; one red→green fixture per gate ([law 7 of CLAUDE.md](../CLAUDE.md#law-7)); never installed
+└── tests/                   # conftest.py, test_<name>.py, test_shared_items.py; constitution_layer_kit linked from shared/, its testing/ the shared test files; <module>_gate from ../plugin/scripts/; one red→green fixture per gate ([law 7 of CLAUDE.md](../CLAUDE.md#law-7)); never installed
 ```
 
 The template takes the same split: `module-template/plugin/` holds its parts that install, and `MODULE.md` and `README.md` stand beside it; it has no `tests/` and no `evals/`, which a module adds with its first gate and its first case. Kebab-case everywhere. Only plugin.json lives inside `.claude-plugin/`; every component directory sits at plugin root. Verify the manifest fields against the current plugin reference at authoring time. A module carries no license file: its manifest names the license, and the kit's `LICENSE` and `NOTICE` stand at the kit root alone. Linking both into each module is reopened as a decision once a module is mirrored or vendored outside the kit's marketplace.

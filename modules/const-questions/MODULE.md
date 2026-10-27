@@ -88,7 +88,7 @@ The advisory rules beside it, each `advisory` in its own text and carried by the
 | dependencies | `plugin/requirements.txt` | PyYAML. |
 | configuration | none | the gate runs no third-party tool, so there is no tool configuration to ship. |
 | manifest | `plugin/.claude-plugin/plugin.json` | The plugin's name, version and description — the only file inside `.claude-plugin/`; `0.0.x` marks a draft. |
-| tests | `tests/` | `test_questions.py`, `conftest.py`, the shared test files linked from `shared/tests/`, `constitution_layer_kit` from `shared/constitution_layer_kit`, `questions_gate` from this module's `plugin/scripts/`: the fixtures of [§10](#t10). |
+| tests | `tests/` | `test_questions.py`, `conftest.py`, `test_shared_items.py`, which brings in the shared items, `constitution_layer_kit` linked from `shared/constitution_layer_kit`, which holds the shared test files in `testing/`, `questions_gate` from this module's `plugin/scripts/`: the fixtures of [§10](#t10). |
 | install note | `plugin/INSTALL.md` | Requirements, the install command of the shared package at the tag the module requires, the calibration with zero-configuration behaviour, the six dials and a worked example, adoption through `severity: warn`, the scan for CI, the output log, the fixtures from a clone, `CLAUDE.md line: none`, what the module does not check, the uninstall. |
 
 - **Always-on content:** three lines, 1,517 characters in all, paid by every session.
