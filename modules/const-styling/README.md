@@ -5,7 +5,7 @@
 
 One style guide every governed document follows — diagrams, prose against lists and tables, list and table format, headings, code blocks, emphasis, callouts — with departures declared per territory or per document in the dials file with a reason; a scan reports the traces of the defaults that no departure allows. Plus a skill that applies the defaults before a diagram, a table, a formula or a template is written.
 
-In plain words: the project owns one style guide, copied from the text the module ships, and every document follows it. A skill brings the guide to the session before it draws a diagram or writes a table. A scan finds twelve traces of a broken default, such as a fenced block with no language. A departure is declared in the dials file with its reason.
+In plain words: the project owns one style guide, copied from the text the module ships, and every governed document follows it. A governed document is a Markdown file that the project's rules cover. A territory is the group of such files that share a path pattern. A default is one rule of the guide, with a pair of examples. A skill is a procedure that Claude loads when a task needs it; this one brings the guide to the session before it draws a diagram or writes a table. A scan is a check that reads the whole repository and reports what it finds. It looks for twelve traces of a broken default, a trace being a line shape such as a fenced block with no language. A departure is a place where a document may break a default. It is declared in the dials file, the project's `constitution.yaml`, which holds each module's settings, with its reason.
 
 <a id="a2"></a>
 ## Why use it
@@ -30,9 +30,13 @@ RED: docs/notes/style.md:3: a fenced block that names no language
 <a id="a4"></a>
 ## How it works
 
+**The hook at session start.** It prints one line, which names the skill and the moments it applies in: before a table, a diagram, a list, a formula, a deep heading, a callout or a fenced block is written. It reads nothing but its one argument and checks nothing; its only failure is printing nothing, which costs the session the pointer and no verdict. It needs no configuration.
+
+**The hook at a subagent's start.** A subagent starts with a context of its own and does not see what was printed at session start. This hook gives it the same line. It reads and decides nothing, and it needs no configuration.
+
 **The scan.** A command-line check over every Markdown file git lists. It reads line shapes outside fenced blocks, except where the fence is the trace, and outside code spans for emphasis. It exits with code 2 on a finding and says how many documents and signatures it examined. It reads twelve shapes, not the ten defaults. It cannot judge whether prose, a list or a table was the right form, whether a drawing is trivial, or whether a heading is in sentence case. It claims nothing about those. Nothing runs it on a write or at a turn's end; it is a line of CI and a command before a merge.
 
-**The skill.** A procedure in prose, loaded at the moment of choice. It reads the project's guide and falls back to the shipped text when none is named. The module names the skill at session start, at each subagent's start and after every red of the scan, so that it is loaded when a table or a diagram is about to be written.
+**The skill.** A procedure in prose, loaded at the moment of choice. It reads the project's guide and falls back to the shipped text when none is named. The module names the skill at session start, at each subagent's start and after every red of the scan, so that it is loaded when a table or a diagram is about to be written. The skill cannot see whether the session follows it.
 
 **The shipped guide.** A Markdown file inside the skill, with the ten defaults and their example pairs. The project copies it, gives it an envelope and keeps it as its own document. A project whose documents are governed by policies gives the guide a policy, and has each kind's policy bind its documents to the guide.
 
@@ -49,7 +53,7 @@ For one session, from a clone of the kit:
 claude --plugin-dir <path to this module>/plugin
 ```
 
-Or install it from the marketplace the kit's install guide names: `claude plugin install const-styling@<marketplace name> --scope project`. Then run the scan from the project's root:
+Or install it from the kit's marketplace: `claude plugin install const-styling@claude-constitution-layer-kit --scope project`. Then run the scan from the project's root:
 
 ```bash
 sh <plugin root>/scripts/check-style.sh --scan

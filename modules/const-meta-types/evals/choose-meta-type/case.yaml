@@ -28,6 +28,9 @@ graders:
     pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill","input":\{"skill":"[^"]*choose-meta-type"'
     flags: "s"
     match: contains
-  - type: file_exists
+  - type: regex
     name: the-plan-is-written
-    path: "**/*.md"
+    target: trace
+    pattern: '"type":"tool_use","id":"[^"]*","name":"Write","input":\{(?:"content":"(?:[^"\\]|\\.)*",)?"file_path":"(?![^"]*/docs/(?:policies/(?:root-policy|decision-records|notes)|decisions/adr-0001-use-python|notes/(?:tables|overview|inventory))\.md")[^"]*\.md"'
+    flags: "s"
+    match: contains

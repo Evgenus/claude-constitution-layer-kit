@@ -10,7 +10,8 @@ Without `lychee` the forms of references are still checked and blocked; whether 
 not, and every write says so until it is installed.
 
 The shared code is the Python package `constitution-layer-kit`, which brings PyYAML with it. A project
-installs it once, for the `python3` its hooks and commands run:
+installs it once, for the `python3` its hooks and commands run, at the tag of the highest `REQUIRES`
+among the entry files:
 ```bash
 python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
 ```
@@ -95,7 +96,7 @@ A line that starts `BROKEN: const-referencing needs the Python package constitut
    in the platform's per-plugin data directory. Set `log_dir` to keep it inside the repository;
    the directory must be git-ignored, and the gate refuses to run otherwise.
 8. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-referencing/tests -p no:cacheprovider` — all green.
-9. CLAUDE.md pointer: none. The rule about chat arrives through the session-start hook. The skill
+9. CLAUDE.md line: none. The rule about chat arrives through the session-start hook. The skill
    is named by a pointer line of 209 characters printed at session start, by the same line at the
    start of every subagent, and by the line after the count line of every red of the gate.
 

@@ -6,7 +6,7 @@ is reported by the command with the fix on its first line and nothing is written
 silently skipped.
 
 The shared code is the Python package `constitution-layer-kit`, which brings PyYAML with it. A project
-installs it once, for the `python3` its commands run:
+installs it once, for the `python3` its commands run, at the tag of the highest `REQUIRES` among the entry files:
 ```bash
 python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
 ```
@@ -16,13 +16,28 @@ A line that starts `BROKEN: const-locations needs the Python package constitutio
 
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). No hooks: the plugin ships two skills and one script, and nothing here blocks a
-   write.
-2. **Zero configuration works** in a repository whose `constitution.yaml` names `module_prefix`, a
-   `root_policy` and the policies' territories: every kind whose territory is `<dir>/**`, `<dir>/**/*.md` or
-   `<dir>/*/NAME.md` gets its documents created at the home that follows, with the four-field
-   envelope and the title's heading as the body. Without a `constitution.yaml`, or without a
-   `root_policy`, the command refuses and says what to declare first; the `new-kind` skill
-   carries the procedure from zero.
+   write. The skill `new-document` has the session create a document through the script; the
+   skill `new-kind` carries the procedure for a kind no policy covers yet.
+2. Calibration, optional: **zero configuration works** in a repository whose `constitution.yaml`
+   names `module_prefix`, a `root_policy` and the policies' territories: every kind whose
+   territory is `<dir>/**`, `<dir>/**/*.md` or `<dir>/*/NAME.md` gets its documents created at
+   the home that follows, with the four-field envelope and the title's heading as the body.
+   Without a `constitution.yaml`, or without a `root_policy`, the command refuses and says what
+   to declare first; the `new-kind` skill carries the procedure from zero. To name a template
+   per kind, add a `const-locations:` namespace to the project's `constitution.yaml`:
+   ```yaml
+   const-locations:
+     templates:                # the kinds that have a template; none by default
+       - {policy: <policy id>, template: <repository-relative path of the template>}
+     # log_dir: .gate-logs     # optional, and the directory must be git-ignored; see step 5
+   ```
+   A template is a Markdown file that opens with the envelope a document of the kind carries —
+   `id`, `type`, `title`, `status`, and any field the kind adds — with placeholders where the
+   writer fills; its `type` decides the created document's type. The command writes `id`,
+   `title` and `status` as values, keeps every other envelope line and the whole body as they
+   stand, and says on its `TEMPLATE:` line which file it used. A key of this namespace that is
+   none of those above is refused with exit 1, `severity` among them: this plugin blocks
+   nothing, so the key has no meaning here.
 3. The command, from inside the repository:
    ```bash
    sh <plugin root>/scripts/new-document.sh --kind <policy id> --stem <stem> --title '<title>' [--type <meta-type>] [--segment <segment>] [--id <id>] [--dry-run]
@@ -41,40 +56,29 @@ A line that starts `BROKEN: const-locations needs the Python package constitutio
    both and the model writes the file by hand, blind. A human typing
    `/const-locations:new-document <kind> <stem>` needs neither: the skill's own `allowed-tools`
    covers the command then.
-4. Calibration, optional, in the project's `constitution.yaml`:
-   ```yaml
-   const-locations:
-     templates:                # the kinds that have a template; none by default
-       - {policy: <policy id>, template: <repository-relative path of the template>}
-     # log_dir: .gate-logs     # optional, and the directory must be git-ignored; see step 6
-   ```
-   A template is a Markdown file that opens with the envelope a document of the kind carries —
-   `id`, `type`, `title`, `status`, and any field the kind adds — with placeholders where the
-   writer fills; its `type` decides the created document's type. The command writes `id`,
-   `title` and `status` as values, keeps every other envelope line and the whole body as they
-   stand, and says on its `TEMPLATE:` line which file it used. A key of this namespace that is
-   none of those above is refused with exit 1, `severity` among them: this plugin blocks
-   nothing, so the key has no meaning here.
-5. Introducing a kind: the skill `/const-locations:new-kind` — the policy first, its territory
+4. Introducing a kind: the skill `/const-locations:new-kind` — the policy first, its territory
    line by hand at the end of `constitution.yaml`, then the first document. The command creates
    the policy itself when given the root policy's id as the kind.
-6. Output log: everything the command prints is also appended, one JSON line per print (timestamp,
+5. Output log: everything the command prints is also appended, one JSON line per print (timestamp,
    module, gate, mode, session, stream, text), to `const-locations.jsonl` — refusals leave no
    trace in git. By default it lives in the platform's per-plugin data directory. Set `log_dir`
    to keep it inside the repository; the directory must be git-ignored, and the command refuses
    to run otherwise.
-7. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-locations/tests -p no:cacheprovider` — all green.
-8. CLAUDE.md pointer: none. The skill's description is in the session's skill listing, and the
+6. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the
+   commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`),
+   `python3 -m pytest <kit clone>/modules/const-locations/tests -p no:cacheprovider` — all green.
+7. CLAUDE.md line: none. The skill's description is in the session's skill listing, and the
    skill loads on its own when a document is about to be created — in a session that cannot
    ask, under the allow rules of step 3.
 
-What this plugin does not do: see a document written without the command — a heredoc, a
+What this module does not check: a document written without the command — a heredoc, a
 `Write`, an editor — which the write-time gate of module `const-meta-types` catches when
 installed, while a document the command writes is no tool event, so that gate judges it in
-its scan or at the document's next edit, never at creation; derive a home from a territory of
-two patterns, a negation or a `*` inside a file
-name — the command refuses and names the shapes that work; check or fill the body; edit
-`constitution.yaml`; allocate a number for a numbered kind.
+its scan or at the document's next edit, never at creation; it does not derive a home from a
+territory of two patterns, a negation or a `*` inside a file name — the command refuses and
+names the shapes that work; it does not check or fill the body, edit `constitution.yaml`, or
+allocate a number for a numbered kind. There is no scan, and no `severity: warn` step: the module
+blocks nothing.
 
 Uninstall: remove the plugin; remove the `const-locations:` namespace from
 `constitution.yaml`. Documents keep their homes.

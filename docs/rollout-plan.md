@@ -21,7 +21,7 @@ status: active
 | [s1](#s1) | Rule on how territories are declared | A | ✅ | 1 | 0 | 0 | 100% |
 | [s2](#s2) | Make the kit consumer zero | A | ✅ | 1 | 0 | 0 | 100% |
 | [s3](#s3) | Author the four document-shaped modules, and the shared gate code | A | ✅ | 5 | 0 | 0 | 100% |
-| [s4](#s4) | Review each of the four against the template | A | 🔄 | 1 | 1 | 0 | 50% |
+| [s4](#s4) | Review each of the four against the template | A | ✅ | 2 | 0 | 0 | 100% |
 | [s5](#s5) | Bootstrap the consumer project | B | 🔄 | 1 | 1 | 0 | 50% |
 | [s5a](#s5a) | Make the repository public | B | ⏳ | 0 | 6 | 0 | 0% |
 | [s6](#s6) | Decision record #1 | B | ✅ | 1 | 0 | 0 | 100% |
@@ -31,7 +31,7 @@ status: active
 | [s10](#s10) | Publish: the remote, the marketplace and CI, then `0.1.0` | D | 🔄 | 9 | 4 | 0 | 69% |
 | [s10a](#s10a) | The first release of the shared package | D | ✅ | 1 | 0 | 0 | 100% |
 | [s11](#s11) | Switch the project from path load to marketplace install | D | ⏳ | 0 | 1 | 0 | 0% |
-| all | the whole plan | all | 🔄 | 44 | 18 | 4 | 70% |
+| all | the whole plan | all | 🔄 | 45 | 17 | 4 | 72% |
 
 <a id="phase-a"></a>
 ## Phase A — Kit as consumer zero: the document-shaped accumulating modules (~1 week)
@@ -47,7 +47,7 @@ status: active
    - <a id="s3-4"></a>**3.4** ✅ [`const-referencing`](requirements.md#const-referencing) — done 2026-09-22, record [dec-0033-referencing-module-rulings](decisions/dec-0033-referencing-module-rulings.md), the yes given. Its consumer-live proof is step 5.
    - <a id="s3-5"></a>**3.5** ✅ Shared gate code — done 2026-09-20, records [dec-0023-shared-gate-code-at-module-two](decisions/dec-0023-shared-gate-code-at-module-two.md) and [dec-0025-shared-gate-code-linked](decisions/dec-0025-shared-gate-code-linked.md), the yes given. Step 5 also proves that the project's `python3` imports the shared package that [prerequisite 3 of the install guide](../INSTALL.md#s1) installs, which replaced the link in the plugin (decision [dec-0099-shared-code-installed-as-a-pip-package](decisions/dec-0099-shared-code-installed-as-a-pip-package.md)).
 4. <a id="s4"></a>**Review each of the four against the template.**
-   - <a id="s4-1"></a>**4.1** ⏳ Review each against the template. Fix the template where it failed you.
+   - <a id="s4-1"></a>**4.1** ✅ Review each against the template. Fix the template where it failed you. Done 2026-10-26, record [dec-0105-template-gives-the-shapes-modules-fill](decisions/dec-0105-template-gives-the-shapes-modules-fill.md), the yes given: four fresh readers reviewed the four modules against the template, the template was revised by their findings, and all eleven modules were brought to it.
    - <a id="s4-2"></a>**4.2** ✅ Log every session annoyance as a commit note — the friction signal that earns [`const-questions`](requirements.md#const-questions) and [`const-interaction`](requirements.md#const-interaction). Done 2026-09-25 for the two modules it was to earn, records [dec-0041-questions-module-rulings](decisions/dec-0041-questions-module-rulings.md) and [dec-0042-interaction-module-rulings](decisions/dec-0042-interaction-module-rulings.md), the yes given; the log goes on as the steady state of Phase E describes it.
 
 <a id="phase-b"></a>

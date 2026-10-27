@@ -3,9 +3,9 @@
 <a id="a1"></a>
 ## What it gives you
 
-Numbered kinds: a catalogued document's file name and id are one name, `<prefix>-<nnnn>-<slug>`; a new item's number must be free, and no two items of a catalog share one. Catalogs are declared in this module's own dial. Plus a skill for taking a number, renumbering after a collision, listing and citing.
+Numbered kinds: a catalogued document's file name and id are one name, <prefix>-<nnnn>-<slug>; a new item's number must be free, and no two items of a catalog share one. Catalogs are declared in this module's own dial. Plus a skill for taking a number, renumbering after a collision, listing and citing.
 
-In plain words: a numbered document, such as a decision record, carries its number in its file name and in its id. The module checks both at the write, refuses a number already taken, and finds two items under one number in a scan. The skill says how to take the next number and what to do when two branches took the same one.
+In plain words: a numbered kind is a kind of document that people cite by number, such as a decision record. A catalog is all the documents of one kind. An item is one such document. Its name has a prefix that names the kind, a number with a fixed count of digits, and a short slug of words, for example `dec-0007-use-sqlite.md`. The id is a field at the top of the file, and it repeats that name without `.md`. A dial is one setting in the project's `constitution.yaml`; here it lists the catalogs. A collision is two items under one number, which happens when two branches each take the next one. A skill is a page of advice that Claude loads when the work needs it. The module checks the name and the id at the write, refuses a number already taken, and finds two items under one number in a scan. The skill says how to take the next number, how to renumber after a collision, and how to list and cite items.
 
 <a id="a2"></a>
 ## Why use it
@@ -32,7 +32,9 @@ The skill `catalog-item` is for the moments when a numbered document is created,
 
 **Before a write.** A hook runs before every `Write` and `Edit` of the platform's file tools. For a Markdown file in a declared catalog's folders it checks the name's form and that the id equals the name. For a file that does not exist yet, it checks that the number is free in the working tree. For the advice about the next number it also reads the branch's history. So a number a deleted item once held is not handed out again. It cannot see a rename made with `git mv`, a file written by a shell command, or two branches that took one number before they met.
 
-**At session start.** A hook prints one line into the session's context while no catalog is declared. The line says that no document is examined and which dial to write. Once a catalog is declared it prints nothing.
+**At session start.** Two hooks run. The first prints one line into the session's context while no catalog is declared. The line says that no document is examined and which dial to write. Once a catalog is declared it prints nothing. The second prints one line that names the skill and the moments to load it. It reads nothing, and it works without Python.
+
+**At a subagent's start.** A hook gives the same line that names the skill to the subagent as its starting context, since a subagent does not see what was printed at session start.
 
 **The scan.** The same checks over every Markdown file git lists, plus the one only a whole tree shows: two items of one catalog under one number. That is where two branches that each took a number meet. It exits with code 2 on a finding. Its last line names each catalog's highest number, the one a new item counts on from. Run it in CI on every pull request, where both branches are in the tree.
 
@@ -51,7 +53,7 @@ For one session, from a clone of the kit:
 claude --plugin-dir <path to this module>/plugin
 ```
 
-Or install it from the marketplace the kit's install guide names: `claude plugin install const-catalogs@<marketplace name> --scope project`. Then run the scan from the project's root:
+Or install it from the marketplace: `claude plugin install const-catalogs@claude-constitution-layer-kit --scope project`. Then run the scan from the project's root:
 
 ```bash
 sh <plugin root>/scripts/check-catalog-item.sh --scan

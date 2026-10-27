@@ -5,7 +5,7 @@
 <a id="a1"></a>
 ## What it gives you
 
-The manifest's `description`, copied as written, so that the two never differ. Then one short paragraph, opening "In plain words". It says what the module does in the reader's own words: what is checked, what is refused, what a skill brings.
+The manifest's `description`, copied as written, so that the two never differ. Then one short paragraph, opening "In plain words". It says what the module does in the reader's own words: what is checked, what is refused, what a skill brings. It defines each term of the description that the reader has not been given.
 
 <a id="a2"></a>
 ## Why use it
@@ -20,9 +20,9 @@ What a session does differently with the module loaded. What is refused and what
 <a id="a4"></a>
 ## How it works
 
-One paragraph per tool the module ships, each opening with a bold label. Each hook by its event: before a write, after a write, at session start, at turn end, before a shell command. Then the scan, each skill, each command or second entry point. Each paragraph says what the tool reads, what it decides, what it cannot see, and that the defaults work with no configuration. The dials are named in words, what can be tuned, never as a table. No file paths, no row numbers, no error-code handles, no decision numbers.
+One paragraph per tool the module ships, each opening with a bold label. Each hook by its event: before a write, after a write, at session start, at turn end, before a shell command. Then the scan, each skill, each command or second entry point. Each paragraph says what the tool reads, what it decides, what it cannot see, and that the defaults work with no configuration. Last, one paragraph opening **Settings.**: what can be tuned and what the defaults do, the dials named in words, never as a table. No file paths, no row numbers, no error-code handles, no decision numbers.
 
 <a id="a5"></a>
 ## Get it
 
-For a module with a Python entry file, one opening sentence: install the shared Python package first, with the command in the module's [install note](plugin/INSTALL.md), since its scripts import it and stop without it. The install line for one session, `claude --plugin-dir <path to this module>/plugin`, and the marketplace form. The module's own scan command, `sh <plugin root>/scripts/<entry>.sh --scan`, or the command for a module with no scan. One closing line: the full install procedure and every dial in [INSTALL.md](plugin/INSTALL.md), the complete description in [MODULE.md](MODULE.md).
+For a module with a Python entry file, one opening sentence: install the shared Python package first, with the command in the module's [install note](plugin/INSTALL.md), since its scripts import it and stop without it. The install line for one session, `claude --plugin-dir <path to this module>/plugin`, and the marketplace form, `claude plugin install const-<aspect>@claude-constitution-layer-kit --scope project`. The module's own scan command, `sh <plugin root>/scripts/<entry>.sh --scan`, or the command for a module with no scan. One closing line: the full install procedure and every dial in [INSTALL.md](plugin/INSTALL.md), the complete description in [MODULE.md](MODULE.md).

@@ -5,7 +5,7 @@
 
 Plain prose in governed documents, checked by Vale after every write and in a scan: a Flesch–Kincaid grade ceiling, a words-per-sentence limit, idioms and formal phrases plain language avoids, formal words with a plain replacement, passive voice reported — every threshold and level a dial, a departure declared in the dials file and never marked in the document. Plus a skill that applies the rules while writing and reads a finding.
 
-In plain words: after every write of a Markdown page, Vale reads its prose and reports what a non-native reader would stumble on. That is a reading grade over the ceiling, a sentence over the limit, an idiom, a formal word with a plain one, or a passive. The numbers are dials, and a page that must stand as written is declared in the dials file.
+In plain words: after every write of a Markdown page, Vale, a free program that checks prose, reads it and reports what a non-native reader would stumble on. A Flesch–Kincaid grade is a score for how many years of school a text assumes; the ceiling is the highest grade a page may reach. The limit is the most words one sentence may hold. An idiom is a phrase whose meaning is not the meaning of its words. A formal phrase is a long way of saying something short. A passive is a sentence that hides who acts. A scan is the same check over every page at once. A dial is a setting, and the dials file is the project's one file of settings. A departure is a page declared there as one that must stand as written.
 
 <a id="a2"></a>
 ## Why use it
@@ -30,13 +30,15 @@ The skill `plain-language` is for loading before prose is written in a covered d
 <a id="a4"></a>
 ## How it works
 
-**After a write.** A hook runs after every `Write` and `Edit` of a covered Markdown file. It blanks the file's front matter and every Vale comment, and copies the document to a temporary folder. It generates the five rules for Vale from the dials and runs Vale once. It maps each result back to the document's own line and prints the findings. It needs the `vale` tool on the machine, version 3.23 or newer. A missing tool is reported as a failure with the install command, never as a silent pass. The hook cannot see a file written by a shell command or another person.
+**The hook after a write.** This hook runs after every `Write` and `Edit` of a covered Markdown file. It blanks the file's front matter and every Vale comment, and copies the document to a temporary folder. It generates the five rules for Vale from the dials and runs Vale once. It maps each result back to the document's own line and prints the findings. It needs the `vale` tool on the machine, version 3.23 or newer. A missing tool is reported as a failure with the install command, never as a silent pass. The hook cannot see a file written by a shell command or another person. The grade is Flesch–Kincaid as Vale counts words, sentences and syllables, over the prose outside headings, code and tables, and a heading counts as a sentence for the word limit. Other tools give the same text a grade a year or two apart, so a ceiling means "grade N by Vale".
 
 **The scan.** The same check over every covered document, from the command line. It exits with code 2 on a finding at level error. A rule at level warning prints notes and never turns it red. Run it in CI and before a merge, on a runner that has Vale.
 
-**The skill.** A procedure in prose. Nothing in it blocks. The module names the skill to the session at session start, at the start of each subagent and after every red, so that it is loaded when it applies.
+**The skill.** A procedure in prose. Nothing in it blocks. After every red the check names it, so that it is loaded when a finding is read.
 
-**The numbers are Vale's.** The grade is Flesch–Kincaid as Vale counts words, sentences and syllables, over the prose outside headings, code and tables. A heading counts as a sentence for the word limit. Other tools give the same text a grade a year or two apart, so a ceiling means "grade N by Vale".
+**The hook at session start.** It prints one line that names the skill and says when to load it: before prose is written in a covered document, and when the check reports a finding. It judges nothing and carries no rule.
+
+**The hook at a subagent's start.** It gives the same line to each subagent as context, since a subagent starts without what the session was told.
 
 **Settings.** The module works with no configuration. Every Markdown file git lists is covered, the ceiling is grade 10, the limit 25 words, the four rules red and the passive a note. Dials name the documents covered, the two numbers, and the level of each rule. Further dials add the project's own forbidden phrases and its own pairs of a formal word and its plain one. Another names the phrases of either list the project keeps on purpose. The departures are entries of paths, the rules allowed there, and a one-line reason. A repository with many findings adopts the module by setting the numbers to what its pages bear today, and lowering them in steps. Two dials are every gate's: whether a finding reaches the session as a block or as context, and where the log goes.
 
@@ -51,7 +53,7 @@ For one session, from a clone of the kit:
 claude --plugin-dir <path to this module>/plugin
 ```
 
-Or install it from the marketplace the kit's install guide names: `claude plugin install const-language@<marketplace name> --scope project`. Then run the scan from the project's root:
+Or install it from the marketplace the kit's install guide names: `claude plugin install const-language@claude-constitution-layer-kit --scope project`. Then run the scan from the project's root:
 
 ```bash
 sh <plugin root>/scripts/check-language.sh --scan

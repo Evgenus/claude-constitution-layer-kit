@@ -6,7 +6,7 @@ reported on the first shell command of a session and at session start, each with
 first line; nothing is silently skipped.
 
 The shared code is the Python package `constitution-layer-kit`, which brings PyYAML with it. A project
-installs it once, for the `python3` its hooks run:
+installs it once, for the `python3` its hooks run, at the tag of the highest `REQUIRES` among the entry files:
 ```bash
 python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
 ```
@@ -24,8 +24,8 @@ A line that starts `BROKEN: const-interaction needs the Python package constitut
    reason — what matched, why the act is hard to reverse, the reversible alternative — labelled with
    the plugin's name; you confirm at the prompt, once per command. Where no prompt can be shown, in a
    headless session, the platform denies the command with that reason and the model waits.
-2. **Zero configuration works** in a repository whose `constitution.yaml` has `module_prefix`
-   and no key of this namespace: the default list gates a forced push, a hard reset, a forced checkout, `git restore`,
+2. **Zero configuration works** in a repository whose `constitution.yaml`
+   has `module_prefix` and no key of this namespace: the default list gates a forced push, a hard reset, a forced checkout, `git restore`,
    `git clean -f`, `git branch -D` and `-f`, `git stash drop` and `clear`, `git rebase`, `git filter-branch`,
    `git filter-repo`, `git reflog expire`, `git gc --prune=now` and a recursive `rm`; the list scan
    covers every Markdown file git lists with the default handle forms. Without that file every run
@@ -87,16 +87,15 @@ A line that starts `BROKEN: const-interaction needs the Python package constitut
    ```bash
    sh <plugin root>/scripts/check-destructive.sh --scan --command 'git push --force origin main'
    ```
-6. **Fallback** for a consumer that cannot run hooks: copy `scripts/rules.txt` into the project's
-   own `CLAUDE.md`. The copy drifts on every version bump and the gate does not run — say so in
-   the copy.
+6. CLAUDE.md line: none. The rules ride on the session-start hook; the gate on the shell hook. A
+   consumer that cannot run hooks may copy `scripts/rules.txt` into the project's own `CLAUDE.md`
+   by hand, as a fallback. The copy drifts on every version bump and the gate does not run — say so in the copy.
 7. Output log: everything the hooks and the scans print is also appended, one JSON line per print
    (timestamp, module, gate, mode, session, stream, text), to `const-interaction.jsonl` — a
    prompt's reason and a denied command leave no trace in git. By default it lives in the
    platform's per-plugin data directory. Set `log_dir` to keep it inside the repository; the
    directory must be git-ignored, and the gate refuses to run otherwise.
 8. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the commit the install records (`gitCommitSha` in `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-interaction/tests -p no:cacheprovider` — all green.
-9. CLAUDE.md pointer: none. The rules ride on the session-start hook; the gate on the shell hook.
 
 What this module does not check: a command given to the `PowerShell` tool, since the gate is wired
 to `Bash` alone; a destructive act the list does not name — an interpreter

@@ -5,7 +5,7 @@
 
 Answer in the shape the question has, the answer first; every assumption listed, every list item addressable; honesty over agreement; stop before a hard-to-reverse act and wait for a yes, with a gate on enumerated destructive commands.
 
-In plain words: nine rules for every reply are printed into every session, and one of them has a gate. The rules say how to answer: the answer first, assumptions listed, every item citable, findings never softened, no hard-to-reverse act without a yes. The gate stops a listed destructive shell command until you confirm it.
+In plain words: nine rules for every reply are printed into every session, and one of them has a gate. The rules say how to answer: the answer first, assumptions listed, every item citable, findings never softened, no hard-to-reverse act without a yes. An assumption is something the reply took as true to do the work. An addressable item carries a handle, a number, a letter or a short key, so you can cite it without quoting it. Honesty over agreement means the reply says a request is wrong, even after you decided. A hard-to-reverse act is one you cannot undo, such as a forced push. A destructive command is a shell command on a list the module holds, such as a hard reset. The gate stops a listed destructive shell command until you confirm it.
 
 <a id="a2"></a>
 ## Why use it
@@ -32,9 +32,11 @@ A second check holds the handle rule for documents. A scan reports every bullete
 <a id="a4"></a>
 ## How it works
 
-**At session start.** A hook prints the nine rules into the session's context. Then it prints one line naming how much a reply says beyond its answer. It prints one line when the destructive list is empty, so a gate that examines nothing is never silent. And it prints one line for each default wrapper or shell the project's dials drop or replace.
+**The hook at session start.** A hook on the session-start event prints the nine rules into the session's context. Then it prints one line naming how much a reply says beyond its answer. It prints one line when the destructive list is empty, so a gate that examines nothing is never silent. And it prints one line for each default wrapper or shell the project's dials drop or replace.
 
-**Before a shell command.** A hook runs before every command of the platform's `Bash` tool. It splits the command as the platform does, on `&&`, `;`, `|` and the rest, and looks inside `$(…)`. It strips wrappers such as `sudo`, `env` and `time`, and reads the string a shell such as `bash -c` is told to run. It steps over a program's options to find its verb. Where a piece matches an entry, it answers the platform with the entry's teaching text and the ask decision. It cannot see a command built from a variable, an `eval`, a script file that deletes, or a deletion through a file tool. Nor can it see an argument the entries cannot name, such as `git checkout -- .`. The list is the gate; the class is the rule. An explain mode shows the reading of any command without running it.
+**The hook before a shell command.** A hook on the event before a shell command runs before every command of the platform's `Bash` tool. It splits the command as the platform does, on `&&`, `;`, `|` and the rest, and looks inside `$(…)`. It strips wrappers such as `sudo`, `env` and `time`, and reads the string a shell such as `bash -c` is told to run. It steps over a program's options to find its verb. Where a piece matches an entry, it answers the platform with the entry's teaching text and the ask decision. It cannot see a command built from a variable, an `eval`, a script file that deletes, or a deletion through a file tool. Nor can it see an argument the entries cannot name, such as `git checkout -- .`. The list is the gate; the class is the rule.
+
+**The explain.** The same script has a second mode, run by hand with a command as its argument. It shows the reading of the command and what the list does to it, without running it, and exits 2 on a match.
 
 **The list scan.** A command-line scan over every Markdown file git lists, exit code 2 on a finding. It reads a grammar: the handle forms are patterns. A project whose documents key items by a bold label or a link adds those forms.
 
@@ -51,7 +53,7 @@ For one session, from a clone of the kit:
 claude --plugin-dir <path to this module>/plugin
 ```
 
-Or install it from the marketplace the kit's install guide names: `claude plugin install const-interaction@<marketplace name> --scope project`. Then run the list scan from the project's root:
+Or install it from the marketplace the kit's install guide names: `claude plugin install const-interaction@claude-constitution-layer-kit --scope project`. Then run the list scan from the project's root:
 
 ```bash
 sh <plugin root>/scripts/check-list-handles.sh --scan
