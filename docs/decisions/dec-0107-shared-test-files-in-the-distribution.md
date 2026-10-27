@@ -2,7 +2,7 @@
 id: dec-0107-shared-test-files-in-the-distribution
 type: task-record
 title: The shared test files ship as the subpackage testing and hold for a gate of another layer
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
@@ -82,7 +82,7 @@ The session recommended B, which keeps held what a grep can hold there. The deci
 
 ## Applied
 
-The record was born `active`: its rulings were applied in the commits of the branch `work/shared-package-two-layers` while its last question was still open. It is set `inactive` by the commit that applies R6.
+The record was born `active`: its rulings were applied in the commits of the branch `work/shared-package-two-layers` while its last question was still open. It was set `inactive` by the commit that applied R6 to requirement A12.1, the last of its homes.
 
 ## Carry list
 
@@ -91,4 +91,4 @@ The record was born `active`: its rulings were applied in the commits of the bra
 3. R3 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the row of `testing`, and [§2](../../shared/GATE.md#g2), item 8.
 4. R4 — [kit-shared-gate-code §2](../../shared/GATE.md#g2), item 8, and [§5](../../shared/GATE.md#g5), K2; [CLAUDE.md](../../CLAUDE.md), the gate list and CI.
 5. R5 — [rule 11 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r11).
-6. R6 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the row of `testing`; [the portability check](../../scripts/check-portability.py), its docstring.
+6. R6 — [requirement A12.1](../requirements.md#a12-1); [kit-shared-gate-code §1](../../shared/GATE.md#g1), the row of `testing`; [the portability check](../../scripts/check-portability.py), its docstring.
