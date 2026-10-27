@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
+
 from .harness import Case, Harness, Result
 
 MARKER = "item"
@@ -87,9 +88,10 @@ def numbered(test: pytest.Item) -> Numbered | None:
 
 def own_test_file(test: pytest.Item) -> str:
     """The module's own test file, as the fix of a doubled number names it: tests/test_<name>.py, the name
-    its folder's without `const-`, hyphens made underscores."""
+    its folder's without its layer's prefix, the part up to and including the first '-', hyphens made
+    underscores."""
     module = Path(str(test.path)).parent.parent.name
-    return f"tests/test_{module.removeprefix('const-').replace('-', '_')}.py"
+    return f"tests/test_{module.partition('-')[2].replace('-', '_')}.py"
 
 
 def number_collisions(items: Sequence[Numbered], test_file: str) -> list[str]:

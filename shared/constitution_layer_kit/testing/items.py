@@ -23,6 +23,7 @@ import site
 import subprocess
 import sys
 import tempfile
+import time
 from collections.abc import Callable, Sequence
 from contextlib import nullcontext
 from dataclasses import dataclass, replace
@@ -30,7 +31,7 @@ from pathlib import Path
 from typing import Protocol
 
 import pytest
-from .acceptance import broken_first_line, expect, item
+
 from constitution_layer_kit import __version__ as package_version
 from constitution_layer_kit import cli, identity, messages, pipeline, preflight, repository
 from constitution_layer_kit import envelope as envelope_reader
@@ -49,7 +50,9 @@ from constitution_layer_kit.model import (
 )
 from constitution_layer_kit.output import ROTATE_AT, log_name
 from constitution_layer_kit.repository import list_markdown
-from .consumer import ROOT_POLICY
+
+from .acceptance import broken_first_line, expect, item
+from .consumer import CONSTITUTION_FILE, CONSTITUTION_PREFIX, ROOT_POLICY, own_prefix
 from .harness import (
     SHARED,
     Edit,
@@ -376,6 +379,16 @@ class SharedItems:
         # the gate examines no written file: the items about one are not its own
         self.no_file = self.stop or self.shell
         self.red_code = 0 if s.ask else 2
+        # The gate's layer, from the identity the session's scope declares: its own dials file, that file's
+        # kernel keys and its prefix. A gate of this kit reads everything from the constitution's file; a
+        # gate of another layer reads its namespace from its own and the policies from the constitution's,
+        # whose consumer prefix is then the consumer's own.
+        declared = identity.current()
+        self.file = declared.dials_file
+        self.kernel_keys = declared.kernel_keys
+        self.prefix = own_prefix(self.ns)
+        self.layered = self.file != CONSTITUTION_FILE
+        self.constitution_prefix = CONSTITUTION_PREFIX if self.layered else self.prefix
 
     def payload(self, root: Path, action: Write | Edit) -> str:
         """The event an item sends itself: the write, or, for a Stop gate, a Stop in that repository,
@@ -396,6 +409,14 @@ class SharedItems:
     def scan_args(self, root: Path) -> list[str]:
         """The scan of a gate without a hook mode, on the consumer's root."""
         return ["--scan", str(root)]
+
+    def of_constitution(self, build: Callable[[], Broken]) -> Broken:
+        """A shared failure of the constitution's file, built as the gate builds it: for a gate of another
+        layer, which reads the policies and resolves them in a scope of `reading` that file, inside one."""
+        if not self.layered:
+            return build()
+        with identity.reading(CONSTITUTION_FILE, KERNEL_KEYS):
+            return build()
 
     def broken(self, result: Result, failure: Broken) -> None:
         self.broken_as_typed(result, failure.render())
@@ -1212,26 +1233,24 @@ class SharedItems:
             "C17": messages.c17_module_too_old(self.ns, "1.4.2", "2.0.0", path, VERSION_UNTIL),
         }
         wanted = {
-            "C4 detail whole": f"BROKEN: constitution.yaml is not valid YAML (at {'w' * 100}\\\\x) — fix: "
+            "C4 detail whole": f"BROKEN: {self.file} is not valid YAML (at {'w' * 100}\\\\x) — fix: "
             "repair the YAML at the place the message names; nothing is checked until the file parses",
-            "C5.3 dialect": "BROKEN: constitution.yaml: territory_dialect 'd\\n"
-            + "e" * 78
-            + "… [102 characters]'"
+            "C5.3 dialect": f"BROKEN: {self.file}: territory_dialect 'd\\n" + "e" * 78 + "… [102 characters]'"
             f" is not supported by {self.ns} (supports: gitignore) — fix: set territory_dialect:"
             " gitignore, or remove the key",
-            "C5.4 key": "BROKEN: constitution.yaml: namespace 'a\\nb' must be a mapping — fix: write it as"
+            "C5.4 key": f"BROKEN: {self.file}: namespace 'a\\nb' must be a mapping — fix: write it as"
             " a\\nb: {territory: [...]}",
-            "C5.6 key": f"BROKEN: constitution.yaml: {cut}.territory must be a list of non-empty strings"
+            "C5.6 key": f"BROKEN: {self.file}: {cut}.territory must be a list of non-empty strings"
             f' — fix: write it as {cut}: {{territory: ["<pattern>", ...]}}',
-            "C5.7 where": f"BROKEN: constitution.yaml: {'k' * 80}… [100 characters] holds a pattern git would"
+            "C5.7 where": f"BROKEN: {self.file}: {'k' * 80}… [100 characters] holds a pattern git would"
             " not read as one: '#x' — fix: a pattern may not start with '#' (a comment to git) nor contain a"
             " line break; escape a leading # as \\# bare or in single quotes, as \\\\# in double quotes,"
             " and remove a line break",
-            "C6": f"BROKEN: constitution.yaml names root_policy '{esc}' but no such file exists — fix: create"
+            "C6": f"BROKEN: {self.file} names root_policy '{esc}' but no such file exists — fix: create"
             " it, or point root_policy at the policy for policies",
             "C7": f"BROKEN: root policy '{esc}' carries no readable id in its envelope — fix: give it the"
             " envelope (id, type, title, status); its id names its namespace",
-            "C8": f"BROKEN: root policy '{esc}' claims no territory in constitution.yaml — fix: write {esc}:"
+            "C8": f"BROKEN: root policy '{esc}' claims no territory in {self.file} — fix: write {esc}:"
             " {territory: [<where policies live, including the root itself>]} — nothing is governed until"
             " then",
             "C9": f"BROKEN: root policy '{esc}' lies outside its own territory ['"
@@ -1243,7 +1262,7 @@ class SharedItems:
             "C12.2": f"BROKEN: git init of the scratch repository failed: w\\\\{'w' * 118} — fix: repair what"
             " git names in the message; the scratch repository lives in the system's temporary directory",
             "C12.3": f"BROKEN: git check-ignore failed: w\\\\{'w' * 118} — fix: territory patterns must be"
-            " gitignore syntax; check constitution.yaml",
+            f" gitignore syntax; check {self.file}",
             "C12.5": f"BROKEN: git could not answer where the repository is: g\\\\{'g' * 118} — fix: repair"
             " the git setup named in the message (configuration, ownership, installation)",
             "C12.6": f"BROKEN: {esc} does not exist — fix: pass --scan an existing directory, or none for"
@@ -1257,7 +1276,7 @@ class SharedItems:
             "C12.10": f"BROKEN: {esc} is listed by git but cannot be read — fix: check that the file can be"
             " read: its permissions, or a link that leads nowhere",
             "C12.11": "unexpected failure inside the checker: ValueError: " + "v" * 68 + "… [112 characters]",
-            "C13": f"BROKEN: constitution.yaml: {self.ns}.log_dir '{esc}' is not ignored by git — fix: a log"
+            "C13": f"BROKEN: {self.file}: {self.ns}.log_dir '{esc}' is not ignored by git — fix: a log"
             " inside the working tree must be git-ignored, or every verdict dirties the tree; add the"
             " directory to .gitignore, or remove the key",
             "C16": f"BROKEN: {self.ns} needs constitution-layer-kit 1.0.1 or a later 1.x release, found 1.0.0"
@@ -1292,7 +1311,7 @@ class SharedItems:
                 messages.g1_skip_no_repo(path),
                 f"{esc} is not inside a git repository; the constitution is silent there",
             ),
-            ("G1.4", messages.g1_skip_no_dials(path), f"no constitution.yaml in {esc}: nothing is claimed"),
+            ("G1.4", messages.g1_skip_no_dials(path), f"no {self.file} in {esc}: nothing is claimed"),
             (
                 "G1.6",
                 messages.g1_skip_edit_unappliable(path),
@@ -1468,7 +1487,7 @@ def shared(subject: Subject, name: str) -> SharedItems:
 def test_malformed_dials(subject: Subject) -> None:
     it = shared(subject, "malformed_dials")
     result, _ = it.s.gate_on(it.s.valid, raw_dials="root-policy: [\n")
-    expect(result, 1, "BROKEN: constitution.yaml is not valid YAML", "stderr")
+    expect(result, 1, f"BROKEN: {it.file} is not valid YAML", "stderr")
 
 
 @item(102, "C4b: a dials file that is not a mapping")
@@ -1480,6 +1499,11 @@ def test_dials_not_mapping(subject: Subject) -> None:
         " root_policy, and territory_dialect when the dialect is not gitignore, then one namespace per"
         " policy or module"
     )
+    if it.layered:  # another layer's file: the identity's own kernel keys, and no policy in it
+        line = (
+            f"BROKEN: {it.file} is not a mapping — fix: the file holds top-level keys:"
+            f" {', '.join(it.kernel_keys)}, then one namespace per module"
+        )
     it.broken_as_typed(result, line)
 
 
@@ -1487,7 +1511,7 @@ def test_dials_not_mapping(subject: Subject) -> None:
 def test_dials_bad_severity(subject: Subject) -> None:
     it = shared(subject, "dials_bad_severity")
     line = (  # typed by hand
-        f"BROKEN: constitution.yaml: {it.ns}.severity must be block or warn — fix: under {it.ns},"
+        f"BROKEN: {it.file}: {it.ns}.severity must be block or warn — fix: under {it.ns},"
         " set severity: block or severity: warn, or remove that line"
     )
     it.broken_as_typed(it.s.gate_on(it.s.valid, dials_patch=it.s.own(severity="loud"))[0], line)
@@ -1497,7 +1521,7 @@ def test_dials_bad_severity(subject: Subject) -> None:
 def test_dials_own_namespace(subject: Subject) -> None:
     it = shared(subject, "dials_own_namespace")
     line = (  # typed by hand
-        f"BROKEN: constitution.yaml: namespace '{it.ns}' must be a mapping of this module's dials —"
+        f"BROKEN: {it.file}: namespace '{it.ns}' must be a mapping of this module's dials —"
         " fix: write this module's dials under it as a mapping, or remove the key"
     )
     it.broken_as_typed(it.s.gate_on(it.s.valid, dials_patch={it.ns: "x"})[0], line)
@@ -1521,27 +1545,30 @@ def test_dials_comment_pattern(subject: Subject) -> None:
 def test_dials_unsupported_dialect(subject: Subject) -> None:
     it = shared(subject, "dials_unsupported_dialect")
     result, _ = it.s.gate_on(it.s.valid, dials_patch={"territory_dialect": "regex"})
-    it.broken(result, messages.c5_dialect_unsupported("regex"))
+    it.broken(result, it.of_constitution(lambda: messages.c5_dialect_unsupported("regex")))
 
 
 @item(107, "C6: the root policy file is missing")
 def test_root_missing(subject: Subject) -> None:
     it = shared(subject, "root_missing")
-    it.broken(it.s.gate_on(it.s.valid, remove=ROOT_POLICY)[0], messages.c6_root_missing(ROOT_POLICY))
+    it.broken(
+        it.s.gate_on(it.s.valid, remove=ROOT_POLICY)[0],
+        it.of_constitution(lambda: messages.c6_root_missing(ROOT_POLICY)),
+    )
 
 
 @item(108, "C7: the root policy on disk has no readable id")
 def test_root_without_id(subject: Subject) -> None:
     it = shared(subject, "root_without_id")
     result, _ = it.s.gate_on(it.s.valid, files={ROOT_POLICY: NO_ENVELOPE})
-    it.broken(result, messages.c7_root_without_id(ROOT_POLICY))
+    it.broken(result, it.of_constitution(lambda: messages.c7_root_without_id(ROOT_POLICY)))
 
 
 @item(109, "C8: the root policy claims no territory")
 def test_root_claims_nothing(subject: Subject) -> None:
     it = shared(subject, "root_claims_nothing")
     result, _ = it.s.gate_on(it.s.valid, dials_patch={"root-policy": {}})
-    it.broken(result, messages.c8_root_claims_nothing("root-policy"))
+    it.broken(result, it.of_constitution(lambda: messages.c8_root_claims_nothing("root-policy")))
 
 
 @item(110, "C9: the root policy lies outside its own territory")
@@ -1549,7 +1576,10 @@ def test_root_outside_own_territory(subject: Subject) -> None:
     it = shared(subject, "root_outside_own_territory")
     result, _ = it.s.gate_on(it.s.valid, dials_patch={"root-policy": {"territory": ["docs/elsewhere/**"]}})
     it.broken(
-        result, messages.c9_root_outside_own_territory(ROOT_POLICY, ["docs/elsewhere/**"], "root-policy")
+        result,
+        it.of_constitution(
+            lambda: messages.c9_root_outside_own_territory(ROOT_POLICY, ["docs/elsewhere/**"], "root-policy")
+        ),
     )
 
 
@@ -1779,7 +1809,7 @@ def test_outside_any_repository(subject: Subject) -> None:
 def test_no_dials_file(subject: Subject) -> None:
     it = shared(subject, "no_dials_file")
     consumer = it.h.fresh_consumer()
-    (consumer.root / "constitution.yaml").unlink()
+    (consumer.root / it.file).unlink()  # the gate's own file: a gate of another layer's leaves the other
     if it.s.scan_only:
         consumer.write(it.s.red.target, it.s.red.text)
         result = it.h.run_gate("", args=it.scan_args(consumer.root))
@@ -1792,8 +1822,11 @@ def test_no_dials_file(subject: Subject) -> None:
 @item(129, "a dials file with no root_policy: a visible skip")
 def test_no_root_policy(subject: Subject) -> None:
     it = shared(subject, "no_root_policy")
-    raw = "module_prefix: const-\nnotes-policy:\n  territory: ['docs/notes/**']\n"
-    result, _ = it.s.gate_on(it.s.red, raw_dials=raw)
+    raw = f"module_prefix: {it.constitution_prefix}\nnotes-policy:\n  territory: ['docs/notes/**']\n"
+    if it.layered:  # the constitution's file, beside the gate's own, which holds no root_policy anyway
+        result, _ = it.s.gate_on(it.s.red, files={CONSTITUTION_FILE: raw})
+    else:
+        result, _ = it.s.gate_on(it.s.red, raw_dials=raw)
     reason = "constitution.yaml has no root_policy: nothing is claimed"  # typed by hand
     expect(result, 0, messages.g1_green_skip(reason), "stdout")
 
@@ -1958,24 +1991,30 @@ def test_dials_other_pairs(subject: Subject) -> None:
             "BROKEN: constitution.yaml: territory_dialect must be a non-empty string — fix: remove the"
             " key, or set territory_dialect: gitignore — the one dialect supported",
         ),
-        ({"notes-policy": "docs/notes/**"}, messages.c5_namespace_not_mapping("notes-policy")),
-        ({"notes-policy": {"territory": "docs/notes/**"}}, messages.c5_territory_shape("notes-policy")),
+        (
+            {"notes-policy": "docs/notes/**"},
+            it.of_constitution(lambda: messages.c5_namespace_not_mapping("notes-policy")),
+        ),
+        (
+            {"notes-policy": {"territory": "docs/notes/**"}},
+            it.of_constitution(lambda: messages.c5_territory_shape("notes-policy")),
+        ),
         # a list holding a blank string is no list of non-empty strings
         (
             {"notes-policy": {"territory": ["docs/notes/**", " "]}},
-            messages.c5_territory_shape("notes-policy"),
+            it.of_constitution(lambda: messages.c5_territory_shape("notes-policy")),
         ),
         (
             it.s.own(log_dir="/absolute/logs"),
-            f"BROKEN: constitution.yaml: {it.ns}.log_dir must be a repository-relative directory — fix:"
+            f"BROKEN: {it.file}: {it.ns}.log_dir must be a repository-relative directory — fix:"
             f" under {it.ns}, set log_dir: <a git-ignored directory>, or remove that line",
         ),
         # a path that leaves the repository by `..`, written plain or after a step down
-        ({"root_policy": "../root.md"}, messages.c5_root_policy_path()),
-        ({"root_policy": "docs/../../root.md"}, messages.c5_root_policy_path()),
+        ({"root_policy": "../root.md"}, it.of_constitution(messages.c5_root_policy_path)),
+        ({"root_policy": "docs/../../root.md"}, it.of_constitution(messages.c5_root_policy_path)),
         (it.s.own(log_dir="../logs"), messages.c5_log_dir()),
         (it.s.own(log_dir="logs/../../logs"), messages.c5_log_dir()),
-        ({"root_policy": " "}, messages.c5_root_policy_path()),
+        ({"root_policy": " "}, it.of_constitution(messages.c5_root_policy_path)),
     ]
     failed: list[str] = []
     for patch, failure in pairs:
@@ -2197,7 +2236,7 @@ def test_dials_unreadable(subject: Subject) -> None:
     if os.geteuid() == 0:
         return
     _, root = it.s.gate_on(it.s.valid)
-    dials = root / "constitution.yaml"
+    dials = root / it.file  # the gate's own file
 
     def again() -> Result:
         if it.s.scan_only:
@@ -2207,7 +2246,7 @@ def test_dials_unreadable(subject: Subject) -> None:
         return it.h.run_gate("", args=list(it.s.act_args), cwd=root)  # refused before the home is looked at
 
     line = (
-        f"BROKEN: constitution.yaml cannot be read ([Errno 13] Permission denied: '{dials}') — fix: check"
+        f"BROKEN: {it.file} cannot be read ([Errno 13] Permission denied: '{dials}') — fix: check"
         " the file's permissions"
     )
     it.unreadable(dials, again, line)
@@ -2232,7 +2271,7 @@ def test_dials_not_utf8(subject: Subject) -> None:
     """A byte that is not UTF-8 is the file's content: C4 naming its line and column, never C12.11."""
     it = shared(subject, "dials_not_utf8")
     _, root = it.s.gate_on(it.s.valid)
-    dials = root / "constitution.yaml"
+    dials = root / it.file  # the gate's own file
     # "# é", then the byte: two bytes, one character, so the column counts characters, not bytes
     dials.write_bytes(b"# \xc3\xa9\xff\n" + dials.read_bytes())
     if it.s.scan_only:
@@ -2242,7 +2281,7 @@ def test_dials_not_utf8(subject: Subject) -> None:
     else:
         result = it.h.run_gate("", args=list(it.s.act_args), cwd=root)  # refused before the home is looked at
     line = (
-        "BROKEN: constitution.yaml is not valid YAML (byte 0xff at line 1, column 4 is not UTF-8; save"
+        f"BROKEN: {it.file} is not valid YAML (byte 0xff at line 1, column 4 is not UTF-8; save"
         " the file as UTF-8) — fix: repair the YAML at the place the message names; nothing is checked"
         " until the file parses"
     )
@@ -2326,7 +2365,7 @@ def test_unknown_dial_is_one_line(subject: Subject) -> None:
     result, _ = it.s.gate_on(it.s.valid, dials_patch=it.s.own(**{"zz_second": 1, key: 1}))
     first = (  # typed by hand: the key cut at 80 characters, its break escaped; the list that
         # follows is the module's own
-        f"BROKEN: constitution.yaml: {it.ns}.ba\\\\d\\nkey" + "x" * 72 + "… [12008 characters] is no dial of"
+        f"BROKEN: {it.file}: {it.ns}.ba\\\\d\\nkey" + "x" * 72 + "… [12008 characters] is no dial of"
         " this module — fix: a misspelt dial would be ignored in silence, so none is: write one of "
     )
     lines = result.stderr.splitlines()
@@ -2347,7 +2386,7 @@ def test_pattern_in_own_dial_is_one_line(subject: Subject) -> None:
     dial = it.s.pattern_dial
     result, _ = it.s.gate_on(it.s.valid, dials_patch=dial.patch("#" + "x" * 12_000))
     first = (  # typed by hand
-        f"BROKEN: constitution.yaml: {it.ns}.{dial.path} holds a pattern git would not read as one: '#"
+        f"BROKEN: {it.file}: {it.ns}.{dial.path} holds a pattern git would not read as one: '#"
         + "x" * 79
         + "… [12001 characters]' — fix: a pattern may not start with '#' (a comment to git) nor contain"
         " a line break; "
@@ -3066,7 +3105,7 @@ def test_dials_file_name_is_the_declared_one(subject: Subject) -> None:
     that is no YAML names `team.yaml`."""
     it = shared(subject, "dials_file_name_is_the_declared_one")
     ns = it.ns
-    team = replace(identity.current(), dials_file=OTHER_FILE)
+    team = replace(identity.current(), dials_file=OTHER_FILE, kernel_keys=KERNEL_KEYS)  # a file of this kit's
 
     def built() -> dict[str, str]:
         return {
@@ -3127,9 +3166,9 @@ def test_dials_file_name_is_the_declared_one(subject: Subject) -> None:
         " ignored in silence, so none is: write one of a, b",
         "C5.11": "BROKEN: team.yaml: module_prefix is missing, or is not a kebab-case word that ends in '-'"
         " — fix: a gate tells a module's namespace from a policy's by this prefix, so write module_prefix:"
-        " const- as a top-level key, or correct its value to a kebab-case word that ends in '-'",
+        f" {it.prefix} as a top-level key, or correct its value to a kebab-case word that ends in '-'",
         "C5.12": f"BROKEN: team.yaml: module_prefix 'other-' is not the start of this module's namespace"
-        f" '{ns}' — fix: a gate reads the file of its own modules only, so set module_prefix: const- if"
+        f" '{ns}' — fix: a gate reads the file of its own modules only, so set module_prefix: {it.prefix} if"
         " this file is for this module, or check it with a module whose namespace starts with 'other-'",
         "C5.13": "BROKEN: team.yaml: root_policy is no key of this file — fix: this module's gates read"
         " root_policy from the dials file that holds the policies, so a copy here would be ignored or"
@@ -3165,7 +3204,7 @@ def test_dials_file_name_is_the_declared_one(subject: Subject) -> None:
         seen: list[str] = []
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            prefixed = {"module_prefix": "const-"}
+            prefixed = {"module_prefix": it.prefix}
             kit = json.dumps({**prefixed, "root_policy": "kit.md"})
             (root / "constitution.yaml").write_text(kit, encoding="utf-8")
             alone = load_dials(root)  # only constitution.yaml lies here: this reader opens team.yaml
@@ -3248,22 +3287,25 @@ def test_module_messages_name_the_declared_file(subject: Subject) -> None:
 
 
 # The kernel-owned key `module_prefix`: required in every dials file a gate reads, a kebab-case word that
-# ends in '-', and the start of the namespace of the module that reads the file. Every module of this kit
-# is named const-<aspect>, so the line its fix gives is `module_prefix: const-`; the lines are typed by hand.
-NO_PREFIX = (
-    "BROKEN: constitution.yaml: module_prefix is missing, or is not a kebab-case word that ends in '-'"
-    " — fix: a gate tells a module's namespace from a policy's by this prefix, so write module_prefix:"
-    " const- as a top-level key, or correct its value to a kebab-case word that ends in '-'"
-)
-
-
-def outside_prefix(prefix: str, ns: str) -> str:
-    """The line `C5.12` is for the module `ns` reading a file whose `module_prefix` is `prefix`, typed by
-    hand; the part of the namespace up to its first '-' is `const-` for every module of this kit."""
+# ends in '-', and the start of the namespace of the module that reads the file. The line its fix gives is
+# the part of the module's namespace up to its first '-', `module_prefix: const-` for every module of this
+# kit; the lines are typed by hand, the file and the prefix the gate's own.
+def no_prefix(it: SharedItems) -> str:
     return (
-        f"BROKEN: constitution.yaml: module_prefix '{prefix}' is not the start of this module's namespace"
-        f" '{ns}' — fix: a gate reads the file of its own modules only, so set module_prefix: const- if"
-        f" this file is for this module, or check it with a module whose namespace starts with '{prefix}'"
+        f"BROKEN: {it.file}: module_prefix is missing, or is not a kebab-case word that ends in '-'"
+        " — fix: a gate tells a module's namespace from a policy's by this prefix, so write module_prefix:"
+        f" {it.prefix} as a top-level key, or correct its value to a kebab-case word that ends in '-'"
+    )
+
+
+def outside_prefix(it: SharedItems, prefix: str) -> str:
+    """The line `C5.12` is for the module of `it` reading its own file whose `module_prefix` is `prefix`,
+    typed by hand."""
+    return (
+        f"BROKEN: {it.file}: module_prefix '{prefix}' is not the start of this module's namespace"
+        f" '{it.ns}' — fix: a gate reads the file of its own modules only, so set module_prefix:"
+        f" {it.prefix} if this file is for this module, or check it with a module whose namespace starts"
+        f" with '{prefix}'"
     )
 
 
@@ -3278,13 +3320,13 @@ def test_dials_prefix_absent(subject: Subject) -> None:
         "an empty file": "",
         "one comment": "# nothing here yet\n",
         "an empty mapping": "{}\n",
-        "the prefix only in a comment": "# module_prefix: const-\nroot_policy: docs/policies/root.md\n",
-        "the prefix as a namespace's key": f"{it.ns}:\n  module_prefix: const-\n",
+        "the prefix only in a comment": f"# module_prefix: {it.prefix}\nroot_policy: docs/policies/root.md\n",
+        "the prefix as a namespace's key": f"{it.ns}:\n  module_prefix: {it.prefix}\n",
     }
     failed: list[str] = []
     for what, raw in files.items():
         try:  # gathered: one file's red hides no other
-            it.broken_as_typed(it.s.gate_on(it.s.valid, raw_dials=raw)[0], NO_PREFIX)
+            it.broken_as_typed(it.s.gate_on(it.s.valid, raw_dials=raw)[0], no_prefix(it))
         except AssertionError as error:
             failed.append(f"{what}: {error}")
     assert not failed, "; ".join(failed)
@@ -3297,31 +3339,34 @@ def test_dials_prefix_malformed(subject: Subject) -> None:
     a line break after the '-', an empty string, a number, a boolean, a list, a mapping and a null each
     fail under `C5.11`, the line typed by hand, whatever the module's namespace."""
     it = shared(subject, "dials_prefix_malformed")
+    word = it.prefix.removesuffix("-")  # the layer's word: `const` for every module of this kit
     values: dict[str, object] = {
-        "no trailing '-'": "const",
+        "no trailing '-'": word,
         "a namespace without its '-'": it.ns,
-        "an upper-case letter": "Const-",
-        "all upper case": "CONST-",
-        "a first digit": "1const-",
-        "an underscore": "const_x-",
-        "a space inside": "const -",
-        "a space after": "const- ",
-        "a space before": " const-",
-        "a doubled '-'": "const--",
-        "a leading '-'": "-const-",
+        "an upper-case letter": word.capitalize() + "-",
+        "all upper case": word.upper() + "-",
+        "a first digit": "1" + it.prefix,
+        "an underscore": word + "_x-",
+        "a space inside": word + " -",
+        "a space after": it.prefix + " ",
+        "a space before": " " + it.prefix,
+        "a doubled '-'": it.prefix + "-",
+        "a leading '-'": "-" + it.prefix,
         "'-' alone": "-",
-        "a line break after the '-'": "const-\n",
+        "a line break after the '-'": it.prefix + "\n",
         "an empty string": "",
         "a number": 5,
         "a boolean": True,
-        "a list": ["const-"],
-        "a mapping": {"const-": 1},
+        "a list": [it.prefix],
+        "a mapping": {it.prefix: 1},
         "a null": None,
     }
     failed: list[str] = []
     for what, value in values.items():
         try:  # gathered: one value's red hides no other
-            it.broken_as_typed(it.s.gate_on(it.s.valid, dials_patch={"module_prefix": value})[0], NO_PREFIX)
+            it.broken_as_typed(
+                it.s.gate_on(it.s.valid, dials_patch={"module_prefix": value})[0], no_prefix(it)
+            )
         except AssertionError as error:
             failed.append(f"{what}: {error}")
     assert not failed, "; ".join(failed)
@@ -3334,12 +3379,14 @@ def test_dials_prefix_outside(subject: Subject) -> None:
     start of it — fails the gate under `C5.12`, the line typed by hand with the prefix as the file gives
     it; a module reads the file of its own modules only."""
     it = shared(subject, "dials_prefix_outside")
-    prefixes = ["other-", "know-", f"{it.ns}-", "c-", "const-zz-", "cons-", "a1-b2-"]
+    word = it.prefix.removesuffix("-")
+    other_layer = "const-" if it.prefix == "know-" else "know-"  # another layer's file
+    prefixes = ["other-", other_layer, f"{it.ns}-", "c-", f"{word}-zz-", f"{word[:-1]}-", "a1-b2-"]
     failed: list[str] = []
     for prefix in prefixes:
         try:  # gathered: one prefix's red hides no other
             result = it.s.gate_on(it.s.valid, dials_patch={"module_prefix": prefix})[0]
-            it.broken_as_typed(result, outside_prefix(prefix, it.ns))
+            it.broken_as_typed(result, outside_prefix(it, prefix))
         except AssertionError as error:
             failed.append(f"{prefix}: {error}")
     assert not failed, "; ".join(failed)
@@ -3504,20 +3551,22 @@ def test_dials_prefix_is_the_files(subject: Subject) -> None:
     183, "under the prefix the file declares, a namespace with no mapping is ignored; any other is a policy's"
 )
 def test_dials_prefix_namespaces(subject: Subject) -> None:
-    """With `module_prefix: const-`, as before this key was read from the file: a key that starts with it
-    and holds no mapping, or a mapping with a territory of the wrong shape, is another module's business
-    and changes no verdict; a key that does not start with it must be a mapping with a territory of
-    non-empty strings, as a policy's namespace must, and fails under `C5.4` or `C5.6`, each line typed
-    by hand."""
+    """With the gate's own prefix — `module_prefix: const-`, as before this key was read from the file, for
+    every module of this kit —: a key that starts with it and holds no mapping, or a mapping with a
+    territory of the wrong shape, is another module's business and changes no verdict; a key that does not
+    start with it must be a mapping with a territory of non-empty strings, as a policy's namespace must,
+    and fails under `C5.4` or `C5.6` in the constitution's file, which holds the policies, each line typed
+    by hand. For a gate of another layer the prefixed keys stand in its own file and the others in the
+    constitution's."""
     it = shared(subject, "dials_prefix_namespaces")
     plain = it.s.gate_on(it.s.valid)[0]
     failed: list[str] = []
     lenient: dict[str, dict[str, object]] = {
-        "no mapping": {"const-zz": 5},
-        "a null": {"const-zz": None},
-        "a territory that is no list": {"const-zz": {"territory": "not a list"}},
-        "a territory of a number": {"const-zz": {"territory": [1]}},
-        "the prefix alone": {"const-": 5},
+        "no mapping": {f"{it.prefix}zz": 5},
+        "a null": {f"{it.prefix}zz": None},
+        "a territory that is no list": {f"{it.prefix}zz": {"territory": "not a list"}},
+        "a territory of a number": {f"{it.prefix}zz": {"territory": [1]}},
+        "the prefix alone": {it.prefix: 5},
     }
     for what, patch in lenient.items():
         got = it.s.gate_on(it.s.valid, dials_patch=patch)[0]
@@ -3525,19 +3574,19 @@ def test_dials_prefix_namespaces(subject: Subject) -> None:
             failed.append(f"{what}: exit {got.code}, the plain run exit {plain.code}: {got.stderr[:200]}")
     strict: dict[str, tuple[dict[str, object], str]] = {
         "a key outside the prefix that holds no mapping": (
-            {"know-zz": 5},
-            "BROKEN: constitution.yaml: namespace 'know-zz' must be a mapping — fix: write it as know-zz:"
+            {"other-zz": 5},
+            "BROKEN: constitution.yaml: namespace 'other-zz' must be a mapping — fix: write it as other-zz:"
             " {territory: [...]}",
         ),
         "a key outside the prefix with a territory that is no list": (
-            {"know-zz": {"territory": "x"}},
-            "BROKEN: constitution.yaml: know-zz.territory must be a list of non-empty strings — fix: write"
-            ' it as know-zz: {territory: ["<pattern>", ...]}',
+            {"other-zz": {"territory": "x"}},
+            "BROKEN: constitution.yaml: other-zz.territory must be a list of non-empty strings — fix: write"
+            ' it as other-zz: {territory: ["<pattern>", ...]}',
         ),
         "a key that only contains the prefix": (
-            {"zz-const-": 5},
-            "BROKEN: constitution.yaml: namespace 'zz-const-' must be a mapping — fix: write it as"
-            " zz-const-: {territory: [...]}",
+            {f"zz-{it.prefix}": 5},
+            f"BROKEN: constitution.yaml: namespace 'zz-{it.prefix}' must be a mapping — fix: write it as"
+            f" zz-{it.prefix}: {{territory: [...]}}",
         ),
     }
     for what, (patch, line) in strict.items():
@@ -3859,7 +3908,7 @@ def test_reading_keeps_the_deadline(subject: Subject, monkeypatch: pytest.Monkey
     wait. The clock is the test's, so no wait is timed."""
     shared(subject, "reading_keeps_the_deadline")
     now = [1000.0]
-    monkeypatch.setattr(identity.time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(time, "monotonic", lambda: now[0])  # the clock the declaration reads
     problems: list[str] = []
     with identity.declared(replace(OTHER_LAYER, hook_seconds=10), Mode.HOOK):
         now[0] = 1004.0

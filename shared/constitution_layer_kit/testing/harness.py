@@ -14,7 +14,8 @@ links in their own folder, which pytest puts first on the import path: no Python
 module edits the import path of its own process, the tests included. A gate is a process of its own, and
 no plugin holds the shared package: `run_gate` puts the folder that holds it, `SHARED`, on the PYTHONPATH
 of every gate it runs, so that the gate under test imports the shared code of its own commit and never a
-release installed for the developer's python3.
+release installed for the developer's python3. A gate of another layer names its own dials file and that
+file's kernel keys, so that its consumers hold both files, and the folders of its own kit's packages.
 """
 
 from __future__ import annotations
@@ -33,7 +34,8 @@ from pathlib import Path
 
 import constitution_layer_kit
 from constitution_layer_kit.model import Finding
-from .consumer import Consumer
+
+from .consumer import CONSTITUTION_FILE, Consumer, own_prefix
 
 # The folder that holds the shared package, as the tests' link resolves: the source folder `shared/`, whatever
 # module's tests run. A path of a link is not read as it stands, since it leads through the module's folder.
@@ -185,13 +187,26 @@ class Harness:
     """One module's entry point under test."""
 
     def __init__(
-        self, scripts: Path, wrapper: str, entry: str, namespace: str, scan_only: bool = False
+        self,
+        scripts: Path,
+        wrapper: str,
+        entry: str,
+        namespace: str,
+        scan_only: bool = False,
+        dials_file: str = CONSTITUTION_FILE,
+        kernel_keys: tuple[str, ...] = (),
+        packages: Sequence[Path] = (),
     ) -> None:
         self.scripts = scripts
         self.wrapper = scripts / wrapper
         self.entry = scripts / entry
         self.namespace = namespace
         self.scan_only = scan_only  # the gate has no hook mode: a case writes its document and scans
+        # A gate of another layer: its own dials file, that file's kernel keys, and the folders of the
+        # packages of its own kit that its gate imports, put on PYTHONPATH before the shared package's.
+        self.dials_file = dials_file
+        self.kernel_keys = kernel_keys
+        self.packages = tuple(packages)
         self.sh = shutil.which("sh") or "sh"
         self.bound: float | None = None  # set by `bounded`: the seconds a run may take
         self.scratch = Path(tempfile.mkdtemp(prefix=namespace + "-fixtures-"))
@@ -203,14 +218,20 @@ class Harness:
     def environment(self, env: Mapping[str, str] | None = None, shared: bool = True) -> dict[str, str]:
         """The environment a gate runs in: the runner's own, less the platform's data directory, with `env`
         over it. The shared package comes from `SHARED`, put on PYTHONPATH after any folder the test puts
-        there, so that a folder of the test's own can hide or replace it for the gate; `shared=False` leaves
+        there and after the harness's own `packages`, so that a folder of the test's own can hide or replace
+        it for the gate; `shared=False` leaves
         it out, for the items that prove the gate without it. The gate asks git with no clock
         (`UNCLOCKED_GIT`, last on PYTHONPATH) unless a `sitecustomize` the test puts before it sets the
         clocks. A test that starts an entry point itself, outside `run_gate`, takes this environment."""
         merged = dict(os.environ)
         merged.pop("CLAUDE_PLUGIN_DATA", None)
         merged.update(env or {})
-        folders = [merged.get("PYTHONPATH"), str(SHARED) if shared else None, str(self.unclocked)]
+        folders = [
+            merged.get("PYTHONPATH"),
+            *(str(folder) for folder in self.packages),
+            str(SHARED) if shared else None,
+            str(self.unclocked),
+        ]
         merged["PYTHONPATH"] = os.pathsep.join(filter(None, folders))
         return merged
 
@@ -272,8 +293,17 @@ class Harness:
         """A fresh directory under the runner's scratch root, removed when the runner exits."""
         return Path(os.path.realpath(tempfile.mkdtemp(dir=self.scratch)))
 
+    def consumer(self) -> Consumer:
+        """A consumer not yet built, its dials files those of this gate's layer."""
+        if self.dials_file == CONSTITUTION_FILE:
+            return Consumer(self.scratch_dir())
+        own: dict[str, object] = {"module_prefix": own_prefix(self.namespace)}
+        return Consumer(
+            self.scratch_dir(), own_file=self.dials_file, own_dials=own, kernel_keys=self.kernel_keys
+        )
+
     def fresh_consumer(self, setup: Sequence[Write] = ()) -> Consumer:
-        consumer = Consumer(self.scratch_dir()).build()
+        consumer = self.consumer().build()
         for item in setup:
             consumer.write(item.target, item.text)
         if setup:
