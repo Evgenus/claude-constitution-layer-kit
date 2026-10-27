@@ -1384,8 +1384,8 @@ class SharedItems:
 # Each item carries its number, so it keeps that number in every module and when the tests are
 # reordered; a gate that resolves no policy skips the items about policies, their numbers kept. A new
 # item takes the next number after the last, and a removed item leaves its number free: a number
-# is never reissued (rule 4 of plc-0009-shared-code). The tests below stand in number order; the
-# numbers are held unique by acceptance.collected and rising by scripts/check-aspects.py.
+# is never reissued (the handles rule of the shared-code page). The tests below stand in number order;
+# the numbers are held unique by acceptance.collected, and rising by a check of the kit that ships them.
 about_policies = {
     "root_missing",
     "root_without_id",
@@ -3831,7 +3831,7 @@ def test_kernel_part(subject: Subject) -> None:
     base = (
         "module_prefix: const-\nroot_policy: docs/policies/root.md\n"
         "root-policy:\n  territory: ['docs/policies/**']\n"
-        "plc-0012-intent:\n  territory: ['docs/product/**']\n"
+        "intent-policy:\n  territory: ['docs/product/**']\n"
         "const-questions:\n  severity: block\nconst-odd: 5\n"
     )
 
@@ -3853,7 +3853,7 @@ def test_kernel_part(subject: Subject) -> None:
                 "const-",
                 {
                     "root-policy": ["docs/policies/**"],
-                    "plc-0012-intent": ["docs/product/**"],
+                    "intent-policy": ["docs/product/**"],
                     "const-questions": [],
                 },
             ),
