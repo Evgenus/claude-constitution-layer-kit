@@ -33,7 +33,7 @@ from pathlib import Path
 
 import constitution_layer_kit
 from constitution_layer_kit.model import Finding
-from consumer import Consumer
+from .consumer import Consumer
 
 # The folder that holds the shared package, as the tests' link resolves: the source folder `shared/`, whatever
 # module's tests run. A path of a link is not read as it stands, since it leads through the module's folder.

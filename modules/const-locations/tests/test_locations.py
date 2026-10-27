@@ -22,15 +22,15 @@ from pathlib import Path
 
 import pytest
 import yaml
-from acceptance import broken_first_line, expect, failure_of, item
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.model import Broken, Finding
-from consumer import ROOT_POLICY, Consumer, document, envelope
-from harness import Edit, Harness, Result, Write
+from constitution_layer_kit.testing.acceptance import broken_first_line, expect, failure_of, item
+from constitution_layer_kit.testing.consumer import ROOT_POLICY, Consumer, document, envelope
+from constitution_layer_kit.testing.harness import Edit, Harness, Result, Write
+from constitution_layer_kit.testing.items import Subject
 from locations_gate import filling, messages, start
 from locations_gate.dials import KEYS
 from locations_gate.model import ActKey
-from test_shared_items import Subject
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 

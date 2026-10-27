@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Protocol
 
 import pytest
-from acceptance import broken_first_line, expect, item
+from .acceptance import broken_first_line, expect, item
 from constitution_layer_kit import __version__ as package_version
 from constitution_layer_kit import cli, identity, messages, pipeline, preflight, repository
 from constitution_layer_kit import envelope as envelope_reader
@@ -49,8 +49,8 @@ from constitution_layer_kit.model import (
 )
 from constitution_layer_kit.output import ROTATE_AT, log_name
 from constitution_layer_kit.repository import list_markdown
-from consumer import ROOT_POLICY
-from harness import (
+from .consumer import ROOT_POLICY
+from .harness import (
     SHARED,
     Edit,
     Harness,

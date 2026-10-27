@@ -20,15 +20,15 @@ from pathlib import Path
 
 import pytest
 import yaml
-from acceptance import broken_first_line, check_case, expect, item
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.envelope import yaml_error_line
 from constitution_layer_kit.model import EnvelopeState
-from consumer import Consumer, envelope
+from constitution_layer_kit.testing.acceptance import broken_first_line, check_case, expect, item
+from constitution_layer_kit.testing.consumer import Consumer, envelope
+from constitution_layer_kit.testing.harness import Case, Edit, Harness, Result, Write, event_json, red_lines
+from constitution_layer_kit.testing.items import NO_ENVELOPE, Subject, git_patch, git_timeouts, hook_budget
 from decision_records_gate import messages, start
 from decision_records_gate.model import Stakes
-from harness import Case, Edit, Harness, Result, Write, event_json, red_lines
-from test_shared_items import NO_ENVELOPE, Subject, git_patch, git_timeouts, hook_budget
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 PLUGIN_ROOT = SCRIPTS.parent

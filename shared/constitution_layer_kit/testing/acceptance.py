@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
-from harness import Case, Harness, Result
+from .harness import Case, Harness, Result
 
 MARKER = "item"
 FIRST_SHARED = 101  # the number of the first shared item; the shared numbers are never moved or reissued

@@ -28,16 +28,26 @@ from pathlib import Path
 
 import pytest
 import yaml
-from acceptance import broken_first_line, check_case, expect, failure_of, item
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.model import Finding
 from constitution_layer_kit.repository import list_markdown
-from consumer import Consumer
-from harness import Case, Edit, Harness, Result, Write, event_json, fake_program, red_lines, stop_json
+from constitution_layer_kit.testing.acceptance import broken_first_line, check_case, expect, failure_of, item
+from constitution_layer_kit.testing.consumer import Consumer
+from constitution_layer_kit.testing.harness import (
+    Case,
+    Edit,
+    Harness,
+    Result,
+    Write,
+    event_json,
+    fake_program,
+    red_lines,
+    stop_json,
+)
+from constitution_layer_kit.testing.items import PatternDial, Subject, git_patch
 from language_gate import dials as own_dials
 from language_gate import messages, rules, start, vale
 from language_gate.model import Departure, Rule
-from test_shared_items import PatternDial, Subject, git_patch
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 PLUGIN_ROOT = SCRIPTS.parent
