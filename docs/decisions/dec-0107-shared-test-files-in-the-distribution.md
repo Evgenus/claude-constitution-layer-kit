@@ -62,9 +62,27 @@ No choice was open here: it follows from R1.
 
 <a id="r5"></a>**R5.** The subpackage `testing` is part of the package and of the promise of [rule 11 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r11), since a module of another kit builds its `Subject` and its `Harness` from it. A change to it raises the version as a change to the gates' code does; a change to `shared/GATE.md` alone raises nothing.
 
+## 5. What the portability check reads of the test files
+
+The check that holds [law 2 of CLAUDE.md](../../CLAUDE.md#law-2) by grep, `scripts/check-portability.py`, reads all of `shared/constitution_layer_kit/` as installed code, so after R1 it read the test files too: 56 findings. About fifty were the consumer's fixture data, relative paths and the kit's document folders such as `docs/policies/**`. Four were comments citing this kit's policy, script and test files, and two a policy id made up for item S190; those six were rewritten whatever the choice.
+
+- **A. Leave `testing/` out of the scan, held by review.**
+  - **Pros:** the smallest change, one exclusion with its reason.
+  - **Cons:** a later comment that cites a kit record or script ships with nothing red; [law 2 of CLAUDE.md](../../CLAUDE.md#law-2) for shipped code rests on review alone.
+- **B. Read `testing/` with the relative-path and kit-folder forms switched off there.** The catalog-id and kit-name forms stay on.
+  - **Pros:** a kit id, record or file name in the test files stays red; only the forms fixture data cannot avoid go quiet.
+  - **Cons:** new code and self-test cases in the check; a kit path written as a plain relative path passes unseen there.
+- **C. Read it in full, and build every fixture path at run time so that no string matches.**
+  - **Pros:** no change to the check.
+  - **Cons:** it hides the data from the check instead of telling the check what the data is; the hand-typed lines suffer.
+
+The session recommended B, which keeps held what a grep can hold there. The decider chose B in chat on 2026-10-27.
+
+<a id="r6"></a>**R6.** The portability check reads the files under `shared/constitution_layer_kit/testing/` with two forms switched off, the relative path and the kit's document folder, since the consumer the items build must be given paths. Every other form stays on there, and every form stays on for the rest of the shared code. A kit path written as a plain relative path in the test files is held by review.
+
 ## Applied
 
-The record was born `active`: its rulings were applied in the commits of the branch `work/shared-package-two-layers` while its last question was still open.
+The record was born `active`: its rulings were applied in the commits of the branch `work/shared-package-two-layers` while its last question was still open. It is set `inactive` by the commit that applies R6.
 
 ## Carry list
 
@@ -73,3 +91,4 @@ The record was born `active`: its rulings were applied in the commits of the bra
 3. R3 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the row of `testing`, and [§2](../../shared/GATE.md#g2), item 8.
 4. R4 — [kit-shared-gate-code §2](../../shared/GATE.md#g2), item 8, and [§5](../../shared/GATE.md#g5), K2; [CLAUDE.md](../../CLAUDE.md), the gate list and CI.
 5. R5 — [rule 11 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r11).
+6. R6 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the row of `testing`; [the portability check](../../scripts/check-portability.py), its docstring.
