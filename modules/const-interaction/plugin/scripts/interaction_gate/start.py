@@ -10,6 +10,7 @@ from pathlib import Path
 
 from constitution_layer_kit import cli
 from constitution_layer_kit.identity import HOOK_SECONDS, Identity
+from constitution_layer_kit.model import KERNEL_KEYS
 
 from . import session
 from .model import COMMAND_FLAG
@@ -22,6 +23,7 @@ GATE = Identity(
     gate="check-destructive",
     plugin_root=PLUGIN_ROOT,
     dials_file="constitution.yaml",
+    kernel_keys=KERNEL_KEYS,
     hook_seconds=HOOK_SECONDS,
     until_installed="until then shell commands pass unchecked",
 )
@@ -30,6 +32,7 @@ LISTS = Identity(
     gate="check-list-handles",
     plugin_root=PLUGIN_ROOT,
     dials_file="constitution.yaml",
+    kernel_keys=KERNEL_KEYS,
     until_installed="until then no list is scanned",
 )
 SESSION = Identity(
@@ -37,6 +40,7 @@ SESSION = Identity(
     gate="session-start",
     plugin_root=PLUGIN_ROOT,
     dials_file="constitution.yaml",
+    kernel_keys=KERNEL_KEYS,
     hook_seconds=HOOK_SECONDS,
     until_installed="until then the gate's state is not said at session start",
 )

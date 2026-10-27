@@ -9,13 +9,14 @@ from pathlib import Path
 
 from constitution_layer_kit import cli
 from constitution_layer_kit.identity import HOOK_SECONDS, Identity
-from constitution_layer_kit.model import Mode
+from constitution_layer_kit.model import KERNEL_KEYS, Mode
 
 GATE = Identity(
     namespace="const-task-close",
     gate="check-task-close",
     plugin_root=Path(__file__).resolve().parents[2],
     dials_file="constitution.yaml",
+    kernel_keys=KERNEL_KEYS,
     hook_seconds=HOOK_SECONDS,
     # what a failure to install leaves unchecked: the turn-end tree and a change's documents, not a write
     until_installed="until then neither the tree at turn end nor a change's documents are checked",

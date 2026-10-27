@@ -18,7 +18,7 @@ Every module is a draft at manifest version `0.0.x` until Phase D of the [rollou
 2. Read access to the kit's GitHub repository, `Evgenus/claude-constitution-layer-kit`, from which the modules are installed: git clones it with your own credentials while the repository is private. And a local clone of it, for example at `~/dev/claude-constitution-layer-kit`: the commands below take the module names, the kernel, the scans and the fixtures from it.
 3. git, and Python 3.12 or newer as `python3` with the shared distribution `constitution-layer-kit`, for every gate. No plugin carries its package, `constitution_layer_kit`: each gate imports it from the `python3` your hooks run, so install the distribution there once. It brings PyYAML with it. pip clones the kit's repository with git and your own credentials and builds the distribution at the release tag. A module that needs a later release says so on its first line and points at its own `INSTALL.md`: install that tag then. pytest is needed only to run a module's fixtures, which is optional; no module's `requirements.txt` names pytest or pytest-xdist, since no gate needs them:
    ```bash check=none
-   python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v1.0.0#subdirectory=shared"
+   python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v2.0.0#subdirectory=shared"
    python3 -m pip install pytest   # optional, for the fixtures
    ```
 4. Vale 3.23.0 or newer for [`const-language`](docs/requirements.md#const-language), and lychee 0.24.2 or newer for [`const-referencing`](docs/requirements.md#const-referencing):

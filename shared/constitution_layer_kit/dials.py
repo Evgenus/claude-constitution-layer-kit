@@ -7,7 +7,13 @@ The file names the prefix of its modules' namespaces itself, in the required key
 no prefix is built into this code. A namespace that starts with it and holds a mapping is a
 policy's only when a policy document carries that id, so its `territory` is read leniently: a
 well-formed one is kept for that case, anything else is another module's business. The namespace
-of the module that reads the file starts with the prefix, or the file is another layer's."""
+of the module that reads the file starts with the prefix, or the file is another layer's.
+
+Which top-level keys of the file are no namespace is the identity's `kernel_keys`: the constitution's
+three for a gate of this kit, and its own layer's list for a gate of another layer, whose file holds its
+namespace and its layer's keys while the policies stay in the constitution's file. Such a gate reads that
+constitution part with `load_kernel_part`, inside a scope of `identity.reading`, and joins the two reads
+itself."""
 
 from __future__ import annotations
 
@@ -28,6 +34,7 @@ from .model import (
     PREFIX_KEY,
     ROOT_POLICY_KEY,
     Dials,
+    KernelPart,
     Namespace,
     Severity,
 )
@@ -43,6 +50,33 @@ _PREFIX_SHAPE = re.compile(r"[a-z][a-z0-9]*(-[a-z0-9]+)*-")
 def load_dials(root: Path) -> Dials | None:
     """None when the file the declared identity names is absent (nothing is claimed); ConfigurationFailure
     when malformed."""
+    raw = _read(root)
+    return None if raw is None else _parse(raw)
+
+
+def load_kernel_part(root: Path) -> KernelPart | None:
+    """The constitution part of the file the declared identity names — `root_policy`, `territory_dialect`,
+    `module_prefix` held to its form alone and the policy namespaces — for a gate whose own namespace sits in
+    another layer's file: it reads no namespace of its own here, so the file's prefix is not held to start it.
+    The caller opens a scope of `identity.reading` with this file and `KERNEL_KEYS` around the call, so that
+    every failure names this file. None when the file is absent; ConfigurationFailure when malformed."""
+    raw = _read(root)
+    if raw is None:
+        return None
+    value = raw.get(PREFIX_KEY)
+    if not isinstance(value, str) or not _PREFIX_SHAPE.fullmatch(value):
+        raise ConfigurationFailure(messages.c5_prefix_invalid_kernel_part())
+    _check_dialect(raw.get(DIALECT_KEY, DIALECT))
+    return KernelPart(
+        root_policy=_root_policy(raw.get(ROOT_POLICY_KEY)),
+        module_prefix=value,
+        namespaces=_namespaces(raw, value, KERNEL_KEYS),
+    )
+
+
+def _read(root: Path) -> dict[object, object] | None:
+    """The file the declared identity names, parsed: None when absent, else a mapping or a
+    ConfigurationFailure."""
     path = root / identity.dials_file()
     if not path.is_file():
         return None
@@ -63,17 +97,42 @@ def load_dials(root: Path) -> Dials | None:
         loaded = {}
     if not isinstance(loaded, dict):
         raise ConfigurationFailure(messages.c4b_dials_not_mapping())
-    return _parse(loaded)
+    return loaded
 
 
 def _parse(raw: dict[object, object]) -> Dials:
+    keys = identity.current().kernel_keys
     prefix = _module_prefix(raw.get(PREFIX_KEY))
-    _check_dialect(raw.get(DIALECT_KEY, DIALECT))
+    if DIALECT_KEY in keys:
+        _check_dialect(raw.get(DIALECT_KEY, DIALECT))
+    namespaces = _namespaces(raw, prefix, keys)
+    own = raw.get(
+        identity.current().namespace, {}
+    )  # absent: defaults; present: a mapping, as the schema says
+    if not isinstance(own, dict):
+        raise ConfigurationFailure(messages.c5_own_namespace_not_mapping())
+    return Dials(
+        root_policy=_root_policy(raw.get(ROOT_POLICY_KEY)) if ROOT_POLICY_KEY in keys else None,
+        module_prefix=prefix,
+        severity=_severity(own.get(SEVERITY_KEY)),
+        log_dir=_relative_dir(own.get(LOG_DIR_KEY)),
+        own={str(key): value for key, value in own.items()},
+        namespaces=namespaces,
+        layer={key: raw[key] for key in keys if key not in KERNEL_KEYS and key in raw},
+    )
+
+
+def _namespaces(raw: dict[object, object], prefix: str, keys: Sequence[str]) -> dict[str, Namespace]:
+    """Every top-level key but the file's kernel keys, in the file's order: a prefixed one that holds a
+    mapping read leniently, one that holds none passed over; a constitution kernel key the file's list
+    leaves out, `C5.13`; any other a mapping, its territory read strictly."""
     namespaces: dict[str, Namespace] = {}
     for key, value in raw.items():
         name = str(key)
-        if name in KERNEL_KEYS:
+        if name in keys:
             continue
+        if name in KERNEL_KEYS:
+            raise ConfigurationFailure(messages.c5_kernel_key_elsewhere(name))
         if name.startswith(prefix):
             if isinstance(value, dict):
                 namespaces[name] = Namespace(name, _territory(name, value.get("territory"), lenient=True))
@@ -81,19 +140,7 @@ def _parse(raw: dict[object, object]) -> Dials:
         if not isinstance(value, dict):
             raise ConfigurationFailure(messages.c5_namespace_not_mapping(name))
         namespaces[name] = Namespace(name, _territory(name, value.get("territory"), lenient=False))
-    own = raw.get(
-        identity.current().namespace, {}
-    )  # absent: defaults; present: a mapping, as the schema says
-    if not isinstance(own, dict):
-        raise ConfigurationFailure(messages.c5_own_namespace_not_mapping())
-    return Dials(
-        root_policy=_root_policy(raw.get(ROOT_POLICY_KEY)),
-        module_prefix=prefix,
-        severity=_severity(own.get(SEVERITY_KEY)),
-        log_dir=_relative_dir(own.get(LOG_DIR_KEY)),
-        own={str(key): value for key, value in own.items()},
-        namespaces=namespaces,
-    )
+    return namespaces
 
 
 def _module_prefix(value: object) -> str:

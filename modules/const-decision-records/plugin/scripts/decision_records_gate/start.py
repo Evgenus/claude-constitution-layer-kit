@@ -9,7 +9,7 @@ from pathlib import Path
 
 from constitution_layer_kit import cli
 from constitution_layer_kit.identity import HOOK_SECONDS, Identity
-from constitution_layer_kit.model import Mode
+from constitution_layer_kit.model import KERNEL_KEYS, Mode
 
 from . import session
 
@@ -21,6 +21,7 @@ GATE = Identity(
     gate="check-decision-record",
     plugin_root=PLUGIN_ROOT,
     dials_file="constitution.yaml",
+    kernel_keys=KERNEL_KEYS,
     hook_seconds=HOOK_SECONDS,
     skills={Mode.HOOK: "record-decision", Mode.SCAN: "record-decision"},  # the skill a red names (F10)
 )
@@ -29,6 +30,7 @@ SESSION = Identity(
     gate="session-start",
     plugin_root=PLUGIN_ROOT,
     dials_file="constitution.yaml",
+    kernel_keys=KERNEL_KEYS,
     hook_seconds=HOOK_SECONDS,
     until_installed="until then the gate's state is not said at session start",
 )

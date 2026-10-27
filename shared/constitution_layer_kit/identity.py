@@ -16,7 +16,9 @@ whitespace, names no file: opening a scope with it is the same defect, and the n
 written. A scope
 opened inside another shadows the outer declaration until it closes, and the outer one holds again after it:
 a second declaration is no defect, whether it differs or not. A gate of another kit names its own dials
-file in its identity, and the package reads nothing else.
+file in its identity, and the kernel-owned keys of that file in `kernel_keys`; the package reads nothing
+else, save where the gate opens a scope of `reading` for a second file, which shadows the file's name and
+its kernel keys alone and keeps the run's mode and its deadline.
 
 A hook run has one deadline, `hook_seconds` of the identity from the moment its scope opens, and every wait
 of the run takes the smaller of its own cap and what is left of it (`remaining`, and `left_of` for a wait no
@@ -34,12 +36,12 @@ import contextvars
 import time
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from . import messages
 from .errors import ConfigurationFailure
-from .model import Broken, Mode
+from .model import PREFIX_KEY, Broken, Mode
 
 # The seconds one hook run may take in all, from the opening of its scope: the default of
 # `Identity.hook_seconds`, and the handlers' 30 s less `LEFT_FOR_THE_REST`.
@@ -57,6 +59,10 @@ class Identity:
     # The name of the dials file the gate reads, relative to the repository's top. No default: a gate that
     # names no file reads none, never some file that a kit happened to name first.
     dials_file: str
+    # The top-level keys of that file that are no namespace, the layer's kernel-owned keys: `KERNEL_KEYS` for
+    # a gate of this kit; a gate of another layer lists its own, `module_prefix` always among them. No
+    # default: a gate that names no list reads no file as some layer's that it is not.
+    kernel_keys: tuple[str, ...]
     libraries: Mapping[str, str] = field(
         default_factory=dict
     )  # distribution -> module, beyond the shared ones
@@ -98,8 +104,39 @@ def declared(identity: Identity, mode: Mode | None = None) -> Iterator[None]:
         raise RuntimeError(
             "a process reads one dials file: an empty name is no file, a defect of the entry point"
         )
+    if PREFIX_KEY not in identity.kernel_keys:
+        raise RuntimeError(
+            f"every dials file names {PREFIX_KEY}: a list of kernel keys without it is a defect of the"
+            " entry point"
+        )
     deadline = time.monotonic() + identity.hook_seconds if mode is Mode.HOOK else None
     token = _declaration.set(_Declaration(identity, mode, deadline))
+    try:
+        yield
+    finally:
+        _declaration.reset(token)
+
+
+@contextmanager
+def reading(dials_file: str, kernel_keys: tuple[str, ...]) -> Iterator[None]:
+    """Shadows the name of the dials file and its kernel keys, and nothing else, for the length of the scope:
+    the identity's other fields, the mode and the hook's deadline stay those of the declaration in progress.
+    For a gate that reads a part of a second file — the constitution part of the file of the policies, through
+    `dials.load_kernel_part`, with `KERNEL_KEYS`, beside its own layer's file — so that every message names
+    the file being read and its keys, and the run keeps its one deadline. Outside every scope, with an empty
+    name or with a list that lacks `module_prefix`, a defect of the caller, raised as the scope opens."""
+    try:
+        outer = _declaration.get()
+    except LookupError:
+        raise RuntimeError("the entry point did not declare which gate it is") from None
+    if not dials_file.strip():
+        raise RuntimeError("an empty name is no dials file, a defect of the caller")
+    if PREFIX_KEY not in kernel_keys:
+        raise RuntimeError(
+            f"every dials file names {PREFIX_KEY}: a list of kernel keys without it is a defect"
+        )
+    shadow = replace(outer.identity, dials_file=dials_file, kernel_keys=kernel_keys)
+    token = _declaration.set(_Declaration(shadow, outer.mode, outer.deadline))
     try:
         yield
     finally:

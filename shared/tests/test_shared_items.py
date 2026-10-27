@@ -34,10 +34,19 @@ from acceptance import broken_first_line, expect, item
 from constitution_layer_kit import __version__ as package_version
 from constitution_layer_kit import cli, identity, messages, pipeline, preflight, repository
 from constitution_layer_kit import envelope as envelope_reader
-from constitution_layer_kit.dials import load_dials
+from constitution_layer_kit.dials import load_dials, load_kernel_part
 from constitution_layer_kit.envelope import ID_RE, declared_policy, document_id, parse_envelope
 from constitution_layer_kit.errors import ConfigurationFailure
-from constitution_layer_kit.model import DECLARATION, DIALECT, Broken, EnvelopeState, Finding, Mode, SharedKey
+from constitution_layer_kit.model import (
+    DECLARATION,
+    DIALECT,
+    KERNEL_KEYS,
+    Broken,
+    EnvelopeState,
+    Finding,
+    Mode,
+    SharedKey,
+)
 from constitution_layer_kit.output import ROTATE_AT, log_name
 from constitution_layer_kit.repository import list_markdown
 from consumer import ROOT_POLICY
@@ -645,7 +654,8 @@ class SharedItems:
             "from constitution_layer_kit import identity, repository\n"
             "from constitution_layer_kit.model import Mode\n"
             "mode = {'hook': Mode.HOOK, 'scan': Mode.SCAN, 'act': Mode.ACT, 'none': None}[sys.argv[2]]\n"
-            "with identity.declared(identity.Identity('x', 'y', Path('.'), 'x.yaml'), mode):\n"
+            "who = identity.Identity('x', 'y', Path('.'), 'x.yaml', ('module_prefix',))\n"
+            "with identity.declared(who, mode):\n"
             "    print(json.dumps(repository.budget()))\n"
         )
         seen: dict[str, object] = {}
@@ -692,8 +702,8 @@ class SharedItems:
             "sys.path.insert(0, sys.argv[1])\n"
             "from constitution_layer_kit import identity, repository\n"
             "from constitution_layer_kit.model import Mode\n"
-            "who = identity.Identity('x', 'y', Path('.'), 'x.yaml')\n"
-            "other = identity.Identity('x', 'z', Path('.'), 'z.yaml')\n"
+            "who = identity.Identity('x', 'y', Path('.'), 'x.yaml', ('module_prefix',))\n"
+            "other = identity.Identity('x', 'z', Path('.'), 'z.yaml', ('module_prefix',))\n"
             "seen = []\n"
             "def read():\n"
             "    clocked = repository.budget() is not None\n"
@@ -1007,7 +1017,7 @@ class SharedItems:
             "from constitution_layer_kit import identity, repository\n"
             "from constitution_layer_kit.model import Mode\n"
             "mode = {'hook': Mode.HOOK, 'scan': Mode.SCAN, 'act': Mode.ACT, 'none': None}[sys.argv[2]]\n"
-            "who = identity.Identity('x', 'y', Path('.'), 'x.yaml', hook_seconds=2)\n"
+            "who = identity.Identity('x', 'y', Path('.'), 'x.yaml', ('module_prefix',), hook_seconds=2)\n"
             "with identity.declared(who, mode):\n"
             "    asked = [identity.remaining(10, 'x'), identity.remaining(0.5, 'x'), repository.budget()]\n"
             "print(json.dumps(asked))\n"
@@ -1030,10 +1040,10 @@ class SharedItems:
             and 0 < hook[2] <= 2
         )
         without = all(seen[mode] == [10, 0.5, None] for mode in ("scan", "act", "none"))
-        default = identity.Identity("x", "y", Path("."), "x.yaml").hook_seconds == 25
+        default = identity.Identity("x", "y", Path("."), "x.yaml", KERNEL_KEYS).hook_seconds == 25
         assert in_a_hook and without and default, (
             f"a wait of cap 10 s, of cap 0.5 s, and a git call, by mode: {seen}; the default budget"
-            f" {identity.Identity('x', 'y', Path('.'), 'x.yaml').hook_seconds:g} s"
+            f" {identity.Identity('x', 'y', Path('.'), 'x.yaml', ('module_prefix',)).hook_seconds:g} s"
         )
 
     def spent_deadline(self) -> None:
@@ -1047,7 +1057,7 @@ class SharedItems:
             "from constitution_layer_kit import identity, repository\n"
             "from constitution_layer_kit.errors import ConfigurationFailure\n"
             "from constitution_layer_kit.model import Mode\n"
-            "who = identity.Identity('x', 'y', Path('.'), 'x.yaml', hook_seconds=2)\n"
+            "who = identity.Identity('x', 'y', Path('.'), 'x.yaml', ('module_prefix',), hook_seconds=2)\n"
             "real, started = time.monotonic, []\n"
             "asks = [\n"
             "    lambda: identity.remaining(10, 'the prose linter finished'),\n"
@@ -1090,7 +1100,7 @@ class SharedItems:
             "from constitution_layer_kit.model import Mode\n"
             "clock = [1000.0]\n"
             "time.monotonic = lambda: clock[0]\n"
-            "who = identity.Identity('x', 'y', Path('.'), 'x.yaml', hook_seconds=10)\n"
+            "who = identity.Identity('x', 'y', Path('.'), 'x.yaml', ('module_prefix',), hook_seconds=10)\n"
             "asked = []\n"
             "def ask():\n"
             "    asked.append(identity.remaining(100, 'x'))\n"
@@ -2851,7 +2861,7 @@ BLANK_FILES = ("", "   ", " \t\n")  # names of no file: empty, and empty once st
 def named(dials_file: str, gate: str = "y", hook_seconds: float = identity.HOOK_SECONDS) -> identity.Identity:
     """An identity for the items that open a scope of their own: namespace `x`, the gate `gate`, the dials
     file `dials_file`."""
-    return identity.Identity("x", gate, Path("."), dials_file, hook_seconds=hook_seconds)
+    return identity.Identity("x", gate, Path("."), dials_file, KERNEL_KEYS, hook_seconds=hook_seconds)
 
 
 def refused_with(text: str, body: Callable[[], object]) -> str | None:
@@ -3050,7 +3060,7 @@ def test_scopes(subject: Subject) -> None:
 @item(177, "every shared message that names the dials file names the declared one, and the reader opens it")
 def test_dials_file_name_is_the_declared_one(subject: Subject) -> None:
     """With a scope of the module's own identity, its dials file `team.yaml`, open inside the session's,
-    each of the twenty-one shared texts that name the file says `team.yaml` and none says
+    each of the twenty-three shared texts that name the file says `team.yaml` and none says
     `constitution.yaml`, each text typed by hand; `load_dials` opens `team.yaml` and never
     `constitution.yaml`, reads no file where only `constitution.yaml` lies, and its failure on a team.yaml
     that is no YAML names `team.yaml`."""
@@ -3076,6 +3086,8 @@ def test_dials_file_name_is_the_declared_one(subject: Subject) -> None:
             "C5.10": messages.c5_unknown_dial("zz", ["a", "b"]).render(),
             "C5.11": messages.c5_prefix_invalid().render(),
             "C5.12": messages.c5_namespace_outside_prefix("other-").render(),
+            "C5.13": messages.c5_kernel_key_elsewhere("root_policy").render(),
+            "C5.14": messages.c5_prefix_invalid_kernel_part().render(),
             "C6": messages.c6_root_missing("docs/p.md").render(),
             "C8": messages.c8_root_claims_nothing("pol").render(),
             "C12.3": messages.c12_check_ignore("boom").render(),
@@ -3119,6 +3131,13 @@ def test_dials_file_name_is_the_declared_one(subject: Subject) -> None:
         "C5.12": f"BROKEN: team.yaml: module_prefix 'other-' is not the start of this module's namespace"
         f" '{ns}' — fix: a gate reads the file of its own modules only, so set module_prefix: const- if"
         " this file is for this module, or check it with a module whose namespace starts with 'other-'",
+        "C5.13": "BROKEN: team.yaml: root_policy is no key of this file — fix: this module's gates read"
+        " root_policy from the dials file that holds the policies, so a copy here would be ignored or"
+        " contradict it: remove the line, and set root_policy in that file",
+        "C5.14": "BROKEN: team.yaml: module_prefix is missing, or is not a kebab-case word that ends in '-'"
+        " — fix: a gate tells a module's namespace from a policy's by this prefix, so write module_prefix:"
+        " <the prefix of the modules whose dials this file holds> as a top-level key, or correct its value"
+        " to a kebab-case word that ends in '-'",
         "C6": "BROKEN: team.yaml names root_policy 'docs/p.md' but no such file exists — fix: create it, or"
         " point root_policy at the policy for policies",
         "C8": "BROKEN: root policy 'pol' claims no territory in team.yaml — fix: write pol: {territory:"
@@ -3336,8 +3355,9 @@ LAYER_PROGRAM = (
     "from constitution_layer_kit import identity\n"
     "from constitution_layer_kit.dials import load_dials\n"
     "from constitution_layer_kit.errors import ConfigurationFailure\n"
+    "from constitution_layer_kit.model import KERNEL_KEYS\n"
     "namespace, text, folder = sys.argv[2:5]\n"
-    "who = identity.Identity(namespace, 'check', Path('.'), 'layer.yaml')\n"
+    "who = identity.Identity(namespace, 'check', Path('.'), 'layer.yaml', KERNEL_KEYS)\n"
     "Path(folder, 'layer.yaml').write_text(text, encoding='utf-8')\n"
     "with identity.declared(who):\n"
     "    try:\n"
@@ -3549,12 +3569,12 @@ def test_shared_code_too_old(subject: Subject) -> None:
 
 @item(185, "C17: the installed release is of a later major than the one the entry file requires")
 def test_shared_code_new_major(subject: Subject) -> None:
-    """A copy of the shared package whose `__version__` is `2.0.0`, under the module's real entry point:
-    `C17`, typed by hand, naming the version the entry file requires, its major and the major found,
-    exit 1, the closing line after it. The entry file alone in a folder of its own gives the same line
-    with the path of its own note."""
+    """A copy of the shared package whose `__version__` is the next major above the one the entry file
+    requires, `<major + 1>.0.0`, under the module's real entry point: `C17`, typed by hand, naming the
+    version the entry file requires, its major and the major found, exit 1, the closing line after it. The
+    entry file alone in a folder of its own gives the same line with the path of its own note."""
     it = shared(subject, "shared_code_new_major")
-    found = "2.0.0"
+    found = f"{int(entry_requires(it.h.entry).split('.')[0]) + 1}.0.0"
     stdin = it.payload(it.h.fresh_consumer().root, it.s.valid)
     env = it.release_with(found)
     it.broken_as_typed(it.h.run_gate(stdin, env=env), it.module_too_old(found, it.guide()), "in place")
@@ -3567,13 +3587,14 @@ def test_shared_code_new_major(subject: Subject) -> None:
 
 @item(186, "an installed release of a later minor or patch of the same major serves the entry file")
 def test_shared_code_later_release(subject: Subject) -> None:
-    """Copies of the shared package at `1.0.1`, `1.4.0` and `1.10.0`, under the module's real entry point,
-    the last read as a number above `1.4.0`: each run passes what it passes with the release at hand, its
-    green line on stdout and no `BROKEN` line, each run gathered so that one version's red hides no
-    other."""
+    """Copies of the shared package above the release the entry file requires, `M.m.p`, in its major: at
+    `M.m.p+1`, `M.m+4.0` and `M.m+10.0`, under the module's real entry point, the last read as a number
+    above the second: each run passes what it passes with the release at hand, its green line on stdout and
+    no `BROKEN` line, each run gathered so that one version's red hides no other."""
     it = shared(subject, "shared_code_later_release")
     failed: list[str] = []
-    for found in ("1.0.1", "1.4.0", "1.10.0"):
+    major, minor, patch = (int(part) for part in entry_requires(it.h.entry).split("."))
+    for found in (f"{major}.{minor}.{patch + 1}", f"{major}.{minor + 4}.0", f"{major}.{minor + 10}.0"):
         result, green = it.valid_run(env=it.release_with(found))
         if result.code != 0 or green not in result.stdout or "BROKEN" in result.stderr:
             failed.append(
@@ -3611,3 +3632,250 @@ def test_installed_release_behind_the_working_tree(subject: Subject) -> None:
         "the gate imported the release installed in site-packages, not the shared code of the working tree"
         " the harness puts on PYTHONPATH"
     )
+
+
+# A gate of another layer: its identity names its own file, `layer.yaml`, and that file's kernel keys, and it
+# reads the constitution part of `constitution.yaml` in a scope of `identity.reading`. The items below open
+# their scopes inside the session's, as a gate's run would, and type every line by hand.
+LAYER_KEYS = ("module_prefix", "layer_dialect", "layer_owner")
+OTHER_LAYER = identity.Identity("know-check", "check", Path("."), "layer.yaml", LAYER_KEYS)
+
+
+def read_in(folder: Path, name: str, text: str | None, reader: Callable[[Path], object]) -> object:
+    """What `reader` gives for `folder` holding `name` with `text` (absent where None): the value read, or
+    the line of the configuration failure it raised."""
+    if text is not None:
+        (folder / name).write_text(text, encoding="utf-8")
+    try:
+        return reader(folder)
+    except ConfigurationFailure as failure:
+        return failure.broken.render()
+
+
+@item(188, "kernel_keys is required, every list holds module_prefix, and reading opens only inside a scope")
+def test_kernel_keys_required(subject: Subject) -> None:
+    """An identity built without `kernel_keys` is a `TypeError`: no gate reads a file as some layer's it did
+    not name. `declared` and `reading` refuse a list without `module_prefix` as the scope opens, a
+    `RuntimeError` that names the key and declares nothing; `reading` outside every scope is the defect of
+    a caller that declared no gate, and an empty file name is no file."""
+    shared(subject, "kernel_keys_required")
+    problems: list[str] = []
+    try:
+        identity.Identity("know-check", "check", Path("."), "layer.yaml")  # type: ignore[call-arg]
+        problems.append("an identity without kernel_keys was built")
+    except TypeError:
+        pass
+    before = identity.current()
+    no_prefix = replace(OTHER_LAYER, kernel_keys=("layer_dialect",))
+    openers: dict[str, Callable[[], object]] = {
+        "declared": lambda: identity.declared(no_prefix),
+        "reading": lambda: identity.reading("constitution.yaml", ("root_policy",)),
+        "reading an empty name": lambda: identity.reading(" ", KERNEL_KEYS),
+    }
+    for what, opener in openers.items():
+        try:
+            with opener():  # type: ignore[attr-defined]
+                problems.append(f"{what}: a scope opened")
+        except RuntimeError as error:
+            wanted = "empty name" if "empty" in what else "module_prefix"
+            if wanted not in str(error):
+                problems.append(f"{what}: the defect does not say '{wanted}': {error}")
+        if identity.current() != before:
+            problems.append(f"{what}: a refused scope declared something")
+
+    def outside() -> str:
+        try:
+            with identity.reading("constitution.yaml", KERNEL_KEYS):
+                return "a scope opened"
+        except RuntimeError as error:
+            return str(error)
+
+    got = contextvars.Context().run(outside)
+    if got != "the entry point did not declare which gate it is":
+        problems.append(f"reading outside every scope: {got}")
+    assert not problems, "; ".join(problems)
+
+
+@item(
+    189, "a file of another layer: its listed keys are handed on as read, the constitution's refused, C5.13"
+)
+def test_layer_file_kernel_keys(subject: Subject) -> None:
+    """A gate named `know-check` reads `layer.yaml` with the kernel keys `module_prefix`, `layer_dialect`
+    and `layer_owner`: the two layer keys reach `Dials.layer` as YAML read them, whatever their shape, an
+    absent one left out; `root_policy` is not read; its own namespace and the prefixed and policy-shaped
+    keys are read as in any file. `root_policy` or `territory_dialect` written in that file is `C5.13`, an
+    unlisted plain value `C5.4`, and a file that is no mapping `C4b` naming the identity's own keys, each
+    line typed by hand."""
+    shared(subject, "layer_file_kernel_keys")
+    base = (
+        "module_prefix: know-\nlayer_dialect: plain\nlayer_owner: [a, b]\n"
+        "know-check:\n  severity: warn\nnotes-policy:\n  territory: ['docs/**']\n"
+    )
+
+    def dials_of(folder: Path) -> object:
+        dials = load_dials(folder)
+        assert dials is not None
+        territories = {k: list(v.territory) for k, v in dials.namespaces.items()}
+        return (dials.root_policy, dict(dials.layer), dict(dials.own), territories)
+
+    def elsewhere(key: str) -> str:
+        return (
+            f"BROKEN: layer.yaml: {key} is no key of this file — fix: this module's gates read {key} from the"
+            " dials file that holds the policies, so a copy here would be ignored or contradict it: remove"
+            f" the line, and set {key} in that file"
+        )
+
+    read_all = (None, {"layer_dialect": "plain", "layer_owner": ["a", "b"]}, {"severity": "warn"})
+    cases: dict[str, tuple[str, object]] = {
+        "the layer's keys handed on": (
+            base,
+            (*read_all, {"know-check": [], "notes-policy": ["docs/**"]}),
+        ),
+        "an absent layer key is left out": (
+            "module_prefix: know-\nknow-check:\n  severity: warn\n",
+            (None, {}, {"severity": "warn"}, {"know-check": []}),
+        ),
+        "root_policy in the layer's file": (base + "root_policy: docs/p.md\n", elsewhere("root_policy")),
+        "territory_dialect in the layer's file": (
+            base + "territory_dialect: gitignore\n",
+            elsewhere("territory_dialect"),
+        ),
+        "an unlisted plain value": (
+            base + "layer_other: 1\n",
+            "BROKEN: layer.yaml: namespace 'layer_other' must be a mapping — fix: write it as layer_other:"
+            " {territory: [...]}",
+        ),
+        "a file that is no mapping": (
+            "- module_prefix\n",
+            "BROKEN: layer.yaml is not a mapping — fix: the file holds top-level keys: module_prefix,"
+            " layer_dialect, layer_owner, then one namespace per module",
+        ),
+    }
+    problems: list[str] = []
+    with identity.declared(OTHER_LAYER):
+        for what, (text, wanted) in cases.items():
+            got = read_in(it_folder(subject), "layer.yaml", text, dials_of)
+            if got != wanted:
+                problems.append(f"{what}: wanted {wanted!r}, got {got!r}")
+    assert not problems, "; ".join(problems)
+
+
+def it_folder(subject: Subject) -> Path:
+    """A fresh scratch folder of the subject's harness."""
+    return subject.harness.scratch_dir()
+
+
+@item(
+    190, "the constitution part of a file read beside the module's own: no C5.12, every line names that file"
+)
+def test_kernel_part(subject: Subject) -> None:
+    """Inside a `know-check` scope that names `layer.yaml`, a scope of `identity.reading` names
+    `constitution.yaml` and the constitution's three kernel keys, and `load_kernel_part` reads that file:
+    `root_policy`, the file's own `module_prefix`, `const-`, which is no start of `know-check` and is not
+    held to be, and the policy namespaces, a prefixed key that holds a mapping kept as a candidate and one
+    that holds none passed over, as in any read; no namespace of `know-check` is read. An absent file is
+    None. A missing prefix is `C5.14`, whose fix names no prefix of the reader's; a bad `root_policy`, an
+    unsupported dialect, a policy key that holds no mapping and a file that is no mapping are `C5.1`,
+    `C5.3`, `C5.4` and `C4b` naming `constitution.yaml`, each line typed by hand. When the scope closes the
+    gate's own file holds again."""
+    shared(subject, "kernel_part")
+    base = (
+        "module_prefix: const-\nroot_policy: docs/policies/root.md\n"
+        "root-policy:\n  territory: ['docs/policies/**']\n"
+        "plc-0012-intent:\n  territory: ['docs/product/**']\n"
+        "const-questions:\n  severity: block\nconst-odd: 5\n"
+    )
+
+    def part_of(folder: Path) -> object:
+        part = load_kernel_part(folder)
+        if part is None:
+            return None
+        return (
+            part.root_policy,
+            part.module_prefix,
+            {k: list(v.territory) for k, v in part.namespaces.items()},
+        )
+
+    cases: dict[str, tuple[str | None, object]] = {
+        "the constitution part": (
+            base,
+            (
+                "docs/policies/root.md",
+                "const-",
+                {
+                    "root-policy": ["docs/policies/**"],
+                    "plc-0012-intent": ["docs/product/**"],
+                    "const-questions": [],
+                },
+            ),
+        ),
+        "an absent file": (None, None),
+        "C5.14": (
+            "root_policy: docs/policies/root.md\n",
+            "BROKEN: constitution.yaml: module_prefix is missing, or is not a kebab-case word that ends in"
+            " '-' — fix: a gate tells a module's namespace from a policy's by this prefix, so write"
+            " module_prefix: <the prefix of the modules whose dials this file holds> as a top-level key, or"
+            " correct its value to a kebab-case word that ends in '-'",
+        ),
+        "C5.1": (
+            "module_prefix: const-\nroot_policy: /etc/root.md\n",
+            "BROKEN: constitution.yaml: root_policy must be a repository-relative path — fix: root_policy:"
+            " <path of the root policy, relative to the repository root>",
+        ),
+        "C5.3": (
+            "module_prefix: const-\nterritory_dialect: glob\n",
+            "BROKEN: constitution.yaml: territory_dialect 'glob' is not supported by know-check (supports:"
+            " gitignore) — fix: set territory_dialect: gitignore, or remove the key",
+        ),
+        "C5.4": (
+            "module_prefix: const-\nknow-check: 5\n",
+            "BROKEN: constitution.yaml: namespace 'know-check' must be a mapping — fix: write it as"
+            " know-check: {territory: [...]}",
+        ),
+        "C4b": (
+            "- module_prefix\n",
+            "BROKEN: constitution.yaml is not a mapping — fix: the file holds top-level keys: module_prefix,"
+            " root_policy, and territory_dialect when the dialect is not gitignore, then one namespace per"
+            " policy or module",
+        ),
+    }
+    problems: list[str] = []
+    with identity.declared(OTHER_LAYER):
+        for what, (text, wanted) in cases.items():
+            with identity.reading("constitution.yaml", KERNEL_KEYS):
+                got = read_in(it_folder(subject), "constitution.yaml", text, part_of)
+            if got != wanted:
+                problems.append(f"{what}: wanted {wanted!r}, got {got!r}")
+        if identity.dials_file() != "layer.yaml" or identity.current().kernel_keys != LAYER_KEYS:
+            problems.append(f"after the scope: {identity.dials_file()}, {identity.current().kernel_keys}")
+    assert not problems, "; ".join(problems)
+
+
+@item(191, "a scope of reading keeps the run's mode and its one deadline")
+def test_reading_keeps_the_deadline(subject: Subject, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A hook run of 10 s opened at the monotonic second 1000, read at 1004: 6 s are left outside and the
+    same 6 s inside a scope of `reading`, where the mode is still hook; a scope that started a deadline of
+    its own would leave 10. At 1011 the budget is spent inside the scope as outside, `C12.14` naming the
+    wait. The clock is the test's, so no wait is timed."""
+    shared(subject, "reading_keeps_the_deadline")
+    now = [1000.0]
+    monkeypatch.setattr(identity.time, "monotonic", lambda: now[0])
+    problems: list[str] = []
+    with identity.declared(replace(OTHER_LAYER, hook_seconds=10), Mode.HOOK):
+        now[0] = 1004.0
+        outside = identity.remaining(100, "x")
+        with identity.reading("constitution.yaml", KERNEL_KEYS):
+            inside, mode = identity.remaining(100, "x"), identity.declared_mode()
+            now[0] = 1011.0
+            try:
+                identity.remaining(100, "git ls-files answered")
+                problems.append("a spent budget left time inside the scope")
+            except ConfigurationFailure as failure:
+                line = failure.broken.render()
+                if not line.startswith(
+                    "BROKEN: the hook's budget of 10 s is spent before git ls-files answered"
+                ):
+                    problems.append(f"the spent budget inside the scope: {line}")
+    if (outside, inside, mode) != (6.0, 6.0, Mode.HOOK):
+        problems.append(f"outside {outside} s, inside {inside} s, mode inside {mode}")
+    assert not problems, "; ".join(problems)

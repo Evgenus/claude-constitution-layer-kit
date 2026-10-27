@@ -2144,7 +2144,7 @@ def test_t42() -> None:
                 command=[sys.executable, "-S", str(harness.entry)],
                 shared=False,
             ),
-            "BROKEN: const-interaction needs the Python package constitution-layer-kit 1.0.0 or a later 1.x"
+            "BROKEN: const-interaction needs the Python package constitution-layer-kit 2.0.0 or a later 2.x"
             " release, and python3 cannot import it — fix: install it for python3 as"
             f" {PLUGIN_ROOT / 'INSTALL.md'} says — {clause}",
         )

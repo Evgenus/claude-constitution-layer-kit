@@ -176,16 +176,30 @@ class Dials:
     own edge, once, into its own dataclass. `module_prefix` is the file's key of that name, as
     read: every module's namespace in the file starts with it."""
 
-    root_policy: str | None
+    root_policy: str | None  # None also where the identity lists no root_policy among its file's kernel keys
     module_prefix: str
     severity: Severity
     log_dir: str | None
     namespaces: dict[str, Namespace]
     own: Mapping[str, object]
+    # The values of the kernel keys the identity lists beyond the constitution's three, as YAML read them, for
+    # the layer that owns them to validate; empty for a gate of this kit.
+    layer: Mapping[str, object] = field(default_factory=dict)
 
     def territory_of(self, name: str) -> tuple[str, ...]:
         namespace = self.namespaces.get(name)
         return namespace.territory if namespace is not None else ()
+
+
+@dataclass(frozen=True, slots=True)
+class KernelPart:
+    """The constitution part of a dials file, read by a gate that reads its own namespace from another layer's
+    file: the root policy, the file's own `module_prefix`, held to its form and never to the reading module's
+    namespace, and the policy namespaces, each with its territory."""
+
+    root_policy: str | None
+    module_prefix: str
+    namespaces: dict[str, Namespace]
 
 
 @dataclass(frozen=True, slots=True)

@@ -8,13 +8,14 @@ from pathlib import Path
 
 from constitution_layer_kit import cli
 from constitution_layer_kit.identity import HOOK_SECONDS, Identity
-from constitution_layer_kit.model import Mode
+from constitution_layer_kit.model import KERNEL_KEYS, Mode
 
 GATE = Identity(
     namespace="const-referencing",
     gate="check-references",
     plugin_root=Path(__file__).resolve().parents[2],
     dials_file="constitution.yaml",
+    kernel_keys=KERNEL_KEYS,
     hook_seconds=HOOK_SECONDS,
     skills={Mode.HOOK: "referencing", Mode.SCAN: "referencing"},  # the skill a red names (F10)
 )

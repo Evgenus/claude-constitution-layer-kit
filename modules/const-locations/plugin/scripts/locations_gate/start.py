@@ -11,7 +11,7 @@ from typing import NoReturn
 from constitution_layer_kit import cli, preflight
 from constitution_layer_kit.errors import ConfigurationFailure
 from constitution_layer_kit.identity import HOOK_SECONDS, Identity
-from constitution_layer_kit.model import MetaType, Mode
+from constitution_layer_kit.model import KERNEL_KEYS, MetaType, Mode
 from constitution_layer_kit.output import Output
 
 from . import messages
@@ -22,6 +22,7 @@ GENERATOR = Identity(
     gate="new-document",
     plugin_root=Path(__file__).resolve().parents[2],
     dials_file="constitution.yaml",
+    kernel_keys=KERNEL_KEYS,
     hook_seconds=HOOK_SECONDS,
     until_installed="until then nothing is created",  # a generator: no write passes, none is made
     until_fixed="until it is fixed nothing is created",

@@ -44,7 +44,7 @@ import os
 import sys
 
 FLOOR = (3, 12)
-REQUIRES = "1.0.0"  # the release of the Python package constitution-layer-kit this file needs
+REQUIRES = "2.0.0"  # the release of the Python package constitution-layer-kit this file needs
 
 # Percent formatting on purpose: this file must parse on any Python 3, and f-strings do not.
 TOO_OLD = (

@@ -1919,7 +1919,7 @@ def test_closing_is_the_gates_own() -> None:
             command=[sys.executable, "-S", str(entry)],
             shared=False,
         ),
-        "BROKEN: const-task-close needs the Python package constitution-layer-kit 1.0.0 or a later 1.x"
+        "BROKEN: const-task-close needs the Python package constitution-layer-kit 2.0.0 or a later 2.x"
         " release, and python3 cannot import it — fix: install it for python3 as"
         f" {SCRIPTS.parent / 'INSTALL.md'} says — {CLOSING}",
     )
