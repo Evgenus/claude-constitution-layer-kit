@@ -26,12 +26,12 @@ from pathlib import Path
 
 import pytest
 import yaml
-from acceptance import broken_first_line, check_case, expect, failure_of, item
-from consumer import BASE_MARKDOWN, Consumer
-from harness import Case, Harness, Result, Write, bash_json, red_lines
+from constitution_layer_kit.testing.acceptance import broken_first_line, check_case, expect, failure_of, item
+from constitution_layer_kit.testing.consumer import BASE_MARKDOWN, Consumer
+from constitution_layer_kit.testing.harness import Case, Harness, Result, Write, bash_json, red_lines
+from constitution_layer_kit.testing.items import PatternDial, Subject
 from styling_gate import messages, start
 from styling_gate.model import Hit, Signature
-from test_shared_items import PatternDial, Subject
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 PLUGIN_ROOT = SCRIPTS.parent
@@ -948,7 +948,7 @@ def test_t20() -> None:
         H.run_gate(  # the harness's shared folder left out, and no site-packages
             "", args, env={"PYTHONPATH": ""}, command=[sys.executable, "-S", str(H.entry)], shared=False
         ),
-        "BROKEN: const-styling needs the Python package constitution-layer-kit 1.0.0 or a later 1.x release,"
+        "BROKEN: const-styling needs the Python package constitution-layer-kit 2.0.0 or a later 2.x release,"
         " and python3 cannot import it — fix: install it for python3 as"
         f" {PLUGIN_ROOT / 'INSTALL.md'} says — {CLOSING}",
     )

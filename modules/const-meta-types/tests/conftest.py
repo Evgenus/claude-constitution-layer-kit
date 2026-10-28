@@ -3,11 +3,11 @@ and the scope every test runs in."""
 
 from collections.abc import Iterator
 
-import acceptance
 import pytest
 from constitution_layer_kit import identity
+from constitution_layer_kit.testing import acceptance
+from constitution_layer_kit.testing.items import Subject
 from meta_types_gate import start
-from test_shared_items import Subject
 
 # The test file builds its expected messages as it is imported, by the functions the gate uses, so it is
 # imported inside a scope of the gate's identity. The fixture below opens the scope that the tests run in.

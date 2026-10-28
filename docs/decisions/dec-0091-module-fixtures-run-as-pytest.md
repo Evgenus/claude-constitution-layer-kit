@@ -87,13 +87,13 @@ Applied on the branch `work/pytest-fixtures`, the eleven modules one commit each
 ## Carry list
 
 1. R1 — item 8 of [kit-shared-gate-code §2](../../shared/GATE.md#g2), and [its §5](../../shared/GATE.md#g5); rule 14 of [template §6](../../module-template/MODULE.md#t6). That the numbers and titles are those the items held before is history.
-2. R2 — item 8 of [kit-shared-gate-code §2](../../shared/GATE.md#g2); [the shared wiring](../../shared/tests/acceptance.py), its docstring.
-3. R3 — [the shared wiring](../../shared/tests/acceptance.py), `collected`; rows H5 and H6 of [kit-shared-gate-code §3](../../shared/GATE.md#g3). The replacement of R2 of dec-0078's closing line and exit 1 is history.
+2. R2 — item 8 of [kit-shared-gate-code §2](../../shared/GATE.md#g2); [the shared wiring](../../shared/constitution_layer_kit/testing/acceptance.py), its docstring.
+3. R3 — [the shared wiring](../../shared/constitution_layer_kit/testing/acceptance.py), `collected`; rows H5 and H6 of [kit-shared-gate-code §3](../../shared/GATE.md#g3). The replacement of R2 of dec-0078's closing line and exit 1 is history.
 4. R4 — [`scripts/check-aspects.py`](../../scripts/check-aspects.py), its docstring and `run_runner`; [CLAUDE.md](../../CLAUDE.md), "The gate list and CI". That R1 and R2 of dec-0080 stand, and the replacement of parts of R6 of dec-0054, are history; the handles of an item that R6 keeps stand in that docstring.
-5. R5 — [the shared items](../../shared/tests/test_shared_items.py), their docstring.
-6. R6 — [`scripts/check-aspects.py`](../../scripts/check-aspects.py), `shared_numbers` and its docstring; [the shared wiring](../../shared/tests/acceptance.py), `collected`. The replacement of the file and the check R7 of dec-0069 names is history.
+5. R5 — [the shared items](../../shared/constitution_layer_kit/testing/items.py), their docstring.
+6. R6 — [`scripts/check-aspects.py`](../../scripts/check-aspects.py), `shared_numbers` and its docstring; [the shared wiring](../../shared/constitution_layer_kit/testing/acceptance.py), `collected`. The replacement of the file and the check R7 of dec-0069 names is history.
 7. R7 — item 7 of [kit-shared-gate-code §2](../../shared/GATE.md#g2); [`scripts/check-shared-links.py`](../../scripts/check-shared-links.py), `FLOOR`. The replacement of the list of item 2 of dec-0025 is history.
-8. R8 — rule 14 of [template §6](../../module-template/MODULE.md#t6); [the shared wiring](../../shared/tests/acceptance.py), its docstring.
+8. R8 — rule 14 of [template §6](../../module-template/MODULE.md#t6); [the shared wiring](../../shared/constitution_layer_kit/testing/acceptance.py), its docstring.
 9. R9 — [`scripts/check-gate-lists.py`](../../scripts/check-gate-lists.py), its docstring.
 10. R10 — [`scripts/kit_coverage.py`](../../scripts/kit_coverage.py), its docstring; [`scripts/check-aspects.py`](../../scripts/check-aspects.py), its docstring; [the workflow](../../.github/workflows/gates.yml), the module jobs' environment.
 11. R11 — [the workflow](../../.github/workflows/gates.yml), the tools line; [the install guide](../../INSTALL.md), the prerequisites, step 4 of [its §3](../../INSTALL.md#s3) and step 8 of [its §2](../../INSTALL.md#s2); each module's `INSTALL.md`, the verify step.

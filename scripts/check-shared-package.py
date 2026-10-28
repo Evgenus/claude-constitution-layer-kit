@@ -6,8 +6,9 @@ The distribution is described by `shared/pyproject.toml`. The check copies `shar
 folder, so that the build leaves nothing in the tree, and builds a wheel from the copy. The build tool is
 the one `[build-system] requires` names, installed once into a throwaway virtual environment, and the wheel
 is built there with pip's build isolation off: a failure to fetch the build tool is told apart from a
-failure of the build. The wheel is then installed into a second, fresh virtual environment, one with no
-system packages, and the environment's own Python, in isolated mode and from a folder that holds nothing,
+failure of the build. The wheel is then installed, with its extra `testing`, the pytest the shared test
+files of the subpackage `testing` need, into a second, fresh virtual environment, one with no system
+packages, and the environment's own Python, in isolated mode and from a folder that holds nothing,
 imports `constitution_layer_kit` and walks it with `pkgutil`. Each of these is a RED finding, with what
 failed, why and the exact fix, when it fails:
   - the version the installed distribution reports, `importlib.metadata`'s, equals `__version__` of the
@@ -24,7 +25,7 @@ failed, why and the exact fix, when it fails:
     distribution of another name, each with its own text.
 A `shared/pyproject.toml` that is no TOML or names no build requirements, and a build that fails, are RED
 too, each with its own text. This is the one check of the kit that needs the package index: pip fetches
-the build tool and the dependency from it. A Python without `venv` or `ensurepip`, a build tool or a
+the build tool and the dependencies from it. A Python without `venv` or `ensurepip`, a build tool or a
 dependency that pip cannot fetch, a child process that cannot start or runs longer than five minutes, and
 a missing `shared/pyproject.toml` are BROKEN with the fix, never a pass. Every folder the check makes is
 removed when it ends.
@@ -90,6 +91,8 @@ WHY_BUILD = (
     " code only from a distribution it describes"
 )
 CLOSING = "BROKEN: the check could not run — no distribution was examined"
+
+EXTRA = "testing"  # the extra of the distribution that the shared test files of `testing` need: pytest
 
 # Run by the environment's own Python, isolated, from a folder that holds nothing: what the installed
 # package and its metadata say, as one JSON object.
@@ -306,7 +309,9 @@ def build_wheel(python: Path, src: Path, dist: Path) -> Path:
 
 
 def install(python: Path, wheel: Path, install_args: Sequence[str]) -> None:
-    done = run([python, "-m", "pip", "install", *PIP_FLAGS, "--quiet", *install_args, wheel])
+    """The wheel with its extra `EXTRA`, so that a submodule that needs only what the extra declares imports;
+    pip installs a wheel without that extra as it is."""
+    done = run([python, "-m", "pip", "install", *PIP_FLAGS, "--quiet", *install_args, f"{wheel}[{EXTRA}]"])
     if done.returncode != 0:
         raise Broken(
             f"pip could not install the built wheel ({tail(done)}) — fix: check that the package index is"

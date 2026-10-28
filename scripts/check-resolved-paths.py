@@ -3,16 +3,16 @@
 reads `__file__` only through `Path(__file__).resolve()` (template §6, rule 1; decision
 dec-0073-packages-resolve-their-own-file).
 
-A module's runner imports the shared package, the shared test files and the module's own packages
-through relative links in its `tests/` (item 7 of kit-shared-gate-code §2). Python sets `__file__`
-of a module imported so to the path through the link, never to the file's own place, so a package
-that derives a path from `__file__` without resolving it finds one thing under its fixtures and
-another in a hook run. Resolving it first gives the file's own place in both.
+A module's runner imports the shared package, whose subpackage `testing` holds the shared test files,
+and the module's own packages through relative links in its `tests/` (item 7 of kit-shared-gate-code
+§2). Python sets `__file__` of a module imported so to the path through the link, never to the file's own
+place, so a package that derives a path from `__file__` without resolving it finds one thing under its
+fixtures and another in a hook run. Resolving it first gives the file's own place in both.
 
 The files read: every `.py` file, at any depth, of each module's own packages, in the module's
-`plugin/scripts/`, as `own_packages` of `kit_module_doc` derives them, of `shared/constitution_layer_kit/`,
-and at the top of `shared/tests/` whose name starts with neither `.` nor `_`, as for the links of item 7 of
-kit-shared-gate-code §2; a `__pycache__` is never read, nor a folder that is a link. Each use of the name
+`plugin/scripts/`, as `own_packages` of `kit_module_doc` derives them, and of
+`shared/constitution_layer_kit/`, its subpackage `testing` included; a `__pycache__` is never read, nor a
+folder that is a link. Each use of the name
 `__file__` must stand as the one argument of a call of `Path` — the name, or `pathlib.Path` — whose result
 is at once resolved, `.resolve()`; any other use is a finding: `Path(__file__).parent`,
 `os.path.dirname(__file__)`, `Path(__file__).absolute()`, the name passed on or bound to another name. The
@@ -22,11 +22,11 @@ entry files at the top of a module's `plugin/scripts/`, run by path, and the mod
 Modes:  no arguments   check the kit;
         --self-test    prove the check on throwaway kits: a resolved read green in a module's package,
                        in the shared package and through `pathlib.Path`; `.parent`, `os.path`,
-                       `.absolute()`, an unresolved `Path` and the bare name each a finding; a folder
-                       with no `__init__.py`, a `_` folder, a `_` shared test file, an entry file
-                       and three links to an outside package not read; the report of one finding
-                       as literal lines with exit 2; a file that does not parse and a module
-                       folder without its document each a BROKEN line.
+                       `.absolute()`, an unresolved `Path` and the bare name each a finding, in the
+                       shared package's subpackage `testing` too; a folder with no `__init__.py`, a
+                       `_` folder, an entry file and two links to an outside package not read; the
+                       report of one finding as literal lines with exit 2; a file that does not parse
+                       and a module folder without its document each a BROKEN line.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -70,7 +70,7 @@ class Finding:
 
 
 def files_of(kit: Path) -> tuple[list[Path], int]:
-    """The .py files the check reads, sorted, and the number of folders read, shared/tests one of them."""
+    """The .py files the check reads, sorted, and the number of folders read: the packages' roots."""
     try:
         modules = module_folders(kit)
     except DocumentError as bad:
@@ -81,19 +81,7 @@ def files_of(kit: Path) -> tuple[list[Path], int]:
     for root in roots:
         if root.is_dir():
             files.extend(walk(root))
-    tests = kit / "shared" / "tests"
-    if tests.is_dir():
-        files.extend(
-            sorted(
-                p
-                for p in tests.iterdir()
-                if p.suffix == ".py"
-                and p.is_file()
-                and not p.is_symlink()
-                and not p.name.startswith((".", "_"))
-            )
-        )
-    return sorted(files), len(roots) + 1
+    return sorted(files), len(roots)
 
 
 def walk(folder: Path) -> list[Path]:
@@ -159,12 +147,12 @@ def report(findings: list[Finding], files: int, packages: int) -> int:
     return EXIT_GREEN
 
 
-def toy_kit(root: Path, start: str, shared: str = "") -> None:
+def toy_kit(root: Path, start: str, shared: str = "", testing: str = "") -> None:
     """One module const-a with its document at the module folder's top and, in its `plugin/` folder, its
     package a_gate, its entry file, a non-package folder, a `_` folder, and links to an outside package
-    from plugin/scripts/, from inside a_gate and from shared/tests/; the shared package, one shared test
-    file and a `_` file beside it. Every file the check must not read holds an unresolved read, so
-    reading one turns a green case red."""
+    from plugin/scripts/ and from inside a_gate; the shared package and its subpackage testing with one
+    file. Every file the check must not read holds an unresolved read, so reading one turns a green case
+    red."""
     module = root / "modules" / "const-a"
     scripts = module / "plugin" / "scripts"
     (scripts / "a_gate").mkdir(parents=True)
@@ -178,32 +166,32 @@ def toy_kit(root: Path, start: str, shared: str = "") -> None:
         if marker:
             (scripts / folder / "__init__.py").write_text("", encoding="utf-8")
         (scripts / folder / "x.py").write_text(unread, encoding="utf-8")
-    (root / "shared" / "constitution_layer_kit").mkdir(parents=True)
-    (root / "shared" / "tests").mkdir()
+    (root / "shared" / "constitution_layer_kit" / "testing").mkdir(parents=True)
     (root / "shared" / "constitution_layer_kit" / "__init__.py").write_text("", encoding="utf-8")
     (root / "shared" / "constitution_layer_kit" / "where.py").write_text(shared, encoding="utf-8")
-    (root / "shared" / "tests" / "harness.py").write_text("", encoding="utf-8")
+    (root / "shared" / "constitution_layer_kit" / "testing" / "harness.py").write_text(
+        testing, encoding="utf-8"
+    )
     (scripts / "constitution_layer_kit").symlink_to(
         Path("..", "..", "..", "..", "shared", "constitution_layer_kit")
     )
-    (root / "shared" / "tests" / "_private.py").write_text(unread, encoding="utf-8")
     outside = root / "elsewhere" / "pkg"
     outside.mkdir(parents=True)
     (outside / "__init__.py").write_text("", encoding="utf-8")
     (outside / "x.py").write_text(unread, encoding="utf-8")
     (scripts / "linked").symlink_to(Path("..", "..", "..", "..", "elsewhere", "pkg"))
     (scripts / "a_gate" / "inner").symlink_to(Path("..", "..", "..", "..", "..", "elsewhere", "pkg"))
-    (root / "shared" / "tests" / "linked.py").symlink_to(Path("..", "..", "elsewhere", "pkg", "x.py"))
 
 
 def self_test() -> int:
     """Red→green on throwaway kits: each case's lines of findings, as path:line, typed by hand."""
     ok_read = "from pathlib import Path\nROOT = Path(__file__).resolve().parents[2]\n"
-    cases: list[tuple[str, str, str, list[str]]] = [
-        ("a resolved read in a module's package is green", ok_read, "", []),
+    cases: list[tuple[str, str, str, str, list[str]]] = [
+        ("a resolved read in a module's package is green", ok_read, "", "", []),
         (
             "pathlib.Path(__file__).resolve() is green",
             "import pathlib\nROOT = pathlib.Path(__file__).resolve().parent\n",
+            "",
             "",
             [],
         ),
@@ -211,11 +199,13 @@ def self_test() -> int:
             "Path(__file__).parent is a finding",
             "from pathlib import Path\nROOT = Path(__file__).parent\n",
             "",
+            "",
             ["modules/const-a/plugin/scripts/a_gate/start.py:2"],
         ),
         (
             "os.path.dirname(__file__) is a finding",
             "import os\nROOT = os.path.dirname(__file__)\n",
+            "",
             "",
             ["modules/const-a/plugin/scripts/a_gate/start.py:2"],
         ),
@@ -223,11 +213,13 @@ def self_test() -> int:
             "Path(__file__).absolute() is a finding",
             "from pathlib import Path\nROOT = Path(__file__).absolute()\n",
             "",
+            "",
             ["modules/const-a/plugin/scripts/a_gate/start.py:2"],
         ),
         (
             "an unresolved Path(__file__) and a resolve never called are findings",
             "from pathlib import Path\nA = Path(__file__)\nB = Path(__file__).resolve\n",
+            "",
             "",
             [
                 "modules/const-a/plugin/scripts/a_gate/start.py:2",
@@ -238,6 +230,7 @@ def self_test() -> int:
             "the bare name bound or passed on is a finding",
             "NAME = __file__\nprint(__file__)\n",
             "",
+            "",
             [
                 "modules/const-a/plugin/scripts/a_gate/start.py:1",
                 "modules/const-a/plugin/scripts/a_gate/start.py:2",
@@ -247,13 +240,21 @@ def self_test() -> int:
             "an unresolved read in the shared package is a finding",
             ok_read,
             "from pathlib import Path\nHERE = Path(__file__).parent\n",
+            "",
             ["shared/constitution_layer_kit/where.py:2"],
+        ),
+        (
+            "an unresolved read in the shared package's testing subpackage is a finding",
+            ok_read,
+            "",
+            "from pathlib import Path\nHERE = Path(__file__).parent\n",
+            ["shared/constitution_layer_kit/testing/harness.py:2"],
         ),
     ]
     failed = 0
-    for name, start, shared, wanted in cases:
+    for name, start, shared, testing, wanted in cases:
         with tempfile.TemporaryDirectory() as tmp:
-            toy_kit(Path(tmp), start, shared)
+            toy_kit(Path(tmp), start, shared, testing)
             got = [f"{f.path}:{f.line}" for f in check(Path(tmp))[0]]
         ok = got == wanted
         failed += 0 if ok else 1
@@ -266,7 +267,7 @@ def self_test() -> int:
         "  why: the fixture runner imports this package through a link in tests/, where `__file__` is the "
         "link's path and not the file's own",
         "  fix: write Path(__file__).resolve() and derive every path from it",
-        "RED: 1 finding(s) — 5 file(s) in 3 folder(s) examined",
+        "RED: 1 finding(s) — 5 file(s) in 2 folder(s) examined",
     ]
     with tempfile.TemporaryDirectory() as tmp:
         toy_kit(Path(tmp), "from pathlib import Path\nROOT = Path(__file__).parent\n")

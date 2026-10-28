@@ -15,7 +15,7 @@ import shlex
 from collections.abc import Sequence
 
 from . import identity
-from .model import DIALECT, DIALECT_KEY, PREFIX_KEY, ROOT_POLICY_KEY, Broken, FileTool, SharedKey
+from .model import DIALECT, DIALECT_KEY, KERNEL_KEYS, PREFIX_KEY, ROOT_POLICY_KEY, Broken, FileTool, SharedKey
 
 
 def _ns() -> str:
@@ -198,12 +198,17 @@ def c4_dials_invalid_yaml(detail: str) -> Broken:
 
 
 def c4b_dials_not_mapping() -> Broken:
-    return Broken(
-        SharedKey.C4B,
-        f"{_file()} is not a mapping",
-        f"the file holds top-level keys: {PREFIX_KEY}, {ROOT_POLICY_KEY}, and {DIALECT_KEY} when the dialect"
-        f" is not {DIALECT}, then one namespace per policy or module",
-    )
+    """The keys named are the constitution's three where the identity lists them as its file's kernel keys,
+    and the identity's own list where it reads another layer's file, which holds no policy namespace."""
+    keys = identity.current().kernel_keys
+    if keys == KERNEL_KEYS:
+        holds = (
+            f"{PREFIX_KEY}, {ROOT_POLICY_KEY}, and {DIALECT_KEY} when the dialect is not {DIALECT},"
+            " then one namespace per policy or module"
+        )
+    else:
+        holds = f"{', '.join(keys)}, then one namespace per module"
+    return Broken(SharedKey.C4B, f"{_file()} is not a mapping", f"the file holds top-level keys: {holds}")
 
 
 def c5_root_policy_path() -> Broken:
@@ -313,6 +318,29 @@ def c5_namespace_outside_prefix(prefix: str) -> Broken:
         f"{_file()}: {PREFIX_KEY} '{prefix}' is not the start of this module's namespace '{_ns()}'",
         f"a gate reads the file of its own modules only, so set {PREFIX_KEY}: {_own_prefix()} if this"
         f" file is for this module, or check it with a module whose namespace starts with '{prefix}'",
+    )
+
+
+def c5_kernel_key_elsewhere(key: str) -> Broken:
+    """`key` is one of the constitution's kernel-owned keys, which the declared identity does not list among
+    the kernel keys of the file it reads: a key of another layer's file, already one of three known names."""
+    return Broken(
+        SharedKey.C5,
+        f"{_file()}: {key} is no key of this file",
+        f"this module's gates read {key} from the dials file that holds the policies, so a copy here would be"
+        f" ignored or contradict it: remove the line, and set {key} in that file",
+    )
+
+
+def c5_prefix_invalid_kernel_part() -> Broken:
+    """C5.11 for the constitution part of a file read beside the module's own: the line to write is the prefix
+    of the modules whose dials that file holds, which the reading module cannot know."""
+    return Broken(
+        SharedKey.C5,
+        f"{_file()}: {PREFIX_KEY} is missing, or is not a kebab-case word that ends in '-'",
+        f"a gate tells a module's namespace from a policy's by this prefix, so write {PREFIX_KEY}: <the"
+        " prefix of the modules whose dials this file holds> as a top-level key, or correct its value to a"
+        " kebab-case word that ends in '-'",
     )
 
 

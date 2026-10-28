@@ -46,6 +46,6 @@ A, chosen by the decider in chat on 2026-09-24.
 ## Carry list
 
 1. R1 — rule 12 of [template §6](../../module-template/MODULE.md); the docstring and `_emit` of [the shared output](../../shared/constitution_layer_kit/output.py); the `output` row and the S132–S136 row of [kit-shared-gate-code](../../shared/GATE.md).
-2. R2 — the S132–S136 row of [kit-shared-gate-code](../../shared/GATE.md) and the item itself in [the shared items](../../shared/tests/test_shared_items.py).
+2. R2 — the S132–S136 row of [kit-shared-gate-code](../../shared/GATE.md) and the item itself in [the shared items](../../shared/constitution_layer_kit/testing/items.py).
 3. R3 — limit 10 of [kit-shared-gate-code](../../shared/GATE.md).
 4. R4 — history only.

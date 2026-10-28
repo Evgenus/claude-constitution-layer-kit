@@ -23,11 +23,20 @@ from pathlib import Path
 
 import pytest
 import yaml
-from acceptance import broken_first_line, expect, failure_of, item
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.model import Broken, Finding
-from consumer import Consumer
-from harness import Harness, Result, Write, ask_reason, bash_json, event_json, red_lines
+from constitution_layer_kit.testing.acceptance import broken_first_line, expect, failure_of, item
+from constitution_layer_kit.testing.consumer import Consumer
+from constitution_layer_kit.testing.harness import (
+    Harness,
+    Result,
+    Write,
+    ask_reason,
+    bash_json,
+    event_json,
+    red_lines,
+)
+from constitution_layer_kit.testing.items import PatternDial, Subject, git_patch, git_timeouts, hook_budget
 from interaction_gate import messages, start, tokens
 from interaction_gate.model import (
     DEFAULT_DESTRUCTIVE,
@@ -39,7 +48,6 @@ from interaction_gate.model import (
     Verbosity,
     Wrapper,
 )
-from test_shared_items import PatternDial, Subject, git_patch, git_timeouts, hook_budget
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 PLUGIN_ROOT = SCRIPTS.parent
@@ -2144,7 +2152,7 @@ def test_t42() -> None:
                 command=[sys.executable, "-S", str(harness.entry)],
                 shared=False,
             ),
-            "BROKEN: const-interaction needs the Python package constitution-layer-kit 1.0.0 or a later 1.x"
+            "BROKEN: const-interaction needs the Python package constitution-layer-kit 2.0.0 or a later 2.x"
             " release, and python3 cannot import it — fix: install it for python3 as"
             f" {PLUGIN_ROOT / 'INSTALL.md'} says — {clause}",
         )

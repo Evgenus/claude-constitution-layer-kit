@@ -156,7 +156,6 @@ const-task-close:                     # task close as one act: a change that tou
     - name: shared-gate-code
       code:
         - "shared/constitution_layer_kit/**"
-        - "shared/tests/**"
       docs:
         - "shared/GATE.md"
     - name: const-meta-types

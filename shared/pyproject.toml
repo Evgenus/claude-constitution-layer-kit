@@ -1,6 +1,7 @@
 # The distribution of the code every gate shares (decision dec-0099-shared-code-installed-as-a-pip-package).
-# It holds the package alone: no tool configuration, which stays in the pyproject.toml at the kit root, and
-# no tests, which a module's tests reach through their links. The version's one source is `__version__` in
+# It holds the package alone, with its subpackage `testing`, the fixtures every gate's tests share, whose
+# pytest is the extra `testing`; no tool configuration, which stays in the pyproject.toml at the kit root
+# (decision dec-0107-shared-test-files-in-the-distribution). The version's one source is `__version__` in
 # constitution_layer_kit/__init__.py; the floor of `requires-python` is held to `FLOOR` in
 # constitution_layer_kit/preflight.py by scripts/check-copies.py, and the build, the install and the import by
 # scripts/check-shared-package.py.
@@ -16,8 +17,11 @@ requires-python = ">=3.12"
 dependencies = ["PyYAML>=6.0"]
 license = "Apache-2.0"
 
+[project.optional-dependencies]
+testing = ["pytest>=9.1"]
+
 [tool.setuptools]
-packages = ["constitution_layer_kit"]
+packages = ["constitution_layer_kit", "constitution_layer_kit.testing"]
 
 [tool.setuptools.dynamic]
 version = {attr = "constitution_layer_kit.__version__"}

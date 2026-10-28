@@ -26,15 +26,15 @@ from pathlib import Path
 
 import pytest
 import yaml
-from acceptance import broken_first_line, expect, failure_of, item
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.errors import ConfigurationFailure
 from constitution_layer_kit.model import Finding
-from consumer import Consumer
-from harness import Edit, Harness, Result, Write, stop_json
+from constitution_layer_kit.testing.acceptance import broken_first_line, expect, failure_of, item
+from constitution_layer_kit.testing.consumer import Consumer
+from constitution_layer_kit.testing.harness import Edit, Harness, Result, Write, stop_json
+from constitution_layer_kit.testing.items import PatternDial, Subject, git_patch
 from task_close_gate import dials, messages, start
 from task_close_gate.model import BODY, Declaration, Pair
-from test_shared_items import PatternDial, Subject, git_patch
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 
@@ -1919,7 +1919,7 @@ def test_closing_is_the_gates_own() -> None:
             command=[sys.executable, "-S", str(entry)],
             shared=False,
         ),
-        "BROKEN: const-task-close needs the Python package constitution-layer-kit 1.0.0 or a later 1.x"
+        "BROKEN: const-task-close needs the Python package constitution-layer-kit 2.0.0 or a later 2.x"
         " release, and python3 cannot import it — fix: install it for python3 as"
         f" {SCRIPTS.parent / 'INSTALL.md'} says — {CLOSING}",
     )

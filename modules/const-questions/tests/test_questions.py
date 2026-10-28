@@ -19,11 +19,11 @@ from pathlib import Path
 
 import pytest
 import yaml
-from acceptance import broken_first_line, check_case, expect, item
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.model import Broken, Finding
-from consumer import Consumer, document
-from harness import (
+from constitution_layer_kit.testing.acceptance import broken_first_line, check_case, expect, item
+from constitution_layer_kit.testing.consumer import Consumer, document
+from constitution_layer_kit.testing.harness import (
     Case,
     Edit,
     Harness,
@@ -32,8 +32,8 @@ from harness import (
     event_json,
     red_lines,
 )
+from constitution_layer_kit.testing.items import PatternDial, Subject
 from questions_gate import messages, start
-from test_shared_items import PatternDial, Subject
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 

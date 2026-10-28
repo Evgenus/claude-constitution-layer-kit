@@ -27,17 +27,32 @@ from pathlib import Path
 
 import pytest
 import yaml
-from acceptance import broken_first_line, check_case, expect
-from acceptance import item as acceptance_item
 from catalogs_gate import messages, start
 from catalogs_gate.history import HOOK_SECONDS
 from catalogs_gate.model import Advice, Catalog, NameToTake, Reach, Read
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.envelope import yaml_error_line
 from constitution_layer_kit.model import Broken, EnvelopeState, Finding
-from consumer import BASE_MARKDOWN, ROOT_POLICY, Consumer
-from harness import Case, Edit, Harness, Result, Write, event_json, fake_program
-from test_shared_items import NO_ENVELOPE, PatternDial, Subject, git_patch, git_timeouts, hook_budget
+from constitution_layer_kit.testing.acceptance import broken_first_line, check_case, expect
+from constitution_layer_kit.testing.acceptance import item as acceptance_item
+from constitution_layer_kit.testing.consumer import BASE_MARKDOWN, ROOT_POLICY, Consumer
+from constitution_layer_kit.testing.harness import (
+    Case,
+    Edit,
+    Harness,
+    Result,
+    Write,
+    event_json,
+    fake_program,
+)
+from constitution_layer_kit.testing.items import (
+    NO_ENVELOPE,
+    PatternDial,
+    Subject,
+    git_patch,
+    git_timeouts,
+    hook_budget,
+)
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 PLUGIN_ROOT = SCRIPTS.parent

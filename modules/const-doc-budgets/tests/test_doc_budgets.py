@@ -29,14 +29,14 @@ from pathlib import Path
 
 import pytest
 import yaml
-from acceptance import broken_first_line, check_case, item
 from budgets_gate import messages, start
 from budgets_gate.model import Key, characters, rule_of_thumb
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.model import Finding
-from consumer import Consumer
-from harness import Case, Edit, Harness, Result, Write, event_json
-from test_shared_items import PatternDial, Subject, git_patch, git_timeouts, hook_budget
+from constitution_layer_kit.testing.acceptance import broken_first_line, check_case, item
+from constitution_layer_kit.testing.consumer import Consumer
+from constitution_layer_kit.testing.harness import Case, Edit, Harness, Result, Write, event_json
+from constitution_layer_kit.testing.items import PatternDial, Subject, git_patch, git_timeouts, hook_budget
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 PLUGIN_ROOT = SCRIPTS.parent
@@ -1225,7 +1225,7 @@ def test_t20() -> None:
     )
     broken_first_line(
         no_shared,
-        "BROKEN: const-doc-budgets needs the Python package constitution-layer-kit 1.0.0 or a later 1.x"
+        "BROKEN: const-doc-budgets needs the Python package constitution-layer-kit 2.0.0 or a later 2.x"
         " release, and python3 cannot import it — fix: install it for python3 as"
         f" {PLUGIN_ROOT / 'INSTALL.md'} says — until then the gate's state is not said at session start",
     )

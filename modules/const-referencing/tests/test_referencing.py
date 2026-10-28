@@ -25,13 +25,29 @@ from pathlib import Path
 
 import pytest
 import yaml
-from acceptance import broken_first_line, check_case, expect, item
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.model import Broken, Finding
-from consumer import Consumer, document
-from harness import Case, Edit, Harness, Result, Write, event_json, fake_program, red_lines
+from constitution_layer_kit.testing.acceptance import broken_first_line, check_case, expect, item
+from constitution_layer_kit.testing.consumer import Consumer, document
+from constitution_layer_kit.testing.harness import (
+    Case,
+    Edit,
+    Harness,
+    Result,
+    Write,
+    event_json,
+    fake_program,
+    red_lines,
+)
+from constitution_layer_kit.testing.items import (
+    NO_ENVELOPE,
+    PatternDial,
+    Subject,
+    git_patch,
+    git_timeouts,
+    no_clock,
+)
 from referencing_gate import lychee, messages, start
-from test_shared_items import NO_ENVELOPE, PatternDial, Subject, git_patch, git_timeouts, no_clock
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 
@@ -1996,7 +2012,7 @@ def test_mover_entry_absences() -> None:
     assert (
         no_shared.returncode == 1
         and no_shared.stderr.splitlines()[0]
-        == "BROKEN: const-referencing needs the Python package constitution-layer-kit 1.0.0 or a later 1.x"
+        == "BROKEN: const-referencing needs the Python package constitution-layer-kit 2.0.0 or a later 2.x"
         " release, and python3 cannot import it — fix: install it for python3 as"
         f" {PLUGIN / 'INSTALL.md'} says"
         and closing in no_shared.stderr

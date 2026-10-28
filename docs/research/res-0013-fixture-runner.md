@@ -21,7 +21,7 @@ The surveyed tools, keyed once; a date is the upload of the version's files on P
 - t6. [unittest-xml-reporting](https://pypi.org/project/unittest-xml-reporting/) 4.0.0, 2026-01-07: a JUnit XML writer for unittest; read on PyPI and not run.
 - t7. [nose2](https://docs.nose2.io/en/latest/) 0.16.0, 2026-03-02: a runner built on unittest, with plugins named `mp` and `junitxml` in its plugin list; read and not run.
 - t8. The kit's harness and runners at `fb30e75`: `shared/tests/harness.py` with `run_all`, one `tests/run.py` per module, `shared/tests/shared_items.py`, and the reader of their lines in `scripts/check-aspects.py`; run on an archive copy (E7).
-- t9. The kit's pytest form at `5a4e01f`: [acceptance.py](../../shared/tests/acceptance.py), [test_shared_items.py](../../shared/tests/test_shared_items.py), [harness.py](../../shared/tests/harness.py), [consumer.py](../../shared/tests/consumer.py), each module's `tests/conftest.py` and `tests/test_<name>.py`, [check-aspects.py](../../scripts/check-aspects.py) and [kit_coverage.py](../../scripts/kit_coverage.py); run (E6, E8).
+- t9. The kit's pytest form at `5a4e01f`: [acceptance.py](../../shared/constitution_layer_kit/testing/acceptance.py), [test_shared_items.py](../../shared/constitution_layer_kit/testing/items.py), [harness.py](../../shared/constitution_layer_kit/testing/harness.py), [consumer.py](../../shared/constitution_layer_kit/testing/consumer.py), each module's `tests/conftest.py` and `tests/test_<name>.py`, [check-aspects.py](../../scripts/check-aspects.py) and [kit_coverage.py](../../scripts/kit_coverage.py); run (E6, E8).
 
 ## 1. The runner (what runs a module's items and gives the verdict)
 

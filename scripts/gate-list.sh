@@ -11,7 +11,8 @@
 #   sh scripts/gate-list.sh --run <entry>|<job>        run one entry's commands, or every entry of a job, in turn, from the kit root
 # The gates are the list the kit runs before a merge; the extras are the fixtures, lint and types: each
 # module's, the branch gate's fixture, the fixture of scripts/setup-claude.sh, and the kit's own lint of scripts/ and shared/ and types of its
-# checks and shared/constitution_layer_kit, the shared tests typed through each module's links. A module's fixtures
+# checks and shared/constitution_layer_kit, whose subpackage testing holds the shared test files, typed with the package, and the fixture gate
+# of another layer, scripts/layered-fixture/, which the gate `layered-items` runs the shared items against. A module's fixtures
 # run through `check-aspects.py --run --module <module>`, which collects its tests under pytest, runs
 # them once, prints pytest's own output whenever it exits other than 0, and holds the items against the
 # module's acceptance table both ways (decision dec-0080-fixtures-run-through-check-aspects).
@@ -42,8 +43,8 @@ MODULES="const-catalogs const-decision-records const-doc-budgets const-interacti
 const-locations const-meta-types const-questions const-referencing const-styling const-task-close"
 GATES="references meta-types catalogs decision-records open-questions style language budgets
 list-handles carry-lists shared-links shared-package yaml-style module-links handle-forms aspects portability gate-lists
-schema-mirror copies dials-schema resolved-paths eval-receipts rollout-status run-evals bare-install session-load guide $(for m in $MODULES; do printf 'install-%s session-%s ' "$m" "$m"; done)task-close"
-EXTRAS="branch-gate setup-claude $(for m in $MODULES; do printf 'fixtures-%s lint-%s types-%s ' "$m" "$m" "$m"; done)lint types"
+schema-mirror copies dials-schema resolved-paths layered-items eval-receipts rollout-status run-evals bare-install session-load guide $(for m in $MODULES; do printf 'install-%s session-%s ' "$m" "$m"; done)task-close"
+EXTRAS="branch-gate setup-claude $(for m in $MODULES; do printf 'fixtures-%s lint-%s types-%s ' "$m" "$m" "$m"; done)lint types layered-fixture"
 
 job() {
     case "$1" in
@@ -93,7 +94,7 @@ commands() {
         language) scan sh modules/const-language/plugin/scripts/check-language.sh --scan ;;
         budgets) scan sh modules/const-doc-budgets/plugin/scripts/check-budgets.sh --scan ;;
         list-handles) scan sh modules/const-interaction/plugin/scripts/check-list-handles.sh --scan ;;
-        carry-lists | shared-links | shared-package | yaml-style | module-links | handle-forms | aspects | portability | gate-lists | copies | schema-mirror | dials-schema | resolved-paths | eval-receipts | rollout-status)
+        carry-lists | shared-links | shared-package | yaml-style | module-links | handle-forms | aspects | portability | gate-lists | copies | schema-mirror | dials-schema | resolved-paths | layered-items | eval-receipts | rollout-status)
             echo "python3 scripts/check-$1.py"
             echo "python3 scripts/check-$1.py --self-test" ;;
         bare-install) echo "python3 scripts/check-bare-install.py --self-test" ;;
@@ -136,6 +137,13 @@ commands() {
         types)
             echo "cd shared && python3 -m mypy --strict constitution_layer_kit"
             echo "cd scripts && MYPYPATH=../modules/const-meta-types/plugin/scripts:../modules/const-decision-records/plugin/scripts:../shared python3 -m mypy --strict *.py" ;;
+        layered-fixture)
+            # the fixture gate of another layer, typed as a module is: its package, its entry files, its tests; its
+            # lint is the kit's, since `lint` reads scripts/ whole. Not the `types` entry, whose MYPYPATH is the
+            # schema mirror's folders and the shared package alone.
+            echo "cd scripts/layered-fixture/plugin/scripts && MYPYPATH=../../../../shared python3 -m mypy --strict layered_gate"
+            echo "cd scripts/layered-fixture/plugin/scripts && MYPYPATH=../../../../shared python3 -m mypy --strict *.py"
+            echo "cd scripts/layered-fixture/tests && python3 -m mypy --strict *.py" ;;
         *) return 1 ;;
     esac
 }

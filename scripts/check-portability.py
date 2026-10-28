@@ -39,6 +39,11 @@ Not read, by the forms above, the kit's folders included: in Markdown, fenced bl
 which show an example to adapt, not a location. There is no exemption marker; an interpreter line is
 read as any other, so `#!/usr/bin/env` passes and a home path there does not.
 
+The files under `shared/constitution_layer_kit/testing/` are read with two forms off, the relative path and
+the kit's document folder, and with every other form on, since their fixture data builds a consumer's
+repository and so names its paths. A kit path or a kit document folder written as a plain relative path
+there, such as `docs/decisions/index.md` or `docs/decisions`, passes unseen, which review holds.
+
 One more form, over the same files and the same shared code, a kit document's name; each is a
 finding, with its why and its fix:
   - a fixed file name of the kit, a plain match, upper and lower case as written, no word bounds:
@@ -84,8 +89,10 @@ Modes:  no arguments   check the kit;
                        read from the dials file; fenced code, a code span and a URL read, a test,
                        the module document, a module's README, a folder named like an installed
                        part beside `plugin/` and `shared/GATE.md` not; the order of
-                       the findings; the report as literal lines; each dials file that cannot be read,
-                       and PyYAML missing, as a BROKEN line with its literal text.
+                       the findings; the two forms off under `shared/constitution_layer_kit/testing/`
+                       alone, the other forms on there and every form on at the top of the shared code
+                       and in a folder named like it; the report as literal lines; each dials file
+                       that cannot be read, and PyYAML missing, as a BROKEN line with its literal text.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -117,6 +124,7 @@ EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 PLUGIN = "plugin"  # the module's folder that installs; MODULE.md, README.md, tests/, evals/ stand beside it
 INSTALLED = ("skills/", "hooks/", "scripts/", "commands/", "agents/", "INSTALL.md", ".claude-plugin/")
 SHARED = "shared/constitution_layer_kit"
+TESTING = f"{SHARED}/testing"  # fixture data of a consumer's repository names its paths
 DIALS = "constitution.yaml"
 NAMESPACE = "const-catalogs"  # the dials namespace that declares the kit's numbered kinds
 DEFAULT_WIDTH, MAX_WIDTH = 4, 9  # the catalog module's own: a width is a whole number from 1 to 9
@@ -315,16 +323,18 @@ def kit_names(path: str, text: str, ids: re.Pattern[str] | None) -> list[Finding
 
 def examine(path: str, text: str, plugins: list[Path], ids: re.Pattern[str] | None) -> list[Finding]:
     """The findings of one file; `plugins` are the roots against which a relative path is looked up, `ids`
-    the pattern of the kit's catalog ids. Each line's places first, then its kit documents."""
-    findings = places(path, text, plugins)
+    the pattern of the kit's catalog ids. Each line's places first, then its kit documents. A file under
+    `TESTING` is read without the relative-path and kit-folder forms."""
+    findings = places(path, text, plugins, paths=not path.startswith(f"{TESTING}/"))
     findings.extend(kit_names(path, text, ids))
     return sorted(findings, key=lambda found: found.line)  # stable: the order within a line stays
 
 
-def places(path: str, text: str, plugins: list[Path]) -> list[Finding]:
+def places(path: str, text: str, plugins: list[Path], paths: bool = True) -> list[Finding]:
     """The findings of the forms that name a place in a project. In a line, by kind: a home path, a `~/`,
     a `file:/` link, then the relative paths in the order they stand, then the kit's folders in the
-    order they stand; the kit documents' names come after, in `examine`."""
+    order they stand; the kit documents' names come after, in `examine`. With `paths` false, the
+    relative paths and the kit's folders are not read."""
     findings: list[Finding] = []
     markdown = path.endswith(".md")
     fence: str | None = None
@@ -345,7 +355,7 @@ def places(path: str, text: str, plugins: list[Path]) -> list[Finding]:
             for m in pattern.finditer(line):
                 findings.append(Finding(path, number, kind, m[0][:60]))
                 taken.append((m.start(), token_end(line, m.start())))
-        for m in RELATIVE.finditer(line):
+        for m in RELATIVE.finditer(line) if paths else ():
             candidate = m[1].rstrip(".")
             if not NAMES_A_FILE.search(candidate):
                 continue
@@ -362,7 +372,7 @@ def places(path: str, text: str, plugins: list[Path]) -> list[Finding]:
         findings.extend(
             Finding(path, number, "kit_folder", m[0])
             for m in KIT_FOLDER.finditer(line)
-            if not any(start <= m.start() < end for start, end in taken)
+            if paths and not any(start <= m.start() < end for start, end in taken)
         )
     return findings
 
@@ -867,7 +877,7 @@ def run_unread(c: Cases, root: Path) -> None:
         seen(root, "modules/const-x/scripts/gate.py", "MODULE.md dec-0049 /home/ann/x GATE.md\n") == [],
         "a scripts/ folder beside plugin/ is not read: only plugin/ installs",
     )
-    for path in ("shared/GATE.md", "shared/tests/run.py"):
+    for path in ("shared/GATE.md", "shared/pyproject.toml"):
         c.case(
             seen(root, path, "MODULE.md dec-0049 GATE.md docs/decisions\n") == [],
             f"{path} is not read: only {SHARED}/ is",
@@ -1012,6 +1022,48 @@ def run_names_in_one_tree(c: Cases) -> None:
         run_folder_places(c, root)
         run_folder_order(c, root)
         run_long_places(c, root)
+        run_fixture_data(c, root)
+
+
+def alone(root: Path, path: str, text: str) -> list[tuple[str, int, str, str]]:
+    """The findings with `path` holding `text`, then `path` left clean, so no case reads another's file."""
+    found = seen(root, path, text)
+    write(root, path, "A = 1\n")
+    return found
+
+
+def run_fixture_data(c: Cases, root: Path) -> None:
+    """Under the shared test files' folder, a relative path and a kit document folder are green; every other
+    form stays red there, and the two stay red anywhere else in the shared code."""
+    two = "P = 'drafts/a.md'\nQ = 'docs/policies'\n"
+    red_two = [("{}", 1, "relative", "drafts/a.md"), ("{}", 2, "kit_folder", "docs/policies")]
+    inside = f"{TESTING}/items.py"
+    c.case(alone(root, inside, two) == [], "a relative path and a kit folder under testing/ are green")
+    for path, where in (
+        (f"{SHARED}/state.py", "at the top of the shared code"),
+        (f"{SHARED}/testing_x/a.py", "in a folder named testing_x"),
+        (f"{SHARED}/other/testing/a.py", "in a folder named testing below another"),
+    ):
+        c.case(
+            alone(root, path, two) == [(path, n, kind, text) for _, n, kind, text in red_two],
+            f"a relative path and a kit folder {where} stay red",
+        )
+    others = "A = 1\nB = 'MODULE.md'\nC = 'dec-0049'\nD = '/home/ann/x'\nE = 'file:///srv/x'\nF = '~/x'\n"
+    c.case(
+        alone(root, inside, others)
+        == [
+            (inside, 2, "kit_file", "MODULE.md"),
+            (inside, 3, "kit_id", "dec-0049"),
+            (inside, 4, "home", "/home/ann/x"),
+            (inside, 5, "file", "file:/"),
+            (inside, 6, "tilde", "~/"),
+        ],
+        "a kit file name, a catalog id, a home path, a file link and a tilde path under testing/ stay red",
+    )
+    c.case(
+        alone(root, inside, "P = 'docs/requirements.md'\n") == [(inside, 1, "kit_file", "requirements.md")],
+        "a kit document's name inside a relative path under testing/ is still red",
+    )
 
 
 def run_names_by_module(c: Cases) -> None:
