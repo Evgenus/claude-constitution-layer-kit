@@ -18,10 +18,10 @@ esac
 failed=0
 cases=0
 
-expect() {  # expect <wanted exit> <label> <command...>
+expect() {  # expect <wanted exit, or several joined by |> <label> <command...>
     wanted=$1; label=$2; shift 2; cases=$((cases + 1))
     "$@" >"$tmp/out" 2>&1; got=$?
-    if [ "$got" -eq "$wanted" ]; then echo "ok    $label"; else echo "WRONG $label — exit $got, wanted $wanted"; sed 's/^/        /' "$tmp/out"; failed=1; fi
+    if case "|$wanted|" in *"|$got|"*) true ;; *) false ;; esac; then echo "ok    $label"; else echo "WRONG $label — exit $got, wanted $wanted"; sed 's/^/        /' "$tmp/out"; failed=1; fi
 }
 
 cd "$tmp" && git init -q -b main repo && cd repo || exit 1
@@ -50,7 +50,10 @@ expect 0 "the same commit passes on a branch"             git commit -q -m "on a
 echo b > b && git add b && git commit -q -m "second"
 git switch -q main
 before=$(git rev-parse HEAD)
-expect 128 "a cherry-pick onto main is refused (git's own exit)" git cherry-pick work/one
+# git's exit after a refusing prepare-commit-msg hook: 128 before git 2.56, 1 since (git commit 18f5750beb14,
+# "sequencer: never reschedule on failed commit"); a conflict also exits 1, so each refusal is also read for the hook's line
+refused="1|128"
+expect "$refused" "a cherry-pick onto main is refused (git's own exit)" git cherry-pick work/one
 cp "$tmp/out" "$tmp/msg"
 expect 0 "and is told to abort first"                     grep -q 'fix: git cherry-pick --abort' "$tmp/msg"
 expect 128 "for git will not switch branches in the middle of one" git switch -c work/stuck
@@ -59,10 +62,12 @@ expect 0 "and main has not moved"                         test "$(git rev-parse 
 expect 0 "a merge into main passes"                       git merge -q work/one -m "Work: one"
 expect 0 "and is a merge commit though it could fast-forward" test "$(git rev-list --merges --count HEAD)" -eq 1
 before=$(git rev-parse HEAD)
-expect 128 "a revert on main is refused (git's own exit)"   git revert --no-edit HEAD^2
+expect "$refused" "a revert on main is refused (git's own exit)"   git revert --no-edit HEAD^2
+cp "$tmp/out" "$tmp/msg"
+expect 0 "by the hook"                                     grep -q '^RED: this commit would land on main' "$tmp/msg"
 expect 0 "the taught fix works: the staged revert goes to a branch" sh -c 'git switch -q -c work/three && git commit -q -m "revert, on a branch" && git switch -q main'
 expect 0 "and main has not moved"                         test "$(git rev-parse HEAD)" = "$before"
-expect 128 "a revert of several commits on main is refused"  git revert --no-edit work/one work/one~1
+expect "$refused" "a revert of several commits on main is refused"  git revert --no-edit work/one work/one~1
 cp "$tmp/out" "$tmp/msg"
 expect 0 "and is told to abort first"                     grep -q 'fix: git revert --abort' "$tmp/msg"
 expect 0 "the taught fix works: abort, then the branch"   sh -c 'git revert --abort && git switch -q -c work/four && git switch -q main'
