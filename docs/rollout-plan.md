@@ -30,9 +30,9 @@ status: active
 | [s9](#s9) | The other remaining modules, and the kit work logged beside them | C | 🔄 | 21 | 5 | 4 | 80% |
 | [s10](#s10) | Publish: the remote, the marketplace and CI, then `0.1.0` | D | 🔄 | 9 | 4 | 0 | 69% |
 | [s10a](#s10a) | The first release of the shared package | D | ✅ | 1 | 0 | 0 | 100% |
-| [s10b](#s10b) | The release 2.0.0 of the shared package | D | ⏳ | 0 | 1 | 0 | 0% |
+| [s10b](#s10b) | The release 2.0.0 of the shared package | D | ✅ | 1 | 0 | 0 | 100% |
 | [s11](#s11) | Switch the project from path load to marketplace install | D | ⏳ | 0 | 1 | 0 | 0% |
-| all | the whole plan | all | 🔄 | 45 | 18 | 4 | 71% |
+| all | the whole plan | all | 🔄 | 46 | 17 | 4 | 73% |
 
 <a id="phase-a"></a>
 ## Phase A — Kit as consumer zero: the document-shaped accumulating modules (~1 week)
@@ -134,7 +134,7 @@ status: active
 
 10a. <a id="s10a"></a>✅ The first release of the shared package — done 2026-10-23. On the decider's go-ahead, the tag `constitution-layer-kit-v1.0.0` was made on 8eccb06, the merge commit of the change that introduced the package (R23 of [dec-0099-shared-code-installed-as-a-pip-package](decisions/dec-0099-shared-code-installed-as-a-pip-package.md#r23)), and pushed, and that release was installed for the `python3` of the kit's own sessions. The sentences about the time before the tag left the install guide, each module's install note, [kit-shared-gate-code](../shared/GATE.md#g1) and [CLAUDE.md](../CLAUDE.md) in the change that closed the step.
 
-10b. <a id="s10b"></a>⏳ The release 2.0.0 of the shared package. On the decider's go-ahead, after the merge of the change that made `kernel_keys` required (R5 of [dec-0106-two-dials-files-and-kernel-keys](decisions/dec-0106-two-dials-files-and-kernel-keys.md#r5)), the tag `constitution-layer-kit-v2.0.0` is made on that merge commit and pushed, and the release is installed for the `python3` of the kit's own sessions. Until then the install notes name a tag not yet made, and the gates of the kit's own sessions, on the release 1.0.0, stop with `C16`, which blocks nothing in hook mode.
+10b. <a id="s10b"></a>✅ The release 2.0.0 of the shared package — done 2026-10-28. On the decider's go-ahead, the tag `constitution-layer-kit-v2.0.0` was made on 28233d16, the merge commit of the change that made `kernel_keys` required (R5 of [dec-0106-two-dials-files-and-kernel-keys](decisions/dec-0106-two-dials-files-and-kernel-keys.md#r5)), and pushed, and that release was installed for the `python3` of the kit's own sessions.
 
 11. <a id="s11"></a>⏳ Switch the project from path load to marketplace install. From here every project is a consumer; all module development stays in the kit repo.
 
