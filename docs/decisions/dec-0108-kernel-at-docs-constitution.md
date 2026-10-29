@@ -24,19 +24,19 @@ The kit kept its kernel, the conventions page and its three schemas, in a folder
 
 The session recommended B, since the cost is paid once and the mover of module [`const-referencing`](../requirements.md#const-referencing) repairs the links. The decider chose B in chat on 2026-10-29, when the knowledge kit took `docs/knowledge/` for its own kernel, and asked that both kits keep their kernels where a consumer keeps them.
 
-<a id="r1"></a>**R1.** The kit's kernel, `CONVENTIONS.md` and its schemas under `schemas/`, lives at `docs/constitution/`, the territory of [plc-0002-kernel](../policies/plc-0002-kernel.md), the home of the lane of kernel sections and the code of the pair `kernel-schemas` in `constitution.yaml`. No folder `kernel/` stands in the kit.
+<a id="r1"></a>**R1.** The kit's kernel, `CONVENTIONS.md` and its schemas under `schemas/`, lives at `docs/constitution/`, the territory of [plc-0002-kernel](../policies/plc-0002-kernel.md), the home of the lane of kernel sections and the code of the pair `kernel-schemas` in `constitution.yaml`.
 
 <a id="r2"></a>**R2.** The install guide copies the kernel as git holds it at the kit's `docs/constitution/` to the same path in the project, and its check holds that copy against the files git tracks there.
 
 <a id="r3"></a>**R3.** The kit's tooling reads the kernel at `docs/constitution/`: the schema checks, the bare repository that the install and session checks build, and the toy kits of their self-tests.
 
-The move itself, made by the mover with one call per file, is a one-time act. In accepted records and frozen comparisons only the targets of links changed, as [rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) and [rule 7 of plc-0005-research](../policies/plc-0005-research.md#r7) allow; their texts, code spans and prose keep the old path as history.
+The move itself, made by the mover with one call per file, is a one-time act, and it left no folder `kernel/` in the kit. In accepted records and frozen comparisons only the targets of links changed, as [rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) and [rule 7 of plc-0005-research](../policies/plc-0005-research.md#r7) allow; their texts, code spans and prose keep the old path as history.
 
 ## 2. What the portability check holds of the kernel's folder
 
 The check that holds [law 2 of CLAUDE.md](../../CLAUDE.md#law-2) by grep, `scripts/check-portability.py`, refuses a fixed name of the kit in every installed file of a module and in the shared code. `kernel/` was one of those names. After the move, no folder of that name exists here, and the kernel's folder is `docs/constitution/`. The session made the call that the name follows the folder, so that the same hold stays on the same folder, and left it open to the decider to overturn at the yes. No installed file of a module and no file of the shared package names either path.
 
-<a id="r4"></a>**R4.** The fixed names of the kit that the portability check refuses hold `docs/constitution/` in place of `kernel/`.
+<a id="r4"></a>**R4.** The fixed names of the kit that the portability check refuses hold `docs/constitution/` in place of `kernel/`. This replaces the fixed name `kernel/` in R9 of [dec-0069-kit-checks-hold-module-lists-floor-clauses-shared-numbers-and-kit-names](dec-0069-kit-checks-hold-module-lists-floor-clauses-shared-numbers-and-kit-names.md#r9). The check's reason for the refusal now says that a module takes every place in a project from the dials file, since the kernel's copy does exist in every project.
 
 ## Applied
 
@@ -46,5 +46,5 @@ The rulings were applied by the commits of the branch `work/kernel-to-docs-const
 
 1. R1 — [plc-0002-kernel](../policies/plc-0002-kernel.md), its territory in [the dials file](../../constitution.yaml), with the lane of kernel sections and the pair `kernel-schemas`; [CLAUDE.md](../../CLAUDE.md), the list read before any work; [the intent page](../../INTENT.md), layer 2.
 2. R2 — [step 5 of the install guide](../../INSTALL.md); [the install guide's check](../../scripts/check-install-guide.py), its claim `kernel` and the constant `KERNEL`.
-3. R3 — [the schema mirror check](../../scripts/check-schema-mirror.py) and [the dials schema check](../../scripts/check-dials-schema.py), their constants; [the shared install steps](../../scripts/kit_install.py), `bare_repository`.
-4. R4 — [requirement A12.1](../requirements.md#a12-1); [the portability check](../../scripts/check-portability.py), `FIXED_NAMES` and its docstring.
+3. R3 — [the schema mirror check](../../scripts/check-schema-mirror.py) and [the dials schema check](../../scripts/check-dials-schema.py), their constants; [the shared install steps](../../scripts/kit_install.py), `bare_repository`; the toy kits of the self-tests of [the bare-install check](../../scripts/check-bare-install.py), [the session-load check](../../scripts/check-session-load.py) and [the install guide's check](../../scripts/check-install-guide.py).
+4. R4 — [requirement A12.1](../requirements.md#a12-1); [the portability check](../../scripts/check-portability.py), `FIXED_NAMES`, `WHY_KIT` and its docstring. The replacement in R9 of dec-0069 is history.

@@ -177,8 +177,8 @@ WHAT = {
     "kit_id": "an id of a catalog the kit declares",
 }
 WHY_KIT = (
-    "a module installs into any project, where the kit's own documents do not exist, so it names none"
-    " of them (law 2 of CLAUDE.md)"
+    "a module installs into any project and takes every place there from the dials file at run time, so it"
+    " names none of the kit's documents (law 2 of CLAUDE.md)"
 )
 WHY_FOLDER = (
     "a module that names the kit's own folders carries the kit's layout into a project, where they do not"
@@ -1171,8 +1171,8 @@ def run_name_reports(c: Cases) -> None:
         with contextlib.redirect_stdout(printed):
             code = report(*check_kit(root))
     why = (
-        "  why: a module installs into any project, where the kit's own documents do not exist, so it names"
-        " none of them (law 2 of CLAUDE.md)"
+        "  why: a module installs into any project and takes every place there from the dials file at run"
+        " time, so it names none of the kit's documents (law 2 of CLAUDE.md)"
     )
     literal = [
         "RED: modules/const-x/plugin/INSTALL.md:1: a file name of the kit, 'MODULE.md'",
