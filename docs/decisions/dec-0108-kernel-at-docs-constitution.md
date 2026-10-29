@@ -37,10 +37,10 @@ The move itself, made by the mover with one call per file, is a one-time act, an
 The check that holds [law 2 of CLAUDE.md](../../CLAUDE.md#law-2) by grep, `scripts/check-portability.py`, refuses a fixed name of the kit in every installed file of a module and in the shared code. `kernel/` was one of those names. After the move, no folder of that name exists here, and the kernel's folder is `docs/constitution/`. No installed file of a module and no file of the shared package names either path.
 
 - **A. Replace `kernel/` with `docs/constitution/`.** The hold follows the kernel's folder to its new name.
-  - **Pros:** a module can never write where the kernel copy lives, since every place it uses comes from the dials file; nothing names the path today, so nothing turns red.
+  - **Pros:** a module never names the place where the kernel copy lives, since every place it uses comes from the dials file; nothing names the path today, so nothing turns red.
   - **Cons:** `docs/constitution/` is also every consumer's own path, so the shared test files can no longer name it; a bare `docs/constitution` with no slash still passes, as `kernel` did before.
-- **B. Drop `kernel/` and add nothing.** The list keeps only names that exist in the kit alone.
-  - **Pros:** the list stays strictly the kit's names, and `CONVENTIONS.md` on it still catches the kernel page.
+- **B. Drop `kernel/` and add nothing.** The list keeps only the names of the kit's own documents, and no folder a project holds.
+  - **Pros:** the list names no folder, and `CONVENTIONS.md` on it still catches the kernel page.
   - **Cons:** a module that names `docs/constitution/schemas/` passes unseen, held by review alone.
 - **C. Keep `kernel/` and add `docs/constitution/`.**
   - **Pros:** it also catches a stale copy of the old path, such as a script copied from an older commit of the kit.
