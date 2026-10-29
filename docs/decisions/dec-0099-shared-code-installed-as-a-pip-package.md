@@ -92,21 +92,21 @@ The session recommended A. Asked when the parameters help, it said only for anot
 
 - **A. A top-level key inside the dials file**, `module_prefix: const-` in `constitution.yaml`.
   - **Pros:** the file says which of its keys are module namespaces; no code names the prefix; each layer's file states its own.
-  - **Cons:** a third key owned by the kernel, so [kernel §6](../../kernel/CONVENTIONS.md#k6), the dials schema, the shared copy of the schema and the install guide's example change; a file written today lacks it; a project can set it wrong and change how every gate reads its file.
+  - **Cons:** a third key owned by the kernel, so [kernel §6](../constitution/CONVENTIONS.md#k6), the dials schema, the shared copy of the schema and the install guide's example change; a file written today lacks it; a project can set it wrong and change how every gate reads its file.
 - **B. Inside the context variable, beside the file's name.**
   - **Pros:** no change to the kernel or the schema; no default anywhere; a project's file cannot change how the gates read it.
   - **Cons:** every entry point sets the pair; the file does not say which prefix its modules carry.
 
 The session recommended B: strict, with nothing changed in the kernel or in a project's file. The decider chose A in chat on 2026-10-22: the prefix belongs to the modules, and a module's dials cannot sit in two files.
 
-<a id="r12"></a>**R12.** `module_prefix` is a third key owned by the kernel, beside `root_policy` and `territory_dialect`: the prefix of the module namespaces in that dials file. A top-level key that starts with it and holds a mapping is a module's namespace, read leniently as before. `MODULE_PREFIX` leaves `dials.py`. [Kernel §6](../../kernel/CONVENTIONS.md#k6) and its schema name the key, and the shared reader's copy of the schema, `KERNEL_KEYS`, the kit's own `constitution.yaml` and the install guide's dials example carry it. This replaces the count of two kernel-owned keys in ruling 1 of [dec-0014-territory-dialect](dec-0014-territory-dialect.md).
+<a id="r12"></a>**R12.** `module_prefix` is a third key owned by the kernel, beside `root_policy` and `territory_dialect`: the prefix of the module namespaces in that dials file. A top-level key that starts with it and holds a mapping is a module's namespace, read leniently as before. `MODULE_PREFIX` leaves `dials.py`. [Kernel §6](../constitution/CONVENTIONS.md#k6) and its schema name the key, and the shared reader's copy of the schema, `KERNEL_KEYS`, the kit's own `constitution.yaml` and the install guide's dials example carry it. This replaces the count of two kernel-owned keys in ruling 1 of [dec-0014-territory-dialect](dec-0014-territory-dialect.md).
 
 ## 5. Whether the prefix is required
 
 - **A. Required.** Every dials file a gate reads names `module_prefix`; a file without it is a configuration failure that names the key to add.
   - **Pros:** no default anywhere, as for the file's name; a reader of the file always sees the prefix; another layer's file is never read with the wrong prefix.
   - **Cons:** even a minimal file names it; if it is forgotten, every gate stops until it is added, without blocking in hook mode.
-- **B. Optional, with the default `const-` stated in [kernel §6](../../kernel/CONVENTIONS.md#k6)**, as `gitignore` is for `territory_dialect`.
+- **B. Optional, with the default `const-` stated in [kernel §6](../constitution/CONVENTIONS.md#k6)**, as `gitignore` is for `territory_dialect`.
   - **Pros:** every file written today stays valid; the code carries the kernel's default, not a name of this kit.
   - **Cons:** `const-` sits in the shared code again; another layer's file that forgets the key is read with `const-` in silence, its module namespaces taken for policy namespaces.
 
@@ -206,8 +206,8 @@ The record was born `active`: its questions were decided one per message, and th
 9. R9 — [CLAUDE.md](../../CLAUDE.md), the opening paragraph of "Session conduct"; [kit-shared-gate-code §4](../../shared/GATE.md#g4), limit 3; [the install guide](../../INSTALL.md#s1), prerequisite 3, and [its §4](../../INSTALL.md#s4). What it narrows or replaces is history.
 10. R10 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the rows of `identity` and `dials`, [§2](../../shared/GATE.md#g2) items 1 and 5 and [§3](../../shared/GATE.md#g3), its opening; [identity](../../shared/constitution_layer_kit/identity.py), `Identity` and `dials_file`.
 11. R11 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the deferred parts.
-12. R12 — [kernel §6](../../kernel/CONVENTIONS.md#k6); [the dials schema](../../kernel/schemas/constitution.schema.json); [kit-shared-gate-code §1](../../shared/GATE.md#g1), the row of `dials`; [model](../../shared/constitution_layer_kit/model.py), `KERNEL_KEYS`; [the kit's dials file](../../constitution.yaml); [the install guide](../../INSTALL.md#s2), step 4. What it replaces is history.
-13. R13 — [kernel §6](../../kernel/CONVENTIONS.md#k6); [kit-shared-gate-code §1](../../shared/GATE.md#g1), the row of `dials`, and [§3](../../shared/GATE.md#g3), the rows `C5.11` and `C5.12`; [dials](../../shared/constitution_layer_kit/dials.py).
+12. R12 — [kernel §6](../constitution/CONVENTIONS.md#k6); [the dials schema](../constitution/schemas/constitution.schema.json); [kit-shared-gate-code §1](../../shared/GATE.md#g1), the row of `dials`; [model](../../shared/constitution_layer_kit/model.py), `KERNEL_KEYS`; [the kit's dials file](../../constitution.yaml); [the install guide](../../INSTALL.md#s2), step 4. What it replaces is history.
+13. R13 — [kernel §6](../constitution/CONVENTIONS.md#k6); [kit-shared-gate-code §1](../../shared/GATE.md#g1), the row of `dials`, and [§3](../../shared/GATE.md#g3), the rows `C5.11` and `C5.12`; [dials](../../shared/constitution_layer_kit/dials.py).
 14. R14 — [kit-shared-gate-code §3](../../shared/GATE.md#g3), its opening and the rows `C15` to `C17`, and [§2](../../shared/GATE.md#g2) item 6.
 15. R15 — [the install guide](../../INSTALL.md#s1), prerequisite 3; [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module"; [kit-shared-gate-code §2](../../shared/GATE.md#g2), item 6; [the template](../../module-template/MODULE.md#t6), the row of the install note, and [the template's install note](../../module-template/plugin/INSTALL.md); each module's `plugin/INSTALL.md`; [check-copies](../../scripts/check-copies.py), its docstring.
 16. R16 — [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module", its sentences on the script runtime; [kit-shared-gate-code §2](../../shared/GATE.md#g2), item 6; [the template](../../module-template/MODULE.md#t6), rule 7.

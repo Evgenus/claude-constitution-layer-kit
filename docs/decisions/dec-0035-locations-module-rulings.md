@@ -31,7 +31,7 @@ The fifth module, [`const-locations`](../requirements.md#const-locations), is au
 
 ## 2. Where a kind's template is declared, and where its `type` comes from
 
-The generator needs two things per kind: the template file and the meta-type. The kernel gives a policy no internal format and lets a module read a policy's namespace only for its territory ([kernel §6](../../kernel/CONVENTIONS.md#k6)).
+The generator needs two things per kind: the template file and the meta-type. The kernel gives a policy no internal format and lets a module read a policy's namespace only for its territory ([kernel §6](../constitution/CONVENTIONS.md#k6)).
 
 - **A. A `templates` list in this module's own namespace; `type` from the template's envelope, or from a `--type` argument where the kind has no template.** Entries `{policy: <id>, template: <path>}`.
   - **Pros:** reads only its own namespace, absent by default, so the kernel-alone test holds with zero configuration; one source for the type where a template exists; the kit's three templates are three lines.

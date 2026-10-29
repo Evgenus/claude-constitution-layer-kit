@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-Before the first module, the kit's governing documents were audited against each other and against the module routine on 2026-09-18. Kernel-touching findings got their own records ([dec-0012-record-references-are-provenance](dec-0012-record-references-are-provenance.md), [dec-0013-non-authoritative-status](dec-0013-non-authoritative-status.md), [dec-0014-territory-dialect](dec-0014-territory-dialect.md)). The procedure findings — rulings on how the kit works, each a sentence or two in `CLAUDE.md`, the template, or the plan — are gathered here, one section per item, decided one at a time in chat. The record is `active` while items remain open and is set `inactive` when the last one is applied ([kernel §5](../../kernel/CONVENTIONS.md#k5)).
+Before the first module, the kit's governing documents were audited against each other and against the module routine on 2026-09-18. Kernel-touching findings got their own records ([dec-0012-record-references-are-provenance](dec-0012-record-references-are-provenance.md), [dec-0013-non-authoritative-status](dec-0013-non-authoritative-status.md), [dec-0014-territory-dialect](dec-0014-territory-dialect.md)). The procedure findings — rulings on how the kit works, each a sentence or two in `CLAUDE.md`, the template, or the plan — are gathered here, one section per item, decided one at a time in chat. The record is `active` while items remain open and is set `inactive` when the last one is applied ([kernel §5](../constitution/CONVENTIONS.md#k5)).
 
 ## 1. Runtime for gate scripts
 
@@ -37,7 +37,7 @@ Recommendation B. Chosen B by the decider in chat on 2026-09-18. Applied: [CLAUD
 
 ## 2. The meta-types/locations boundary and the shared territory lookup
 
-[`const-meta-types`](../requirements.md#const-meta-types) and [`const-locations`](../requirements.md#const-locations) fired on the same hook, at the same moment, over the same territory, and both needed the [kernel §3](../../kernel/CONVENTIONS.md#k3) lookup — root policy, documents in its territory, union of their territories. [Law 3 of CLAUDE.md](../../CLAUDE.md#law-3) forbids sharing code and the kernel ships no machinery. The matrix flagged the boundary with †.
+[`const-meta-types`](../requirements.md#const-meta-types) and [`const-locations`](../requirements.md#const-locations) fired on the same hook, at the same moment, over the same territory, and both needed the [kernel §3](../constitution/CONVENTIONS.md#k3) lookup — root policy, documents in its territory, union of their territories. [Law 3 of CLAUDE.md](../../CLAUDE.md#law-3) forbids sharing code and the kernel ships no machinery. The matrix flagged the boundary with †.
 
 - **A. Move [A2.3](../requirements.md#a2-3) into [`const-meta-types`](../requirements.md#const-meta-types).** One write-time guard of claimed territory: valid envelope and exactly one policy. [`const-locations`](../requirements.md#const-locations) keeps creation and the new-kind procedure, advisory.
   - **Pros:** the lookup is written once for write time; both modules pass the three boundary tests; kernel plus [`const-locations`](../requirements.md#const-locations) alone still works.
@@ -108,7 +108,7 @@ Recommendation A. Chosen A by the decider in chat on 2026-09-18. Applied: the mo
 
 ## 5. The rollout plan was ungoverned and mixed
 
-`docs/rollout-plan.md` was the requirements source of every module by [law 4 of CLAUDE.md](../../CLAUDE.md#law-4), yet carried no envelope, sat in no territory, and mixed normative content (the matrix, the module specifications) with intent not yet real (the phases), which [kernel §2](../../kernel/CONVENTIONS.md#k2) keeps out of standing documents.
+`docs/rollout-plan.md` was the requirements source of every module by [law 4 of CLAUDE.md](../../CLAUDE.md#law-4), yet carried no envelope, sat in no territory, and mixed normative content (the matrix, the module specifications) with intent not yet real (the phases), which [kernel §2](../constitution/CONVENTIONS.md#k2) keeps out of standing documents.
 
 - **A. Claim it whole as `current-state`, phases tolerated as a roadmap section.**
   - **Pros:** one policy, no move.
@@ -116,7 +116,7 @@ Recommendation A. Chosen A by the decider in chat on 2026-09-18. Applied: the mo
 - **B. Leave it ungoverned and say so.**
   - **Pros:** zero cost.
   - **Cons:** consumer zero exempts its most important document; [law 4 of CLAUDE.md](../../CLAUDE.md#law-4) rests on nothing the kernel expresses.
-- **C. Split by normative content.** Matrix and specifications become `docs/requirements.md`, `current-state`, under a requirements policy; the phases stay in `docs/rollout-plan.md` as an `active` task-record under a rollout-plan policy. Anchors keep their keys; links are rewritten in one commit under the migration carve-out of [kernel §5](../../kernel/CONVENTIONS.md#k5).
+- **C. Split by normative content.** Matrix and specifications become `docs/requirements.md`, `current-state`, under a requirements policy; the phases stay in `docs/rollout-plan.md` as an `active` task-record under a rollout-plan policy. Anchors keep their keys; links are rewritten in one commit under the migration carve-out of [kernel §5](../constitution/CONVENTIONS.md#k5).
   - **Pros:** each half has one meta-type and one lifecycle; the split is done on a real file before the first module exists.
   - **Cons:** two new policies; a large mechanical diff; two file names to learn.
 - **D. Split as C, phases as a decision record.**

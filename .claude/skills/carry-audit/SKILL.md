@@ -9,7 +9,7 @@ description: The kit's closing audit before a human yes — fresh readers check 
 run by readers and is no gate. What a script can hold — that every ruling item names a home, and
 that an acceptance names its audit — is `scripts/check-carry-lists.py`, and this procedure ends by
 running it. The rule this serves: an applied ruling lives in the current-state documents it changed,
-and a record is provenance, never authority ([kernel §5](../../../kernel/CONVENTIONS.md#k5)); the
+and a record is provenance, never authority ([kernel §5](../../../docs/constitution/CONVENTIONS.md#k5)); the
 kit's own reading of it is rule 2 of [plc-0004-decision-records](../../../docs/policies/plc-0004-decision-records.md#r2).
 
 ## When
@@ -52,7 +52,7 @@ kit's own reading of it is rule 2 of [plc-0004-decision-records](../../../docs/p
    pin a confirming reader to that commit — prompt D — and, when the fixes make or change wording
    edits in accepted records or frozen comparisons, a reader of prompt E beside it; repeat while a pass finds a defect. Until
    its yes the fixes may correct the record in place, and the commit says so
-   ([kernel §5](../../../kernel/CONVENTIONS.md#k5)); a `product` record has no such window and is not
+   ([kernel §5](../../../docs/constitution/CONVENTIONS.md#k5)); a `product` record has no such window and is not
    edited beyond the same section's mechanical edits — its findings go into the documents or a
    further record
    ([rule 15 of plc-0004-decision-records](../../../docs/policies/plc-0004-decision-records.md#r15)).

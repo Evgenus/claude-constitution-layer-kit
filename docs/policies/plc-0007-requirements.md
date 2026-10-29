@@ -11,7 +11,7 @@ Governs the document kind *requirements document*: the traceability matrix, one 
 
 ## Rules
 
-1. <a id="r1"></a>**Type.** `current-state`, superseded in place ([kernel §1](../../kernel/CONVENTIONS.md#k1)); it holds what a module must implement and nothing about when — phases belong to the rollout plan; a module's entry trigger in its heading, "enters when" (decision [dec-0006-accumulating-set-first](../decisions/dec-0006-accumulating-set-first.md)), and a condition inside a rule, "until the kit's CI runs it", name no phase.
+1. <a id="r1"></a>**Type.** `current-state`, superseded in place ([kernel §1](../constitution/CONVENTIONS.md#k1)); it holds what a module must implement and nothing about when — phases belong to the rollout plan; a module's entry trigger in its heading, "enters when" (decision [dec-0006-accumulating-set-first](../decisions/dec-0006-accumulating-set-first.md)), and a condition inside a rule, "until the kit's CI runs it", name no phase.
 2. <a id="r2"></a>**Change.** Adding, amending, or re-homing a row or a module specification is a `process`-stakes decision ([law 9 of CLAUDE.md](../../CLAUDE.md#law-9)). The row states its rule in full; citing a record beside it is optional provenance.
 3. <a id="r3"></a>**Anchors.** Every aspect, row, and module specification carries an explicit anchor — `a<n>`, `a<n>-<m>`, the plugin name (decision [dec-0005-reference-forms](../decisions/dec-0005-reference-forms.md)).
 4. <a id="r4"></a>**Aliases.** `M<n>` is a local alias inside this document only. How every other kit document cites a module is the reference rule of [CLAUDE.md](../../CLAUDE.md#references) (decision [dec-0051-module-citation-rule-in-the-guide](../decisions/dec-0051-module-citation-rule-in-the-guide.md)).

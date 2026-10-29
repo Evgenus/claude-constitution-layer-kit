@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-[dec-0007-territory-declaration](dec-0007-territory-declaration.md) ruled, earlier on 2026-09-17, that the dials file holds a kernel-owned `territories` map from path pattern to policy id. The decider then worked through what a policy *is*: a document cannot proclaim itself a policy from an arbitrary location, so policy-ness must be external judgment, and the judgment must have a root that governs itself. The map made the dials file that judge and left the root implicit. This record reverses ruling 1 of [dec-0007-territory-declaration](dec-0007-territory-declaration.md); a record is never edited in place ([kernel §5](../../kernel/CONVENTIONS.md#k5)). Its ruling 3, the policy namespace default, is settled here in passing.
+[dec-0007-territory-declaration](dec-0007-territory-declaration.md) ruled, earlier on 2026-09-17, that the dials file holds a kernel-owned `territories` map from path pattern to policy id. The decider then worked through what a policy *is*: a document cannot proclaim itself a policy from an arbitrary location, so policy-ness must be external judgment, and the judgment must have a root that governs itself. The map made the dials file that judge and left the root implicit. This record reverses ruling 1 of [dec-0007-territory-declaration](dec-0007-territory-declaration.md); a record is never edited in place ([kernel §5](../constitution/CONVENTIONS.md#k5)). Its ruling 3, the policy namespace default, is settled here in passing.
 
 ## Options
 
@@ -23,10 +23,10 @@ decider: Eugene Chernyshov
   - **Cons:** every gate depends on the id index before it can answer anything; adding a policy edits the root. Rejected by the decider outright.
 - **C. Each policy declares its territory in its own frontmatter; the root's territory is where policies live.**
   - **Pros:** no enumeration; policy-ness by location.
-  - **Cons:** machine-readable calibration leaves the dials file, against [kernel §6](../../kernel/CONVENTIONS.md#k6). Corrected by the decider to D.
+  - **Cons:** machine-readable calibration leaves the dials file, against [kernel §6](../constitution/CONVENTIONS.md#k6). Corrected by the decider to D.
 - **D. Policy-ness by location; territory in the dials file under the policy's id.** The dials file holds one bootstrap path, `root_policy`. The root's namespace, keyed by its id, declares where policies live; the root's file lies inside. Every policy's territory and calibration live in its namespace, keyed by its id.
   - **Pros:** nothing declares itself a policy and nothing enumerates them; calibration stays in one file; a policy's dials namespace is its id, so no field names it; the chain of governance ends at one self-governing root.
-  - **Cons:** a namespace carrying a `territory` key proves nothing by itself, so classifying a namespace needs a lookup of its id among the documents in the root's territory; [kernel §3](../../kernel/CONVENTIONS.md#k3) and [kernel §6](../../kernel/CONVENTIONS.md#k6) are rewritten; the kernel can no longer serve as the kit's own policy, so the kit needs a root policy and a kit-documents policy.
+  - **Cons:** a namespace carrying a `territory` key proves nothing by itself, so classifying a namespace needs a lookup of its id among the documents in the root's territory; [kernel §3](../constitution/CONVENTIONS.md#k3) and [kernel §6](../constitution/CONVENTIONS.md#k6) are rewritten; the kernel can no longer serve as the kit's own policy, so the kit needs a root policy and a kit-documents policy.
 - **E. D plus a reserved `policies:` section in the dials file**, so classification needs no lookup.
   - **Pros:** the dials file alone says which namespaces are policies'.
   - **Cons:** a second assertion of policy-ness beside location; the two can disagree, a new defect class; the existence lookup is needed anyway to catch a dangling namespace.
@@ -51,4 +51,4 @@ D, chosen by the decider in chat on 2026-09-17.
 ## Applied in the same commit
 
 - `docs/rollout-plan.md`: "territory map" wording in rows [A2.6](../requirements.md#a2-6) and [A13.7](../requirements.md#a13-7) and in the [`const-locations`](../requirements.md#const-locations) and [`const-catalogs`](../requirements.md#const-catalogs) specs replaced by "territory declarations"; Phase A steps 1 and 2 updated.
-- **Following commits:** [kernel §3](../../kernel/CONVENTIONS.md#k3) and [kernel §6](../../kernel/CONVENTIONS.md#k6); the kit's two policies and its dials file; Phase B and the README.
+- **Following commits:** [kernel §3](../constitution/CONVENTIONS.md#k3) and [kernel §6](../constitution/CONVENTIONS.md#k6); the kit's two policies and its dials file; Phase B and the README.

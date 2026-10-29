@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-The second module, [`const-decision-records`](../requirements.md#const-decision-records), was authored on 2026-09-18 and 2026-09-19 from its research comparison ([res-0002-const-decision-records](../research/res-0002-const-decision-records.md)) and its rows [A3.4](../requirements.md#a3-4) and [A3.6](../requirements.md#a3-6). The row says "record validity enforced" and leaves three things open: how a gate knows that a document is a decision record at all, how much of the kernel's record schema "valid" covers when the first module already guards the envelope and both hooks fire on one write, and which of the lifecycle rules of [kernel §5](../../kernel/CONVENTIONS.md#k5) have a deterministic slice worth a gate.
+The second module, [`const-decision-records`](../requirements.md#const-decision-records), was authored on 2026-09-18 and 2026-09-19 from its research comparison ([res-0002-const-decision-records](../research/res-0002-const-decision-records.md)) and its rows [A3.4](../requirements.md#a3-4) and [A3.6](../requirements.md#a3-6). The row says "record validity enforced" and leaves three things open: how a gate knows that a document is a decision record at all, how much of the kernel's record schema "valid" covers when the first module already guards the envelope and both hooks fire on one write, and which of the lifecycle rules of [kernel §5](../constitution/CONVENTIONS.md#k5) have a deterministic slice worth a gate.
 
 ## 1. How the gate knows a document is a decision record
 
@@ -28,7 +28,7 @@ The second module, [`const-decision-records`](../requirements.md#const-decision-
   - **Pros:** the declaration lives with the policy; nothing can dangle.
   - **Cons:** a kernel change, and the kernel admits a concept only when two or more modules need it; today one does.
 
-Recommendation A, by the authoring session, against the comparison's C: C's default-on enforcement is partial in the worst place, and A's unset state is an honest zero whose message teaches the one-line fix. All four options satisfy [law 3 of CLAUDE.md](../../CLAUDE.md#law-3); what selects A is [kernel §3](../../kernel/CONVENTIONS.md#k3): a document kind is one policy's territory, so the consumer's own record policy is the only project-blind definition of "this is a record". Chosen A by the decider in chat on 2026-09-18.
+Recommendation A, by the authoring session, against the comparison's C: C's default-on enforcement is partial in the worst place, and A's unset state is an honest zero whose message teaches the one-line fix. All four options satisfy [law 3 of CLAUDE.md](../../CLAUDE.md#law-3); what selects A is [kernel §3](../constitution/CONVENTIONS.md#k3): a document kind is one policy's territory, so the consumer's own record policy is the only project-blind definition of "this is a record". Chosen A by the decider in chat on 2026-09-18.
 
 **Ruling.** A document is a decision record when a policy named in `const-decision-records.record_policies` governs it — by path, or by declaration where the path maps to no policy; in an overlap a declaration naming one claimant picks it, and otherwise every claimant counts. With the dial empty nothing is examined, visibly. An id in the dial with no policy behind it claims nothing and earns a note, never a failure — the shape of item 3 of [dec-0019-meta-types-module-rulings](dec-0019-meta-types-module-rulings.md). Content detection and option D are deferred with their signals.
 
@@ -50,7 +50,7 @@ Recommendation A. Chosen A by the decider in chat on 2026-09-19.
 
 ## 3. Lifecycle slices
 
-No real choice was put to the decider; the authoring session took the default and the decider may override it before the yes. `stakes: routine` is already red by the enum and gets its own finding, because its fix differs — delete the record, write the commit note. Born-`inactive` is judgment: "applied" is semantic. An in-place change of a closed record's body is indistinguishable, by its diff, from a typo fix or a reference-form migration, which [kernel §5](../../kernel/CONVENTIONS.md#k5) permits. The one deterministic slice — a write that changes `stakes`, `decider`, `id` or `type` of a record that is `inactive` on disk — is deferred to its friction signal: the row says "gate on schema" ([law 4 of CLAUDE.md](../../CLAUDE.md#law-4)), and the kit grows by friction.
+No real choice was put to the decider; the authoring session took the default and the decider may override it before the yes. `stakes: routine` is already red by the enum and gets its own finding, because its fix differs — delete the record, write the commit note. Born-`inactive` is judgment: "applied" is semantic. An in-place change of a closed record's body is indistinguishable, by its diff, from a typo fix or a reference-form migration, which [kernel §5](../constitution/CONVENTIONS.md#k5) permits. The one deterministic slice — a write that changes `stakes`, `decider`, `id` or `type` of a record that is `inactive` on disk — is deferred to its friction signal: the row says "gate on schema" ([law 4 of CLAUDE.md](../../CLAUDE.md#law-4)), and the kit grows by friction.
 
 ## Applied
 

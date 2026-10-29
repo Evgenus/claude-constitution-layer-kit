@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-The kit had no ruling on how one document cites another. Kernel sections were cited as bare `§n`, modules as `M<n>`, requirement rows as `A<n>.<m>`, laws as `law n`, and records by backticked id — none of them links, none anchored, none resolvable by a tool. `M<n>` was defined only inside the rollout plan and was already used unresolved in four records. Every MODULE.md shares the template's section numbers, so "MODULE.md [kernel §3](../../kernel/CONVENTIONS.md#k3)" would become ambiguous with the first authored module. Requirement [A5.1](../requirements.md#a5-1) names the three reference kinds (id, path+anchor, code) and [A5.2](../requirements.md#a5-2) demands explicit anchors, but no anchor syntax or id-link syntax had been chosen, so neither could be applied.
+The kit had no ruling on how one document cites another. Kernel sections were cited as bare `§n`, modules as `M<n>`, requirement rows as `A<n>.<m>`, laws as `law n`, and records by backticked id — none of them links, none anchored, none resolvable by a tool. `M<n>` was defined only inside the rollout plan and was already used unresolved in four records. Every MODULE.md shares the template's section numbers, so "MODULE.md [kernel §3](../constitution/CONVENTIONS.md#k3)" would become ambiguous with the first authored module. Requirement [A5.1](../requirements.md#a5-1) names the three reference kinds (id, path+anchor, code) and [A5.2](../requirements.md#a5-2) demands explicit anchors, but no anchor syntax or id-link syntax had been chosen, so neither could be applied.
 
 An inventory of every reference form in use and in chat was made on 2026-09-15 (twenty forms, keyed R1–R20), with the uniqueness scope, resolution reach, and qualifier of each. The decider ruled on each form in chat; the four sub-decisions below were the open slots the rulings left.
 
@@ -30,7 +30,7 @@ Two surface rules: in chat, every reference to something that exists as a file i
 - <a id="r12"></a>R12 `${CLAUDE_PLUGIN_ROOT}`, R13 commit hashes (commit messages, record bodies, chat only), R14–R16 local chat handles, R18 qualified PR references: unchanged.
 - <a id="r17"></a>R17 laws: verbose form "[law 3 of CLAUDE.md](../../CLAUDE.md#law-3)", linked; valid only while laws are numbered.
 - <a id="r19"></a>R19 dials: verbose form "dial `ns.key`".
-- <a id="r20"></a>R20 rejected forms: as already ruled by [law 1 of CLAUDE.md](../../CLAUDE.md#law-1), [law 2 of CLAUDE.md](../../CLAUDE.md#law-2), [kernel §1](../../kernel/CONVENTIONS.md#k1), [A5.1](../requirements.md#a5-1), [A5.2](../requirements.md#a5-2), [A6.2](../requirements.md#a6-2), [A7.5](../requirements.md#a7-5).
+- <a id="r20"></a>R20 rejected forms: as already ruled by [law 1 of CLAUDE.md](../../CLAUDE.md#law-1), [law 2 of CLAUDE.md](../../CLAUDE.md#law-2), [kernel §1](../constitution/CONVENTIONS.md#k1), [A5.1](../requirements.md#a5-1), [A5.2](../requirements.md#a5-2), [A6.2](../requirements.md#a6-2), [A7.5](../requirements.md#a7-5).
 
 ## Sub-decision 1 — anchor mechanism and id scheme
 
@@ -69,9 +69,9 @@ Choice: option 1.
    - Pro: honours R7 fully; records stay clickable evidence.
    - Con: an in-place edit of a record with no rule saying it is allowed.
 2. Freeze records; exempt `docs/decisions/` from the check.
-   - Pro: [kernel §5](../../kernel/CONVENTIONS.md#k5) stays absolute.
+   - Pro: [kernel §5](../constitution/CONVENTIONS.md#k5) stays absolute.
    - Con: `M<n>` stays unresolvable in records forever; every future convention needs the same exemption.
-3. **Migrate, and state the carve-out in [kernel §5](../../kernel/CONVENTIONS.md#k5)**: a reference-form migration is not a ruling and is applied in place.
+3. **Migrate, and state the carve-out in [kernel §5](../constitution/CONVENTIONS.md#k5)**: a reference-form migration is not a ruling and is applied in place.
    - Pro: removes the ambiguity for good.
    - Con: a kernel edit for a case seen once.
 
@@ -83,7 +83,7 @@ P1 (requirement-row form, R6) accepted on the condition that an aspect has exact
 
 ## Applied in the same commit
 
-- **Kernel:** anchors `k1`–`k7`; [kernel §5](../../kernel/CONVENTIONS.md#k5) gains the migration sentence.
+- **Kernel:** anchors `k1`–`k7`; [kernel §5](../constitution/CONVENTIONS.md#k5) gains the migration sentence.
 - **Template MODULE.md:** anchors `t1`–`t12`; sibling wording "module `const-x`"; cross-document cites linked.
 - **Rollout plan:** anchors on aspect headers, requirement rows, and module spec headings; requirements [A5.5](../requirements.md#a5-5)–[A5.7](../requirements.md#a5-7) added; [`const-referencing`](../requirements.md#const-referencing) spec carries the rulings and the interim check.
 - **CLAUDE.md:** anchors `law-1`–`law-9`; a session-conduct bullet for the chat rule; module step 1 notes the link-depth check after copying the template.

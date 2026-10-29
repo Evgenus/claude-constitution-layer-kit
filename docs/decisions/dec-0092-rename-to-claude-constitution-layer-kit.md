@@ -51,14 +51,14 @@ B, chosen by the decider in chat on 2026-10-16.
 
 ## 2. The old name in accepted records
 
-The session first proposed to keep the eleven mentions in the six accepted records as they were accepted. [Kernel §5](../../kernel/CONVENTIONS.md#k5) lets a record's body be edited in place only by a typo fix, a reference-form migration or a wording edit of a listed kind. Rule 14 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) says a wording edit changes no fact and no code span. A repository's or a marketplace's name in a code span is none of these. Six of the mentions are in rulings, and five state dated facts, such as the day the repository was created. The decider overruled the session: the records follow the new name. The question left was how the kit allows that edit.
+The session first proposed to keep the eleven mentions in the six accepted records as they were accepted. [Kernel §5](../constitution/CONVENTIONS.md#k5) lets a record's body be edited in place only by a typo fix, a reference-form migration or a wording edit of a listed kind. Rule 14 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) says a wording edit changes no fact and no code span. A repository's or a marketplace's name in a code span is none of these. Six of the mentions are in rulings, and five state dated facts, such as the day the repository was created. The decider overruled the session: the records follow the new name. The question left was how the kit allows that edit.
 
 ### Options
 
 - **A. A one-time exception in this record.** This record orders the edit, names the rules it breaks, and sets no precedent.
   - **Pros:** the smallest change; no rule changes; the usual carry audit.
   - **Cons:** the kit breaks its own kernel on purpose, against [law 1 of CLAUDE.md](../../CLAUDE.md#law-1); the next rename needs a record of its own.
-- **B. A new migration kind in the kernel and in rule 14.** A renamed repository, marketplace or plugin id is followed in records, as a moved document already is; [kernel §5](../../kernel/CONVENTIONS.md#k5) and rule 14 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) both change.
+- **B. A new migration kind in the kernel and in rule 14.** A renamed repository, marketplace or plugin id is followed in records, as a moved document already is; [kernel §5](../constitution/CONVENTIONS.md#k5) and rule 14 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) both change.
   - **Pros:** the edit follows the rules; the second kit's rename is ruled in advance; it matches how the kit treats a moved document.
   - **Cons:** a kernel change, so the carry audit reads every record; the new wording must pass its own audit.
 - **C. The new kind in rule 14 alone.** A renamed repository is read as a moved document under the kernel's present words.
@@ -71,13 +71,13 @@ B, recommended by the session. The decider had overruled the rule, so the rule s
 
 ### Choice
 
-A, chosen by the decider in chat on 2026-10-16, over the recommendation. The session's objection stands: this record breaks [kernel §5](../../kernel/CONVENTIONS.md#k5) and rule 14 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) on purpose.
+A, chosen by the decider in chat on 2026-10-16, over the recommendation. The session's objection stands: this record breaks [kernel §5](../constitution/CONVENTIONS.md#k5) and rule 14 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) on purpose.
 
 ### Ruling
 
 <a id="r5"></a>**R5.** This change rewrites, in place, the eleven mentions of the old repository's or marketplace's name in [dec-0042-interaction-module-rulings](dec-0042-interaction-module-rulings.md), [dec-0043-kit-plugins-through-project-settings](dec-0043-kit-plugins-through-project-settings.md), [dec-0057-pr-flow-merge-names-the-yes](dec-0057-pr-flow-merge-names-the-yes.md), [dec-0059-bare-repo-install-in-ci](dec-0059-bare-repo-install-in-ci.md), [dec-0060-ci-installs-from-the-github-remote](dec-0060-ci-installs-from-the-github-remote.md) and [dec-0071-projects-install-from-github](dec-0071-projects-install-from-github.md). Each now names `claude-constitution-layer-kit`, the five dated facts included, though the repository had the old name on those dates; git keeps each record as it was accepted. No other word of those records changes.
 
-<a id="r6"></a>**R6.** The edit of R5 is an exception to [kernel §5](../../kernel/CONVENTIONS.md#k5) and to rule 14 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14), which stand unchanged. It sets no precedent: a later rename of a repository, a marketplace or a plugin id leaves accepted records as they stand, save the mechanical edits [kernel §5](../../kernel/CONVENTIONS.md#k5) allows.
+<a id="r6"></a>**R6.** The edit of R5 is an exception to [kernel §5](../constitution/CONVENTIONS.md#k5) and to rule 14 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14), which stand unchanged. It sets no precedent: a later rename of a repository, a marketplace or a plugin id leaves accepted records as they stand, save the mechanical edits [kernel §5](../constitution/CONVENTIONS.md#k5) allows.
 
 ## Applied
 
@@ -90,4 +90,4 @@ The change renames the marketplace in `.claude-plugin/marketplace.json`, the mar
 3. R3 — rule 4 of [plc-0011-install-guide](../policies/plc-0011-install-guide.md#r4).
 4. R4 — history only: the scope of this change.
 5. R5 — history only: a one-time edit.
-6. R6 — [kernel §5](../../kernel/CONVENTIONS.md#k5) and rule 14 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14), unchanged; the exception itself is history.
+6. R6 — [kernel §5](../constitution/CONVENTIONS.md#k5) and rule 14 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14), unchanged; the exception itself is history.

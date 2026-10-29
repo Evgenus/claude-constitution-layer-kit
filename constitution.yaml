@@ -30,7 +30,7 @@ plc-0001-root-policy:                 # the policy for policies; its territory i
 
 plc-0002-kernel:                      # one policy per document kind (decision dec-0011-one-policy-per-kind)
   territory: &kernel   # anchored: a ceiling of the length gate below holds exactly this territory
-    - "kernel/**"
+    - "docs/constitution/**"
 
 plc-0003-intent-page:
   territory: &intent   # leading slash: a slash-less gitignore pattern matches at any depth
@@ -129,9 +129,9 @@ const-referencing:                    # the kit's own reference forms (requireme
         - "/docs/requirements.md"
     - pattern: '§ ?[1-7](?![0-9])'
       names: a kernel section
-      fix: '[kernel §4](<path to>/kernel/CONVENTIONS.md#k4)'
+      fix: '[kernel §4](<path to>/docs/constitution/CONVENTIONS.md#k4)'
       home:
-        - "/kernel/CONVENTIONS.md"
+        - "/docs/constitution/CONVENTIONS.md"
     - pattern: '(?i)\blaws? [0-9]'
       names: a law
       fix: '[law <n> of CLAUDE.md](<path to>/CLAUDE.md#law-<n>) — <n> is the number of the law cited'
@@ -264,9 +264,9 @@ const-task-close:                     # task close as one act: a change that tou
         - "CLAUDE.md"
     - name: kernel-schemas
       code:
-        - "kernel/schemas/**"
+        - "docs/constitution/schemas/**"
       docs:
-        - "kernel/CONVENTIONS.md"
+        - "docs/constitution/CONVENTIONS.md"
 
 const-questions:                      # ask at recorded stakes or a blocker; no open question inside a deliverable
   severity: block                     # values: block | warn

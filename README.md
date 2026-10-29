@@ -8,7 +8,7 @@ AI sessions write documents, make decisions and change code fast. Without shared
 
 A heavyweight constitution costs more than the disorder it cures: fixed ceremony for every question, hundreds of rules before the first product decision. The kit takes the middle road ([intent §2](INTENT.md#i2)):
 
-- **A minimal core.** One page of vocabulary — the document envelope, three meta-types, governance by territory, stakes, the decision record, dials — and nothing git already records ([the kernel](kernel/CONVENTIONS.md)).
+- **A minimal core.** One page of vocabulary — the document envelope, three meta-types, governance by territory, stakes, the decision record, dials — and nothing git already records ([the kernel](docs/constitution/CONVENTIONS.md)).
 - **Hard gates only where a check is deterministic.** Everything that needs judgment is advisory and says so ([principle p4](INTENT.md#p4)).
 - **Ceremony scales with stakes.** A routine call is a line in the commit; a `process` ruling is a record and one human yes ([principle p3](INTENT.md#p3)).
 - **Growth only from friction.** A module is added when a failure recurs in real projects, never for a failure nobody has hit ([principle p2](INTENT.md#p2)).
@@ -86,6 +86,6 @@ The kit is under the [Apache License 2.0](LICENSE). You may use it, change it an
 ## Where to go next
 
 - **To adopt the kit:** the [install guide](INSTALL.md).
-- **To understand it:** the [intent page](INTENT.md), then the [kernel](kernel/CONVENTIONS.md).
+- **To understand it:** the [intent page](INTENT.md), then the [kernel](docs/constitution/CONVENTIONS.md).
 - **To build or change a module:** the session guide, [CLAUDE.md](CLAUDE.md), and the [module template](module-template/MODULE.md).
 - **To see why a rule exists:** the decision records in `docs/decisions/`, each with its options, its reasoning and who decided.

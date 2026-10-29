@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-The first module, [`const-meta-types`](../requirements.md#const-meta-types), was authored on 2026-09-18 from its research comparison ([res-0001-const-meta-types](../research/res-0001-const-meta-types.md)) and its rows [A1.4](../requirements.md#a1-4), [A1.5](../requirements.md#a1-5), [A2.3](../requirements.md#a2-3). Three slots could not be settled from the kernel or earlier rulings and were left as markers in the module document; the fresh-context validation of the draft argued against two of them. Each was decided in chat, one per message. The record is born `inactive`: every ruling is applied in the commit that creates it ([kernel §5](../../kernel/CONVENTIONS.md#k5)).
+The first module, [`const-meta-types`](../requirements.md#const-meta-types), was authored on 2026-09-18 from its research comparison ([res-0001-const-meta-types](../research/res-0001-const-meta-types.md)) and its rows [A1.4](../requirements.md#a1-4), [A1.5](../requirements.md#a1-5), [A2.3](../requirements.md#a2-3). Three slots could not be settled from the kernel or earlier rulings and were left as markers in the module document; the fresh-context validation of the draft argued against two of them. Each was decided in chat, one per message. The record is born `inactive`: every ruling is applied in the commit that creates it ([kernel §5](../constitution/CONVENTIONS.md#k5)).
 
 ## 1. Duplicate-id check at write time
 
@@ -31,7 +31,7 @@ Recommendation A. Chosen A by the decider in chat on 2026-09-18. Applied: the [A
 
 ## 2. The declaration field name
 
-[Kernel §3](../../kernel/CONVENTIONS.md#k3) names the secondary binding but not the envelope key. Consumers write it into documents mid-move.
+[Kernel §3](../constitution/CONVENTIONS.md#k3) names the secondary binding but not the envelope key. Consumers write it into documents mid-move.
 
 - **A. `policy`.**
   - **Pros:** the shortest name for what it says; the kernel's own word.
@@ -47,7 +47,7 @@ Recommendation A. Chosen A by the decider in chat on 2026-09-18. Applied: the mo
 
 ## 3. A territory under a namespace with no policy behind it
 
-[Kernel §3](../../kernel/CONVENTIONS.md#k3) says such a namespace "is not a policy's, whatever keys it carries". The draft reported a configuration failure instead, and its two modes disagreed on when.
+[Kernel §3](../constitution/CONVENTIONS.md#k3) says such a namespace "is not a policy's, whatever keys it carries". The draft reported a configuration failure instead, and its two modes disagreed on when.
 
 - **A. Follow the kernel letter: silence, plus a note.** A write there is a visible skip naming the namespace; the scan prints a note per such namespace and stays green.
   - **Pros:** no module-only ruling; both modes agree; a consumer mid-setup is not blocked on every write.
