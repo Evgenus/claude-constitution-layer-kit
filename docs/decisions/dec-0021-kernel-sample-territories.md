@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-The sample `constitution.yaml` in [kernel §6](../../kernel/CONVENTIONS.md#k6) gave `some-policy` the territory `docs/**`, which contains the root policy's `docs/policies/**`. The same section rules that two territories matching one path is the multi-policy defect of [kernel §3](../../kernel/CONVENTIONS.md#k3). The fresh-context validation of [`const-meta-types`](../requirements.md#const-meta-types) reproduced the consequence on 2026-09-18: a repository built from the sample reports multi-policy on every policy document. The gate follows the rule; the example contradicted it. Every kernel change is recorded, whatever its size ([plc-0002-kernel](../policies/plc-0002-kernel.md)).
+The sample `constitution.yaml` in [kernel §6](../constitution/CONVENTIONS.md#k6) gave `some-policy` the territory `docs/**`, which contains the root policy's `docs/policies/**`. The same section rules that two territories matching one path is the multi-policy defect of [kernel §3](../constitution/CONVENTIONS.md#k3). The fresh-context validation of [`const-meta-types`](../requirements.md#const-meta-types) reproduced the consequence on 2026-09-18: a repository built from the sample reports multi-policy on every policy document. The gate follows the rule; the example contradicted it. Every kernel change is recorded, whatever its size ([plc-0002-kernel](../policies/plc-0002-kernel.md)).
 
 ## Options
 

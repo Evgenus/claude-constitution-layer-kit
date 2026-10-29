@@ -23,7 +23,7 @@ The audit's item on this defect argued three ways to fix it.
   - **Pros:** routine stakes; proven green on a copy; the module's own limit that claims to read the envelope as the shared reader does becomes true.
   - **Cons:** four copies of the rule stay; the next copy can drift the same way.
 - **B. One shared helper that says where the envelope stands, used by every reader that finds its end.**
-  - **Pros:** one definition, so the modules cannot disagree; a shared acceptance item proves it in every gate that judges envelopes; admission under rule 2 holds, class K, since it implements the frontmatter block of [kernel section 1](../../kernel/CONVENTIONS.md#k1) and three modules need it.
+  - **Pros:** one definition, so the modules cannot disagree; a shared acceptance item proves it in every gate that judges envelopes; admission under rule 2 holds, class K, since it implements the frontmatter block of [kernel section 1](../constitution/CONVENTIONS.md#k1) and three modules need it.
   - **Cons:** it touches shared code and three modules; `process` stakes, so a record and a yes.
 - **C. Normalise the text once in the shared pipeline.** Every line's trailing whitespace stripped, or CRLF turned into LF, before any module sees it.
   - **Pros:** one point fixes CRLF for every gate.

@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-[Kernel §4](../../kernel/CONVENTIONS.md#k4) priced `process` stakes as a record plus "one human yes in the PR", and [law 9 of CLAUDE.md](../../CLAUDE.md#law-9) repeated it. The pre-module audit of 2026-09-18 found the kit itself with no remote and no branches: every commit lands on main, and every yes so far was given in chat and named in the commit message. The same gap awaits the first consumer, a greenfield solo project with no PR flow on its first day. [Requirement A3.3](../requirements.md#a3-3) leaned on a protected branch for the immutability of records.
+[Kernel §4](../constitution/CONVENTIONS.md#k4) priced `process` stakes as a record plus "one human yes in the PR", and [law 9 of CLAUDE.md](../../CLAUDE.md#law-9) repeated it. The pre-module audit of 2026-09-18 found the kit itself with no remote and no branches: every commit lands on main, and every yes so far was given in chat and named in the commit message. The same gap awaits the first consumer, a greenfield solo project with no PR flow on its first day. [Requirement A3.3](../requirements.md#a3-3) leaned on a protected branch for the immutability of records.
 
 ## Options
 
@@ -41,7 +41,7 @@ E, chosen by the decider in chat on 2026-09-18.
 
 ## Applied in the same commit
 
-- [Kernel §4](../../kernel/CONVENTIONS.md#k4): the `process` row.
+- [Kernel §4](../constitution/CONVENTIONS.md#k4): the `process` row.
 - [CLAUDE.md](../../CLAUDE.md): [law 9 of CLAUDE.md](../../CLAUDE.md#law-9) and step 6 of the module routine.
 - [plc-0004-decision-records](../policies/plc-0004-decision-records.md): rule 5, the kit's regime and its sunset at Phase D.
 - **Rollout plan Phase D:** the remote, protected main, and PR flow become its first step.

@@ -8,7 +8,7 @@ AI sessions write documents, make decisions and change code fast. Without shared
 
 A heavyweight constitution costs more than the disorder it cures: fixed ceremony for every question, hundreds of rules before the first product decision. The kit takes the middle road ([intent §2](INTENT.md#i2)):
 
-- **A minimal core.** One page of vocabulary — the document envelope, three meta-types, governance by territory, stakes, the decision record, dials — and nothing git already records ([the kernel](kernel/CONVENTIONS.md)).
+- **A minimal core.** One page of vocabulary — the document envelope, three meta-types, governance by territory, stakes, the decision record, dials — and nothing git already records ([the kernel](docs/constitution/CONVENTIONS.md)).
 - **Hard gates only where a check is deterministic.** Everything that needs judgment is advisory and says so ([principle p4](INTENT.md#p4)).
 - **Ceremony scales with stakes.** A routine call is a line in the commit; a `process` ruling is a record and one human yes ([principle p3](INTENT.md#p3)).
 - **Growth only from friction.** A module is added when a failure recurs in real projects, never for a failure nobody has hit ([principle p2](INTENT.md#p2)).
@@ -54,7 +54,7 @@ A write that cites a document by its id in backticks, where a link is required, 
 ```text
 RED: INSTALL.md:50: document id 'constitution-kernel' stands in backticks and is no link
   why: an id names a document that can move: only a link lets a reader reach it and lets a move repair it
-  fix: write [constitution-kernel](kernel/CONVENTIONS.md) — the path from this document to kernel/CONVENTIONS.md
+  fix: write [constitution-kernel](docs/constitution/CONVENTIONS.md) — the path from this document to docs/constitution/CONVENTIONS.md
 ```
 
 The session reads the fix, makes it, and writes again; nobody has to explain the rule.
@@ -71,7 +71,7 @@ The [install guide](INSTALL.md) bootstraps a new project step by step: the prere
 
 | No. | Path | What it holds |
 |---|---|---|
-| 1 | `kernel/` | the semantic kernel, `CONVENTIONS.md`, and its schemas |
+| 1 | `docs/constitution/` | the semantic kernel, `CONVENTIONS.md`, and its schemas |
 | 2 | `modules/` | the modules, one plugin each, each with a `README.md` that is its landing page |
 | 3 | `module-template/` | the fixed shape every module fills |
 | 4 | `shared/` | the code every gate shares, a Python package that each module imports and pip installs ([shared/GATE.md](shared/GATE.md)) |
@@ -86,6 +86,6 @@ The kit is under the [Apache License 2.0](LICENSE). You may use it, change it an
 ## Where to go next
 
 - **To adopt the kit:** the [install guide](INSTALL.md).
-- **To understand it:** the [intent page](INTENT.md), then the [kernel](kernel/CONVENTIONS.md).
+- **To understand it:** the [intent page](INTENT.md), then the [kernel](docs/constitution/CONVENTIONS.md).
 - **To build or change a module:** the session guide, [CLAUDE.md](CLAUDE.md), and the [module template](module-template/MODULE.md).
 - **To see why a rule exists:** the decision records in `docs/decisions/`, each with its options, its reasoning and who decided.

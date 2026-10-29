@@ -17,7 +17,7 @@ module's fixture runner, which writes temporary repositories. Report `git rev-pa
 and `git status --short` at the start and at the end; if the commit moved under you, say which of
 your files changed.
 
-Before the diff, read sections 1, 2 and 5 of `kernel/CONVENTIONS.md`, and rules 1, 2, 5 and 7 of
+Before the diff, read sections 1, 2 and 5 of `docs/constitution/CONVENTIONS.md`, and rules 1, 2, 5 and 7 of
 `docs/policies/plc-0004-decision-records.md`: a current-state document states every rule it
 binds in its own text; a record is provenance, never authority; before its yes a record may be
 corrected in place, with the documents corrected in the same commit.

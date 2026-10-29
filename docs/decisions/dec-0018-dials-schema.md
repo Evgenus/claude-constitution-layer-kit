@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-[Requirements A2.6](../requirements.md#a2-6), [A4.6](../requirements.md#a4-6) and [A13.7](../requirements.md#a13-7) said the declarations in `constitution.yaml` are "schema-validated at module load". The pre-module audit of 2026-09-18 found no such schema, and no load moment: a plugin has `SessionStart` and nothing earlier. [Kernel §6](../../kernel/CONVENTIONS.md#k6) described the file's shape in prose and one example.
+[Requirements A2.6](../requirements.md#a2-6), [A4.6](../requirements.md#a4-6) and [A13.7](../requirements.md#a13-7) said the declarations in `constitution.yaml` are "schema-validated at module load". The pre-module audit of 2026-09-18 found no such schema, and no load moment: a plugin has `SessionStart` and nothing earlier. [Kernel §6](../constitution/CONVENTIONS.md#k6) described the file's shape in prose and one example.
 
 ## Options
 
@@ -38,6 +38,6 @@ A, chosen by the decider in chat on 2026-09-18.
 
 ## Applied in the same commit
 
-- `kernel/schemas/constitution.schema.json`, new; [kernel §6](../../kernel/CONVENTIONS.md#k6) names it and the read-time rule.
+- `kernel/schemas/constitution.schema.json`, new; [kernel §6](../constitution/CONVENTIONS.md#k6) names it and the read-time rule.
 - [A2.6](../requirements.md#a2-6), [A4.6](../requirements.md#a4-6), [A13.7](../requirements.md#a13-7): "at module load" replaced by "at each read".
 - **Rollout plan, Phase D:** the kit's CI validates the kit's own dials file.

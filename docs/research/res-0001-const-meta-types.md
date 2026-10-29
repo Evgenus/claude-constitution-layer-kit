@@ -9,7 +9,7 @@ status: active
 
 Surveyed 2026-09-18; local `claude --version` prints `2.1.251 (Claude Code)`. Experiments ran with git 2.54.0, Python 3.12.4, PyYAML 6.0.2, jsonschema 4.26.0, pathspec 0.12.1 on macOS.
 
-Scope: the rows of [`const-meta-types`](../requirements.md#const-meta-types) — [requirement A1.4](../requirements.md#a1-4), [requirement A1.5](../requirements.md#a1-5), [requirement A2.3](../requirements.md#a2-3) — under [dec-0015-pre-module-audit-rulings](../decisions/dec-0015-pre-module-audit-rulings.md) (Python 3 with PyYAML; one write-time script for envelope and resolution with a scan mode; `severity` block | warn). Vocabulary: envelope ([kernel §1](../../kernel/CONVENTIONS.md#k1)), territory and policy ([kernel §3](../../kernel/CONVENTIONS.md#k3)), dials file ([kernel §6](../../kernel/CONVENTIONS.md#k6)). Sources by authority: official Claude Code documentation, community harnesses, tool documentation, experiments reported here.
+Scope: the rows of [`const-meta-types`](../requirements.md#const-meta-types) — [requirement A1.4](../requirements.md#a1-4), [requirement A1.5](../requirements.md#a1-5), [requirement A2.3](../requirements.md#a2-3) — under [dec-0015-pre-module-audit-rulings](../decisions/dec-0015-pre-module-audit-rulings.md) (Python 3 with PyYAML; one write-time script for envelope and resolution with a scan mode; `severity` block | warn). Vocabulary: envelope ([kernel §1](../constitution/CONVENTIONS.md#k1)), territory and policy ([kernel §3](../constitution/CONVENTIONS.md#k3)), dials file ([kernel §6](../constitution/CONVENTIONS.md#k6)). Sources by authority: official Claude Code documentation, community harnesses, tool documentation, experiments reported here.
 
 ## 1. Write-time envelope gate ([requirement A1.4](../requirements.md#a1-4))
 
@@ -62,7 +62,7 @@ Same moments, same verdicts. Specific to resolution:
 
 ## 5. Schema validation of the envelope and the dials file
 
-Readers validate against the kernel's two schema files ([kernel §6](../../kernel/CONVENTIONS.md#k6)); those live in the kit, and a consumer installs the module without it ([template §6](../../module-template/MODULE.md#t6)), so the schema can only come from inside the plugin:
+Readers validate against the kernel's two schema files ([kernel §6](../constitution/CONVENTIONS.md#k6)); those live in the kit, and a consumer installs the module without it ([template §6](../../module-template/MODULE.md#t6)), so the schema can only come from inside the plugin:
 
 - **A. Python `jsonschema` against a schema copy in the plugin.** `pip install jsonschema`, Draft 2020-12 ([jsonschema docs](https://python-jsonschema.readthedocs.io/en/stable/)); 4.26.0, Python ≥ 3.10 ([PyPI](https://pypi.org/project/jsonschema/)); local `pip show` lists `attrs`, `jsonschema-specifications`, `referencing`, `rpds-py` (compiled). Cost: a second install command in every teaching error, a platform wheel, a copy that can drift. Absent on a bare interpreter locally.
 - **B. Hand-coded checks with PyYAML only, mirroring the schema field by field.** Envelope: four required keys, two enums, one id pattern, one title length; dials: two kernel keys plus the `territory` and `catalog` shapes. Cost: ~40 lines kept equal to the schema, proven in the kit by running the real schema through `jsonschema` over the module's fixtures (kit developer dependency only). Cannot absorb a kernel extension without a module bump — required anyway.

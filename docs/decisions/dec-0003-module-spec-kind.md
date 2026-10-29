@@ -16,7 +16,7 @@ The module descriptions [`const-meta-types`](../requirements.md#const-meta-types
 ## Options
 
 - **A. Task-record write-head.** A spec file per module, `type: task-record`, `active` until `MODULE.md` ships, then `inactive` and deleted; its content is applied into `MODULE.md`, the matrix, and decision records at close.
-  - **Pros:** matches [kernel §2](../../kernel/CONVENTIONS.md#k2) literally, since intent not yet real rides in a task delta; no second current-state document about one module, so no drift surface; amendments reuse the template scoped to a delta.
+  - **Pros:** matches [kernel §2](../constitution/CONVENTIONS.md#k2) literally, since intent not yet real rides in a task delta; no second current-state document about one module, so no drift surface; amendments reuse the template scoped to a delta.
   - **Cons:** design reasoning leaves the tree at close and survives only in git and in decision records; a stalled spec is visible only as an active record with no commits.
 - **B. Durable requirements document.** A spec file per module, `type: current-state`, kept beside `MODULE.md` and restricted after authoring to what and why; mechanism, dials, and error texts move out.
   - **Pros:** a standing per-module requirements page; the matrix could later be generated from the specs.

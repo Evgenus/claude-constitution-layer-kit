@@ -44,12 +44,12 @@ The session recommended A: it is the only name that matches the repository, stay
 
 ## 2. What the history takes of the rename
 
-Accepted records and frozen research comparisons name `const_gate` in their prose and link into its folder: 8 links in dec-0038, dec-0076, dec-0084 and res-0012. Their policies allow few edits to them. A link to a moved file must lead to the file's new place, or the link check of module [`const-referencing`](../requirements.md#const-referencing) turns red. But [kernel §5](../../kernel/CONVENTIONS.md#k5) allows an accepted record three kinds of mechanical edit, and the one for links is "a reference-form migration — rewriting how a record cites other documents". A Python file is no document in the kernel's sense. The kit already rewrites links to code files in records, and 39 records link to a Python or shell file, but no text said so. The carry audit of this change found the gap.
+Accepted records and frozen research comparisons name `const_gate` in their prose and link into its folder: 8 links in dec-0038, dec-0076, dec-0084 and res-0012. Their policies allow few edits to them. A link to a moved file must lead to the file's new place, or the link check of module [`const-referencing`](../requirements.md#const-referencing) turns red. But [kernel §5](../constitution/CONVENTIONS.md#k5) allows an accepted record three kinds of mechanical edit, and the one for links is "a reference-form migration — rewriting how a record cites other documents". A Python file is no document in the kernel's sense. The kit already rewrites links to code files in records, and 39 records link to a Python or shell file, but no text said so. The carry audit of this change found the gap.
 
 - **A. The record policy states the reading.** Rule 14 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) says that, for this migration, the documents a record cites include every file and folder it links to.
   - **Pros:** explicit, and it covers what the kit already does; a small policy edit inside this change; no kernel change.
   - **Cons:** a policy reads a kernel word more widely than the kernel defines it; a reader of the kernel alone does not see it.
-- **B. The kernel is amended.** The migration of [kernel §5](../../kernel/CONVENTIONS.md#k5) becomes "rewriting how a record cites another file or folder".
+- **B. The kernel is amended.** The migration of [kernel §5](../constitution/CONVENTIONS.md#k5) becomes "rewriting how a record cites another file or folder".
   - **Pros:** the rule stands in the kernel itself, with no reading needed.
   - **Cons:** a kernel change needs a carry audit over every record, so this change grows a lot.
 - **C. The link repairs in the four files are undone.**
@@ -58,9 +58,9 @@ Accepted records and frozen research comparisons name `const_gate` in their pros
 
 The session recommended A: it states the kit's practice at the cost of one sentence and keeps the rename its size. The decider chose A in chat on 2026-10-21.
 
-<a id="r3"></a>**R3.** In an accepted record or a frozen research comparison, a link to a file or a folder that moved or was renamed takes the new path, whether it leads to a document, to another file or to a folder. Only the link's target changes: the link's text, a code span and the prose keep the old name or path as written, as history. A document whose id changes, by a renumbering or a rename that [kernel §1](../../kernel/CONVENTIONS.md#k1) allows, is outside this ruling: what its references take is said by that section of the kernel, by [rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) and by [rule 7 of plc-0005-research](../policies/plc-0005-research.md#r7). So after this rename those documents still say `const_gate`, and only their links lead to `shared/constitution_layer_kit/`.
+<a id="r3"></a>**R3.** In an accepted record or a frozen research comparison, a link to a file or a folder that moved or was renamed takes the new path, whether it leads to a document, to another file or to a folder. Only the link's target changes: the link's text, a code span and the prose keep the old name or path as written, as history. A document whose id changes, by a renumbering or a rename that [kernel §1](../constitution/CONVENTIONS.md#k1) allows, is outside this ruling: what its references take is said by that section of the kernel, by [rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) and by [rule 7 of plc-0005-research](../policies/plc-0005-research.md#r7). So after this rename those documents still say `const_gate`, and only their links lead to `shared/constitution_layer_kit/`.
 
-<a id="r4"></a>**R4.** For a record, the documents it cites, in the words of [kernel §5](../../kernel/CONVENTIONS.md#k5) for a reference-form migration, include every file and folder the record links to, whether it is a document or not.
+<a id="r4"></a>**R4.** For a record, the documents it cites, in the words of [kernel §5](../constitution/CONVENTIONS.md#k5) for a reference-form migration, include every file and folder the record links to, whether it is a document or not.
 
 ## Applied
 

@@ -64,7 +64,7 @@ The session recommended C. <a id="r3"></a>**R3.** B, chosen by the decider in ch
   - **Pros:** the smallest rule change.
   - **Cons:** the yes comes before the pull request's checks; the kernel wording changes anyway.
 
-The session recommended A. <a id="r7"></a>**R7.** A, chosen by the decider in chat on 2026-09-30. The `process` row of [kernel §4](../../kernel/CONVENTIONS.md#k4) now reads: one human yes on the change, named in the commit that lands it — where a PR flow exists, the commit that merges the pull request, the yes being its approval or, where no second human reviews it, the decider's own merge.
+The session recommended A. <a id="r7"></a>**R7.** A, chosen by the decider in chat on 2026-09-30. The `process` row of [kernel §4](../constitution/CONVENTIONS.md#k4) now reads: one human yes on the change, named in the commit that lands it — where a PR flow exists, the commit that merges the pull request, the yes being its approval or, where no second human reviews it, the decider's own merge.
 
 <a id="r8"></a>**R8.** In the kit, the decider gives the yes by merging the pull request, or by saying it in chat and having the session merge in the decider's name. The merge commit names the yes and carries the `Accepted:` and `Carry-Audit:` trailers in its last paragraph, written with `--body`. It is the commit that lands the change and completes it in the sense of rule 5 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r5): a yes given in chat is complete with it, and the window for corrections closes there. A decider who merges on the forge's page writes the yes and the trailers into the merge message there. From the merge of the kit's first pull request on, every `Accepted:` and `Carry-Audit:` trailer stands on a merge commit, never on a branch commit: a wrong receipt is mended by accepting again in the merge commit of a new pull request, and a `product` record's lone `Carry-Audit:` trailer stands on the merge commit too.
 
@@ -86,7 +86,7 @@ The change that adds this record applies every item that binds — R5 and the ho
 2. R2 — history only: the creation and the first push.
 3. R3, R4, R6 — the rule "Work starts on a branch" in session conduct of [CLAUDE.md](../../CLAUDE.md); R4 also [the hook](../../scripts/git-hooks/prepare-commit-msg).
 4. R5 — [the setup script](../../scripts/setup-clone.sh); [its fixture](../../scripts/git-hooks/tests/run.sh); the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md).
-5. R7 — [kernel §4](../../kernel/CONVENTIONS.md#k4); [law 9 of CLAUDE.md](../../CLAUDE.md#law-9); [the record skill](../../modules/const-decision-records/plugin/skills/record-decision/SKILL.md).
+5. R7 — [kernel §4](../constitution/CONVENTIONS.md#k4); [law 9 of CLAUDE.md](../../CLAUDE.md#law-9); [the record skill](../../modules/const-decision-records/plugin/skills/record-decision/SKILL.md).
 6. R8 — [rule 5 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r5), and for a `product` record [its rule 15](../policies/plc-0004-decision-records.md#r15); the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md); step 8 of [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md).
 7. R9 — [rule 2 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r2); step 6 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md); step 6 of [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md).
 8. R10 — [rule 15 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r15).

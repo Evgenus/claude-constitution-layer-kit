@@ -167,7 +167,7 @@ The specification listed "lychee config" as a dial. The comparison found, and th
   - **Cons:** a key there can switch off what the gate promises, in a format that changes between versions.
 - **C. lychee's default behaviour.**
   - **Pros:** nothing to build.
-  - **Cons:** the silent false green, and a verdict read from outside the module's namespace ([kernel §6](../../kernel/CONVENTIONS.md#k6)).
+  - **Cons:** the silent false green, and a verdict read from outside the module's namespace ([kernel §6](../constitution/CONVENTIONS.md#k6)).
 
 <a id="r11"></a>**R11.** A. lychee, 0.24.2 or newer, is found and its version read at each run, started in an empty scratch directory with the module's own configuration file and its inputs on standard input; exit 2 is a finding only with a parsed report. None of its options is a dial. A named dial for one option is deferred with its signal.
 

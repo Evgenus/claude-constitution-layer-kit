@@ -22,24 +22,24 @@ On 2026-10-23 a session bootstrapped the first consumer project by section 2 of 
 7. **F7.** The kernel's language departure allowed `grade` and `sentence` only, so every scan printed passive-voice notes on a copy nobody may edit.
 8. **F8.** After a write, some gates printed a green line and others printed nothing, so the session could not tell whether the record gate had run.
 9. **F9.** With no template, the creation command writes the whole title as the heading.
-10. **F10.** The turn-end hook of [`const-task-close`](../requirements.md#const-task-close), at `severity: block`, asked for a commit while step 9 waited for the yes that [kernel §4](../../kernel/CONVENTIONS.md#k4) asks of a `process` record. Following it would have landed the record before its yes.
+10. **F10.** The turn-end hook of [`const-task-close`](../requirements.md#const-task-close), at `severity: block`, asked for a commit while step 9 waited for the yes that [kernel §4](../constitution/CONVENTIONS.md#k4) asks of a `process` record. Following it would have landed the record before its yes.
 11. **F11.** The guide used plain policy ids without asking. The decider ruled in chat on 2026-10-23 that whether policies are a catalog is a question the install asks before the first policy, since a later change renames each policy, its dials key and every citation of it.
 
 Five of them are fixes of the guide's text, routine by [rule 6 of plc-0011-install-guide](../policies/plc-0011-install-guide.md#r6): F1, F2, F3, F4 and F6. F9 is no fault: the heading equal to the title is the module's design, which its messages say. Four questions remained, F10, F11, F5 and F8, and the session put them one per message in chat on 2026-10-23, in that order. The decider chose one change for all eleven, with this one record. The session first fixed F7 as a routine edit too; the carry audit found that it changed an accepted ruling, and it became a fifth question. Sections 1 to 5 hold the questions.
 
 ## 1. Where the yes of a bootstrap lands
 
-[Kernel §4](../../kernel/CONVENTIONS.md#k4) names the yes "in the commit that lands it". The guide's step 9 committed straight onto `main`, so the dirty-tree hook asked for the very commit that would land the record before its yes. Every later `process` record of a project meets the same clash.
+[Kernel §4](../constitution/CONVENTIONS.md#k4) names the yes "in the commit that lands it". The guide's step 9 committed straight onto `main`, so the dirty-tree hook asked for the very commit that would land the record before its yes. Every later `process` record of a project meets the same clash.
 
 - **A. The bootstrap runs on a branch, and the yes is named in the merge.** The guide cuts `work/adopt-kernel`; each step commits on it; the kernel copy moves to just before the record, so the two share one commit; the merge onto `main` names the yes. The skill `commit-before-edit` gains one sentence: work that waits for its yes is committed on its branch.
-  - **Pros:** it matches [kernel §4](../../kernel/CONVENTIONS.md#k4) and the kit's own practice; the hook stays at `block` and is right every time; "commit after each step" becomes true; later records of the project follow the same path.
+  - **Pros:** it matches [kernel §4](../constitution/CONVENTIONS.md#k4) and the kit's own practice; the hook stays at `block` and is right every time; "commit after each step" becomes true; later records of the project follow the same path.
   - **Cons:** a new project starts with a branch and a merge; the guide and one skill both change.
 - **B. `severity: warn` during the bootstrap, switched to `block` in the final commit.**
   - **Pros:** no branch; a small change to the guide.
   - **Cons:** the dirty-tree guard is off during the riskiest stretch; the switch back is a step someone can forget; it does nothing for later records.
 - **C. Ask for the yes before the record is written, then commit at once.**
   - **Pros:** no branch and no dial change.
-  - **Cons:** the yes comes before the change exists, while [kernel §4](../../kernel/CONVENTIONS.md#k4) asks for it on the change; if the session ends mid-way, the yes covers work nobody saw.
+  - **Cons:** the yes comes before the change exists, while [kernel §4](../constitution/CONVENTIONS.md#k4) asks for it on the change; if the session ends mid-way, the yes covers work nobody saw.
 
 The session recommended A: it is the one option that fixes the clash for every later record and not only for the bootstrap, and it follows the kernel's own words. The decider chose A in chat on 2026-10-23.
 
@@ -136,4 +136,4 @@ The record was born `active`, and the change that creates it applies its rulings
 4. R4 — [the install guide](../../INSTALL.md#s2), step 4 of section 2, and step 7 for the answer.
 5. R5 — [the install guide](../../INSTALL.md#s2), steps 4, 6 and 7 of section 2; [the skill style-defaults](../../modules/const-styling/plugin/skills/style-defaults/SKILL.md), its first section; [the install note of const-styling](../../modules/const-styling/plugin/INSTALL.md), step 2; [requirement A9.1](../requirements.md#a9-1); [const-styling §3](../../modules/const-styling/MODULE.md#t3), the row of [requirement A9.1](../requirements.md#a9-1). What it narrows is history.
 6. R6 — [the install guide](../../INSTALL.md#s2), step 8 of section 2.
-7. R7 — [the kernel](../../kernel/CONVENTIONS.md), its prose as written; [rule 10 of plc-0002-kernel](../policies/plc-0002-kernel.md#r10) and its [rule 8](../policies/plc-0002-kernel.md#r8); [the install guide](../../INSTALL.md#s2), step 4 of section 2; [the guide's check](../../scripts/check-install-guide.py), its docstring at the name `scan`. What it replaces is history.
+7. R7 — [the kernel](../constitution/CONVENTIONS.md), its prose as written; [rule 10 of plc-0002-kernel](../policies/plc-0002-kernel.md#r10) and its [rule 8](../policies/plc-0002-kernel.md#r8); [the install guide](../../INSTALL.md#s2), step 4 of section 2; [the guide's check](../../scripts/check-install-guide.py), its docstring at the name `scan`. What it replaces is history.

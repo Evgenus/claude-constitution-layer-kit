@@ -158,7 +158,7 @@ The kernel said sizes are characters and never said what one is, while the templ
 - **A. In this module's document only.**
   - **Pros:** no kernel change.
   - **Cons:** the other counts keep an undefined unit; a concept two modules need is the kernel's.
-- **B. In [kernel §7](../../kernel/CONVENTIONS.md#k7),** one sentence; the module cites it.
+- **B. In [kernel §7](../constitution/CONVENTIONS.md#k7),** one sentence; the module cites it.
   - **Pros:** the kernel's own word defined where it is used.
   - **Cons:** a kernel change, always recorded, and a larger audit.
 
@@ -267,8 +267,8 @@ The session recommended A. <a id="r17"></a>**R17.** A, chosen by the decider in 
 6. R6 — [§7](../../modules/const-doc-budgets/MODULE.md#t7) of the module's document, the dials `severity` and `ceilings`; [§5](../../modules/const-doc-budgets/MODULE.md#t5), the invariant; [requirement A11.2](../requirements.md#a11-2), its enforcement cell.
 7. R7 — [requirement A11.3](../requirements.md#a11-3); [§7](../../modules/const-doc-budgets/MODULE.md#t7) of the module's document, the dial `ceilings`.
 8. R8 — [requirement A11.2](../requirements.md#a11-2); [§5](../../modules/const-doc-budgets/MODULE.md#t5) and [§7](../../modules/const-doc-budgets/MODULE.md#t7) of the module's document; [§6](../../modules/const-doc-budgets/MODULE.md#t6), the C5 text of an overlap.
-9. R9 — [kernel §7](../../kernel/CONVENTIONS.md#k7).
-10. R10 — [kernel §7](../../kernel/CONVENTIONS.md#k7); [requirement A11.1](../requirements.md#a11-1); [§3](../../modules/const-doc-budgets/MODULE.md#t3) of the module's document.
+9. R9 — [kernel §7](../constitution/CONVENTIONS.md#k7).
+10. R10 — [kernel §7](../constitution/CONVENTIONS.md#k7); [requirement A11.1](../requirements.md#a11-1); [§3](../../modules/const-doc-budgets/MODULE.md#t3) of the module's document.
 11. R11 — [§7](../../modules/const-doc-budgets/MODULE.md#t7) of the module's document, the dial `departures`; [the kit's dials file](../../constitution.yaml), its `const-doc-budgets.departures` and the comment beside it; [rule 6 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r6) and [rule 10 of plc-0005-research](../policies/plc-0005-research.md#r10), the sentence on their frozen documents.
 12. R12 — [§6](../../modules/const-doc-budgets/MODULE.md#t6) of the module's document, the package row and the messages N4 and B2; [§9](../../modules/const-doc-budgets/MODULE.md#t9), row E3 and limits 4 and 5.
 13. R13 — [§5](../../modules/const-doc-budgets/MODULE.md#t5) of the module's document, rule B-a; [§3](../../modules/const-doc-budgets/MODULE.md#t3), the reading of [requirement A11.3](../requirements.md#a11-3).

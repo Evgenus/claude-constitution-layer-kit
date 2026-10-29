@@ -18,7 +18,7 @@ decider: Eugene Chernyshov
 ## Options
 
 - **A. Anchor every ruling, old and new, and link every citation.**
-  - **Pros:** every ruling becomes linkable and [requirement A5.5](../requirements.md#a5-5) holds everywhere; one form in the kit, held by a gate; the citation rewrites are reference-form migrations, which [kernel §5](../../kernel/CONVENTIONS.md#k5) allows.
+  - **Pros:** every ruling becomes linkable and [requirement A5.5](../requirements.md#a5-5) holds everywhere; one form in the kit, held by a gate; the citation rewrites are reference-form migrations, which [kernel §5](../constitution/CONVENTIONS.md#k5) allows.
   - **Cons:** it adds an anchor to 51 accepted records, against rule 14 of plc-0004; the largest of the three changes, with a full carry audit.
 - **B. Anchors only from the next record on,** the rule and its gate starting at that number.
   - **Pros:** no accepted record is touched; small.
@@ -33,7 +33,7 @@ The session recommended A: the decider had chosen the explicit and stricter rule
 
 ## Choice
 
-The decider chose A in chat on 2026-10-11, the session noting that an anchor added to an accepted record was none of the wording edits rule 14 of plc-0004 then allowed, and that rule 14 keeps an accepted record from being edited to fit a later rule beyond those edits. The carry audit of this record found that the kernel allows the edit once the policy lists it: [kernel §5](../../kernel/CONVENTIONS.md#k5) admits a wording edit of any kind the records' policy lists in a closed set, and the anchor changes no meaning, fact, number or reference. R4 lists it; with it, the objection no longer stands.
+The decider chose A in chat on 2026-10-11, the session noting that an anchor added to an accepted record was none of the wording edits rule 14 of plc-0004 then allowed, and that rule 14 keeps an accepted record from being edited to fit a later rule beyond those edits. The carry audit of this record found that the kernel allows the edit once the policy lists it: [kernel §5](../constitution/CONVENTIONS.md#k5) admits a wording edit of any kind the records' policy lists in a closed set, and the anchor changes no meaning, fact, number or reference. R4 lists it; with it, the objection no longer stands.
 
 ## Ruling
 

@@ -3,8 +3,8 @@ bare repository, the steps `scripts/check-bare-install.py` and `scripts/check-se
 (decision dec-0093-module-evals-with-local-receipts, R10).
 
 `bare_repository` makes a git repository under a throwaway folder, the kit's kernel copied to
-docs/constitution/ and committed; a kit with no `kernel/`, or a kernel it cannot copy, is a `Broken` that
-names the kernel. `install` adds the kit's marketplace from a source and installs the module
+docs/constitution/ and committed; a kit with no `docs/constitution/`, or a kernel it cannot copy, is a
+`Broken` that names the kernel. `install` adds the kit's marketplace from a source and installs the module
 at the default scope, in that repository and in an empty configuration folder `<root>/config`, every
 `claude` command in the person's environment less the four variables of `kit_module_doc.claude_env`; it
 returns the installed copy's folder, as `listed_install` reads it from `claude plugin list --json`. A refusal
@@ -216,13 +216,14 @@ def git_failed(argv: list[str], out: str, err: str) -> Broken:
 
 def bare_repository(root: Path) -> Path:
     """A git repository at `root/repo`, the kit's kernel copied to docs/constitution/ and committed. A kit
-    with no folder `kernel/` is a Broken naming it, and so is a kernel that cannot be copied, with its reason;
-    a git command that fails is `git_failed`'s line."""
-    kernel = KIT / "kernel"
+    with no folder `docs/constitution/` is a Broken naming it, and so is a kernel that cannot be copied, with
+    its reason; a git command that fails is `git_failed`'s line."""
+    kernel = KIT / "docs" / "constitution"
     if not folder_at(kernel):
         raise Broken(
             f"the kernel is not at {kernel} — fix: restore it from the kit's history"
-            f" (`git -C {shlex.quote(str(KIT))} checkout HEAD -- kernel`), then run the check again"
+            f" (`git -C {shlex.quote(str(KIT))} checkout HEAD -- docs/constitution`), then run the check"
+            " again"
         )
     repo = root / "repo"
     repo.mkdir()

@@ -47,7 +47,7 @@ there, such as `docs/decisions/index.md` or `docs/decisions`, passes unseen, whi
 One more form, over the same files and the same shared code, a kit document's name; each is a
 finding, with its why and its fix:
   - a fixed file name of the kit, a plain match, upper and lower case as written, no word bounds:
-    `MODULE.md`, `requirements.md`, `rollout-plan`, `CONVENTIONS.md`, `GATE.md`, `kernel/`;
+    `MODULE.md`, `requirements.md`, `rollout-plan`, `CONVENTIONS.md`, `GATE.md`, `docs/constitution/`;
   - an id of a catalog the kit declares under `const-catalogs.catalogs` in its `constitution.yaml`,
     `<prefix>-<digits>`, the prefix and the number of digits read from the dials and never typed here:
     `width` as the catalog module reads it, an integer from 1 to 9, 4 when the entry has none. Matched
@@ -129,7 +129,14 @@ DIALS = "constitution.yaml"
 NAMESPACE = "const-catalogs"  # the dials namespace that declares the kit's numbered kinds
 DEFAULT_WIDTH, MAX_WIDTH = 4, 9  # the catalog module's own: a width is a whole number from 1 to 9
 PREFIX = re.compile(r"[a-z0-9]+")  # the catalog module's own form of a prefix, used with fullmatch
-FIXED_NAMES = ("MODULE.md", "requirements.md", "rollout-plan", "CONVENTIONS.md", "GATE.md", "kernel/")
+FIXED_NAMES = (
+    "MODULE.md",
+    "requirements.md",
+    "rollout-plan",
+    "CONVENTIONS.md",
+    "GATE.md",
+    "docs/constitution/",
+)
 KIT_FOLDERS = ("docs/decisions", "docs/research", "docs/policies", "docs/requirements")
 
 URL = re.compile(r"https?://[^\s)>\"'`]+")
@@ -170,8 +177,8 @@ WHAT = {
     "kit_id": "an id of a catalog the kit declares",
 }
 WHY_KIT = (
-    "a module installs into any project, where the kit's own documents do not exist, so it names none"
-    " of them (law 2 of CLAUDE.md)"
+    "a module installs into any project and takes every place there from the dials file at run time, so it"
+    " names none of the kit's documents (law 2 of CLAUDE.md)"
 )
 WHY_FOLDER = (
     "a module that names the kit's own folders carries the kit's layout into a project, where they do not"
@@ -766,7 +773,14 @@ class Cases:
 
 
 NOTE, SKILL = at("INSTALL.md"), at("skills/s/SKILL.md")
-TYPED_FIXED_NAMES = ("MODULE.md", "requirements.md", "rollout-plan", "CONVENTIONS.md", "GATE.md", "kernel/")
+TYPED_FIXED_NAMES = (
+    "MODULE.md",
+    "requirements.md",
+    "rollout-plan",
+    "CONVENTIONS.md",
+    "GATE.md",
+    "docs/constitution/",
+)
 TYPED_FOLDERS = ("docs/decisions", "docs/research", "docs/policies", "docs/requirements")
 
 
@@ -834,7 +848,7 @@ def run_no_names(c: Cases, root: Path) -> None:
         "ADR-0007",
         "module.md",  # the fixed names are a plain match, case as written
         "gate.md",
-        "Kernel/",
+        "docs/Constitution/",
         "Requirements.md",
         "conventions.md",
         "Rollout-plan",
@@ -849,13 +863,13 @@ def run_no_names(c: Cases, root: Path) -> None:
 
 def run_text_read(c: Cases, root: Path) -> None:
     """Fenced code, a code span and a URL are read like any other text."""
-    found = seen(root, NOTE, "```\nsee dec-0049\n```\nand `GATE.md` and `kernel/`.\n")
+    found = seen(root, NOTE, "```\nsee dec-0049\n```\nand `GATE.md` and `docs/constitution/`.\n")
     c.case(
         found
         == [
             (NOTE, 2, "kit_id", "dec-0049"),
             (NOTE, 4, "kit_file", "GATE.md"),
-            (NOTE, 4, "kit_file", "kernel/"),
+            (NOTE, 4, "kit_file", "docs/constitution/"),
         ],
         "a fenced block and a code span are read like any other text",
     )
@@ -1157,8 +1171,8 @@ def run_name_reports(c: Cases) -> None:
         with contextlib.redirect_stdout(printed):
             code = report(*check_kit(root))
     why = (
-        "  why: a module installs into any project, where the kit's own documents do not exist, so it names"
-        " none of them (law 2 of CLAUDE.md)"
+        "  why: a module installs into any project and takes every place there from the dials file at run"
+        " time, so it names none of the kit's documents (law 2 of CLAUDE.md)"
     )
     literal = [
         "RED: modules/const-x/plugin/INSTALL.md:1: a file name of the kit, 'MODULE.md'",

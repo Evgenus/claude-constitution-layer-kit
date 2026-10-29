@@ -15,7 +15,7 @@ decider: Eugene Chernyshov
 
 ## Options — the dialect
 
-- **A. Rule it in the kernel: gitignore semantics.** [Kernel §6](../../kernel/CONVENTIONS.md#k6) states it in one sentence; overlaps need no extra rule, since two policies matching one path is already the multi-policy defect of [kernel §3](../../kernel/CONVENTIONS.md#k3).
+- **A. Rule it in the kernel: gitignore semantics.** [Kernel §6](../constitution/CONVENTIONS.md#k6) states it in one sentence; overlaps need no extra rule, since two policies matching one path is already the multi-policy defect of [kernel §3](../constitution/CONVENTIONS.md#k3).
   - **Pros:** one answer for every reader and every consumer, on the one page they read; git can evaluate the patterns itself, so no new dependency, subject to verification at authoring; the kit's dials file already assumes it.
   - **Cons:** reverses a standing ruling; the kernel gains a mechanical sentence.
 - **B. Leave it to the first module, strip the comment from the dials file.**
@@ -52,6 +52,6 @@ Recommendation A. Chosen: **B**, by the decider in chat on 2026-09-18, against t
 
 ## Applied in the same commit
 
-- [Kernel §3](../../kernel/CONVENTIONS.md#k3): "one kernel-owned key" wording dropped. [Kernel §6](../../kernel/CONVENTIONS.md#k6): the key in the example, the dialect paragraph, the read set of a module.
+- [Kernel §3](../constitution/CONVENTIONS.md#k3): "one kernel-owned key" wording dropped. [Kernel §6](../constitution/CONVENTIONS.md#k6): the key in the example, the dialect paragraph, the read set of a module.
 - `constitution.yaml`: comment names the default; the kit declares no key, proving the default path.
 - [requirement A2.6](../requirements.md#a2-6): the optional key joins the declarations.

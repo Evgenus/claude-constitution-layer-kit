@@ -87,7 +87,7 @@ The session recommended A. <a id="r4"></a>**R4.** A, taken with the ruling of se
 
 ## 5. The home of the defaults
 
-The comparison proposed a policy that claims nothing, a document in the root policy's territory with no namespace, which [kernel §3](../../kernel/CONVENTIONS.md#k3) names; the decider asked what such a policy would govern and whether one document under two policies breaks the kernel's rule. It governs nothing by resolution, and the rule holds; the honest description is a rules document homed among policies for want of another home, and the root policy's rule 5, "one kind", contradicts it.
+The comparison proposed a policy that claims nothing, a document in the root policy's territory with no namespace, which [kernel §3](../constitution/CONVENTIONS.md#k3) names; the decider asked what such a policy would govern and whether one document under two policies breaks the kernel's rule. It governs nothing by resolution, and the rule holds; the honest description is a rules document homed among policies for want of another home, and the root policy's rule 5, "one kind", contradicts it.
 
 - **A. A policy that claims nothing.**
   - **Pros:** one document; the kernel names the case.

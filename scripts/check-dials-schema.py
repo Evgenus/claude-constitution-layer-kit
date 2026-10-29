@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Kit check: the kit's own constitution.yaml is valid against the kernel's dials schema,
-kernel/schemas/constitution.schema.json, checked by a real validator — the jsonschema library,
+docs/constitution/schemas/constitution.schema.json, checked by a real validator — the jsonschema library,
 a development dependency of the kit only, never of a module (decision dec-0018-dials-schema).
 
 Every gate reads its own keys by hand at each read; this check reads the whole file against the
@@ -38,7 +38,7 @@ except ImportError as missing:
 
 KIT = Path(__file__).resolve().parent.parent
 DIALS = "constitution.yaml"
-SCHEMA = "kernel/schemas/constitution.schema.json"
+SCHEMA = "docs/constitution/schemas/constitution.schema.json"
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 ALIGN = "allows, or change the schema with the kernel text it encodes"
 WHY = "the kit's dials file is the kernel's first consumer, and a key no gate reads is held by nothing else"

@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-A second kit, the knowledge kit, builds modules with the prefix `know-` on the constitution's kernel. Each of them keeps its own dials in its own file, `knowledge.yaml`, beside `constitution.yaml`. Rule NC2 of that kit's plan says that no key stands in both files. The policies that govern knowledge documents are the project's policies, so their territories stand under their ids in `constitution.yaml`, as [kernel §3](../../kernel/CONVENTIONS.md#k3) says.
+A second kit, the knowledge kit, builds modules with the prefix `know-` on the constitution's kernel. Each of them keeps its own dials in its own file, `knowledge.yaml`, beside `constitution.yaml`. Rule NC2 of that kit's plan says that no key stands in both files. The policies that govern knowledge documents are the project's policies, so their territories stand under their ids in `constitution.yaml`, as [kernel §3](../constitution/CONVENTIONS.md#k3) says.
 
 The shared package read every key from the one file the identity names. A `know-` gate that read `knowledge.yaml` found no policies there. One that read `constitution.yaml` stopped with `C5.12`, because that file's prefix, `const-`, does not start a `know-` namespace. A plain value at the top of `knowledge.yaml`, a key of the knowledge kernel, was refused as `C5.4`. The page of the shared code listed the two-file read as deferred, with the signal "another kit's gate must resolve policies while its dials sit in its own file". The knowledge kit's inventory of 25 October 2026 names the change C1, and that signal has fired.
 

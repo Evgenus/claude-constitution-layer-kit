@@ -44,7 +44,7 @@ The session recommended B: bare aspect handles were three in the kit, all in rec
 
 Each carries a clause a row states, or corrects a text the audit found wrong; none is a new rule.
 
-<a id="r3"></a>**R3.** F1, [requirement A4.3](../requirements.md#a4-3): an `inactive` record is kept while something should still reference it and deleted once nothing should, git history its archive, whether anything should being judgment — carried into rule T-b of module [`const-task-close`](../requirements.md#const-task-close) and its close skill, after [kernel §1](../../kernel/CONVENTIONS.md#k1), its "should" read as judgment, as [rule 7 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r7) reads it for the kit's own records.
+<a id="r3"></a>**R3.** F1, [requirement A4.3](../requirements.md#a4-3): an `inactive` record is kept while something should still reference it and deleted once nothing should, git history its archive, whether anything should being judgment — carried into rule T-b of module [`const-task-close`](../requirements.md#const-task-close) and its close skill, after [kernel §1](../constitution/CONVENTIONS.md#k1), its "should" read as judgment, as [rule 7 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r7) reads it for the kit's own records.
 
 <a id="r4"></a>**R4.** F2, the rest of the same row: a code location by symbol, a commit hash and a bare `#n` stay advisory, with the reason now stated — a pattern cannot tell a symbol from a word, a hash from other hexadecimal text, or a bare `#n` from prose such as "record #1".
 

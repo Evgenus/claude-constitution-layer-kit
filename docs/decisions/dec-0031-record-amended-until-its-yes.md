@@ -13,7 +13,7 @@ decider: Eugene Chernyshov
 
 [dec-0030-carry-audit-mandatory](dec-0030-carry-audit-mandatory.md) put an audit between a record's first commit and its yes: the readers are pinned to a commit that already holds the record, so whatever they find is fixed afterwards. Some of what they find is wrong in the record itself — a ruling item that contradicts the kernel, an item nobody gave a handle, a carry list that overstates a home. That record was amended in place by each of the three rounds of its audit, and [dec-0029-catalogs-module-rulings](dec-0029-catalogs-module-rulings.md) had been amended twice the same way before any rule spoke of it.
 
-[Kernel §5](../../kernel/CONVENTIONS.md#k5) said a decision is operative when committed, that reversing a ruling is a new record and never an in-place edit, and named one edit applied in place: the reference-form migration. The second round of that audit wrote into the decision-record policy that "until its yes a record is a proposal"; the third round's reader called it what it was — a carve-out from the kernel, written into a policy, on a record whose status already said applied.
+[Kernel §5](../constitution/CONVENTIONS.md#k5) said a decision is operative when committed, that reversing a ruling is a new record and never an in-place edit, and named one edit applied in place: the reference-form migration. The second round of that audit wrote into the decision-record policy that "until its yes a record is a proposal"; the third round's reader called it what it was — a carve-out from the kernel, written into a policy, on a record whose status already said applied.
 
 ## Options
 
@@ -37,12 +37,12 @@ B, by Eugene Chernyshov in chat on 2026-09-21.
 
 ## Ruling
 
-1. <a id="r1"></a>**R1.** [Kernel §5](../../kernel/CONVENTIONS.md#k5) names the two cases in which a record's body is edited in place, each named by its commit; a status change is no such edit. The new case, before acceptance: until the ceremony that [kernel §4](../../kernel/CONVENTIONS.md#k4) asks of its stakes is complete, whatever examines the record may still correct it — a ruling item tightened, added or withdrawn.
+1. <a id="r1"></a>**R1.** [Kernel §5](../constitution/CONVENTIONS.md#k5) names the two cases in which a record's body is edited in place, each named by its commit; a status change is no such edit. The new case, before acceptance: until the ceremony that [kernel §4](../constitution/CONVENTIONS.md#k4) asks of its stakes is complete, whatever examines the record may still correct it — a ruling item tightened, added or withdrawn.
 2. <a id="r2"></a>**R2.** The window is the ceremony's: a `process` record has it until its yes, an `architecture` record until its review, and a `product` record, asked for neither, has none. What completes a review is the project's to say.
 3. <a id="r3"></a>**R3.** A correction changes the current-state documents in the same commit, so that the record's status stays true: an item added to a record that says its ruling is applied is applied there and then.
 4. <a id="r4"></a>**R4.** The other case, at any time, is the mechanical edit, which leaves every ruling untouched: a typo, or a reference-form migration. The typo is new to the kernel's text and old in practice — the consumers' procedure has allowed it since [dec-0024-decision-records-module-rulings](dec-0024-decision-records-module-rulings.md), which believed the kernel already did.
 5. <a id="r5"></a>**R5.** Past the window, reversing or changing a ruling is a new record, never an in-place edit. This narrows two earlier rulings without reversing them: "records are never edited in place" of [dec-0002-status-encodes-lifecycle](dec-0002-status-encodes-lifecycle.md), and the single in-place edit of [dec-0005-reference-forms](dec-0005-reference-forms.md), sub-decision 3.
-6. <a id="r6"></a>**R6.** The kernel gives no reason clause and no second clock: the first wording said a decision "is not whole" before its yes and that the record is "evidence of its moment" from then on, which read against "operative when committed" and against the lifecycle rule of [kernel §1](../../kernel/CONVENTIONS.md#k1). Both clauses are gone.
+6. <a id="r6"></a>**R6.** The kernel gives no reason clause and no second clock: the first wording said a decision "is not whole" before its yes and that the record is "evidence of its moment" from then on, which read against "operative when committed" and against the lifecycle rule of [kernel §1](../constitution/CONVENTIONS.md#k1). Both clauses are gone.
 7. <a id="r7"></a>**R7.** What follows in the kit:
    - **the comment on `status` in the kernel's frontmatter schema** no longer says records are never edited in place;
    - [requirement A5.6](../requirements.md#a5-6) no longer limits a reference-form migration to an inactive record;
@@ -54,8 +54,8 @@ B, by Eugene Chernyshov in chat on 2026-09-21.
 
 ## Carry list
 
-1. R1, R2, R3, R4, R5 — [kernel §5](../../kernel/CONVENTIONS.md#k5), read with the ceremony table of [kernel §4](../../kernel/CONVENTIONS.md#k4).
+1. R1, R2, R3, R4, R5 — [kernel §5](../constitution/CONVENTIONS.md#k5), read with the ceremony table of [kernel §4](../constitution/CONVENTIONS.md#k4).
 2. R6 — history only: what the kernel no longer says.
-3. R7 — [the frontmatter schema](../../kernel/schemas/document-frontmatter.schema.json); [requirement A5.6](../requirements.md#a5-6); [plc-0004-decision-records](../policies/plc-0004-decision-records.md), rules 4 and 5; step 7 of [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md).
+3. R7 — [the frontmatter schema](../constitution/schemas/document-frontmatter.schema.json); [requirement A5.6](../requirements.md#a5-6); [plc-0004-decision-records](../policies/plc-0004-decision-records.md), rules 4 and 5; step 7 of [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md).
 4. R8 — [the record-decision skill](../../modules/const-decision-records/plugin/skills/record-decision/SKILL.md), section 4; [the module's document](../../modules/const-decision-records/MODULE.md), sections 5 and 8.
 5. R9 — history only: the audit of this change; the rule that asks for it is rule 2 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r2).
