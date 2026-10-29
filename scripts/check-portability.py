@@ -848,7 +848,7 @@ def run_no_names(c: Cases, root: Path) -> None:
         "ADR-0007",
         "module.md",  # the fixed names are a plain match, case as written
         "gate.md",
-        "Kernel/",
+        "docs/Constitution/",
         "Requirements.md",
         "conventions.md",
         "Rollout-plan",
