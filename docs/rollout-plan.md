@@ -27,12 +27,12 @@ status: active
 | [s6](#s6) | Decision record #1 | B | ✅ | 1 | 0 | 0 | 100% |
 | [s7](#s7) | Commit each step with honest messages | B | ✅ | 1 | 0 | 0 | 100% |
 | [s8](#s8) | [`const-locations`](requirements.md#const-locations) and [`const-task-close`](requirements.md#const-task-close) | C | ✅ | 2 | 0 | 0 | 100% |
-| [s9](#s9) | The other remaining modules, and the kit work logged beside them | C | 🔄 | 21 | 6 | 4 | 77% |
+| [s9](#s9) | The other remaining modules, and the kit work logged beside them | C | 🔄 | 21 | 8 | 4 | 72% |
 | [s10](#s10) | Publish: the remote, the marketplace and CI, then `0.1.0` | D | 🔄 | 9 | 4 | 0 | 69% |
 | [s10a](#s10a) | The first release of the shared package | D | ✅ | 1 | 0 | 0 | 100% |
 | [s10b](#s10b) | The release 2.0.0 of the shared package | D | ✅ | 1 | 0 | 0 | 100% |
 | [s11](#s11) | Switch the project from path load to marketplace install | D | ⏳ | 0 | 1 | 0 | 0% |
-| all | the whole plan | all | 🔄 | 46 | 18 | 4 | 71% |
+| all | the whole plan | all | 🔄 | 46 | 20 | 4 | 69% |
 
 <a id="phase-a"></a>
 ## Phase A — Kit as consumer zero: the document-shaped accumulating modules (~1 week)
@@ -112,6 +112,8 @@ status: active
    - <a id="s9-26"></a>**9.26** ✅ R6 of [dec-0087-module-metrics-report](decisions/dec-0087-module-metrics-report.md#r6): the test coverage and the mutation score of each module, a work item of their own. Done 2026-10-13 for the coverage, record [dec-0089-module-coverage-report](decisions/dec-0089-module-coverage-report.md), on every change rather than in a scheduled workflow: each module's fixtures entry runs under coverage.py in CI, and `scripts/module-coverage.py` reports it after the verdict of the job `gates`.
    - <a id="s9-27"></a>**9.27** 💤 Pending, a work item of its own when the decider asks for it: the mutation score of each module, in a scheduled workflow, since it takes minutes per module.
    - <a id="s9-28"></a>**9.28** ✅ Done 2026-10-18, record [dec-0093-module-evals-with-local-receipts](decisions/dec-0093-module-evals-with-local-receipts.md): the module evals. Every module ships its eval cases, run in a throwaway container on a subscription token on the pinned model, with a receipt in the kit that a check of the gate group holds; a second kit check proves in CI that each module's skills and start hooks load in a session. The module documents' `live` items that a case covers become `eval` items.
+   - <a id="s9-29"></a>**9.29** ⏳ Found on 2026-10-29 by the carry audit of [dec-0108-kernel-at-docs-constitution](decisions/dec-0108-kernel-at-docs-constitution.md), older than that change: `WHY_FOLDER`, the reason [the portability check](../scripts/check-portability.py) gives for a document folder of the kit, says such folders do not exist in a project, which is false for `docs/policies/` and `docs/decisions/`, which step 6 of [the install guide](../INSTALL.md) makes in every project. It is reworded as `WHY_KIT` was, with its typed line in the self-test.
+   - <a id="s9-30"></a>**9.30** ⏳ Found the same day by the same audit, older than that change: [the install note of the fixture gate](../scripts/layered-fixture/plugin/INSTALL.md) stands under no ceiling of `const-doc-budgets.ceilings` in `constitution.yaml`, against the comment there that every Markdown file git lists stands under one. A ceiling is set for it by the rule of that dial, or the comment is narrowed.
 
    A project that cannot run hooks carries a copy of the rules text of [`const-interaction`](requirements.md#const-interaction) in its `CLAUDE.md`, labeled manual and version-drifting — the fallback that module's install note names.
 
