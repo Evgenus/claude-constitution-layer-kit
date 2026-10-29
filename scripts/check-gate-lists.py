@@ -2749,7 +2749,7 @@ def coverage_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
         ),
         "docs that open with ./": (case(with_docs("./modules/const-x/MODULE.md"), quiet), [docs]),
         "two patterns of no module are two findings": (
-            case(with_code(*x["code"], "scripts/**", "kernel/**"), quiet),
+            case(with_code(*x["code"], "scripts/**", "docs/constitution/**"), quiet),
             [outside, outside],
         ),
         "a pattern missing and a pattern outside, the folders existing: by kind": (

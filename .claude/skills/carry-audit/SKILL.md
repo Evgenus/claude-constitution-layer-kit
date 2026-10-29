@@ -74,7 +74,7 @@ kit's own reading of it is rule 2 of [plc-0004-decision-records](../../../docs/p
 > no script that writes. The audit is pinned to commit `<pin>`: report `git rev-parse --short HEAD` and
 > `git status --short` at the start and at the end.
 >
-> Read sections 1, 2 and 5 of `kernel/CONVENTIONS.md`, and rules 1, 2, 5 and 7 of
+> Read sections 1, 2 and 5 of `docs/constitution/CONVENTIONS.md`, and rules 1, 2, 5 and 7 of
 > `docs/policies/plc-0004-decision-records.md`. The question: could each record below be deleted without
 > anyone losing a rule they must follow? Records: `<list>`.
 >
@@ -82,7 +82,7 @@ kit's own reading of it is rule 2 of [plc-0004-decision-records](../../../docs/p
 > step, dial, exception, obligation, measurement, fallback and deferred trigger. Hunt outside the
 > ruling section too: a binding sentence under Context, Options, Recommendation, Choice or Reasoning is
 > an item, and it is the kind most often left out of a carry list. (2) For each item find where it is stated today in
-> current-state text or code: `kernel/`, `CLAUDE.md`, `INTENT.md`, `constitution.yaml`,
+> current-state text or code: `docs/constitution/`, `CLAUDE.md`, `INTENT.md`, `constitution.yaml`,
 > `docs/policies/`, `docs/requirements.md`, `module-template/`, `shared/`, `modules/`, `scripts/`,
 > `pyproject.toml`, `.claude/skills/`. Not current-state: `docs/rollout-plan.md` — though intent that is not yet real
 > lives there legitimately, say so — `docs/research/`, `README.md`, a module's `README.md`, commit messages, other records.
@@ -144,7 +144,7 @@ agent must hear them too.
 > STRICTLY READ-ONLY, pinned to `<pin>`, with the two git readings, as in prompt A. Read the kinds
 > of wording edit that rule 14 of `docs/policies/plc-0004-decision-records.md` allows in an
 > accepted record and rule 7 of `docs/policies/plc-0005-research.md` in a frozen comparison, and
-> the mechanical edits of section 5 of `kernel/CONVENTIONS.md`. Then read every edit in
+> the mechanical edits of section 5 of `docs/constitution/CONVENTIONS.md`. Then read every edit in
 > `git diff <base> <pin> -- <the frozen documents the change edits>`, with `--word-diff` too. For
 > each changed spot, say which kind it is, whether it is that kind exactly as the rule words it,
 > and whether the text still says what it said: no ruling, fact, number, scope or speaker moved,

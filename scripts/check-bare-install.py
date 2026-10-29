@@ -2663,22 +2663,24 @@ def start_and_lookup_cases(tally: Tally) -> None:
 
 
 def kernel_cases(tally: Tally, line_of: Callable[[str | None], str]) -> None:
-    """A kit with no `kernel/`, and a kernel with a file that cannot be read, are each one BROKEN line naming
-    the kernel and its fix, never the misleading "make the module's files readable" of `main`'s
+    """A kit with no `docs/constitution/`, and a kernel with a file that cannot be read, are each one BROKEN
+    line naming the kernel and its fix, never the misleading "make the module's files readable" of `main`'s
     `OSError`; `line_of` is the run of `bare_repository` that `bare_repository_cases` makes."""
     with tempfile.TemporaryDirectory() as tmp:
         kit = Path(tmp).resolve()
         with patched_globals({"KIT": kit}):
             got_line = line_of(None)
         missing_line = (  # typed by hand
-            f"BROKEN: the kernel is not at {kit}/kernel — fix: restore it from the kit's history"
-            f" (`git -C {kit} checkout HEAD -- kernel`), then run the check again"
+            f"BROKEN: the kernel is not at {kit}/docs/constitution — fix: restore it from the kit's history"
+            f" (`git -C {kit} checkout HEAD -- docs/constitution`), then run the check again"
         )
-        version_case(tally, "bare repository: a kit with no kernel/", got_line == missing_line, got_line)
+        version_case(
+            tally, "bare repository: a kit with no docs/constitution/", got_line == missing_line, got_line
+        )
         if os.geteuid() == 0:  # root reads any file: the missing kernel above is the proof
             return
-        shut = kit / "kernel" / "CONVENTIONS.md"
-        shut.parent.mkdir()
+        shut = kit / "docs" / "constitution" / "CONVENTIONS.md"
+        shut.parent.mkdir(parents=True)
         shut.write_text("# kernel\n", encoding="utf-8")
         shut.chmod(0)
         try:
@@ -2687,9 +2689,9 @@ def kernel_cases(tally: Tally, line_of: Callable[[str | None], str]) -> None:
         finally:
             shut.chmod(0o600)
         unreadable_line = (  # typed by hand
-            f"BROKEN: the kernel at {kit}/kernel could not be copied ({shut}: [Errno 13] Permission denied:"
-            f" '{shut}') — fix: make its files readable, `ls -lR {kit}/kernel` shows why not, then run the"
-            " check again"
+            f"BROKEN: the kernel at {kit}/docs/constitution could not be copied ({shut}: [Errno 13]"
+            f" Permission denied: '{shut}') — fix: make its files readable, `ls -lR {kit}/docs/constitution`"
+            " shows why not, then run the check again"
         )
         version_case(
             tally, "bare repository: a kernel file that cannot be read", got_line == unreadable_line, got_line
@@ -3579,8 +3581,8 @@ def step_two_scene(base: Path) -> StepTwo:
     (toy / ".claude-plugin" / "marketplace.json").write_text('{"name": "toy-mp"}', encoding="utf-8")
     (toy / "scripts").mkdir()
     (toy / "scripts" / "claude-code.version").write_text("2.1.282\n", encoding="utf-8")
-    (toy / "kernel").mkdir()
-    (toy / "kernel" / "CONVENTIONS.md").write_text("A kernel.\n", encoding="utf-8")
+    (toy / "docs" / "constitution").mkdir(parents=True)
+    (toy / "docs" / "constitution" / "CONVENTIONS.md").write_text("A kernel.\n", encoding="utf-8")
     toy_module = toy / "modules" / "const-x"
     toy_plugin = toy_module / "plugin"
     (toy_plugin / ".claude-plugin").mkdir(parents=True)
@@ -3597,9 +3599,9 @@ def step_two_scene(base: Path) -> StepTwo:
     linked = base / "linked-kit"  # the toy kit whose module holds a link its installed copy lacks
     shutil.copytree(toy, linked, symlinks=True)
     (linked / "modules" / "const-x" / "plugin" / "linked").symlink_to(".claude-plugin/plugin.json")
-    no_kernel = base / "no-kernel"  # the toy kit without its kernel/, which a bare repository copies
+    no_kernel = base / "no-kernel"  # the toy kit without its kernel folder, which a bare repository copies
     shutil.copytree(toy, no_kernel)
-    shutil.rmtree(no_kernel / "kernel")
+    shutil.rmtree(no_kernel / "docs" / "constitution")
     work, repo = base / "work", base / "repo"
     work.mkdir()
     repo.mkdir()
@@ -4209,9 +4211,9 @@ def unreadable_file_cases(tally: Tally, step: StepTwo) -> None:
     any other file the run cannot read is the two BROKEN lines of `main`'s fallback; the note at the end of
     each line."""
     no_kernel, lines_of, new_scene = step.no_kernel, step.lines_of, step.new_scene
-    kernel_lines = [  # typed by hand: a kit with no kernel/, after the version is known
-        f"BROKEN: the kernel is not at {no_kernel}/kernel — fix: restore it from the kit's history"
-        f" (`git -C {no_kernel} checkout HEAD -- kernel`), then run the check again{{}}",
+    kernel_lines = [  # typed by hand: a kit with no docs/constitution/, after the version is known
+        f"BROKEN: the kernel is not at {no_kernel}/docs/constitution — fix: restore it from the kit's"
+        f" history (`git -C {no_kernel} checkout HEAD -- docs/constitution`), then run the check again{{}}",
         "BROKEN: the check could not run — 0 modules examined{}",
     ]
     unreadable_lines = [  # typed by hand: a file the run could not read, after the version is known

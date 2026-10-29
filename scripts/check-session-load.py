@@ -353,8 +353,8 @@ def toy_kit(root: Path) -> Iterator[Path]:
     (root / "shared" / "constitution_layer_kit" / "__init__.py").write_text(
         f'MARK = "{TOY_MARK}"\n', encoding="utf-8"
     )
-    (root / "kernel").mkdir()
-    (root / "kernel" / "CONVENTIONS.md").write_text("# kernel\n", encoding="utf-8")
+    (root / "docs" / "constitution").mkdir(parents=True)
+    (root / "docs" / "constitution" / "CONVENTIONS.md").write_text("# kernel\n", encoding="utf-8")
     (root / ".claude-plugin").mkdir()
     (root / ".claude-plugin" / "marketplace.json").write_text(
         '{"name": "toy", "plugins": []}', encoding="utf-8"
@@ -451,8 +451,8 @@ def self_test() -> int:
             green = whole_run_said(root)
             with mock.patch.dict(globals(), {"shared_path": unmade_path}):
                 said = whole_run_said(root)
-            (root / "kernel" / "CONVENTIONS.md").unlink()
-            (root / "kernel").rmdir()
+            (root / "docs" / "constitution" / "CONVENTIONS.md").unlink()
+            (root / "docs" / "constitution").rmdir()
             try:
                 lost = whole_run_said(root)
             except Exception as other:  # what `main` does not catch ends the check in a traceback
@@ -473,14 +473,15 @@ def self_test() -> int:
         )
         if not ok:
             print(f"        got {said}")
-        lost_line = (  # typed by hand: the kit lost its kernel/, which the bare repository copies
-            f"BROKEN: the kernel is not at {root}/kernel — fix: restore it from the kit's history"
-            f" (`git -C {root} checkout HEAD -- kernel`), then run the check again"
+        lost_line = (  # typed by hand: the kit lost its docs/constitution/, which the bare repository copies
+            f"BROKEN: the kernel is not at {root}/docs/constitution — fix: restore it from the kit's history"
+            f" (`git -C {root} checkout HEAD -- docs/constitution`), then run the check again"
         )
         ok = lost == lost_line
         failed += 0 if ok else 1
         print(
-            f"[{'ok' if ok else 'FAIL'}] the same run over a kit with no kernel/ is a BROKEN line naming it"
+            f"[{'ok' if ok else 'FAIL'}] the same run over a kit with no docs/constitution/ is a BROKEN line"
+            " naming it"
         )
         if not ok:
             print(f"        got {lost}")

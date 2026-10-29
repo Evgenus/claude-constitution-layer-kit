@@ -15,7 +15,7 @@ and no script that writes. Bash is for reading only: `git diff`, `git log`, `git
 `git rev-parse --short HEAD` and `git status --short` at the start and at the end; if the commit
 moved under you, say which of your files changed.
 
-Before the records, read sections 1, 2 and 5 of `kernel/CONVENTIONS.md` and rule 2 of
+Before the records, read sections 1, 2 and 5 of `docs/constitution/CONVENTIONS.md` and rule 2 of
 `docs/policies/plc-0004-decision-records.md`: a current-state document states every rule it
 binds in its own text, and a record is provenance, never authority.
 

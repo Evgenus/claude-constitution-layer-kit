@@ -11,7 +11,7 @@ Governs the document kind *<kind>*: <one sentence saying what a document of this
 
 ## Rules
 
-<Numbered rules, each opening with a bold name and stating one rule in prose: what the envelope of this kind fixes beyond the four fields, the shape a document must have, when one is created and changed and at what stakes, what counts as a defect. Link the kernel sections relied on — from this folder the conventions page is at ../../kernel/CONVENTIONS.md, its sections anchored k1 to k7 — and never restate them; never list the documents governed, since the territory is the enumeration. Delete this paragraph.>
+<Numbered rules, each opening with a bold name and stating one rule in prose: what the envelope of this kind fixes beyond the four fields, the shape a document must have, when one is created and changed and at what stakes, what counts as a defect. Link the kernel sections relied on — from this folder the conventions page is at ../constitution/CONVENTIONS.md, its sections anchored k1 to k7 — and never restate them; never list the documents governed, since the territory is the enumeration. Delete this paragraph.>
 
 1. <a id="r1"></a>**<Name>.** <The rule. Every rule carries its anchor `r<n>` inside the item, before the bold name, and keeps its number for life (rule 7 of plc-0001-root-policy — from this folder, `plc-0001-root-policy.md#r7`).>
 2. <a id="r2"></a>**Change.** <When a document of this kind is created and changed, and at what stakes: what is routine, what is a `process` decision, what is a mechanical edit.>

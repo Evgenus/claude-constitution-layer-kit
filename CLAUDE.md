@@ -4,7 +4,7 @@ This repository is the **constitution kit**: a portable, project-agnostic govern
 
 Read before any work:
 - `INTENT.md` — what this repo is for and what it is not.
-- `kernel/CONVENTIONS.md` — the semantic kernel (one page). Authoritative for all vocabulary.
+- `docs/constitution/CONVENTIONS.md` — the semantic kernel (one page). Authoritative for all vocabulary.
 - `module-template/MODULE.md` — the fixed shape every module fills.
 - `docs/requirements.md` — the traceability matrix and module specifications (requirement rows per module).
 - `docs/rollout-plan.md` — the phases, the kit's own active task-record; not a reading assignment.

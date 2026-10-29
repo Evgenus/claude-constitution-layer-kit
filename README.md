@@ -54,7 +54,7 @@ A write that cites a document by its id in backticks, where a link is required, 
 ```text
 RED: INSTALL.md:50: document id 'constitution-kernel' stands in backticks and is no link
   why: an id names a document that can move: only a link lets a reader reach it and lets a move repair it
-  fix: write [constitution-kernel](kernel/CONVENTIONS.md) — the path from this document to kernel/CONVENTIONS.md
+  fix: write [constitution-kernel](docs/constitution/CONVENTIONS.md) — the path from this document to docs/constitution/CONVENTIONS.md
 ```
 
 The session reads the fix, makes it, and writes again; nobody has to explain the rule.
@@ -71,7 +71,7 @@ The [install guide](INSTALL.md) bootstraps a new project step by step: the prere
 
 | No. | Path | What it holds |
 |---|---|---|
-| 1 | `kernel/` | the semantic kernel, `CONVENTIONS.md`, and its schemas |
+| 1 | `docs/constitution/` | the semantic kernel, `CONVENTIONS.md`, and its schemas |
 | 2 | `modules/` | the modules, one plugin each, each with a `README.md` that is its landing page |
 | 3 | `module-template/` | the fixed shape every module fills |
 | 4 | `shared/` | the code every gate shares, a Python package that each module imports and pip installs ([shared/GATE.md](shared/GATE.md)) |

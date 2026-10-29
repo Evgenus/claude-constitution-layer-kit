@@ -5,7 +5,7 @@ every gate), const-meta-types for the envelope (exactly equal), const-decision-r
 what a decision record adds to the envelope (equal, except where the mirror is stricter on
 purpose: a decider of blanks).
 
-A module ships without the kit, so it cannot read kernel/schemas/ at run time; it carries
+A module ships without the kit, so it cannot read docs/constitution/schemas/ at run time; it carries
 a mirror of the rules instead. This check runs the real schemas (through the jsonschema
 library, a development dependency of the kit only) and the mirror over one corpus and
 compares verdicts. The enum and length cases come from the schemas and the mirrors, never from
@@ -83,15 +83,15 @@ from meta_types_gate.model import TITLE_MAX  # noqa: E402
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 OUTSIDE = "zz-not-a-value"  # a value no side may ever hold
 GOOD = {"id": "note-a", "type": "non-authoritative", "title": "Note A", "status": "active"}
-ENVELOPE_SCHEMA = "kernel/schemas/document-frontmatter.schema.json"
-RECORD_SCHEMA = "kernel/schemas/decision-record.schema.json"
-DIALS_SCHEMA = "kernel/schemas/constitution.schema.json"
+ENVELOPE_SCHEMA = "docs/constitution/schemas/document-frontmatter.schema.json"
+RECORD_SCHEMA = "docs/constitution/schemas/decision-record.schema.json"
+DIALS_SCHEMA = "docs/constitution/schemas/constitution.schema.json"
 COULD_NOT_RUN = "BROKEN: the check could not run — 0 cases examined"
 THIS_FILE = "scripts/check-schema-mirror.py"
 WHY_MIRROR = "the module's mirror is the only copy of the kernel schema a consumer has"
 WHY_EXEMPTION = "an exemption that no longer holds would hide the next real disagreement on its case"
 ALIGN = (
-    "align with kernel/schemas/ — dials.py of shared/constitution_layer_kit/,"
+    "align with docs/constitution/schemas/ — dials.py of shared/constitution_layer_kit/,"
     " or checks.py or model.py of the module the line names"
 )
 

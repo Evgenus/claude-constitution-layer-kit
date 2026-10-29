@@ -1442,7 +1442,7 @@ MATRIX = f"""# R
 |---|---|---|---|
 | <a id="a1"></a>**A1 — Sample** | | | |
 | <a id="a1-1"></a>A1.1 | one | M1 hook | **gate** |
-| <a id="a1-2"></a>A1.2 | two | [kernel §2](../kernel/CONVENTIONS.md#k2) | definitional — through A1.1 |
+| <a id="a1-2"></a>A1.2 | two | [kernel §2](constitution/CONVENTIONS.md#k2) | definitional — through A1.1 |
 | <a id="a1-3"></a>A1.3 | three | M1 skill | advisory |
 """
 LINK_1 = "[A1.1](../../docs/requirements.md#a1-1)"
@@ -2778,9 +2778,9 @@ DESTINATIONS = {  # the whole set of openings: the cell, whether the check class
     "M1 hook": True,
     "M47 skill + hook": True,
     "**M1** skill": True,
-    "[kernel §2](../kernel/CONVENTIONS.md#k2)": True,
+    "[kernel §2](constitution/CONVENTIONS.md#k2)": True,
     "kernel §12": True,
-    "[kernel §2](../kernel/CONVENTIONS.md#k2) + template": True,
+    "[kernel §2](constitution/CONVENTIONS.md#k2) + template": True,
     "binding": True,
     "binding (thresholds)": True,
     "template": True,
@@ -2810,7 +2810,7 @@ def case_destinations(tally: Tally) -> None:
     """Each opening of a destination cell: classed, or red as one the check cannot class."""
     for cell, classed in DESTINATIONS.items():
         seen: list[list[str]] = []
-        for old in ("M1 hook", "[kernel §2](../kernel/CONVENTIONS.md#k2)"):
+        for old in ("M1 hook", "[kernel §2](constitution/CONVENTIONS.md#k2)"):
             with tempfile.TemporaryDirectory() as tmp:  # A1.1 a module holds, A1.2 none holds
                 root = Path(tmp).resolve()
                 build(root, GOOD_TABLE, matrix=MATRIX.replace(f"| {old} |", f"| {cell} |"))
@@ -3410,7 +3410,7 @@ def case_reports(tally: Tally) -> None:
         ),
         "of a destination the check cannot class": (
             GOOD_TABLE,
-            MATRIX.replace("[kernel §2](../kernel/CONVENTIONS.md#k2)", "kernel"),
+            MATRIX.replace("[kernel §2](constitution/CONVENTIONS.md#k2)", "kernel"),
             literal_class,
         ),
     }

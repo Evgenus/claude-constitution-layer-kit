@@ -77,10 +77,10 @@ Beside every block's exit 0, the check holds at each name:
                `PLUGIN_PLACE_ENV`) in a block, or, if the platform now
                copies elsewhere, correct `Run.cached`; off the pin, where the reader is the pinned
                version's and not this one's, to run the check again on the pinned version.
-  kernel       the project's docs/constitution/ holds every file git tracks in the kit's kernel/, and the
-               kit's LICENSE and NOTICE, byte for byte, and no other file: the run plants an untracked
-               file, `STRAY`, in the clone's kernel/, as a working clone on macOS holds one, and a copy
-               that carries it is red.
+  kernel       the project's docs/constitution/ holds every file git tracks in the kit's own
+               docs/constitution/, and the kit's LICENSE and NOTICE, byte for byte, and no other file:
+               the run plants an untracked file, `STRAY`, in the clone's docs/constitution/, as a
+               working clone on macOS holds one, and a copy that carries it is red.
   dials        not run: written as the project's constitution.yaml, and with it what the reader
                writes by hand, from the check's fixture — one policy per namespace of the dials that
                claims a territory, the root at `root_policy`, and decision record #1, named and placed by
@@ -370,7 +370,8 @@ CACHE_ENV = PLUGINS_ROOT_ENV  # the plugins root, "Find plugins on disk" of the 
 ADD = re.compile(r"(claude plugin marketplace add\s+)(\S+)")  # the source the marketplace block registers
 GITHUB_URL = re.compile(r"github\.com[:/]([^/\s]+/[^/\s]+?)(?:\.git)?/?$")
 LICENSE_FILES = ("LICENSE", "NOTICE")  # the kit's license and credit, copied beside the kernel
-STRAY = ".DS_Store"  # the untracked file the run plants in the clone's kernel/, as macOS leaves one there
+KERNEL = Path("docs/constitution")  # the kernel's folder in the kit, the same path as its copy in a project
+STRAY = ".DS_Store"  # the untracked file the run plants in the clone's kernel, as macOS leaves one there
 RECORD_SLUG = "adopt-constitution-kernel"
 WHY = "a command nobody runs drifts from the platform unseen (rule 4 of plc-0011-install-guide)"
 TIMEOUT = 900
@@ -1049,12 +1050,12 @@ def claim_installed(state: Run, project: Path, name: str) -> str:
 
 def claim_kernel(state: Run, project: Path) -> str:
     """What fails of the claim that the kernel files git tracks and the license files stand in the project's
-    docs, and no other file: the untracked `STRAY` of the clone's kernel/ is left behind."""
-    code, said = run(["git", "ls-files", "-z", "kernel"], state.kit, state.env, joined=False)
+    docs, and no other file: the untracked `STRAY` of the clone's kernel folder is left behind."""
+    code, said = run(["git", "ls-files", "-z", str(KERNEL)], state.kit, state.env, joined=False)
     if code != 0:
         raise Broken(f"git ls-files failed in the kit's clone ({last_line(said)}) — fix: check the clone")
-    source = state.kit / "kernel"
-    tracked = sorted(Path(name).relative_to("kernel") for name in said.split("\0") if name)
+    source = state.kit / KERNEL
+    tracked = sorted(Path(name).relative_to(KERNEL) for name in said.split("\0") if name)
     for path in tracked:
         copy = project / "docs" / "constitution" / path
         if not copy.is_file() or copy.read_bytes() != (source / path).read_bytes():
@@ -1067,7 +1068,7 @@ def claim_kernel(state: Run, project: Path) -> str:
     folder = project / "docs" / "constitution"
     for path in sorted(p.relative_to(folder) for p in folder.rglob("*") if not p.is_dir()):
         if path not in held_names:
-            return f"docs/constitution/{path} is no file git tracks in the kit's kernel/"
+            return f"docs/constitution/{path} is no file git tracks in the kit's kernel"
     return ""
 
 
@@ -1310,7 +1311,7 @@ def home_env(home: Path, base_env: dict[str, str]) -> dict[str, str]:
 
 def cloned_kit(kit: Path, home: Path, env: dict[str, str]) -> Path:
     """The kit cloned from its working folder's HEAD into the run's home, the clone's path, with `STRAY`
-    planted untracked in its kernel/, as a person's working clone holds one."""
+    planted untracked in its kernel folder, as a person's working clone holds one."""
     clone = home / CLONE
     clone.parent.mkdir(parents=True)
     head = subprocess.run(  # standard output alone, so no warning on stderr joins the commit
@@ -1328,7 +1329,7 @@ def cloned_kit(kit: Path, home: Path, env: dict[str, str]) -> Path:
         code, said = run(argv, where, env)
         if code != 0:
             raise Broken(f"the kit could not be cloned ({last_line(said)}) — fix: check the clone")
-    (clone / "kernel" / STRAY).write_bytes(b"\0untracked\n")
+    (clone / KERNEL / STRAY).write_bytes(b"\0untracked\n")
     return clone
 
 
@@ -1769,7 +1770,8 @@ def toy_guide(**replace: str) -> str:
         "install": "for m in ~/dev/claude-constitution-layer-kit/modules/const-*; do "
         f'claude plugin install "$(basename "$m")@{TOY_MP}" --scope project; done',
         "kernel": "mkdir -p docs/constitution && "
-        "git -C ~/dev/claude-constitution-layer-kit archive HEAD:kernel | tar -x -C docs/constitution\n"
+        "git -C ~/dev/claude-constitution-layer-kit archive HEAD:docs/constitution | "
+        "tar -x -C docs/constitution\n"
         "cp ~/dev/claude-constitution-layer-kit/LICENSE "
         "~/dev/claude-constitution-layer-kit/NOTICE docs/constitution/",
         "dials": TOY_DIALS.rstrip("\n"),
@@ -1805,8 +1807,8 @@ def toy_kit(root: Path, market: dict[str, object] | None = None) -> Path:
     )
     (kit / "scripts").mkdir()
     (kit / "scripts" / "claude-code.version").write_text(TOY_PIN + "\n", encoding="utf-8")
-    (kit / "kernel").mkdir(parents=True)
-    (kit / "kernel" / "CONVENTIONS.md").write_text("# Kernel\n", encoding="utf-8")
+    (kit / KERNEL).mkdir(parents=True)
+    (kit / KERNEL / "CONVENTIONS.md").write_text("# Kernel\n", encoding="utf-8")
     for name in LICENSE_FILES:
         (kit / name).write_text(f"toy {name}\n", encoding="utf-8")
     (kit / "shared" / "gate").mkdir(parents=True)
@@ -3662,7 +3664,7 @@ class SelfTestRun:
                     'git commit --quiet --allow-empty -m "Initial commit" && '
                     "git switch --quiet -c work/adopt-kernel",
                     "kernel": 'echo "$KIT" && mkdir -p docs/constitution && '
-                    "cp -r ~/dev/claude-constitution-layer-kit/kernel/. docs/constitution/",
+                    "cp -r ~/dev/claude-constitution-layer-kit/docs/constitution/. docs/constitution/",
                 },
                 "",
                 "the block named check=kernel exited",
@@ -3689,7 +3691,7 @@ class SelfTestRun:
                 "a kernel copy that leaves the license out red",
                 {
                     "kernel": "mkdir -p docs/constitution && "
-                    "git -C ~/dev/claude-constitution-layer-kit archive HEAD:kernel | "
+                    "git -C ~/dev/claude-constitution-layer-kit archive HEAD:docs/constitution | "
                     "tar -x -C docs/constitution"
                 },
                 "",
@@ -3699,12 +3701,12 @@ class SelfTestRun:
                 "a kernel copy of the clone's working folder, its untracked file carried, red",
                 {
                     "kernel": "mkdir -p docs/constitution && "
-                    "cp -r ~/dev/claude-constitution-layer-kit/kernel/. docs/constitution/\n"
+                    "cp -r ~/dev/claude-constitution-layer-kit/docs/constitution/. docs/constitution/\n"
                     "cp ~/dev/claude-constitution-layer-kit/LICENSE "
                     "~/dev/claude-constitution-layer-kit/NOTICE docs/constitution/"
                 },
                 "",
-                f"after check=kernel: docs/constitution/{STRAY} is no file git tracks in the kit's kernel/",
+                f"after check=kernel: docs/constitution/{STRAY} is no file git tracks in the kit's kernel",
             ),
             (
                 "a commit that leaves the tree dirty red",
