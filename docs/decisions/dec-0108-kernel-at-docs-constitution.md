@@ -34,7 +34,19 @@ The move itself, made by the mover with one call per file, is a one-time act, an
 
 ## 2. What the portability check holds of the kernel's folder
 
-The check that holds [law 2 of CLAUDE.md](../../CLAUDE.md#law-2) by grep, `scripts/check-portability.py`, refuses a fixed name of the kit in every installed file of a module and in the shared code. `kernel/` was one of those names. After the move, no folder of that name exists here, and the kernel's folder is `docs/constitution/`. The session made the call that the name follows the folder, so that the same hold stays on the same folder, and left it open to the decider to overturn at the yes. No installed file of a module and no file of the shared package names either path.
+The check that holds [law 2 of CLAUDE.md](../../CLAUDE.md#law-2) by grep, `scripts/check-portability.py`, refuses a fixed name of the kit in every installed file of a module and in the shared code. `kernel/` was one of those names. After the move, no folder of that name exists here, and the kernel's folder is `docs/constitution/`. No installed file of a module and no file of the shared package names either path.
+
+- **A. Replace `kernel/` with `docs/constitution/`.** The hold follows the kernel's folder to its new name.
+  - **Pros:** a module can never write where the kernel copy lives, since every place it uses comes from the dials file; nothing names the path today, so nothing turns red.
+  - **Cons:** `docs/constitution/` is also every consumer's own path, so the shared test files can no longer name it; a bare `docs/constitution` with no slash still passes, as `kernel` did before.
+- **B. Drop `kernel/` and add nothing.** The list keeps only names that exist in the kit alone.
+  - **Pros:** the list stays strictly the kit's names, and `CONVENTIONS.md` on it still catches the kernel page.
+  - **Cons:** a module that names `docs/constitution/schemas/` passes unseen, held by review alone.
+- **C. Keep `kernel/` and add `docs/constitution/`.**
+  - **Pros:** it also catches a stale copy of the old path, such as a script copied from an older commit of the kit.
+  - **Cons:** `kernel/` names no folder anywhere now, so it is a rule kept for history; two names to keep in step.
+
+The session recommended A, since it keeps the hold the kit had on the folder that holds the kernel today, and costs nothing now. The decider chose A in chat on 2026-10-29.
 
 <a id="r4"></a>**R4.** The fixed names of the kit that the portability check refuses hold `docs/constitution/` in place of `kernel/`. This replaces the fixed name `kernel/` in R9 of [dec-0069-kit-checks-hold-module-lists-floor-clauses-shared-numbers-and-kit-names](dec-0069-kit-checks-hold-module-lists-floor-clauses-shared-numbers-and-kit-names.md#r9). The check's reason for the refusal now says that a module takes every place in a project from the dials file, since the kernel's copy does exist in every project.
 
