@@ -27,12 +27,12 @@ status: active
 | [s6](#s6) | Decision record #1 | B | ✅ | 1 | 0 | 0 | 100% |
 | [s7](#s7) | Commit each step with honest messages | B | ✅ | 1 | 0 | 0 | 100% |
 | [s8](#s8) | [`const-locations`](requirements.md#const-locations) and [`const-task-close`](requirements.md#const-task-close) | C | ✅ | 2 | 0 | 0 | 100% |
-| [s9](#s9) | The other remaining modules, and the kit work logged beside them | C | 🔄 | 21 | 9 | 4 | 70% |
+| [s9](#s9) | The other remaining modules, and the kit work logged beside them | C | 🔄 | 21 | 10 | 4 | 67% |
 | [s10](#s10) | Publish: the remote, the marketplace and CI, then `0.1.0` | D | 🔄 | 9 | 4 | 0 | 69% |
 | [s10a](#s10a) | The first release of the shared package | D | ✅ | 1 | 0 | 0 | 100% |
 | [s10b](#s10b) | The release 2.0.0 of the shared package | D | ✅ | 1 | 0 | 0 | 100% |
 | [s11](#s11) | Switch the project from path load to marketplace install | D | ⏳ | 0 | 1 | 0 | 0% |
-| all | the whole plan | all | 🔄 | 46 | 21 | 4 | 68% |
+| all | the whole plan | all | 🔄 | 46 | 22 | 4 | 67% |
 
 <a id="phase-a"></a>
 ## Phase A — Kit as consumer zero: the document-shaped accumulating modules (~1 week)
@@ -115,6 +115,7 @@ status: active
    - <a id="s9-29"></a>**9.29** ⏳ Found on 2026-10-29 by the carry audit of [dec-0108-kernel-at-docs-constitution](decisions/dec-0108-kernel-at-docs-constitution.md), older than that change: `WHY_FOLDER`, the reason [the portability check](../scripts/check-portability.py) gives for a document folder of the kit, says such folders do not exist in a project, which is false for `docs/policies/` and `docs/decisions/`, which steps 6 and 7 of [the install guide](../INSTALL.md) make in every project. It is reworded as `WHY_KIT` was, with its typed line in the self-test.
    - <a id="s9-30"></a>**9.30** ⏳ Found the same day by the same audit, older than that change: [the install note of the fixture gate](../scripts/layered-fixture/plugin/INSTALL.md) stands under no ceiling of `const-doc-budgets.ceilings` in `constitution.yaml`, against the comment there that every Markdown file git lists stands under one. A ceiling is set for it by the rule of that dial, or the comment is narrowed.
    - <a id="s9-31"></a>**9.31** ⏳ Found the same day by the same audit, older than that change: R6 of [dec-0079-skills-named-at-their-moment](decisions/dec-0079-skills-named-at-their-moment.md#r6) has the skills `plain-language` and `style-defaults` take the description words the proof ran, with no `Use when` segment, and no current-state text states that exception, so the two read as breaking the skill row of [template §6](../module-template/MODULE.md#t6). The exception is stated there or in the two module documents, or the two descriptions take the template's form.
+   - <a id="s9-32"></a>**9.32** ⏳ Found on 2026-10-24 by a confirming read of the change of [dec-0102-bootstrap-recommends-and-copies-the-kernel-first](decisions/dec-0102-bootstrap-recommends-and-copies-the-kernel-first.md), older than that change: the section "From zero" of [the skill new-kind](../modules/const-locations/plugin/skills/new-kind/SKILL.md) of [`const-locations`](requirements.md#const-locations) calls the root policy the only governed document written without the creation command, while step 5 of [the install guide](../INSTALL.md#s2) makes the kernel copy in the shell. The sentence is reworded to name the kernel copy as well, or to speak of policies alone, and the module's eval receipt is made again.
 
    A project that cannot run hooks carries a copy of the rules text of [`const-interaction`](requirements.md#const-interaction) in its `CLAUDE.md`, labeled manual and version-drifting — the fallback that module's install note names.
 
