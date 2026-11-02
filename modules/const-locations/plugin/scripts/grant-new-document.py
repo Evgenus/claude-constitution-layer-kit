@@ -7,13 +7,14 @@ one command line and says nothing about any other.
 Events:   PreToolUse on the shell tool (Bash), filtered by the hooks file to calls that start a
           subcommand with `sh `.
 Modes:    no arguments  read one PreToolUse event on stdin; when its command is exactly
-                        `sh <plugin root>/scripts/new-document.sh` followed by arguments each
-                        plain (letters, digits and _ . / : , @ + -) or in single quotes with no
-                        quote, line break, carriage return or NUL inside, one space before each,
-                        answer `allow`; for any other command print nothing. The plugin root is the
-                        one the platform names in the environment variable CLAUDE_PLUGIN_ROOT, an
-                        absolute path of letters, digits and _ . / @ + -; any other root is
-                        matched by nothing.
+                        `sh <plugin root>/scripts/new-document.sh` followed by zero or more
+                        arguments, each plain (ASCII letters, digits and _ . / : , @ + -) or in
+                        single quotes with no single quote, line break, carriage return or NUL
+                        inside, one space before each, answer `allow`; for any other command
+                        print nothing. The plugin root is the one the platform names in the
+                        environment variable CLAUDE_PLUGIN_ROOT, an absolute path of ASCII
+                        letters, digits and _ . / @ + -, a trailing slash ignored; any other root
+                        is matched by nothing.
 Reads:    from the event: hook_event_name, tool_name, tool_input.command, session_id. No
           constitution.yaml and no dial: the grant does not depend on the repository it runs in.
 Exit:     0 the answer was given, or the call is not this plugin's command and nothing is printed;

@@ -64,8 +64,9 @@ each, read by `ast`; their first line is the text up to the first line feed. A f
 <fix>`, and what follows ` — ` after the fix is its clause. For a gate each of the three first lines must
 close with ` — <the Identity's clause>` exactly. An entry is a generator when the second line of `TOO_OLD`
 opens with neither `BROKEN: the check could not run` (C11) nor `BROKEN: the session-start line could not be
-printed` (S1): its three first lines carry no clause, and its Identity's clause closes C2 alone, whatever
-it is (template §6, rule 3; GATE.md §2, item 6). A disagreement is RED, with the file and line, the text,
+printed` (S1) — a grant's entry, whose closing line says the call was not granted, reads as one: its three
+first lines carry no clause, and its Identity's clause closes C2 alone, whatever it is (template §6, rule 3;
+GATE.md §2, item 6). A disagreement is RED, with the file and line, the text,
 the clause found, the clause the Identity names and where, why and the fix. BROKEN, with the fix: no entry
 at all, a missing `.sh`, no or two Identities for a gate, a clause that is no string literal, an
 `identity.py` that is missing, unreadable or without its default, which is read on every run, even when

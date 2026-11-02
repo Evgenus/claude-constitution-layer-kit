@@ -73,6 +73,6 @@ def grant(output: Output, stdin: TextIO, root: str) -> int:
     if event.event_name != PRE_TOOL_USE or event.tool_name != SHELL or event.command is None:
         return EXIT_GREEN
     if granted(event.command, root):
-        preflight.check()  # before the answer, as before any verdict; a call that is no match needs none
+        preflight.check()  # the declared libraries, before the one thing it prints; no match prints nothing
         output.out(answer())
     return EXIT_GREEN

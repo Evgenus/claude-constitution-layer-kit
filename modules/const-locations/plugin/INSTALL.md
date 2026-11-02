@@ -49,18 +49,21 @@ A line that starts `BROKEN: const-locations needs the Python package constitutio
    `--dry-run` prints the home and the template and writes nothing. Exit 0 created or dry run;
    1 refused before anything was written, or the command could not run. It never exits 2:
    a generator has no findings. The skill `/const-locations:new-document <kind> <stem>` carries
-   the procedure. No allow rule is needed, in any permission mode and in a session that cannot
+   the procedure. No allow rule is needed, in every permission mode but plan mode and in a session that cannot
    ask — `claude -p`, `dontAsk`, `--permission-prompts none` — for the model's own load of
    either skill or for the command it runs: neither skill pre-approves a tool, so the model
    loads them as any skill, and the plugin's hook on `PreToolUse` answers `allow` for the
-   command. It answers for exactly `sh <plugin root>/scripts/new-document.sh` followed by
-   values, one space before each, each plain — letters, digits and `_ . / : , @ + -` — or in
-   single quotes with no quote, line break, carriage return or NUL inside; the plugin root is
-   the one Claude Code names to the hook, and a root of any character but letters, digits and
-   `_ . / @ + -` is matched by nothing. Any other call — a second command chained to it, a redirection, a value in
+   command. It answers for exactly `sh <plugin root>/scripts/new-document.sh` followed by zero
+   or more values, one space before each, each plain — ASCII letters, digits and
+   `_ . / : , @ + -` — or in single quotes with no single quote, line break, carriage return or
+   NUL inside; the plugin root is the one Claude Code names to the hook, a trailing slash on it
+   changing nothing, and a root of any character but ASCII letters, digits and `_ . / @ + -` is
+   matched by nothing. Plan mode is the one exception: there Claude Code lets no hook approve a
+   command that writes, so the command is asked for until the plan is approved. Any other call — a second command chained to it, a redirection, a value in
    double quotes, another path — gets no answer from the hook and is asked for as any other.
    A deny or ask rule you write for the command still wins over the hook. The hook runs a
-   Python start, about 0.1 s, on each shell call that starts a command with `sh `.
+   Python start, about 0.1 s, on each shell call that starts a command with `sh `, and on each
+   call whose parts Claude Code cannot tell apart.
 4. Introducing a kind: the skill `/const-locations:new-kind` — the policy first, its territory
    line by hand at the end of `constitution.yaml`, then the first document. The command creates
    the policy itself when given the root policy's id as the kind.
@@ -68,7 +71,8 @@ A line that starts `BROKEN: const-locations needs the Python package constitutio
    module, gate, mode, session, stream, text), to `const-locations.jsonl` — refusals leave no
    trace in git. By default it lives in the platform's per-plugin data directory. Set `log_dir`
    to keep it inside the repository; the directory must be git-ignored, and the command refuses
-   to run otherwise.
+   to run otherwise. The hook's records — its answers and its failures — always go to the data
+   directory, or nowhere when the platform names none: the hook reads no `constitution.yaml`.
 6. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the
    commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`),
    `python3 -m pytest <kit clone>/modules/const-locations/tests -p no:cacheprovider` — all green.
