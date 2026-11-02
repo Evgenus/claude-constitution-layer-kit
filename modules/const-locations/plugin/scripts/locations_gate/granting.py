@@ -61,7 +61,7 @@ def answer() -> str:
 
 
 def grant(output: Output, stdin: TextIO, root: str) -> int:
-    """Reads one event; answers `allow` for the plugin's own command and prints nothing for any
+    """Reads one event; answers `allow` for the plugin's own command and gives no answer for any
     other call. Exit 0 either way: the grant judges nothing, so it has no finding."""
     try:
         event = read_event(stdin)

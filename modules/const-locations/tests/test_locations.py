@@ -1272,7 +1272,7 @@ PLAIN = set(string.ascii_letters + string.digits + "_./:,@+-")
 EXCLUDED = [c for c in string.printable + "  ＆；" if c not in PLAIN and c not in " \n"]
 NOT_OWN += [f"{OWN} --stem a{c}b" for c in EXCLUDED]
 # The same for the root, whose class holds neither `:` nor `,`.
-EXCLUDED_ROOT = [c for c in string.printable + "\u00a0" if c not in PLAIN - {":", ","} and c not in " \n\x00"]
+EXCLUDED_ROOT = [c for c in string.printable + "\u00a0" if c not in PLAIN - {":", ","} and c not in " \x00"]
 
 
 @item(20, "the grant: the plugin's own command, plain or single-quoted, is answered allow, typed by hand")

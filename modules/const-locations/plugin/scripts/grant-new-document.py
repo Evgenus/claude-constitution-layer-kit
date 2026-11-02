@@ -11,7 +11,7 @@ Modes:    no arguments  read one PreToolUse event on stdin; when its command is 
                         arguments, each plain (ASCII letters, digits and _ . / : , @ + -) or in
                         single quotes with no single quote, line break, carriage return or NUL
                         inside, one space before each, answer `allow`; for any other command
-                        print nothing. The plugin root is the one the platform names in the
+                        give no answer. The plugin root is the one the platform names in the
                         environment variable CLAUDE_PLUGIN_ROOT, an absolute path of ASCII
                         letters, digits and _ . / @ + -, a trailing slash ignored; any other root
                         is matched by nothing.

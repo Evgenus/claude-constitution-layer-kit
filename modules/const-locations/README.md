@@ -24,7 +24,7 @@ BROKEN: 'plc-nope' is not a policy: no document in the root policy's territory c
 BROKEN: the document could not be created — nothing was written
 ```
 
-No session needs a permission rule for the skills or the command, not even one that cannot ask the user, such as a headless run. Plan mode is the one exception: there the command waits for the plan's approval. The module's hook approves its own command when the session runs it alone, with plain or single-quoted values. A command chained to another, or written another way, is asked for as any other.
+No session needs a permission rule for the skills or the command, not even one that cannot ask the user, such as a headless run. In plan mode alone the command is asked for, as any other command is there. The module's hook approves its own command when the session runs it alone, with plain or single-quoted values. A command chained to another, or written another way, is asked for as any other.
 
 <a id="a4"></a>
 ## How it works
