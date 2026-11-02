@@ -1,13 +1,13 @@
 ---
 id: dec-0111-worktrees-and-scratch-folders
 type: task-record
-title: Worktrees live in .claude/worktrees and scratch work outside the repository, and a session removes the scratch folders and worktrees it made
+title: Worktrees live in .claude/worktrees, scratch work outside the repository; a session removes the scratch folders it and its agents made before the merge, and the worktrees they made once their work is in main
 status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
 
-# Worktrees live in .claude/worktrees and scratch work outside the repository, and a session removes the scratch folders and worktrees it made
+# Worktrees live in .claude/worktrees, scratch work outside the repository; a session removes the scratch folders it and its agents made before the merge, and the worktrees they made once their work is in main
 
 ## Context
 
@@ -48,7 +48,7 @@ B, by the decider in chat on 2026-11-02. The session's objection stands: no fail
 
 <a id="r4"></a>**R4.** Before the merge, the session removes the scratch folders that it and its agents made.
 
-<a id="r5"></a>**R5.** After the merge, once `git pull` has brought the merge into the local `main`, the session removes each worktree it made itself with `git worktree remove <path>`, never with `--force`, when `git status` there is clean and the worktree's `HEAD` is in the local `main`. The branch stays. A worktree whose commits are not in the local `main` stays too.
+<a id="r5"></a>**R5.** After the merge, once `git pull` has brought the merge into the local `main`, the session removes each worktree that it or its agents made with `git worktree remove <path>`, never with `--force`, when `git status` there is clean and the worktree's `HEAD` is in the local `main`. The branch stays. A worktree whose commits are not in the local `main` stays too.
 
 <a id="r6"></a>**R6.** A worktree the app made, or one another session made, is removed only with the decider's yes.
 
