@@ -1221,7 +1221,7 @@ GRANTED = [
     OWN,
     f"{OWN} --dry-run --kind notes-policy --stem a",
     f"{OWN} --kind notes-policy --stem a --title 'A note' --type non-authoritative",
-    f"{OWN} --kind plc-0005-research --stem res-0014-x"
+    f"{OWN} --kind plc-0005-research --stem comparison-x"
     " --title 'Comparison — const-x (2026-11-02): a; b & c | d $e `f` \"g\" *'",
     f"{OWN} --kind p --segment alpha --id readme-alpha --title ''",
 ]

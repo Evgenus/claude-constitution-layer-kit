@@ -78,12 +78,12 @@ def l4_nothing_written() -> str:
 # ---------------------------------------------------------------- the grant
 
 
-def g1_granted() -> str:
+def l6_granted() -> str:
     """The reason of the grant's answer, which the platform writes to its debug log alone."""
     return f"{_ns()}: the plugin's own create command, with plain or single-quoted arguments"
 
 
-def g2_not_granted() -> str:
+def l7_not_granted() -> str:
     """The closing line of a grant that could not run: nothing is granted, and the platform asks."""
     return "BROKEN: the command was not granted — the platform asks for it as for any other command"
 
@@ -345,12 +345,12 @@ def entry_outside() -> str:
     return "names a template outside the repository"
 
 
-def g3_usage() -> str:
+def l8_usage() -> str:
     """The fix of the shared misinvocation line, when the grant is given an argument."""
     return "run it with no arguments: it reads one PreToolUse event of the shell tool on stdin"
 
 
-def g4_input() -> str:
+def l9_input() -> str:
     """The fix of the shared line on hook input it cannot use: the shared fix names a scan, which the
     grant has not."""
     return (
