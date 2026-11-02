@@ -55,5 +55,5 @@ The change adds items 5a.6, 5a.7 and 5a.8 to the plan, each waiting, with the ro
 
 ## Carry list
 
-1. R1 — pending: [item 5.2 of the rollout plan](../rollout-plan.md#s5-2).
+1. R1 — history only: a one-time act, done when the project merged its ceilings on 2026-11-02 and [item 5.2 of the rollout plan](../rollout-plan.md#s5-2) closed.
 2. R2 — pending: [items 5a.6](../rollout-plan.md#s5a-6), [5a.7](../rollout-plan.md#s5a-7) and [5a.8](../rollout-plan.md#s5a-8) of the rollout plan, and [item 5.2](../rollout-plan.md#s5-2) for the parts that stay before the switch. What it replaces in R1 of dec-0104 is history.
