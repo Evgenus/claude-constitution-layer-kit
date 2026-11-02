@@ -2,7 +2,7 @@
 id: dec-0110-new-document-command-granted-by-a-hook
 type: task-record
 title: Module const-locations grants its own create command by a hook, a third kind of artifact named grant
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
@@ -67,7 +67,7 @@ The session recommended A, the explicit form. The decider chose A in chat on 202
 
 ## Applied
 
-The hook, its entry files, its fixtures and the two skills changed in the commits of the branch `work/new-document-grant-hook` before this record was written. The module document, its install note and README, [law 5 of CLAUDE.md](../../CLAUDE.md#law-5) and the template follow on the same branch. The record is born `active` and is set `inactive` by the last commit of the branch.
+The hook, its entry files, its fixtures and the two skills changed in the commits of the branch `work/new-document-grant-hook` before this record was written. The module document, its install note and README, [law 5 of CLAUDE.md](../../CLAUDE.md#law-5) and the template follow on the same branch. The record was born `active` and is set `inactive` by the last commit of the branch that edits it, once every ruling item had its home.
 
 ## Carry list
 
