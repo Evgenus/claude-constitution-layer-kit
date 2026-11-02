@@ -1,13 +1,13 @@
 ---
 id: dec-0111-worktrees-and-scratch-folders
 type: task-record
-title: Worktrees live in .claude/worktrees, scratch work outside the repository; a session removes the scratch folders it and its agents made before the merge, and the worktrees they made once their work is in main
+title: Worktrees live in .claude/worktrees, scratch work outside the repository; a session removes the scratch folders and worktrees it and its agents made, a worktree once its work is in main
 status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
 
-# Worktrees live in .claude/worktrees, scratch work outside the repository; a session removes the scratch folders it and its agents made before the merge, and the worktrees they made once their work is in main
+# Worktrees live in .claude/worktrees, scratch work outside the repository; a session removes the scratch folders and worktrees it and its agents made, a worktree once its work is in main
 
 ## Context
 
