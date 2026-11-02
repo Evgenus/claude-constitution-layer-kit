@@ -15,9 +15,10 @@ A line that starts `BROKEN: const-locations needs the Python package constitutio
 `BROKEN: const-locations was written for constitution-layer-kit` points here.
 
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
-   session). No hooks: the plugin ships two skills and one script, and nothing here blocks a
+   session). The plugin ships two skills, one command and one hook, and nothing here blocks a
    write. The skill `new-document` has the session create a document through the script; the
-   skill `new-kind` carries the procedure for a kind no policy covers yet.
+   skill `new-kind` carries the procedure for a kind no policy covers yet. The hook is a grant:
+   it approves the plugin's own script, as step 3 says, and nothing else.
 2. Calibration, optional: **zero configuration works** in a repository whose `constitution.yaml`
    names `module_prefix`, a `root_policy` and the policies' territories: every kind whose
    territory is `<dir>/**`, `<dir>/**/*.md` or `<dir>/*/NAME.md` gets its documents created at
@@ -48,14 +49,18 @@ A line that starts `BROKEN: const-locations needs the Python package constitutio
    `--dry-run` prints the home and the template and writes nothing. Exit 0 created or dry run;
    1 refused before anything was written, or the command could not run. It never exits 2:
    a generator has no findings. The skill `/const-locations:new-document <kind> <stem>` carries
-   the procedure. In a session that cannot ask — `claude -p`, `dontAsk`, `--permission-prompts
-   none` — the model's own invocation of the skill and the command it runs each need an allow
-   rule: `Skill(const-locations:new-document)`, `Skill(const-locations:new-kind)` and
-   `Bash(sh <plugin root>/scripts/new-document.sh *)`, in `permissions.allow` or
-   `--allowedTools` — never a bare `Skill`, which allows every skill; `acceptEdits` alone denies
-   both and the model writes the file by hand, blind. A human typing
-   `/const-locations:new-document <kind> <stem>` needs neither: the skill's own `allowed-tools`
-   covers the command then.
+   the procedure. No allow rule is needed, in any permission mode and in a session that cannot
+   ask — `claude -p`, `dontAsk`, `--permission-prompts none` — for the model's own load of
+   either skill or for the command it runs: neither skill pre-approves a tool, so the model
+   loads them as any skill, and the plugin's hook on `PreToolUse` answers `allow` for the
+   command. It answers for exactly `sh <plugin root>/scripts/new-document.sh` followed by
+   values, one space before each, each plain — letters, digits and `_ . / : , @ + -` — or in
+   single quotes with no quote and no line break inside; the plugin root is the one Claude Code
+   names to the hook, and a root with a space or another character outside that set is matched
+   by nothing. Any other call — a second command chained to it, a redirection, a value in
+   double quotes, another path — gets no answer from the hook and is asked for as any other.
+   A deny or ask rule you write for the command still wins over the hook. The hook runs a
+   Python start, about 0.1 s, on each shell call that starts a command with `sh `.
 4. Introducing a kind: the skill `/const-locations:new-kind` — the policy first, its territory
    line by hand at the end of `constitution.yaml`, then the first document. The command creates
    the policy itself when given the root policy's id as the kind.
@@ -68,8 +73,8 @@ A line that starts `BROKEN: const-locations needs the Python package constitutio
    commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`),
    `python3 -m pytest <kit clone>/modules/const-locations/tests -p no:cacheprovider` — all green.
 7. CLAUDE.md line: none. The skill's description is in the session's skill listing, and the
-   skill loads on its own when a document is about to be created — in a session that cannot
-   ask, under the allow rules of step 3.
+   skill loads on its own when a document is about to be created, and its command needs no
+   allow rule (step 3).
 
 What this module does not check: a document written without the command — a heredoc, a
 `Write`, an editor — which the write-time gate of module `const-meta-types` catches when

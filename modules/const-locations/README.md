@@ -24,7 +24,7 @@ BROKEN: 'plc-nope' is not a policy: no document in the root policy's territory c
 BROKEN: the document could not be created — nothing was written
 ```
 
-A session that cannot ask the user for permission, such as a headless run, needs the skill and the command allowed in its settings. Without that, the model writes the file by hand, blind. The install note says what to allow.
+No session needs a permission rule for the skills or the command, not even one that cannot ask the user, such as a headless run. The module's hook approves its own command when the session runs it alone, with plain or single-quoted values. A command chained to another, or written another way, is asked for as any other.
 
 <a id="a4"></a>
 ## How it works
@@ -32,6 +32,8 @@ A session that cannot ask the user for permission, such as a headless run, needs
 **The command.** A script the session runs from inside the repository, with the policy's id, the file's stem and the title. It reads the root policy and the territories from `constitution.yaml`, and the optional list of templates per kind. It derives a home from three shapes of territory only. The shapes: a folder, a folder of Markdown files, or a folder with one free segment and a fixed file name. Any other shape gets an honest refusal that names the shapes that work. A dry run prints the home and the template and writes nothing. The command never checks or fills the body, never edits the dials file, and never takes a number for a numbered kind. That stem comes from the numbering procedure, and the command takes it as given. Every refusal happens before anything is written.
 
 **What it cannot see.** It sees nothing it did not write. A document written without the command, through a shell, an editor or the `Write` tool, is not seen here at all. That is the job of the write-time guard of the envelope module, when it is installed. A document the command writes is no tool event either, so that guard sees it in its scan or at the next edit.
+
+**The grant.** A hook that runs before each shell command that starts with `sh `. It approves one command: the module's own script, run alone, with values that are plain or in single quotes. For every other command it says nothing, and Claude Code asks as usual. It judges nothing and blocks nothing. A rule of yours that denies or asks for the command still wins over it. It reads no settings and no repository.
 
 **The skill `new-document`.** A procedure in prose, loaded when a document is about to be created. It has the session name the kind, take the stem from where it is owned, run the command, and then fill the body from the template's placeholders. It reads the project's `constitution.yaml` and its policy documents. It cannot make a session follow it: the model may still write the file by hand.
 

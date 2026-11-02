@@ -197,6 +197,7 @@ const-task-close:                     # task close as one act: a change that tou
     - name: const-locations
       code:
         - "modules/const-locations/plugin/scripts/**"
+        - "modules/const-locations/plugin/hooks/**"
         - "modules/const-locations/plugin/skills/**"
         - "modules/const-locations/tests/**"
         - "modules/const-locations/evals/**"
