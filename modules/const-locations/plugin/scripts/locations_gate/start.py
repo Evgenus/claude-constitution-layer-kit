@@ -87,7 +87,7 @@ def main(argv: Sequence[str]) -> int:
 
 def _grant(argv: Sequence[str], output: Output) -> int:
     if argv:
-        raise ConfigurationFailure(shared_messages.c12_invocation(" ".join(argv), messages.G_USAGE))
+        raise ConfigurationFailure(shared_messages.c12_invocation(" ".join(argv), messages.g3_usage()))
     # The root the platform gives the hook: the same text it put in the skill's command line.
     return granting.grant(output, sys.stdin, os.environ.get("CLAUDE_PLUGIN_ROOT", ""))
 

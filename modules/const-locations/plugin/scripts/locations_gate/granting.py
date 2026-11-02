@@ -67,7 +67,7 @@ def grant(output: Output, stdin: TextIO, root: str) -> int:
         event = read_event(stdin)
     except ConfigurationFailure as failure:  # the shared fix names a scan, which the grant has not
         raise ConfigurationFailure(
-            Broken(failure.broken.key, failure.broken.headline, messages.G_INPUT)
+            Broken(failure.broken.key, failure.broken.headline, messages.g4_input())
         ) from None
     output.session = event.session_id
     if event.event_name != PRE_TOOL_USE or event.tool_name != SHELL or event.command is None:

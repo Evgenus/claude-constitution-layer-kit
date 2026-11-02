@@ -62,6 +62,12 @@ sh ${CLAUDE_PLUGIN_ROOT}/scripts/new-document.sh --kind <policy id> --stem <stem
   `HOME:` line.
 - `--segment <name>` for a free-segment kind; `--id <id>` when the id must differ from the stem.
 
+Run it alone, as written: one command, each value plain or in single quotes. This plugin approves
+that form and no other, so a command chained to another (`;`, `&&`, a pipe), a redirection, or a
+value in double quotes or with `$` outside single quotes asks for approval, and a session that
+cannot ask is refused. A title with an apostrophe cannot stand in single quotes: leave the
+apostrophe out, or expect the approval prompt.
+
 Read the lines it prints. `HOME:` is where the document is; `TEMPLATE:` is what it was written
 from, or `none`; `CREATED:` and the count close a write. A `BROKEN:` line is a refusal with the
 fix on the same line, and nothing was written: do what it says — for "is not a policy", the kind

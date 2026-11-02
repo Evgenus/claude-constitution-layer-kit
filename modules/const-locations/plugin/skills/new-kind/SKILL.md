@@ -38,7 +38,8 @@ sh ${CLAUDE_PLUGIN_ROOT}/scripts/new-document.sh --kind <root policy id> --stem 
 ```
 
 (`--type` is not taken when the project's `const-locations.templates` names a template for
-the root policy's kind; the template decides.) Fill the body: one paragraph saying which kind
+the root policy's kind; the template decides.) Run it alone, each value plain or in single
+quotes: this plugin approves that form and no other. Fill the body: one paragraph saying which kind
 it governs, then its rules, one per numbered item — the envelope its documents carry, their
 shape, when they are created and changed, what is enforced by which check and what is
 judgment. If the kind is numbered, say so and follow the project's numbering procedure for

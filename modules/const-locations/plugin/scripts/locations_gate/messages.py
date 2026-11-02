@@ -77,11 +77,6 @@ def l4_nothing_written() -> str:
 
 # ---------------------------------------------------------------- the grant
 
-G_USAGE = "run it with no arguments: it reads one PreToolUse event of the shell tool on stdin"
-G_INPUT = (
-    "this hook reads one PreToolUse event of the shell tool, a JSON object, on stdin; it has no other mode"
-)
-
 
 def g1_granted() -> str:
     """The reason of the grant's answer, which the platform writes to its debug log alone."""
@@ -348,3 +343,17 @@ def entry_repeated(policy: str) -> str:
 
 def entry_outside() -> str:
     return "names a template outside the repository"
+
+
+def g3_usage() -> str:
+    """The fix of the shared misinvocation line, when the grant is given an argument."""
+    return "run it with no arguments: it reads one PreToolUse event of the shell tool on stdin"
+
+
+def g4_input() -> str:
+    """The fix of the shared line on hook input it cannot use: the shared fix names a scan, which the
+    grant has not."""
+    return (
+        "this hook reads one PreToolUse event of the shell tool, a JSON object, on stdin;"
+        " it has no other mode"
+    )
