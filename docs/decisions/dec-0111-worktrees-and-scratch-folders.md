@@ -36,11 +36,11 @@ A, recommended by the session: the leftovers are clutter, not a defect, and the 
 
 ## Choice
 
-B, by the decider in chat on 2026-11-02. The session's objection stands: no failure has earned the rule yet, and only review holds it.
+B, by the decider in chat on 2026-11-02. The session's objection stands: no failure has earned the rule yet.
 
 ## Ruling
 
-<a id="r1"></a>**R1.** A session's worktree is a folder of `.claude/worktrees/` in the main checkout, the folder where the Claude desktop app makes its own. A session that makes one itself runs `git worktree add .claude/worktrees/<name> -b work/<name> main`.
+<a id="r1"></a>**R1.** A session's worktree is a folder of `.claude/worktrees/` in the main checkout, the folder where the Claude desktop app makes its own. A session that makes one itself runs `git worktree add .claude/worktrees/<name> -b work/<name> main` in the main checkout.
 
 <a id="r2"></a>**R2.** The kit's `.gitignore` keeps `.claude/worktrees/` out of the tree, in every clone.
 
@@ -48,9 +48,11 @@ B, by the decider in chat on 2026-11-02. The session's objection stands: no fail
 
 <a id="r4"></a>**R4.** Before the merge, the session removes the scratch folders that it and its agents made.
 
-<a id="r5"></a>**R5.** After the merge, the session removes each worktree it made with `git worktree remove <path>`, never with `--force`, once `git status` there is clean and the worktree's `HEAD` is in `main`. The branch stays. A worktree whose commits are not in `main` stays too.
+<a id="r5"></a>**R5.** After the merge, once `git pull` has brought it into the main checkout's `main`, the session removes each worktree it made or the app made for it, with `git worktree remove <path>`, never with `--force`, when `git status` there is clean and the worktree's `HEAD` is in that `main`. The branch stays. A worktree whose commits are not in `main` stays too.
 
-<a id="r6"></a>**R6.** A worktree that another session made is removed only with the decider's yes.
+<a id="r6"></a>**R6.** A worktree made by or for another session is removed only with the decider's yes.
+
+<a id="r7"></a>**R7.** Review holds R1 to R6; no check does.
 
 ## Applied
 
@@ -58,5 +60,5 @@ The commit that creates this record adds the bullet "Worktrees and scratch folde
 
 ## Carry list
 
-1. R1, R3, R4, R5, R6 — [CLAUDE.md](../../CLAUDE.md), the bullet "Worktrees and scratch folders" under "Work starts on a branch".
+1. R1, R3, R4, R5, R6, R7 — [CLAUDE.md](../../CLAUDE.md), the bullet "Worktrees and scratch folders" under "Work starts on a branch".
 2. R2 — [the kit's ignore file](../../.gitignore), the line `.claude/worktrees/`.
