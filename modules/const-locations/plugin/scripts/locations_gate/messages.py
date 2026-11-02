@@ -78,6 +78,9 @@ def l4_nothing_written() -> str:
 # ---------------------------------------------------------------- the grant
 
 G_USAGE = "run it with no arguments: it reads one PreToolUse event of the shell tool on stdin"
+G_INPUT = (
+    "this hook reads one PreToolUse event of the shell tool, a JSON object, on stdin; it has no other mode"
+)
 
 
 def g1_granted() -> str:

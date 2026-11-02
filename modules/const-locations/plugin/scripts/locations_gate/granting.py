@@ -17,8 +17,9 @@ import re
 from typing import TextIO
 
 from constitution_layer_kit import preflight
+from constitution_layer_kit.errors import ConfigurationFailure
 from constitution_layer_kit.events import read_event
-from constitution_layer_kit.model import EXIT_GREEN, SHELL
+from constitution_layer_kit.model import EXIT_GREEN, SHELL, Broken
 from constitution_layer_kit.output import Output
 
 from . import messages
@@ -62,7 +63,12 @@ def answer() -> str:
 def grant(output: Output, stdin: TextIO, root: str) -> int:
     """Reads one event; answers `allow` for the plugin's own command and prints nothing for any
     other call. Exit 0 either way: the grant judges nothing, so it has no finding."""
-    event = read_event(stdin)
+    try:
+        event = read_event(stdin)
+    except ConfigurationFailure as failure:  # the shared fix names a scan, which the grant has not
+        raise ConfigurationFailure(
+            Broken(failure.broken.key, failure.broken.headline, messages.G_INPUT)
+        ) from None
     output.session = event.session_id
     if event.event_name != PRE_TOOL_USE or event.tool_name != SHELL or event.command is None:
         return EXIT_GREEN
