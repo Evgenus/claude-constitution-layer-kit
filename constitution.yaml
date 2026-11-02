@@ -309,8 +309,8 @@ const-interaction:                    # answer shape, assumptions and addressabl
   #       - reset
   #     flags:
   #       - --hard
-  #     teach: a hard reset discards every uncommitted change in the working tree and the index; nothing brings them back
-  #     alternative: run git stash first, or reset with --keep, which stops when a change would be lost
+  #     teach: a hard reset discards every uncommitted change in the working tree and the index, which nothing brings back; with a target such as HEAD~1 it also drops the commits after the target from the branch
+  #     alternative: run git stash first, or reset with --keep, which stops when a change would be lost; with a target, also tag the tip first (git tag keep/<name>)
   #   - command:
   #       - git
   #       - checkout
