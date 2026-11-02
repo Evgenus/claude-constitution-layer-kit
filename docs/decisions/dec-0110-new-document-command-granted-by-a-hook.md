@@ -36,7 +36,7 @@ The session recommended C: it was the only option that worked in every setting t
 
 <a id="r1"></a>**R1.** Module [`const-locations`](../requirements.md#const-locations) ships a `PreToolUse` hook on the shell tool, the grant `grant-new-document`. It answers `allow` for a command that is exactly `sh <plugin root>/scripts/new-document.sh` followed by zero or more arguments, one space before each, each written plain — ASCII letters, digits and `_ . / : , @ + -` — or in single quotes with no single quote, line break, carriage return or NUL inside. The plugin root is the one the platform names to the hook in `CLAUDE_PLUGIN_ROOT`, an absolute path of ASCII letters, digits and `_ . / @ + -`; a trailing slash on it changes nothing. A root of any other characters is matched by nothing.
 
-<a id="r2"></a>**R2.** For any other call the grant prints nothing and exits 0, and the platform's own permission flow decides it. The grant runs the preflight of the module's libraries only once a call is its own command. It reads no dials file and no repository: its output log is the platform's data directory, else nowhere.
+<a id="r2"></a>**R2.** For any other call the grant gives no answer and exits 0, and the platform's own permission flow decides it; it prints only its own configuration failures, which grant nothing. The grant runs the preflight of the module's libraries only once a call is its own command. It reads no dials file and no repository: its output log is the platform's data directory, else nowhere.
 
 <a id="r3"></a>**R3.** Neither skill of the module carries `allowed-tools`. Each tells the model to run the command alone, each value plain or in single quotes, since the plugin approves that form and no other.
 

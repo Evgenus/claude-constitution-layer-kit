@@ -1271,6 +1271,8 @@ NOT_OWN = [
 PLAIN = set(string.ascii_letters + string.digits + "_./:,@+-")
 EXCLUDED = [c for c in string.printable + "  ＆；" if c not in PLAIN and c not in " \n"]
 NOT_OWN += [f"{OWN} --stem a{c}b" for c in EXCLUDED]
+# The same for the root, whose class holds neither `:` nor `,`.
+EXCLUDED_ROOT = [c for c in string.printable + "\u00a0" if c not in PLAIN - {":", ","} and c not in " \n\x00"]
 
 
 @item(20, "the grant: the plugin's own command, plain or single-quoted, is answered allow, typed by hand")
@@ -1303,10 +1305,13 @@ def test_grant_says_nothing_else() -> None:
 
 @item(22, "the grant: a plugin root it cannot name safely, or none, grants nothing")
 def test_grant_root() -> None:
-    """A root with a space, a separator, a quote or a relative path is matched by nothing, nor is an
-    empty or absent CLAUDE_PLUGIN_ROOT — the call then goes to the platform's prompt."""
+    """A root with a space, a separator, a quote, any printable character its class leaves out, or a
+    relative path is matched by nothing, nor is an empty or absent CLAUDE_PLUGIN_ROOT — the call then
+    goes to the platform's prompt."""
     wrong = []
-    for root in ("/a b/plugin", "/a;b/plugin", "/a'b/plugin", "plugin", ""):
+    roots = ["/a b/plugin", "/a;b/plugin", "/a'b/plugin", "plugin", ""]
+    roots += [f"/a{c}b/plugin" for c in EXCLUDED_ROOT]
+    for root in roots:
         result = ask_grant(event(f"sh {root}/scripts/new-document.sh --kind p"), root)
         if (result.code, result.stdout, result.stderr) != (0, "", ""):
             wrong.append(f"{root!r}: {result}")
