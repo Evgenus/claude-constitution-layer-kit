@@ -1305,9 +1305,9 @@ def test_grant_says_nothing_else() -> None:
 
 @item(22, "the grant: a plugin root it cannot name safely, or none, grants nothing")
 def test_grant_root() -> None:
-    """A root with a space, a separator, a quote, any printable character its class leaves out, or a
-    relative path is matched by nothing, nor is an empty or absent CLAUDE_PLUGIN_ROOT — the call then
-    goes to the platform's prompt."""
+    """A root with a space, a separator, a quote, any printable character its class leaves out or a
+    no-break space, a root that ends in a line break, or a relative path is matched by nothing, nor is
+    an empty or absent CLAUDE_PLUGIN_ROOT — the call then goes to the platform's prompt."""
     wrong = []
     roots = ["/a b/plugin", "/a;b/plugin", "/a'b/plugin", "plugin", ""]
     roots += [f"/a{c}b/plugin" for c in EXCLUDED_ROOT] + [f"{PLUGIN}\n"]
