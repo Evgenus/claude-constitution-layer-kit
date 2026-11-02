@@ -3,6 +3,9 @@
 # Local working files, never part of the kit (law 2).
 local/
 
+# The worktrees of sessions, made by the Claude desktop app or by hand (decision dec-0111-worktrees-and-scratch-folders).
+.claude/worktrees/
+
 # What a run of the eval cases writes inside a module's folder (decision dec-0093-module-evals-with-local-receipts).
 modules/*/evals/results/
 __pycache__/
