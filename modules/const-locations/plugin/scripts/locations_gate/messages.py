@@ -88,6 +88,20 @@ def l7_not_granted() -> str:
     return "BROKEN: the command was not granted — the platform asks for it as for any other command"
 
 
+def l8_usage() -> str:
+    """The fix of the shared misinvocation line, when the grant is given an argument."""
+    return "run it with no arguments: it reads one PreToolUse event of the shell tool on stdin"
+
+
+def l9_input() -> str:
+    """The fix of the shared line on hook input it cannot use: the shared fix names a scan, which the
+    grant has not."""
+    return (
+        "this hook reads one PreToolUse event of the shell tool, a JSON object, on stdin;"
+        " it has no other mode"
+    )
+
+
 # ---------------------------------------------------------------- refusals
 
 _USAGE = (
@@ -343,17 +357,3 @@ def entry_repeated(policy: str) -> str:
 
 def entry_outside() -> str:
     return "names a template outside the repository"
-
-
-def l8_usage() -> str:
-    """The fix of the shared misinvocation line, when the grant is given an argument."""
-    return "run it with no arguments: it reads one PreToolUse event of the shell tool on stdin"
-
-
-def l9_input() -> str:
-    """The fix of the shared line on hook input it cannot use: the shared fix names a scan, which the
-    grant has not."""
-    return (
-        "this hook reads one PreToolUse event of the shell tool, a JSON object, on stdin;"
-        " it has no other mode"
-    )

@@ -19,6 +19,7 @@ import os
 import re
 import resource
 import shutil
+import string
 import subprocess
 from collections.abc import Sequence
 from pathlib import Path
@@ -1255,7 +1256,21 @@ NOT_OWN = [
     f"cd /tmp && {OWN} --kind p",
     "sh /elsewhere/const-locations/plugin/scripts/new-document.sh --kind p",
     "ls",
+    f"{OWN} --title a' ';touch PWNED;' b'",  # a quote joined to a plain word: the `;` stands outside
+    f"{OWN} --title 'a'b",
+    f"{OWN} --title a'b'",
+    f"{OWN} --title '''",
+    f"{OWN} --title 'a\rb'",
+    f"{OWN} --title 'a\x00b'",
+    f"{OWN} #x",
+    f"{OWN} !x",
 ]
+# One form for each character the plain class of an argument does not hold, printable ASCII and a few
+# others a shell or a font may read as syntax or space: each alone in a value, so that a character added
+# to the class by mistake is answered with `allow` here and the item is red.
+PLAIN = set(string.ascii_letters + string.digits + "_./:,@+-")
+EXCLUDED = [c for c in string.printable + "  ＆；" if c not in PLAIN and c not in " \n"]
+NOT_OWN += [f"{OWN} --stem a{c}b" for c in EXCLUDED]
 
 
 @item(20, "the grant: the plugin's own command, plain or single-quoted, is answered allow, typed by hand")

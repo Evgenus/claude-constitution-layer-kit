@@ -55,9 +55,9 @@ A line that starts `BROKEN: const-locations needs the Python package constitutio
    loads them as any skill, and the plugin's hook on `PreToolUse` answers `allow` for the
    command. It answers for exactly `sh <plugin root>/scripts/new-document.sh` followed by
    values, one space before each, each plain — letters, digits and `_ . / : , @ + -` — or in
-   single quotes with no quote and no line break inside; the plugin root is the one Claude Code
-   names to the hook, and a root with a space or another character outside that set is matched
-   by nothing. Any other call — a second command chained to it, a redirection, a value in
+   single quotes with no quote, line break, carriage return or NUL inside; the plugin root is
+   the one Claude Code names to the hook, and a root of any character but letters, digits and
+   `_ . / @ + -` is matched by nothing. Any other call — a second command chained to it, a redirection, a value in
    double quotes, another path — gets no answer from the hook and is asked for as any other.
    A deny or ask rule you write for the command still wins over the hook. The hook runs a
    Python start, about 0.1 s, on each shell call that starts a command with `sh `.

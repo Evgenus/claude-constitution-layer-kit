@@ -34,7 +34,7 @@ The experiments compared four ways out. Option C needed one more ruling: [law 5 
 
 The session recommended C: it was the only option that worked in every setting tested with no rule from the consumer, and its risk is held by an allowlist, which grants nothing it does not name. The decider chose C in chat on 2026-11-02.
 
-<a id="r1"></a>**R1.** Module [`const-locations`](../requirements.md#const-locations) ships a `PreToolUse` hook on the shell tool, the grant `grant-new-document`. It answers `allow` for a command that is exactly `sh <plugin root>/scripts/new-document.sh` followed by arguments, one space before each, each written plain — letters, digits and `_ . / : , @ + -` — or in single quotes with no quote and no line break inside. The plugin root is the one the platform names to the hook in `CLAUDE_PLUGIN_ROOT`, an absolute path of the same plain characters; a trailing slash on it changes nothing. A root of any other characters is matched by nothing.
+<a id="r1"></a>**R1.** Module [`const-locations`](../requirements.md#const-locations) ships a `PreToolUse` hook on the shell tool, the grant `grant-new-document`. It answers `allow` for a command that is exactly `sh <plugin root>/scripts/new-document.sh` followed by arguments, one space before each, each written plain — letters, digits and `_ . / : , @ + -` — or in single quotes with no quote, line break, carriage return or NUL inside. The plugin root is the one the platform names to the hook in `CLAUDE_PLUGIN_ROOT`, an absolute path of letters, digits and `_ . / @ + -`; a trailing slash on it changes nothing. A root of any other characters is matched by nothing.
 
 <a id="r2"></a>**R2.** For any other call the grant prints nothing and exits 0, and the platform's own permission flow decides it. The grant runs the preflight of the module's libraries only once a call is its own command. It reads no dials file and no repository: its output log is the platform's data directory, else nowhere.
 
@@ -57,7 +57,7 @@ The session recommended A, the explicit form. The decider chose A in chat on 202
 
 <a id="r6"></a>**R6.** A grant matches by an allowlist alone, never by a list of forms to refuse, and says nothing for a call outside it. When it cannot run it grants nothing: it exits 1 with its configuration failure and a closing line of its own, and the platform asks for the call as for any other.
 
-<a id="r7"></a>**R7.** The red→green fixture of [law 7 of CLAUDE.md](../../CLAUDE.md#law-7) reads for a grant as both halves: the forms it allows are answered `allow`, and forms outside its allowlist — a separator, a redirection, an expansion, another path — are answered with nothing.
+<a id="r7"></a>**R7.** The red→green fixture of [law 7 of CLAUDE.md](../../CLAUDE.md#law-7) reads for a grant as both halves: the forms it allows are answered `allow`, and forms outside its allowlist are answered with nothing: one form for each character class the allowlist excludes, a quote joined to a plain word, and another path.
 
 <a id="r8"></a>**R8.** A grant reads no dials file, so the location rule of the output log reads for it as the platform's data directory, else nowhere. It examines nothing, so it prints no count line.
 
