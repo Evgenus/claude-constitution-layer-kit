@@ -1,13 +1,13 @@
 ---
 id: dec-0111-worktrees-and-scratch-folders
 type: task-record
-title: Worktrees live in .claude/worktrees, scratch work outside the repository, and a session removes what it made once its work is in main
+title: Worktrees live in .claude/worktrees and scratch work outside the repository, and a session removes the scratch folders and worktrees it made
 status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
 
-# Worktrees live in .claude/worktrees, scratch work outside the repository, and a session removes what it made once its work is in main
+# Worktrees live in .claude/worktrees and scratch work outside the repository, and a session removes the scratch folders and worktrees it made
 
 ## Context
 
@@ -40,7 +40,7 @@ B, by the decider in chat on 2026-11-02. The session's objection stands: no fail
 
 ## Ruling
 
-<a id="r1"></a>**R1.** A session's worktree is a folder of `.claude/worktrees/` in the main checkout, the folder where the Claude desktop app makes its own. A session that makes one itself runs `git worktree add .claude/worktrees/<name> -b work/<name> main` in the main checkout.
+<a id="r1"></a>**R1.** A session's worktree is a folder of `.claude/worktrees/` in the main checkout, the folder where the Claude desktop app makes its own. A session that makes one itself runs `git worktree add .claude/worktrees/<name> -b work/<name> main` at the top of the main checkout.
 
 <a id="r2"></a>**R2.** The kit's `.gitignore` keeps `.claude/worktrees/` out of the tree, in every clone.
 
@@ -48,9 +48,9 @@ B, by the decider in chat on 2026-11-02. The session's objection stands: no fail
 
 <a id="r4"></a>**R4.** Before the merge, the session removes the scratch folders that it and its agents made.
 
-<a id="r5"></a>**R5.** After the merge, once `git pull` has brought it into the main checkout's `main`, the session removes each worktree it made or the app made for it, with `git worktree remove <path>`, never with `--force`, when `git status` there is clean and the worktree's `HEAD` is in that `main`. The branch stays. A worktree whose commits are not in `main` stays too.
+<a id="r5"></a>**R5.** After the merge, once `git pull` has brought the merge into the local `main`, the session removes each worktree it made itself with `git worktree remove <path>`, never with `--force`, when `git status` there is clean and the worktree's `HEAD` is in the local `main`. The branch stays. A worktree whose commits are not in the local `main` stays too.
 
-<a id="r6"></a>**R6.** A worktree made by or for another session is removed only with the decider's yes.
+<a id="r6"></a>**R6.** A worktree the app made, or one another session made, is removed only with the decider's yes.
 
 <a id="r7"></a>**R7.** Review holds R1 to R6; no check does.
 
