@@ -40,7 +40,7 @@ The session recommended C: it was the only option that worked in every setting t
 
 <a id="r3"></a>**R3.** Neither skill of the module carries `allowed-tools`. Each tells the model to run the command alone, each value plain or in single quotes, since the plugin approves that form and no other.
 
-<a id="r4"></a>**R4.** A consumer needs no allow rule for the command or for the skills, in any permission mode; in plan mode, where the platform lets no hook approve a command that writes, the command is asked for as any other; the install note says so, and says that a deny or ask rule the consumer writes still wins over the grant.
+<a id="r4"></a>**R4.** Outside plan mode a consumer needs no allow rule for the command or for the skills, in any permission mode; in plan mode, where the platform lets no hook approve a command that writes, the command is asked for; the install note says so, and says that a deny or ask rule the consumer writes still wins over the grant.
 
 ## 2. How the hook is declared under the law of enforcement honesty
 

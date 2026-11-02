@@ -1272,7 +1272,7 @@ PLAIN = set(string.ascii_letters + string.digits + "_./:,@+-")
 EXCLUDED = [c for c in string.printable + "  ＆；" if c not in PLAIN and c not in " \n"]
 NOT_OWN += [f"{OWN} --stem a{c}b" for c in EXCLUDED]
 # The same for the root, whose class holds neither `:` nor `,`.
-EXCLUDED_ROOT = [c for c in string.printable + "\u00a0" if c not in PLAIN - {":", ","} and c not in " \x00"]
+EXCLUDED_ROOT = [c for c in string.printable + "\u00a0" if c not in PLAIN - {":", ","} and c != " "]
 
 
 @item(20, "the grant: the plugin's own command, plain or single-quoted, is answered allow, typed by hand")
@@ -1310,11 +1310,14 @@ def test_grant_root() -> None:
     goes to the platform's prompt."""
     wrong = []
     roots = ["/a b/plugin", "/a;b/plugin", "/a'b/plugin", "plugin", ""]
-    roots += [f"/a{c}b/plugin" for c in EXCLUDED_ROOT]
+    roots += [f"/a{c}b/plugin" for c in EXCLUDED_ROOT] + [f"{PLUGIN}\n"]
     for root in roots:
         result = ask_grant(event(f"sh {root}/scripts/new-document.sh --kind p"), root)
         if (result.code, result.stdout, result.stderr) != (0, "", ""):
             wrong.append(f"{root!r}: {result}")
+    empty = G.run_gate(event(OWN), env={"CLAUDE_PLUGIN_ROOT": ""}, cwd=G.scratch_dir())
+    if (empty.code, empty.stdout, empty.stderr) != (0, "", ""):
+        wrong.append(f"an empty CLAUDE_PLUGIN_ROOT: {empty}")
     assert not wrong, "\n".join(wrong)
 
 

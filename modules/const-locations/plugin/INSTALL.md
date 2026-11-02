@@ -48,18 +48,18 @@ A line that starts `BROKEN: const-locations needs the Python package constitutio
    place of `--stem` for a territory with one free segment (`<dir>/*/NAME.md`); `--dry-run`
    prints the home and the template and writes nothing. Exit 0 created or dry run; 1 refused
    before anything was written, or the command could not run. It never exits 2: a generator has
-   no findings. The skill `/const-locations:new-document <kind> <stem>` carries the procedure. No
-   allow rule is needed, in every permission mode and in a session that cannot ask — `claude -p`,
-   `dontAsk`, `--permission-prompts none` — for the model's own load of either skill or for the
-   command it runs: neither skill pre-approves a tool, so the model loads them as any skill, and
-   the plugin's hook on `PreToolUse` answers `allow` for the command. It answers for exactly
-   `sh <plugin root>/scripts/new-document.sh` followed by zero or more values, one space before
-   each, each plain — ASCII letters, digits and `_ . / : , @ + -` — or in single quotes with no
-   single quote, line break, carriage return or NUL inside; the plugin root is the one Claude
-   Code names to the hook, an absolute path, a trailing slash on it changing nothing, and a root
-   of any character but ASCII letters, digits and `_ . / @ + -` is matched by nothing. Plan mode
-   is the one exception: there Claude Code lets no hook approve a command that writes, so the
-   command is asked for as any other. Any other call — a second command chained to it, a
+   no findings. The skill `/const-locations:new-document <kind> <stem>` carries the procedure.
+   Outside plan mode no allow rule is needed, in any permission mode and in a session that cannot
+   ask — `claude -p`, `dontAsk`, `--permission-prompts none` — for the model's own load of either
+   skill or for the command it runs: neither skill pre-approves a tool, so the model loads them
+   as any skill, and the plugin's hook on `PreToolUse` answers `allow` for the command. It
+   answers for exactly `sh <plugin root>/scripts/new-document.sh` followed by zero or more
+   values, one space before each, each plain — ASCII letters, digits and `_ . / : , @ + -` — or
+   in single quotes with no single quote, line break, carriage return or NUL inside; the plugin
+   root is the one Claude Code names to the hook, an absolute path, a trailing slash on it
+   changing nothing, and a root of any character but ASCII letters, digits and `_ . / @ + -` is
+   matched by nothing. In plan mode Claude Code lets no hook approve a command that writes, so
+   there the command is asked for. Any other call — a second command chained to it, a
    redirection, a value in double quotes, another path — gets no answer from the hook and is
    asked for as any other. A deny or ask rule you write for the command still wins over the hook.
    The hook runs a Python start, about 0.1 s, on each shell call that starts a command with
