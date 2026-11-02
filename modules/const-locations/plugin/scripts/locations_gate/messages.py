@@ -75,6 +75,21 @@ def l4_nothing_written() -> str:
     return "BROKEN: the document could not be created — nothing was written"
 
 
+# ---------------------------------------------------------------- the grant
+
+G_USAGE = "run it with no arguments: it reads one PreToolUse event of the shell tool on stdin"
+
+
+def g1_granted() -> str:
+    """The reason of the grant's answer, which the platform writes to its debug log alone."""
+    return f"{_ns()}: the plugin's own create command, with plain or single-quoted arguments"
+
+
+def g2_not_granted() -> str:
+    """The closing line of a grant that could not run: nothing is granted, and the platform asks."""
+    return "BROKEN: the command was not granted — the platform asks for it as for any other command"
+
+
 # ---------------------------------------------------------------- refusals
 
 _USAGE = (

@@ -9,7 +9,6 @@ description: >
   and when unsure where a new document goes or what its envelope must say. Advisory: it shapes how
   documents are born; nothing here blocks a write.
 arguments: [kind, stem]
-allowed-tools: Bash(sh ${CLAUDE_PLUGIN_ROOT}/scripts/new-document.sh *)
 ---
 
 # New document
