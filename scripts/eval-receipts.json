@@ -67,14 +67,14 @@
   "const-locations": {
     "attempts": [
       {
-        "at": "2026-10-27T15:52:17Z",
+        "at": "2026-11-02T18:32:11Z",
         "cases": 2,
         "passed": 2,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:775e04e13d6425e005fa1396aa343d320217211bbb9a984f5b960ba46d1ff198",
+    "hash": "sha256:fced1246c3ee28ac13729330c60677ead12aa4c3eb885bc3091bb4808388fa28",
     "model": "claude-opus-5-5"
   },
   "const-meta-types": {
