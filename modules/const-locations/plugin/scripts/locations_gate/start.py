@@ -1,20 +1,25 @@
-"""The generator's entry: which tool this is, its command line, and the hand-over to the shared
-guard. The act is loaded only after the preflight, because it needs the declared libraries."""
+"""The two entries: which tool each is, its input, and the hand-over to the shared guard. The
+generator's act is loaded only after the preflight, because it needs the declared libraries; the
+grant reads no library beyond the standard one before it answers, and its preflight runs once a call
+is its own command."""
 
 from __future__ import annotations
 
 import argparse
+import os
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 from typing import NoReturn
 
 from constitution_layer_kit import cli, preflight
+from constitution_layer_kit import messages as shared_messages
 from constitution_layer_kit.errors import ConfigurationFailure
 from constitution_layer_kit.identity import HOOK_SECONDS, Identity
 from constitution_layer_kit.model import KERNEL_KEYS, MetaType, Mode
 from constitution_layer_kit.output import Output
 
-from . import messages
+from . import granting, messages
 from .model import Request
 
 GENERATOR = Identity(
@@ -26,6 +31,17 @@ GENERATOR = Identity(
     hook_seconds=HOOK_SECONDS,
     until_installed="until then nothing is created",  # a generator: no write passes, none is made
     until_fixed="until it is fixed nothing is created",
+)
+
+GRANT = Identity(
+    namespace="const-locations",
+    gate="grant-new-document",
+    plugin_root=Path(__file__).resolve().parents[2],
+    dials_file="constitution.yaml",
+    kernel_keys=KERNEL_KEYS,
+    hook_seconds=HOOK_SECONDS,
+    until_installed="until then the command asks for approval as any other command does",
+    until_fixed="until it is fixed the command asks for approval as any other command does",
 )
 
 
@@ -67,3 +83,14 @@ def _body(argv: Sequence[str], output: Output) -> int:
 
 def main(argv: Sequence[str]) -> int:
     return cli.guarded(GENERATOR, Mode.ACT, lambda output: _body(argv, output), messages.l4_nothing_written)
+
+
+def _grant(argv: Sequence[str], output: Output) -> int:
+    if argv:
+        raise ConfigurationFailure(shared_messages.c12_invocation(" ".join(argv), messages.l8_usage()))
+    # The root the platform gives the hook: the same text it put in the skill's command line.
+    return granting.grant(output, sys.stdin, os.environ.get("CLAUDE_PLUGIN_ROOT", ""))
+
+
+def grant_main(argv: Sequence[str]) -> int:
+    return cli.guarded(GRANT, Mode.HOOK, lambda output: _grant(argv, output), messages.l7_not_granted)

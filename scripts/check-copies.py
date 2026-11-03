@@ -64,8 +64,9 @@ each, read by `ast`; their first line is the text up to the first line feed. A f
 <fix>`, and what follows ` — ` after the fix is its clause. For a gate each of the three first lines must
 close with ` — <the Identity's clause>` exactly. An entry is a generator when the second line of `TOO_OLD`
 opens with neither `BROKEN: the check could not run` (C11) nor `BROKEN: the session-start line could not be
-printed` (S1): its three first lines carry no clause, and its Identity's clause closes C2 alone, whatever
-it is (template §6, rule 3; GATE.md §2, item 6). A disagreement is RED, with the file and line, the text,
+printed` (S1) — a grant's entry, whose closing line says the call was not granted, reads as one: its three
+first lines carry no clause, and its Identity's clause closes C2 alone, whatever it is (template §6, rule 3;
+GATE.md §2, item 6). A disagreement is RED, with the file and line, the text,
 the clause found, the clause the Identity names and where, why and the fix. BROKEN, with the fix: no entry
 at all, a missing `.sh`, no or two Identities for a gate, a clause that is no string literal, an
 `identity.py` that is missing, unreadable or without its default, which is read on every run, even when
@@ -734,13 +735,14 @@ def clause_finding(
     label = LABELS[name]
     if closing is not None:
         what = (
-            f"{label} of {entry.stem} ends in the clause '{found}', and a generator's entry lines carry none:"
+            f"{label} of {entry.stem} ends in the clause '{found}', and a generator's or a grant's entry"
+            " lines carry none:"
             f" its Identity's clause, '{declared.text}' ({declared.where}), closes C2 alone"
         )
         why = (
             f"the second line of its TOO_OLD, '{closing}', is neither C11 nor S1, so the entry is a"
-            " generator's, which changes files and lets no write through: a clause is true of C2 alone"
-            " (template §6, rule 3; GATE.md §2, item 6)"
+            " generator's or a grant's, which lets no write through and checks none: a clause is true of C2"
+            " alone (template §6, rule 3; GATE.md §2, item 6)"
         )
         fix = "end the line at its fix, with no clause after it"
     else:
@@ -2112,11 +2114,12 @@ def self_test_clause_reports(cases: Cases) -> None:
             [
                 "RED: modules/const-d/plugin/scripts/make-thing.py:14: C15, NO_SHARED_CODE of make-thing ends"
                 " in"
-                f" the clause '{CHANGED}', and a generator's entry lines carry none: its Identity's clause,"
+                f" the clause '{CHANGED}', and a generator's or a grant's entry lines carry none: its"
+                " Identity's clause,"
                 f" '{GENERATOR_CLAUSE}' ({generator_where}), closes C2 alone",
                 f"  why: the second line of its TOO_OLD, '{GENERATOR_CLOSING}', is neither C11 nor S1, so the"
-                " entry is a generator's, which changes files and lets no write through: a clause is true of"
-                " C2 alone (template §6, rule 3; GATE.md §2, item 6)",
+                " entry is a generator's or a grant's, which lets no write through and checks none: a clause"
+                " is true of C2 alone (template §6, rule 3; GATE.md §2, item 6)",
                 "  fix: end the line at its fix, with no clause after it",
                 summary,
             ],

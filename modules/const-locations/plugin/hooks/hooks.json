@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(sh *)",
+            "command": "sh",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/grant-new-document.sh"],
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

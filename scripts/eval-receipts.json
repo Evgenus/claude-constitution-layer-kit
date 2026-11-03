@@ -41,14 +41,14 @@
   "const-interaction": {
     "attempts": [
       {
-        "at": "2026-10-27T15:48:13Z",
+        "at": "2026-11-02T11:52:33Z",
         "cases": 1,
         "passed": 1,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:7f641adae1b5f38881ae9d03bcb0c4402954a3f9f1ae85e7c0b4841363a61fce",
+    "hash": "sha256:db6027cf7cfc5ff09d234d68942d0c26c1c1844e1fe3e04f4c834c4118e8240c",
     "model": "claude-opus-5-5"
   },
   "const-language": {
@@ -67,14 +67,14 @@
   "const-locations": {
     "attempts": [
       {
-        "at": "2026-10-27T15:52:17Z",
+        "at": "2026-11-02T19:03:40Z",
         "cases": 2,
         "passed": 2,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:775e04e13d6425e005fa1396aa343d320217211bbb9a984f5b960ba46d1ff198",
+    "hash": "sha256:faad51145263df6d06854b31030a9f3821553c576b16c54b7ee1347578d649e2",
     "model": "claude-opus-5-5"
   },
   "const-meta-types": {
