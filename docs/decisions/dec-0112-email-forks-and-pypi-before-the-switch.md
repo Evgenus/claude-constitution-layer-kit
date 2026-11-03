@@ -82,7 +82,7 @@ The session recommended A: the install line already names its source, and nothin
 
 ## Applied
 
-The change ticks items 5a.1, 5a.2 and 5a.3 of the plan, adds the approval setting to item 5a.4, adds the waiting item 5a.9 for R4, states R2 in the CI workflow's opening comment, and gives the PyPI deferral of [kit-shared-gate-code](../../shared/GATE.md#g1) its new signal, with the status matrix's rows. Every item has its home in the commit that creates this record, so the record is born `inactive`.
+The change ticks items 5a.1, 5a.2 and 5a.3 of the plan, adds the approval setting to item 5a.4, adds the waiting item 5a.9 for R4, and gives the PyPI deferral of [kit-shared-gate-code](../../shared/GATE.md#g1) its new signal, with the status matrix's rows. The carry audit then split R2 out of a ruling that held two items, and the same correction stated R2 in the CI workflow's opening comment. Every item has its home, so the record is `inactive`.
 
 ## Carry list
 
