@@ -111,9 +111,11 @@ DEFAULT_DESTRUCTIVE: tuple[Entry, ...] = (
     _entry(
         "git reset",
         ("--hard",),
-        "a hard reset discards every uncommitted change in the working tree and the index; nothing"
-        " brings them back",
-        "run git stash first, or reset with --keep, which stops when a change would be lost",
+        "a hard reset discards every uncommitted change in the working tree and the index, which nothing"
+        " brings back; with a target such as HEAD~1 it also drops the commits after the target from the"
+        " branch",
+        "run git stash first, or reset with --keep, which stops when a change would be lost; with a"
+        " target, also tag the tip first (git tag keep/<name>)",
     ),
     _entry(
         "git checkout",
