@@ -385,6 +385,12 @@ def streamed(
     """Run `argv`, printing each line of its output, stdout and stderr together, as it comes; its exit code
     and the whole output. Past `timeout` seconds it is killed and `subprocess.TimeoutExpired` raised."""
     said: list[str] = []
+    printing = threading.Lock()  # print writes a line and its end in two calls, so two threads could mix them
+
+    def say(line: str) -> None:
+        with printing:
+            print(line, flush=True)
+
     with subprocess.Popen(
         argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         text=True,
@@ -394,7 +400,7 @@ def streamed(
             assert running.stdout is not None
             for line in running.stdout:
                 said.append(line)
-                print(f"  | {line.rstrip()}", flush=True)
+                say(f"  | {line.rstrip()}")
 
         reader = threading.Thread(target=echo, daemon=True)
         reader.start()
@@ -408,7 +414,7 @@ def streamed(
                 code = running.wait(timeout=min(heartbeat, timeout - elapsed))
                 break
             except subprocess.TimeoutExpired:
-                print(f"  … running, {int(time.monotonic() - started)} s", flush=True)
+                say(f"  … running, {int(time.monotonic() - started)} s")
         reader.join()
     return code, "".join(said)
 
@@ -835,6 +841,46 @@ def fake_run_docker(folder: Path, log: Path, said: Path, pair: Path) -> dict[str
     )
     (folder / "docker").chmod(0o755)
     return {"PATH": f"{folder}{os.pathsep}{os.environ['PATH']}"}
+
+
+class Heard(io.StringIO):
+    """For the self-test: what `streamed` prints, kept. Once a line `  … running, ` follows the line
+    `  | one`, it makes the file `gate`, which the program waits for before it prints its last line."""
+
+    def __init__(self, gate: Path) -> None:
+        super().__init__()
+        self.gate = gate
+
+    def write(self, text: str) -> int:
+        written = super().write(text)
+        lines = self.getvalue().splitlines()
+        if "  | one" in lines and any(
+            line.startswith("  … running, ") for line in lines[lines.index("  | one") + 1 :]
+        ):
+            self.gate.touch()
+        return written
+
+
+def streamed_in_order(tmp: Path) -> bool:
+    """For the self-test: `streamed` echoes a program's lines as they come, stderr too, with a heartbeat line
+    while it runs. The program prints `one`, waits for the gate that `Heard` makes once a heartbeat line has
+    followed `one`, then prints `two` on stderr. So the order holds by construction, never by a clock: the
+    first start of `sh` or the reader's turn may come late on a loaded machine, past any heartbeat. A
+    `streamed` that held its lines until the end, or printed no heartbeat, never opens the gate, and the
+    program is stopped at the timeout, which only ends a hang."""
+    gate = tmp / "stream-gate"
+    heard = Heard(gate)
+    program = f"echo one; while [ ! -e '{gate}' ]; do sleep 0.05; done; echo two >&2"
+    try:
+        with contextlib.redirect_stdout(heard):
+            code_said = streamed(["sh", "-c", program], tmp, dict(os.environ), 20, 0.2)
+    except subprocess.TimeoutExpired:
+        return False
+    echoed = heard.getvalue().splitlines()
+    if code_said != (0, "one\ntwo\n") or "  | one" not in echoed or "  | two" not in echoed:
+        return False
+    between = echoed[echoed.index("  | one") + 1 : echoed.index("  | two")]
+    return any(line.startswith("  … running, ") for line in between)
 
 
 def run_module_cases(case: Callable[[str, bool], None], box: Box, tmp: Path, quiet: dict[str, str]) -> None:
@@ -1324,19 +1370,11 @@ def self_test() -> int:
             "the container keeps the eval's exit code and copies each run's trace, whatever its folder",
             boxed.returncode == 7 and copied == ["load-trace1.jsonl", "load-trace2.jsonl"],
         )
-        heard = io.StringIO()
-        with contextlib.redirect_stdout(heard):
-            code_said = streamed(
-                ["sh", "-c", "echo one; sleep 1; echo two >&2"], Path(tmp), dict(os.environ), 20, 0.2
-            )
-        echoed = heard.getvalue().splitlines()
         case(
             "the verbose mode echoes the container's output as it comes, stderr too, with a line while it"
             " runs",
-            code_said == (0, "one\ntwo\n")
-            and echoed[0] == "  | one" and echoed[-1] == "  | two"
-            and any(line.startswith("  … running, ") for line in echoed[1:-1]),
-        )  # fmt: skip
+            streamed_in_order(Path(tmp)),
+        )
         with contextlib.redirect_stdout(io.StringIO()):
             try:
                 streamed(["sh", "-c", "sleep 30"], Path(tmp), dict(os.environ), 1, 0.3)
