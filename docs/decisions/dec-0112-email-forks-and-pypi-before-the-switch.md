@@ -15,7 +15,7 @@ Step 5a of [the rollout plan](../rollout-plan.md#s5a) makes the repository publi
 
 ## 1. The author's email in the history
 
-The author's address stood 3,323 times as author or committer in the 1,711 commits on 2026-11-03, and in no tracked file. It was already the public email of the author's GitHub profile. A rewrite of the history changes every commit hash: those of the two tags of the shared package, which every consumer's install pins, the pins of the carry audits' receipts, the commits the records and the plan cite, and those the first consumer project's records cite. GitHub keeps a read-only ref for each pull request, which may keep the old commits readable after a rewrite; the session did not verify that.
+The author's address stood 3,323 times as author or committer in the 1,711 commits of all refs on 2026-11-03, and in no tracked file. It was already the public email of the author's GitHub profile. A rewrite of the history changes every commit hash: those of the two tags of the shared package, which every consumer's install pins, the pins of the carry audits' receipts, the commits the records and the plan cite, and those the first consumer project's records cite. GitHub keeps a read-only ref for each pull request, which may keep the old commits readable after a rewrite; the session did not verify that.
 
 - **A. Keep everything as it is.**
   - **Pros:** no work; every hash, tag and pin stays valid; the address is public already.
@@ -53,9 +53,11 @@ The CI workflow runs on `pull_request`, never `pull_request_target`, with `permi
 
 The session recommended A: the workflow is safe for forks as it stands, and machinery is earned by friction. The decider chose A in chat on 2026-11-03, after asking who pays for its CI.
 
-<a id="r2"></a>**R2.** A pull request from a fork runs the same CI as any other, and nothing in the workflow changes for it. The change that makes the repository public also sets GitHub to ask the owner's approval before workflows run for all outside collaborators.
+<a id="r2"></a>**R2.** A pull request from a fork runs the same CI as any other, and nothing in the workflow changes for it.
 
-<a id="r3"></a>**R3.** Deferred: how the eval receipt of a fork pull request that changes a module is made. Signal: the first such pull request.
+<a id="r3"></a>**R3.** The change that makes the repository public also sets GitHub to ask the owner's approval before workflows run for all outside collaborators.
+
+<a id="r4"></a>**R4.** Deferred: how the eval receipt of a fork pull request that changes a module is made. Signal: the first such pull request.
 
 ## 3. The shared package on PyPI
 
@@ -76,15 +78,16 @@ Every consumer installs the shared package from a git tag, by the line the insta
 
 The session recommended A: the install line already names its source, and nothing has asked for a release process. The decider chose A in chat on 2026-11-03.
 
-<a id="r4"></a>**R4.** Deferred: publication of the shared package on PyPI; the git tag stays its one source. Signal: a consumer asks for it, or the name `constitution-layer-kit` is taken there. This answers R20 of [dec-0099-shared-code-installed-as-a-pip-package](dec-0099-shared-code-installed-as-a-pip-package.md#r20) at this step.
+<a id="r5"></a>**R5.** Deferred: publication of the shared package on PyPI; until then consumers install it from the git tag alone. Signal: a consumer asks for it, or another project takes the name `constitution-layer-kit` there; either puts the question again. This answers R20 of [dec-0099-shared-code-installed-as-a-pip-package](dec-0099-shared-code-installed-as-a-pip-package.md#r20) at this step.
 
 ## Applied
 
-The change ticks items 5a.1, 5a.2 and 5a.3 of the plan, adds the approval setting to item 5a.4, adds the waiting item 5a.9 for R3, and gives the PyPI deferral of [kit-shared-gate-code](../../shared/GATE.md#g1) its new signal, with the status matrix's rows. Every item has its home in the commit that creates this record, so the record is born `inactive`.
+The change ticks items 5a.1, 5a.2 and 5a.3 of the plan, adds the approval setting to item 5a.4, adds the waiting item 5a.9 for R4, states R2 in the CI workflow's opening comment, and gives the PyPI deferral of [kit-shared-gate-code](../../shared/GATE.md#g1) its new signal, with the status matrix's rows. Every item has its home in the commit that creates this record, so the record is born `inactive`.
 
 ## Carry list
 
 1. R1 — history only: a decision that changes no file.
-2. R2 — pending: [item 5a.4 of the rollout plan](../rollout-plan.md#s5a-4).
-3. R3 — pending: [item 5a.9 of the rollout plan](../rollout-plan.md#s5a-9).
-4. R4 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the deferred parts.
+2. R2 — [the CI workflow](../../.github/workflows/gates.yml), its opening comment and its trigger `pull_request`.
+3. R3 — pending: [item 5a.4 of the rollout plan](../rollout-plan.md#s5a-4).
+4. R4 — pending: [item 5a.9 of the rollout plan](../rollout-plan.md#s5a-9).
+5. R5 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the deferred parts.
