@@ -14,8 +14,12 @@ from __future__ import annotations
 
 import ast
 import errno
+import json
 import os
+import re
 import resource
+import shutil
+import string
 import subprocess
 from collections.abc import Sequence
 from pathlib import Path
@@ -1177,3 +1181,281 @@ SUBJECT = Subject(
     closing=messages.l4_nothing_written(),
     act_args=NOTE_ARGS,
 )
+
+
+# ---------------------------------------------------------------- the grant: the hook's own entry point
+
+G = Harness(SCRIPTS, "grant-new-document.sh", "grant-new-document.py", NAMESPACE)
+PLUGIN = SCRIPTS.parent  # the plugin root, as CLAUDE_PLUGIN_ROOT names it to the hook
+OWN = f"sh {PLUGIN}/scripts/new-document.sh"
+# The answer, typed by hand: one JSON object, the reason the platform writes to its debug log.
+ALLOW = (
+    '{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow",'
+    ' "permissionDecisionReason": "const-locations: the plugin\'s own create command, with plain or'
+    ' single-quoted arguments"}}\n'
+)
+# The release of the shared package the grant's entry file requires, read from that file.
+REQUIRES = re.search(r'^REQUIRES = "([0-9.]+)"', (SCRIPTS / "grant-new-document.py").read_text(), re.M)[1]  # type: ignore[index]
+NOT_GRANTED = "BROKEN: the command was not granted — the platform asks for it as for any other command"
+GRANT_CLAUSE = "until then the command asks for approval as any other command does"
+
+
+def event(command: object, name: str = "PreToolUse", tool: str = "Bash") -> str:
+    """One hook event of the shell tool, as the platform sends it."""
+    return json.dumps(
+        {
+            "hook_event_name": name,
+            "tool_name": tool,
+            "tool_input": {"command": command},
+            "session_id": "s1",
+            "cwd": "/",
+        }
+    )
+
+
+def ask_grant(stdin: str, root: str = str(PLUGIN), env: dict[str, str] | None = None) -> Result:
+    environment = {"CLAUDE_PLUGIN_ROOT": root} if root else {}
+    return G.run_gate(stdin, env={**environment, **(env or {})}, cwd=G.scratch_dir())
+
+
+GRANTED = [
+    OWN,
+    f"{OWN} --dry-run --kind notes-policy --stem a",
+    f"{OWN} --kind notes-policy --stem a --title 'A note' --type non-authoritative",
+    f"{OWN} --kind plc-0005-research --stem comparison-x"
+    " --title 'Comparison — const-x (2026-11-02): a; b & c | d $e `f` \"g\" *'",
+    f"{OWN} --kind p --segment alpha --id readme-alpha --title ''",
+]
+NOT_OWN = [
+    f"{OWN} --kind p; touch PWNED",
+    f"{OWN} --kind p && touch PWNED",
+    f"{OWN} --kind p || touch PWNED",
+    f"{OWN} --kind p | tee out",
+    f"{OWN} --kind p & touch PWNED",
+    f"{OWN} --kind p\ntouch PWNED",
+    f"{OWN} --kind p > out.txt",
+    f"{OWN} --kind p 2>&1",
+    f"{OWN} --kind p < in.txt",
+    f"{OWN} --title $(touch PWNED)",
+    f"{OWN} --title `touch PWNED`",
+    f"{OWN} --title $HOME",
+    f'{OWN} --title "A note"',
+    f"{OWN} --stem *",
+    f"{OWN} --stem ~",
+    f"{OWN} --stem =ls",
+    f"{OWN} --title 'A'\"'\"'s'",
+    f"{OWN} --title='A note'",
+    f"{OWN} --title 'two\nlines'",
+    f"{OWN}  --kind p",
+    f"{OWN} --kind p ",
+    f"{OWN}.evil --kind p",
+    f"sh {PLUGIN}/scripts/other.sh --kind p",
+    f"bash {PLUGIN}/scripts/new-document.sh --kind p",
+    f"X=1 {OWN} --kind p",
+    f"command {OWN} --kind p",
+    f"cd /tmp && {OWN} --kind p",
+    "sh /elsewhere/const-locations/plugin/scripts/new-document.sh --kind p",
+    "ls",
+    f"{OWN} --title a' ';touch PWNED;' b'",  # a quote joined to a plain word: the `;` stands outside
+    f"{OWN} --title 'a'b",
+    f"{OWN} --title a'b'",
+    f"{OWN} --title '''",
+    f"{OWN} --title 'a\rb'",
+    f"{OWN} --title 'a\x00b'",
+    f"{OWN} #x",
+    f"{OWN} !x",
+]
+# One form for each character the plain class of an argument does not hold, printable ASCII and a few
+# others a shell or a font may read as syntax or space: each alone in a value, so that a character added
+# to the class by mistake is answered with `allow` here and the item is red.
+PLAIN = set(string.ascii_letters + string.digits + "_./:,@+-")
+EXCLUDED = [c for c in string.printable + "  ＆；" if c not in PLAIN and c not in " \n"]
+NOT_OWN += [f"{OWN} --stem a{c}b" for c in EXCLUDED]
+# The same for the root, whose class holds neither `:` nor `,`.
+EXCLUDED_ROOT = [c for c in string.printable + "\u00a0" if c not in PLAIN - {":", ","} and c != " "]
+
+
+@item(20, "the grant: the plugin's own command, plain or single-quoted, is answered allow, typed by hand")
+def test_grant_allows_its_own_command() -> None:
+    """Each form the allowlist names gets the one JSON object and exit 0, nothing on stderr — a trailing
+    slash on the root changes nothing."""
+    wrong = []
+    for command in GRANTED:
+        for root in (str(PLUGIN), f"{PLUGIN}/"):
+            result = ask_grant(event(command), root)
+            if (result.code, result.stdout, result.stderr) != (0, ALLOW, ""):
+                wrong.append(f"{command!r} at {root!r}: {result}")
+    assert not wrong, "\n".join(wrong)
+
+
+@item(
+    21, "the grant: any other command, a separator, a redirection, an expansion or a quote form, gets nothing"
+)
+def test_grant_says_nothing_else() -> None:
+    """The allowlist's red half: each of these is no match, so the hook prints nothing and exits 0, and
+    the platform's own permission flow decides the call. An `allow` here would skip the platform's split
+    of a compound command and grant what follows the separator."""
+    wrong = []
+    for command in NOT_OWN:
+        result = ask_grant(event(command))
+        if (result.code, result.stdout, result.stderr) != (0, "", ""):
+            wrong.append(f"{command!r}: {result}")
+    assert not wrong, "\n".join(wrong)
+
+
+@item(22, "the grant: a plugin root it cannot name safely, or none, grants nothing")
+def test_grant_root() -> None:
+    """A root with a space, a separator, a quote, any printable character its class leaves out or a
+    no-break space, a root that ends in a line break, or a relative path is matched by nothing, nor is
+    an empty or absent CLAUDE_PLUGIN_ROOT — the call then goes to the platform's prompt."""
+    wrong = []
+    roots = ["/a b/plugin", "/a;b/plugin", "/a'b/plugin", "plugin", ""]
+    roots += [f"/a{c}b/plugin" for c in EXCLUDED_ROOT] + [f"{PLUGIN}\n"]
+    for root in roots:
+        result = ask_grant(event(f"sh {root}/scripts/new-document.sh --kind p"), root)
+        if (result.code, result.stdout, result.stderr) != (0, "", ""):
+            wrong.append(f"{root!r}: {result}")
+    empty = G.run_gate(event(OWN), env={"CLAUDE_PLUGIN_ROOT": ""}, cwd=G.scratch_dir())
+    if (empty.code, empty.stdout, empty.stderr) != (0, "", ""):
+        wrong.append(f"an empty CLAUDE_PLUGIN_ROOT: {empty}")
+    assert not wrong, "\n".join(wrong)
+
+
+@item(23, "the grant: another event, another tool, judges nothing and says nothing")
+def test_grant_other_events() -> None:
+    """A PostToolUse of the same command and a PreToolUse of another tool are no call it grants."""
+    after = ask_grant(event(OWN, name="PostToolUse"))
+    write = ask_grant(
+        json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Read", "tool_input": {"file_path": "/x"}})
+    )
+    assert (after.code, after.stdout, after.stderr) == (0, "", "") and (
+        write.code,
+        write.stdout,
+        write.stderr,
+    ) == (0, "", ""), f"{after}\n{write}"
+
+
+@item(24, "the grant: input it cannot read and an argument given are refused, nothing granted, typed by hand")
+def test_grant_refusals() -> None:
+    """Unreadable input, a shell event without its command, and an argument on the command line each
+    exit 1 with the shared line and the grant's own closing line, and print nothing on stdout."""
+    not_json = ask_grant("not json")
+    no_command = ask_grant(event(None))
+    argument = G.run_gate(event(OWN), args=["--scan"], env={"CLAUDE_PLUGIN_ROOT": str(PLUGIN)})
+    expected = {
+        "not json": "BROKEN: hook input cannot be used (it is not JSON: Expecting value: line 1 column 1"
+        " (char 0)) — fix: this hook reads one PreToolUse event of the shell tool, a JSON object, on stdin;"
+        " it has no other mode",
+        "no command": "BROKEN: hook input cannot be used (a Bash event must carry a string"
+        " tool_input.command) — fix: this hook reads one PreToolUse event of the shell tool, a JSON object,"
+        " on stdin; it has no other mode",
+        "argument": "BROKEN: misinvocation: --scan — fix: run it with no arguments: it reads one PreToolUse"
+        " event of the shell tool on stdin",
+    }
+    got = {"not json": not_json, "no command": no_command, "argument": argument}
+    wrong = [
+        f"{name}: {result}"
+        for name, result in got.items()
+        if (result.code, result.stdout, result.stderr) != (1, "", f"{expected[name]}\n{NOT_GRANTED}\n")
+    ]
+    assert not wrong, "\n".join(wrong)
+
+
+@item(
+    25, "the grant: no python3, no PyYAML, no shared package — exit 1, nothing granted, its own closing line"
+)
+def test_grant_absence() -> None:
+    """The entry files' C1 and C15 and the shared C2 close with the grant's line; a call that is no match
+    runs no preflight, so a missing library costs it nothing."""
+    tools = H.scratch_dir()
+    for tool in ("sh", "dirname"):
+        found = shutil.which(tool)
+        assert found, tool
+        os.symlink(found, tools / tool)
+    no_python = G.run_gate(event(OWN), env={"PATH": str(tools)}, command=[str(tools / "sh"), str(G.wrapper)])
+    c1 = (
+        "BROKEN: const-locations needs python3 — fix: install Python 3.12 or newer"
+        f" (https://www.python.org/downloads/)\n{NOT_GRANTED}\n"
+    )
+    shadow = H.scratch_dir()
+    (shadow / "yaml.py").write_text("raise ImportError('simulated absence')\n", encoding="utf-8")
+    no_library = ask_grant(event(OWN), env={"PYTHONPATH": str(shadow)})
+    no_library_other = ask_grant(event("ls"), env={"PYTHONPATH": str(shadow)})
+    requirements = PLUGIN / "requirements.txt"
+    c2 = (
+        "BROKEN: const-locations needs PyYAML — fix: run: python3 -m pip install -r"
+        f" '{requirements}' — {GRANT_CLAUSE}\n{NOT_GRANTED}\n"
+    )
+    hidden = H.scratch_dir()  # a package of the same name first on the path, which cannot be imported
+    (hidden / "constitution_layer_kit").mkdir()
+    (hidden / "constitution_layer_kit" / "__init__.py").write_text("raise ImportError('simulated absence')\n")
+    no_shared = ask_grant(event(OWN), env={"PYTHONPATH": str(hidden)})
+    c15 = (
+        f"BROKEN: const-locations needs the Python package constitution-layer-kit {REQUIRES} or a later"
+        f" {REQUIRES.partition('.')[0]}.x release, and python3 cannot import it — fix: install it for python3"
+        f" as {PLUGIN / 'INSTALL.md'} says\n{NOT_GRANTED}\n"
+    )
+    wrong = [
+        f"{name}: {result}"
+        for name, result, err in (("C1", no_python, c1), ("C2", no_library, c2), ("C15", no_shared, c15))
+        if (result.code, result.stdout, result.stderr) != (1, "", err)
+    ]
+    if (no_library_other.code, no_library_other.stdout, no_library_other.stderr) != (0, "", ""):
+        wrong.append(f"no match, no PyYAML: {no_library_other}")
+    assert not wrong, "\n".join(wrong)
+
+
+@item(26, "the grant: its answer is logged as one record of the grant; a call that is no match leaves none")
+def test_grant_log() -> None:
+    """Under CLAUDE_PLUGIN_DATA the answer is one JSON line of the log, its gate the grant's; a call
+    the grant does not answer writes no record."""
+    data = H.scratch_dir()
+    ask_grant(event("ls"), env={"CLAUDE_PLUGIN_DATA": str(data)})
+    quiet = not (data / f"{NAMESPACE}.jsonl").exists()
+    ask_grant(event(OWN), env={"CLAUDE_PLUGIN_DATA": str(data)})
+    records = [
+        json.loads(line) for line in (data / f"{NAMESPACE}.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    one = (
+        len(records) == 1
+        and records[0]["gate"] == "grant-new-document"
+        and records[0]["mode"] == "hook"
+        and records[0]["session"] == "s1"
+        and records[0]["stream"] == "stdout"
+        and records[0]["text"] + "\n" == ALLOW
+    )
+    assert quiet and one, f"quiet: {quiet}; records: {records}"
+
+
+@item(27, "the hooks file wires the grant; neither skill carries allowed-tools")
+def test_grant_wiring() -> None:
+    """One PreToolUse handler on Bash, filtered to `sh` subcommands, in the exec form with the plugin
+    root and an explicit timeout; no other event. Neither skill pre-approves anything, so the model's
+    load of a skill asks for no approval."""
+    hooks = json.loads((PLUGIN / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+    expected = {
+        "hooks": {
+            "PreToolUse": [
+                {
+                    "matcher": "Bash",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "if": "Bash(sh *)",
+                            "command": "sh",
+                            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/grant-new-document.sh"],
+                            "timeout": 30,
+                        }
+                    ],
+                }
+            ]
+        }
+    }
+    fronts = {
+        name: yaml.safe_load(
+            (PLUGIN / "skills" / name / "SKILL.md").read_text(encoding="utf-8").split("---\n")[1]
+        )
+        for name in ("new-document", "new-kind")
+    }
+    granting_skill = sorted(name for name, front in fronts.items() if "allowed-tools" in front)
+    assert hooks == expected and not granting_skill, f"hooks: {hooks}; allowed-tools in {granting_skill}"
