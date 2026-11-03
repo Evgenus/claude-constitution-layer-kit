@@ -196,10 +196,23 @@ def test_t2() -> None:
 @item(3, "red→green: a hard reset inside bash -c asks; a soft reset passes")
 def test_t3() -> None:
     text = 'bash -c "git reset --hard HEAD~1"'
+    finding = d1(text, "git reset", "--hard", "git reset --hard HEAD~1")
     pair(
-        lambda: asked(text, d1(text, "git reset", "--hard", "git reset --hard HEAD~1"), subcommands=2),
+        lambda: asked(text, finding, subcommands=2),
         lambda: passed('bash -c "git reset --soft HEAD~1"', subcommands=2),
     )()
+    # typed by hand: a reset to HEAD~1 also drops a commit, so the why and the fix say so
+    why = (
+        "a hard reset discards every uncommitted change in the working tree and the index, which nothing"
+        " brings back; with a target such as HEAD~1 it also drops the commits after the target from the"
+        " branch"
+    )
+    fix = (
+        "run git stash first, or reset with --keep, which stops when a change would be lost; with a"
+        " target, also tag the tip first (git tag keep/<name>); to run it as written, confirm"
+    )
+    assert finding.why == why, f"why: {finding.why}"
+    assert finding.fix.startswith(fix), f"fix: {finding.fix}"
 
 
 @item(4, "red→green: a rebase inside a substitution asks; git log passes")
