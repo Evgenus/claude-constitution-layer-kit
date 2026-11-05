@@ -25,8 +25,8 @@
 # The install-<module> and session-<module> gates and the guide gate need the `claude` that scripts/claude-code.version pins on
 # PATH and no Claude account login: on any other version they fail to run, unless CONSTITUTION_KIT_ANY_CLAUDE=1,
 # when they run with a note naming both versions on every headline line of their report after the version
-# check; each installs from the change's GitHub branch, a private remote, so each needs git's credentials
-# for it. A clone runs `sh scripts/setup-claude.sh` once, and again after the pin moves, which installs the
+# check; each installs from the change's GitHub branch, which git reads with no credentials on the kit's
+# public remote. A clone runs `sh scripts/setup-claude.sh` once, and again after the pin moves, which installs the
 # pinned version into <main>/.claude-code-pinned, <main> the folder that holds git's common directory, so
 # every worktree shares it; --run then puts that folder's node_modules/.bin first on PATH for the commands
 # of the install-<module> and session-<module> entries and the guide alone, and only when its `claude` is executable. Every
