@@ -23,7 +23,7 @@ status: active
 | [s3](#s3) | Author the four document-shaped modules, and the shared gate code | A | ✅ | 5 | 0 | 0 | 100% |
 | [s4](#s4) | Review each of the four against the template | A | ✅ | 2 | 0 | 0 | 100% |
 | [s5](#s5) | Bootstrap the consumer project | B | ✅ | 2 | 0 | 0 | 100% |
-| [s5a](#s5a) | Make the repository public | B | 🔄 | 4 | 2 | 4 | 66% |
+| [s5a](#s5a) | Make the repository public | B | 🔄 | 5 | 1 | 4 | 83% |
 | [s6](#s6) | Decision record #1 | B | ✅ | 1 | 0 | 0 | 100% |
 | [s7](#s7) | Commit each step with honest messages | B | ✅ | 1 | 0 | 0 | 100% |
 | [s8](#s8) | [`const-locations`](requirements.md#const-locations) and [`const-task-close`](requirements.md#const-task-close) | C | ✅ | 2 | 0 | 0 | 100% |
@@ -32,7 +32,7 @@ status: active
 | [s10a](#s10a) | The first release of the shared package | D | ✅ | 1 | 0 | 0 | 100% |
 | [s10b](#s10b) | The release 2.0.0 of the shared package | D | ✅ | 1 | 0 | 0 | 100% |
 | [s11](#s11) | Switch the project from path load to marketplace install | D | ⏳ | 0 | 1 | 0 | 0% |
-| all | the whole plan | all | 🔄 | 51 | 17 | 8 | 75% |
+| all | the whole plan | all | 🔄 | 52 | 16 | 8 | 76% |
 
 <a id="phase-a"></a>
 ## Phase A — Kit as consumer zero: the document-shaped accumulating modules (~1 week)
@@ -64,7 +64,7 @@ status: active
    - <a id="s5a-2"></a>**5a.2** ✅ How a pull request from a fork is checked: by the same CI. Done 2026-11-03, record [dec-0112-email-forks-and-pypi-before-the-switch](decisions/dec-0112-email-forks-and-pypi-before-the-switch.md), the yes given.
    - <a id="s5a-3"></a>**5a.3** ✅ Whether the shared package is also published on PyPI: not now. Done 2026-11-03, record [dec-0112-email-forks-and-pypi-before-the-switch](decisions/dec-0112-email-forks-and-pypi-before-the-switch.md), the yes given.
    - <a id="s5a-3a"></a>**5a.3a** ✅ Team access to the kit's marketplace, `.claude-plugin/marketplace.json`, checked in a session while the repository is private, with credentials other than the owner's login; moved here from item 10.8 by [dec-0104-public-before-the-ci-bound-proofs](decisions/dec-0104-public-before-the-ci-bound-proofs.md). Done 2026-11-05, a routine change.
-   - <a id="s5a-4"></a>**5a.4** ⏳ After items 5a.1 to 5a.3a, the repository is made public. The same change updates every text that calls it private, save the decision records and the done items of the plan, which are history. Among them are the rule "Work starts on a branch" of [CLAUDE.md](../CLAUDE.md), which names the kit's private GitHub remote; prerequisite 2 of [the install guide](../INSTALL.md#s1); a step name of the CI workflow; and docstrings, comments and fix texts of the kit's scripts `scripts/check-bare-install.py`, `scripts/check-install-guide.py`, `scripts/gate-list.sh` and `scripts/kit_module_doc.py`. The same change also sets GitHub to ask the owner's approval before workflows run for all outside collaborators, and states that setting in "The shared `main`" of CLAUDE.md.
+   - <a id="s5a-4"></a>**5a.4** ✅ The repository made public, every text that called it private reworded, save the records and the done items of the plan, and GitHub set to ask the owner's approval before workflows run for all outside collaborators, as "The shared `main`" of CLAUDE.md states. Done 2026-11-05, records [dec-0104-public-before-the-ci-bound-proofs](decisions/dec-0104-public-before-the-ci-bound-proofs.md) and [dec-0112-email-forks-and-pypi-before-the-switch](decisions/dec-0112-email-forks-and-pypi-before-the-switch.md), the yes given.
    - <a id="s5a-5"></a>**5a.5** ⏳ After item 5a.4, the parts of the live items of item 5.2 that ask for the project's CI: the project's CI runs the scans and reads the public kit with no token, for [`const-catalogs`](../modules/const-catalogs/MODULE.md#t10) L5, [`const-referencing`](../modules/const-referencing/MODULE.md#t10) L4, [`const-questions`](../modules/const-questions/MODULE.md#t10) L4, [`const-interaction`](../modules/const-interaction/MODULE.md#t10) V4, [`const-styling`](../modules/const-styling/MODULE.md#t10) L4, [`const-language`](../modules/const-language/MODULE.md#t10) V4, with the binary on the runner, and [`const-doc-budgets`](../modules/const-doc-budgets/MODULE.md#t10) L4.
    - <a id="s5a-6"></a>**5a.6** 💤 After item 5a.4, the blocked write with a bare form of a declared lane of [`const-referencing`](../modules/const-referencing/MODULE.md#t10) L4, when the project declares its first lane, never one made only for the proof.
    - <a id="s5a-7"></a>**5a.7** 💤 After item 5a.4, the declared departure of [`const-styling`](../modules/const-styling/MODULE.md#t10) L4, when the project declares its first departure with a reason of its own, never one made only for the proof.

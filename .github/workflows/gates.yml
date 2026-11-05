@@ -74,7 +74,7 @@ jobs:
         # the version is scripts/claude-code.version, which the install checks and the session-load check ask
         # `claude --version` against
         run: npm install --global --silent "@anthropic-ai/claude-code@$(cat scripts/claude-code.version)"
-      - name: Git credentials, so Claude Code can clone the private repository
+      - name: Git credentials, for Claude Code's clone of the change's head repository
         if: startsWith(matrix.job, 'const-') || matrix.job == 'install-guide'
         env:
           GH_TOKEN: ${{ github.token }}

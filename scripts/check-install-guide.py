@@ -21,7 +21,7 @@ otherwise `plugins` in the run's CLAUDE_CONFIG_DIR; the second, a session load t
 cache of a read-only seed; the third, a session load a plugin folder in place of the install the claims
 read; the fourth, the install write a zip file where the claims read a folder. Every other variable reaches
 the version command and the run unchanged, CLAUDE_CODE_PLUGIN_PREFER_HTTPS, which the kit's CI sets for the
-clone of its private repository over HTTPS, and the kit's own CONSTITUTION_KIT_* ones included, save those
+clone of its repository over HTTPS, and the kit's own CONSTITUTION_KIT_* ones included, save those
 the check sets itself, CLAUDE_CONFIG_DIR and DISABLE_AUTOUPDATER for both, HOME, GIT_CONFIG_GLOBAL and, once
 the kit is cloned, PATH for the run (the `bin` of the shared code's environment first, as below; the version
 command, asked before the clone, keeps the person's PATH); the kit cloned from the working folder's HEAD to
@@ -140,8 +140,8 @@ cannot be read (`kit_module_doc.module_folders`; a manifest with no version), a 
 cannot read or place the first record by ("correct the guide's check=dials block"), a credential setting
 that cannot be carried into the run ("correct that entry in the global git configuration") and a clone
 that cannot be made ("check the clone"). Needs no
-Claude account login: the plugin commands read none, and the session stops before the model. Git needs a
-private repository's credentials.
+Claude account login: the plugin commands read none, and the session stops before the model. Git needs
+credentials for a private repository alone, such as a private fork; the kit's own is public.
 
 The check asks `claude --version` (`kit_module_doc.claude_note`) before the clone and before any block runs,
 and after the steps that run no `claude` command, in this order: the guide is read as committed at HEAD (a
@@ -1170,7 +1170,7 @@ def fix_for(name: str, marketplace: str) -> str:
         return (
             f"let git clone the source the block is given — {FROM_ENV}, `<owner>/<repo>#<branch>`, else the "
             "clone's origin at the branch checked out, naming a "
-            "repository and branch that exist — with a credential for github.com while the repository is "
+            "repository and branch that exist — with a credential for github.com where the repository is "
             "private, as `gh auth setup-git` sets one up; and make the block's other commands succeed"
         )
     if name == "install":
@@ -4063,7 +4063,7 @@ class SelfTestRun:
                 {"marketplace": "false && claude plugin marketplace add toy/kit"},
                 "let git clone the source the block is given — CONSTITUTION_KIT_INSTALL_FROM, "
                 "`<owner>/<repo>#<branch>`, else the clone's origin at the branch checked out, naming a "
-                "repository and branch that exist — with a credential for github.com while the repository "
+                "repository and branch that exist — with a credential for github.com where the repository "
                 "is private, as `gh auth setup-git` sets one up; and make the block's other commands succeed",
             ),
             (

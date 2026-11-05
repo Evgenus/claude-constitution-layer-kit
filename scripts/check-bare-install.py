@@ -66,9 +66,9 @@ For the module named, in throwaway folders that the check removes:
      CONSTITUTION_KIT_INSTALL_FROM, else the kit's working folder. The kit's CI names the change's GitHub
      repository and branch, `<owner>/<repo>#<branch>` — a pull request's head repository and branch, or the
      kit's main on a push to it — the copy a consumer's install writes; a fork the job's token cannot read
-     fails; git clones it with the machine's own credentials, which a private remote needs. The working
-     folder, a local-directory marketplace, gives a copy no session runs (the platform facts of limit 3 of
-     shared/GATE.md §4).
+     fails; git clones it as the machine's git is set up, the kit's public remote needing no credentials.
+     The working folder, a local-directory marketplace, gives a copy no session runs (the platform facts of
+     limit 3 of shared/GATE.md §4).
      The install's result is the last non-empty line of its standard output, one JSON object: an
      `outcome` of "failed" is a refusal, which carries the result's `failureCode` and `message`; "ok" with
      the exit 0 names the `scope` it wrote. The copy is the one entry of `claude plugin list --json`, run
@@ -161,7 +161,8 @@ failure prints a fix of its own, such as a commit the kit's history lacks and ca
 document that cannot be read, a module the kit lacks, a source that names a branch of no repository, a
 marketplace file that gives no name. The run holds the case of an absent dials file; a module with
 neither hook nor scan is held on its links alone.
-Needs no Claude account login: plugin install reads none; git needs a private remote's credentials.
+Needs no Claude account login: plugin install reads none; git needs no credentials for the kit's
+public remote.
 
 Modes:  --module <name> [--from <source>]  check one module of the kit;
         --self-test      prove step 3 on throwaway source and copy folders, no install: each branch

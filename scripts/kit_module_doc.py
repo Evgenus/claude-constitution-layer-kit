@@ -93,7 +93,7 @@ guide can. Every other variable reaches `claude` unchanged, save those the check
 CLAUDE_CONFIG_DIR, DISABLE_AUTOUPDATER (for the version command of both and the whole run of the guide),
 PATH (the `bin` of the throwaway environment of `kit_install.shared_path` first, for every `claude` command
 but the version command, and for the guide's blocks), and HOME and GIT_CONFIG_GLOBAL in the guide's run:
-CLAUDE_CODE_PLUGIN_PREFER_HTTPS, which the kit's CI sets for the clone of its private repository over
+CLAUDE_CODE_PLUGIN_PREFER_HTTPS, which the kit's CI sets for the clone of its repository over
 HTTPS, every other CLAUDE_CODE_* variable, and the kit's own CONSTITUTION_KIT_* ones. The probe covered the
 pinned version only: a variable of this kind that a later version adds reaches `claude` until a bump of the
 pin finds it, which review holds. Moving the pin (scripts/claude-code.version) probes the new version's
