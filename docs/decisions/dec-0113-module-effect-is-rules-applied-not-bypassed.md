@@ -13,7 +13,7 @@ decider: Eugene Chernyshov
 
 The decider asked how to measure the use and the efficiency of the kit's modules in a consumer project, with the knowledge kit as the example. The decider asked first for a definition of a module's efficiency. The session put two questions in chat, one per message: what efficiency is, on 2026-11-06, and how an advisory rule is judged, on 2026-11-07.
 
-Before the first question, the session read what the knowledge kit already holds. Its gate logs, the output log each gate writes under the dial `log_dir`, held about 1,060 records, all from 2026-11-05 and 2026-11-06. Its 8 session transcripts held 240 writes of Markdown files through the tools `Write` and `Edit`, which the hooks see. They also held 36 shell commands that name a Markdown file and match a crude pattern of a write. Most of these wrote a scratch file or a commit message; some changed the tree, such as a `git mv`. The data could not tell which of them a hook saw, for three reasons:
+Before the first question, the session read what the knowledge kit already holds. Its gate logs, the output log each gate writes under the dial `log_dir` of its namespace in the project's `constitution.yaml`, held about 1,060 records, all from 2026-11-05 and 2026-11-06. Its 8 session transcripts held 240 writes of Markdown files through the tools `Write` and `Edit`, which the hooks see. They also held 36 shell commands that name a Markdown file and match a crude pattern of a write. Most of these wrote a scratch file or a commit message; some changed the tree, such as a `git mv`. The data could not tell which of them a hook saw, for three reasons:
 
 - **G1.** A green record of a hook does not name the file it examined, so the logs cannot be joined with git or with the transcripts file by file.
 - **G2.** The file that switches a module off for one clone, `.claude/settings.local.json`, is outside git, so a switch-off leaves no history.
@@ -33,7 +33,7 @@ Before the first question, the session read what the knowledge kit already holds
 
 The session recommended A, since B is its first layer and C can follow for a module that A shows as doubtful. The decider chose none of the three as offered, in chat on 2026-11-06. Tokens and milliseconds matter little; the effect matters. The modules set rules for the model, so the measure checks that each rule is applied and not bypassed. That drops the cost side of A and keeps its outcome side, recast as rules applied.
 
-<a id="r1"></a>**R1.** A module's efficiency in a project is its effect: at each moment where one of its rules applies, whether the rule was applied, bypassed or missed. It is counted per rule and summed per module. Cost is no part of it: characters, tokens and time are not counted against the effect, and the characters a module adds stay what [the kit's metrics report](../../scripts/metrics.py) gives.
+<a id="r1"></a>**R1.** A module's efficiency in a project is its effect: at each moment where one of its rules applies, whether the rule was applied, bypassed or missed. It is counted per rule and summed per module, the counts of each judge apart, as R5 says. Cost is no part of it: characters, tokens and time are not counted against the effect, and the characters a module adds stay what [the kit's metrics report](../../scripts/metrics.py) gives.
 
 <a id="r2"></a>**R2.** For a gate, the work can go around it in four ways, and the measure counts each:
 
@@ -48,6 +48,8 @@ The session recommended A, since B is its first layer and C can follow for a mod
 - **B6 Shape missed.** The rule's visible form is absent where the rule asks for it, such as options without letters or an owed trailer missing.
 
 ## 2. How an advisory rule is judged
+
+A pattern can check some of the misses of R3, such as the order of a skill load. Others, such as plain language in chat or a question priced right, only a reader can judge. The session asked which judge the measure uses for an advisory rule.
 
 - **A. Patterns only.** Deterministic checks over the transcripts and git: the order of skill loads, the letters, the "Assumptions:" heading, the trailers.
   - **Pros:** reproducible; honest as a count; cheap to run again on every new session.
@@ -67,10 +69,12 @@ The session recommended C: it follows a rule the kit has already accepted for ev
 
 <a id="r6"></a>**R6.** The measure is a report and never a gate: it blocks nothing, it sets no threshold, and no check holds its numbers.
 
+<a id="r7"></a>**R7.** Where the report runs, and what it needs from the gate logs, such as the file a green record examined, are settled by the report's own design, at the stakes that design prices.
+
 ## Applied
 
-The change adds the open item 9.33 to [the rollout plan](../rollout-plan.md#s9-33), which holds R1 to R6 until the report is built, with the rows of the status matrix. Where the report runs and the fields it needs in the gate logs, such as the file a green record examined, are the item's own design. Every item has its home, so the record is `inactive`.
+The change adds the open item 9.33 to [the rollout plan](../rollout-plan.md#s9-33), which holds R1 to R7 until the report is built, with the rows of the status matrix. Every item has its home, so the record is `inactive`.
 
 ## Carry list
 
-1. R1, R2, R3, R4, R5, R6 — pending: [item 9.33 of the rollout plan](../rollout-plan.md#s9-33).
+1. R1, R2, R3, R4, R5, R6, R7 — pending: [item 9.33 of the rollout plan](../rollout-plan.md#s9-33).
