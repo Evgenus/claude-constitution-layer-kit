@@ -49,7 +49,7 @@ The session recommended A, since B is its first layer and C can follow for a mod
 
 ## 2. How an advisory rule is judged
 
-A pattern can check some of the misses of R3, such as the order of a skill load. Others, such as plain language in chat or a question priced right, only a reader can judge. The session asked which judge the measure uses for an advisory rule.
+A pattern can check some advisory rules, such as the order of a skill load. Others, such as plain language in chat or a question priced right, only a reader can judge. The session asked which judge the measure uses for an advisory rule.
 
 - **A. Patterns only.** Deterministic checks over the transcripts and git: the order of skill loads, the letters, the "Assumptions:" heading, the trailers.
   - **Pros:** reproducible; honest as a count; cheap to run again on every new session.
