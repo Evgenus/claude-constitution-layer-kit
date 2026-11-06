@@ -27,12 +27,12 @@ status: active
 | [s6](#s6) | Decision record #1 | B | ✅ | 1 | 0 | 0 | 100% |
 | [s7](#s7) | Commit each step with honest messages | B | ✅ | 1 | 0 | 0 | 100% |
 | [s8](#s8) | [`const-locations`](requirements.md#const-locations) and [`const-task-close`](requirements.md#const-task-close) | C | ✅ | 2 | 0 | 0 | 100% |
-| [s9](#s9) | The other remaining modules, and the kit work logged beside them | C | 🔄 | 21 | 10 | 4 | 67% |
+| [s9](#s9) | The other remaining modules, and the kit work logged beside them | C | 🔄 | 21 | 11 | 4 | 65% |
 | [s10](#s10) | Publish: the remote, the marketplace and CI, then `0.1.0` | D | 🔄 | 9 | 4 | 0 | 69% |
 | [s10a](#s10a) | The first release of the shared package | D | ✅ | 1 | 0 | 0 | 100% |
 | [s10b](#s10b) | The release 2.0.0 of the shared package | D | ✅ | 1 | 0 | 0 | 100% |
 | [s11](#s11) | Switch the project from path load to marketplace install | D | ⏳ | 0 | 1 | 0 | 0% |
-| all | the whole plan | all | 🔄 | 53 | 15 | 8 | 77% |
+| all | the whole plan | all | 🔄 | 53 | 16 | 8 | 76% |
 
 <a id="phase-a"></a>
 ## Phase A — Kit as consumer zero: the document-shaped accumulating modules (~1 week)
@@ -120,6 +120,7 @@ status: active
    - <a id="s9-30"></a>**9.30** ⏳ Found the same day by the same audit, older than that change: [the install note of the fixture gate](../scripts/layered-fixture/plugin/INSTALL.md) stands under no ceiling of `const-doc-budgets.ceilings` in `constitution.yaml`, against the comment there that every Markdown file git lists stands under one. A ceiling is set for it by the rule of that dial, or the comment is narrowed.
    - <a id="s9-31"></a>**9.31** ⏳ Found the same day by the same audit, older than that change: R6 of [dec-0079-skills-named-at-their-moment](decisions/dec-0079-skills-named-at-their-moment.md#r6) has the skills `plain-language` and `style-defaults` take the description words the proof ran, with no `Use when` segment, and no current-state text states that exception, so the two read as breaking the skill row of [template §6](../module-template/MODULE.md#t6). The exception is stated there or in the two module documents, or the two descriptions take the template's form.
    - <a id="s9-32"></a>**9.32** ⏳ Found on 2026-10-24 by a confirming read of the change of [dec-0102-bootstrap-recommends-and-copies-the-kernel-first](decisions/dec-0102-bootstrap-recommends-and-copies-the-kernel-first.md), older than that change: the section "From zero" of [the skill new-kind](../modules/const-locations/plugin/skills/new-kind/SKILL.md) of [`const-locations`](requirements.md#const-locations) calls the root policy the only governed document written without the creation command, while step 5 of [the install guide](../INSTALL.md#s2) makes the kernel copy in the shell. The sentence is reworded to name the kernel copy as well, or to speak of policies alone, and the module's eval receipt is made again.
+   - <a id="s9-33"></a>**9.33** ⏳ Logged 2026-11-07, record [dec-0113-module-effect-is-rules-applied-not-bypassed](decisions/dec-0113-module-effect-is-rules-applied-not-bypassed.md): a report of each module's effect in a consumer project, the knowledge kit first. For each rule of a module, it counts the moments where the rule applies, and whether the rule was applied, bypassed or missed there. For a gate it counts the four ways around it that R2 of [dec-0113-module-effect-is-rules-applied-not-bypassed](decisions/dec-0113-module-effect-is-rules-applied-not-bypassed.md#r2) names: a path the hook does not see, a switch-off, a workaround after a red and an escape to the main branch. For an advisory rule it counts a skill skipped at its moment and a shape missed. Each rule is tagged with its judge: a deterministic pattern over the project's transcripts, gate logs and git history where a pattern can see the rule, and a fresh reader, a language model, only where none can. The counts of the two judges stay apart and are never added into one number. The report blocks nothing, sets no threshold, and no check holds its numbers. Its own design says where it runs and what it needs from the gate logs, which today do not name the file a green record examined.
 
    A project that cannot run hooks carries a copy of the rules text of [`const-interaction`](requirements.md#const-interaction) in its `CLAUDE.md`, labeled manual and version-drifting — the fallback that module's install note names.
 
