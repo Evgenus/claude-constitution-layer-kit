@@ -25,7 +25,7 @@ import subprocess
 import sys
 from collections import Counter
 from collections.abc import Callable, Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 
@@ -102,6 +102,14 @@ class History:
     sessions: tuple[Session, ...]
     log: tuple[LogRecord, ...]  # the records of hook and scan runs, within the window
     since: str
+    namespace: str = ""  # the module's name: its dials namespace, as the plugin list names it
+    dials_file: str = ""  # the dials file's name below the project's root
+    plugin_root: Path | None = None  # the module's plugin folder
+    notes: list[str] = field(default_factory=list)  # the lines a rule's code asks the report to print
+
+    def note(self, line: str) -> None:
+        """A line for the report, printed after the counts of the rule that asked: a note, never a finding."""
+        self.notes.append(line)
 
     def runs(self, session: Session) -> list[tuple[ToolCall | None, HookRun]]:
         """The module's hook runs of a session, each with the tool call it examined, where it names one."""
@@ -189,6 +197,9 @@ def _report(argv: Sequence[str], output: Output, rules: Callable[[], Sequence[Ru
         output.out(messages.u3_disagree(record.path, record.session, record.at))
     for rule in loaded:
         model = _rule_lines(output, rule, history, flags.reader, model)
+        for line in history.notes:
+            output.out(line)
+        history.notes.clear()
     if version:
         output.out(messages.u4_reader(model or "the default model", version))
     return 0
@@ -261,7 +272,17 @@ def gather(output: Output, flags: Flags) -> History:
     if flags.transcripts is not None:
         paths.update(found.resolve() for found in flags.transcripts.rglob("*.jsonl"))
     sessions = [s for s in map(read_transcript, sorted(paths)) if s is not None and _ours(s, root)]
-    return History(root, _scripts(identity.current().plugin_root), tuple(sessions), tuple(log), flags.since)
+    gate = identity.current()
+    return History(
+        root,
+        _scripts(gate.plugin_root),
+        tuple(sessions),
+        tuple(log),
+        flags.since,
+        gate.namespace,
+        gate.dials_file,
+        gate.plugin_root,
+    )
 
 
 def _ours(session: Session, root: Path) -> bool:

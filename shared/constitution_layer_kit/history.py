@@ -44,6 +44,7 @@ class ToolCall:
     id: str
     name: str
     input: Mapping[str, object]
+    cwd: str = ""  # the folder the platform's line says the call ran in
 
     def names(self) -> str:
         """What the call acts on, as a hook's event names it: the file, or the shell tool's command."""
@@ -156,7 +157,7 @@ def _take(reading: _Reading, line: Mapping[str, object]) -> None:
         if human is not None:
             reading.events.append(HumanTurn(at, human))
     elif kind == "assistant" and isinstance(content, list):
-        reading.events.extend(_assistant_events(at, content))
+        reading.events.extend(_assistant_events(at, content, cwd))
     elif kind == "attachment":
         run = _hook_run(at, line.get("attachment"))
         if run is not None:
@@ -173,14 +174,18 @@ def _human_text(content: object) -> str | None:
     return "\n".join(_text(block.get("text")) for block in content if isinstance(block, dict))
 
 
-def _assistant_events(at: str, content: Sequence[object]) -> Iterator[Event]:
+def _assistant_events(at: str, content: Sequence[object], cwd: str) -> Iterator[Event]:
     for block in content:
         if not isinstance(block, dict):
             continue
         if block.get("type") == "tool_use":
             given = block.get("input")
             yield ToolCall(
-                at, _text(block.get("id")), _text(block.get("name")), given if isinstance(given, dict) else {}
+                at,
+                _text(block.get("id")),
+                _text(block.get("name")),
+                given if isinstance(given, dict) else {},
+                cwd,
             )
         elif block.get("type") == "text":
             yield AssistantText(at, _text(block.get("text")))

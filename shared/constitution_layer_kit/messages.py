@@ -694,3 +694,47 @@ def u6_no_list(detail: str) -> Broken:
 
 def u6_could_not_run() -> str:
     return "BROKEN: the effect reports could not run — no plugin read"
+
+
+# ---------------------------------------------------------------- the notes of the shared ways (U7)
+# What a rule built from `ways` could not read, said as a line after the rule's counts: a note, never a
+# finding and never a moment.
+
+
+def u7_no_plugin_list(key: str, detail: str) -> str:
+    return (
+        f"note: {_ns()}: {key}: the plugin list could not be read ({echoed(detail)}) — whether the plugin is"
+        " enabled is not counted"
+    )
+
+
+def u7_not_listed(key: str) -> str:
+    return (
+        f"note: {_ns()}: {key}: the plugin list names this plugin for no scope of this project —"
+        " whether it is enabled is not counted"
+    )
+
+
+def u7_no_history(key: str, detail: str) -> str:
+    return (
+        f"note: {_ns()}: {key}: the history of {escaped(_file())} could not be read in full"
+        f" ({echoed(detail)}) — the changes it failed on are not counted"
+    )
+
+
+def u7_no_scan(key: str, detail: str) -> str:
+    return f"note: {_ns()}: {key}: no commit of the main branch could be scanned ({echoed(detail)})"
+
+
+def u7_scan_failed(key: str, count: int, commit: str, detail: str) -> str:
+    return (
+        f"note: {_ns()}: {key}: the scan gave no verdict at {count} commit(s), the first {echoed(commit)}"
+        f" ({echoed(detail)}) — they are not counted"
+    )
+
+
+def u7_capped(key: str, cap: int, total: int) -> str:
+    return (
+        f"note: {_ns()}: {key}: {total} commit(s) of the main branch in the window, only the last {cap} are"
+        " scanned"
+    )

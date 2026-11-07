@@ -8,11 +8,15 @@ holds for a gate whose dials file is not the constitution's.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+import json
+import shlex
+import subprocess
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-from constitution_layer_kit import identity
+from constitution_layer_kit import identity, ways
 from constitution_layer_kit import messages as shared
+from constitution_layer_kit.effect import History, Outcome
 from constitution_layer_kit.history import read_transcript
 from constitution_layer_kit.model import KERNEL_KEYS
 from constitution_layer_kit.testing.acceptance import broken_first_line, expect, item
@@ -21,10 +25,13 @@ from constitution_layer_kit.testing.harness import Edit, Harness, Result, Write,
 from constitution_layer_kit.testing.items import (
     NO_ENVELOPE,
     Subject,
+    fake_claude,
     log_record,
+    reader_fake,
     tr_blocked,
     tr_call,
     tr_hook,
+    tr_line,
     tr_turn,
 )
 from layered_gate import messages, start
@@ -320,6 +327,533 @@ def test_effect_log_only() -> None:
     )
     wanted = "  W3 (pattern): 1 moment(s): 1 applied, 0 bypassed, 0 missed"
     assert result.code == 0 and wanted in result.stdout.splitlines(), result.stdout + result.stderr
+
+
+# ---------------------------------------------------------------- the helpers of `ways` (items 12 on)
+# The fixture's rules W4 to W11 are each built by one helper of `constitution_layer_kit.ways`; the items
+# below run the report over hand-made transcripts and over git histories made in a scratch repository, and
+# call a helper directly for a parameter the fixture's rule does not set.
+
+WAY_AT = "2026-11-03T10:00:00.000Z"
+NOTES_DIR = "docs/notes"
+
+
+def tr_tool(sid: str, cwd: Path, call_id: str, name: str, **given: object) -> str:
+    """A tool call of any tool, with its input as given."""
+    block = {"type": "tool_use", "id": call_id, "name": name, "input": given}
+    return tr_line("assistant", sid, cwd, WAY_AT, message={"role": "assistant", "content": [block]})
+
+
+def tr_say(sid: str, cwd: Path, text: str) -> str:
+    block = {"type": "text", "text": text}
+    return tr_line("assistant", sid, cwd, WAY_AT, message={"role": "assistant", "content": [block]})
+
+
+def tr_red(sid: str, cwd: Path, call_id: str, text: str) -> str:
+    """A run of the fixture's hook script that blocked its call, with the text it printed."""
+    done = {
+        "type": "hook_blocking_error",
+        "hookName": "PreToolUse:Write",
+        "toolUseID": call_id,
+        "hookEvent": "PreToolUse",
+        "blockingError": {"blockingError": f"[sh /x/plugin/scripts/check-layered.sh]: {text}"},
+    }
+    return tr_line("attachment", sid, cwd, WAY_AT, attachment=done)
+
+
+def tr_ask(sid: str, cwd: Path, call_id: str) -> str:
+    """A run of the fixture's hook script that let its call through with the verdict `ask`."""
+    done = {
+        "hookName": "PreToolUse:Write",
+        "toolUseID": call_id,
+        "hookEvent": "PreToolUse",
+        "command": "sh /x/plugin/scripts/check-layered.sh",
+        "exitCode": 0,
+        "stdout": '{"hookSpecificOutput": {"permissionDecision": "ask"}}',
+    }
+    return tr_line("attachment", sid, cwd, WAY_AT, attachment=done)
+
+
+def effect_lines(
+    root: Path, sessions: Mapping[str, Sequence[str]], env: Mapping[str, str] | None = None, *flags: str
+) -> list[str]:
+    """The lines of the report over the sessions, one transcript each; the report must exit 0."""
+    folder = H.scratch_dir()
+    for name, lines in sessions.items():
+        (folder / f"{name}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    result = H.run_gate(
+        "",
+        args=["--transcripts", str(folder), *flags],
+        env={"CLAUDE_PLUGIN_DATA": str(H.scratch_dir()), **(env or {})},
+        command=[H.sh, str(SCRIPTS / "effect-report.sh")],
+        cwd=root,
+    )
+    assert result.code == 0, result.stdout + result.stderr
+    return result.stdout.splitlines()
+
+
+def no_plugins(listed: str = "[]") -> dict[str, str]:
+    """The environment of a fake `claude` that lists `listed` as its plugins."""
+    return fake_claude(H.scratch_dir(), f"echo {shlex.quote(listed)}\n")
+
+
+def direct_history(root: Path, plugin: Path | None = None, scripts: frozenset[str] = frozenset()) -> History:
+    """The history a rule reads, made by hand: no session, no log."""
+    return History(root, scripts, (), (), "", NAMESPACE, start.GATE.dials_file, plugin)
+
+
+def git_in(root: Path, *args: str) -> str:
+    done = subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, check=True)
+    return done.stdout
+
+
+@item(
+    12,
+    "H1: the Markdown paths a shell command changes, by pattern: redirect, tee, sed -i, mv, cp, rm, Python",
+)
+def test_shell_changes() -> None:
+    """Each command is read for the Markdown paths it seems to change and no others; a read, a pattern in a
+    quote that is no command, and a path that is no Markdown are none. The lists are typed by hand."""
+    table: list[tuple[str, list[str]]] = [
+        ("echo hi > docs/a.md", ["docs/a.md"]),
+        ('echo hi >> "docs/b.md"', ["docs/b.md"]),
+        ("echo hi >docs/q.md", ["docs/q.md"]),
+        ("cat x | tee -a docs/c.md docs/d.txt", ["docs/c.md"]),
+        ("sed -i '' 's/a/b/' docs/e.md", ["docs/e.md"]),
+        ("sed -n 's/a/b/p' docs/f.md", []),
+        ("perl -pi -e 's/a/b/' docs/g.md", ["docs/g.md"]),
+        ("git mv docs/h.md docs/i.md", ["docs/h.md", "docs/i.md"]),
+        ("git rm -f docs/j.md", ["docs/j.md"]),
+        ("git log docs/j.md", []),
+        ("mv a.md b.md && cp c.md d.md", ["a.md", "b.md", "d.md"]),
+        ("rm -rf docs/k.md docs/l", ["docs/k.md"]),
+        ("ENV=1 rm docs/s.md", ["docs/s.md"]),
+        ('python3 -c \'from pathlib import Path; Path("docs/m.md").write_text("x")\'', ["docs/m.md"]),
+        ('python3 -c \'open("docs/n.md", "w").write("x")\'', ["docs/n.md"]),
+        ('python3 -c \'open("docs/r.md", "r").read()\'', []),
+        ("ls docs/o.md; cat docs/p.md 2>/dev/null", []),
+        ("grep -r x . > out.txt", []),
+    ]
+    wrong = [(c, ways.shell_changes(c), want) for c, want in table if ways.shell_changes(c) != want]
+    assert not wrong, wrong
+
+
+@item(13, "W4: a Markdown write in the territory is applied when a hook run examined it, else bypassed by B1")
+def test_path_bypass() -> None:
+    """A write examined by a run of the hook script is applied. A write no run examined, a shell redirect, a
+    write through a worktree of the project (below `.claude/worktrees/<name>/`) are bypassed by B1, and the
+    worktree's is read as the path in the root. A file outside the territory, one that is no Markdown, and a
+    path outside the project are no moment. The line is typed by hand."""
+    root = H.fresh_consumer().root
+    sid = "s13"
+    inside = root / "docs" / "notes"
+    worktree = root / ".claude" / "worktrees" / "w" / "docs" / "notes" / "w.md"
+    lines = [
+        tr_call(sid, root, WAY_AT, "t1", "Write", inside / "a.md"),
+        tr_hook(sid, root, WAY_AT, "t1", "check-layered.sh"),
+        tr_call(sid, root, WAY_AT, "t2", "Write", inside / "b.md"),
+        tr_tool(sid, root, "t3", "Bash", command="echo x > docs/notes/c.md"),
+        tr_tool(sid, root, "t4", "Bash", command="echo x > README.md"),
+        tr_call(sid, root, WAY_AT, "t5", "Write", worktree),
+        tr_call(sid, root, WAY_AT, "t6", "Write", root / "docs" / "other" / "d.md"),
+        tr_call(sid, root, WAY_AT, "t7", "Write", inside / "e.txt"),
+        tr_call(sid, root, WAY_AT, "t8", "Write", Path("/elsewhere/docs/notes/f.md")),
+    ]
+    found = effect_lines(root, {sid: lines}, no_plugins())
+    wanted = "  W4 (pattern): 4 moment(s): 1 applied, 3 bypassed, 0 missed — B1 3"
+    assert wanted in found, found
+
+
+@item(14, "H2: a path is read as the project's root sees it, a worktree's and another checkout's too")
+def test_relative_paths() -> None:
+    """A path below the root is relative to it; below `.claude/worktrees/<name>/` of the root, relative to
+    that worktree; in another checkout of the project, made by `git worktree add`, relative to that
+    checkout's top, found by git from the call's folder; in another repository or nowhere, none."""
+    consumer = H.fresh_consumer()
+    root = consumer.root
+    history = direct_history(root)
+    other = H.scratch_dir() / "other"
+    git_in(root, "worktree", "add", "-q", "-b", "elsewhere", str(other))
+    stranger = H.fresh_consumer().root
+    table = [
+        (str(root / "docs" / "a.md"), "", "docs/a.md"),
+        ("docs/b.md", str(root), "docs/b.md"),
+        (str(root / ".claude" / "worktrees" / "w" / "docs" / "c.md"), "", "docs/c.md"),
+        (str(other / "docs" / "d.md"), str(other / "docs"), "docs/d.md"),
+        (str(other / "docs" / "d.md"), "", None),
+        (str(stranger / "docs" / "e.md"), str(stranger), None),
+        ("/elsewhere/f.md", "", None),
+        ("", "", None),
+    ]
+    got = [ways.relative(history, path, cwd) for path, cwd, _ in table]
+    assert got == [want for _, _, want in table], got
+
+
+@item(15, "W5: the plugin enabled for this project is applied, listed and disabled is bypassed by B2")
+def test_switch_off_plugin() -> None:
+    """A fake `claude plugin list --json` lists the gate for this project three times, enabled twice (one
+    with no project path) and disabled once, and once for another project, and another plugin: the three
+    for this project are moments. A list with no entry for the gate, one that is no JSON and one that
+    fails are notes and no moment. The lines are typed by hand."""
+    root = H.fresh_consumer().root
+    here, elsewhere = str(root), str(H.scratch_dir())
+    entries = [
+        {"id": f"{NAMESPACE}@a", "enabled": True, "projectPath": here},
+        {"id": f"{NAMESPACE}@b", "enabled": False, "projectPath": here},
+        {"id": f"{NAMESPACE}@d", "enabled": True},
+        {"id": f"{NAMESPACE}@c", "enabled": False, "projectPath": elsewhere},
+        {"id": "another@a", "enabled": False, "projectPath": here},
+    ]
+    found = effect_lines(root, {}, no_plugins(json.dumps(entries)))
+    assert "  W5 (pattern): 3 moment(s): 2 applied, 1 bypassed, 0 missed — B2 1" in found, found
+    unlisted = effect_lines(root, {}, no_plugins(json.dumps(entries[3:])))
+    assert "  W5 (pattern): 0 moment(s): 0 applied, 0 bypassed, 0 missed" in unlisted, unlisted
+    note_unlisted = (
+        "note: know-check: W5: the plugin list names this plugin for no scope of this project —"
+        " whether it is enabled is not counted"
+    )
+    assert note_unlisted in unlisted, unlisted
+    note_failed = (
+        "note: know-check: W5: the plugin list could not be read (exit 3, no JSON list) —"
+        " whether the plugin is enabled is not counted"
+    )
+    failing = effect_lines(root, {}, fake_claude(H.scratch_dir(), "exit 3\n"))
+    assert (
+        note_failed in failing and "  W5 (pattern): 0 moment(s): 0 applied, 0 bypassed, 0 missed" in failing
+    ), failing
+    note_json = note_failed.replace("exit 3", "exit 0")
+    garbage = effect_lines(root, {}, fake_claude(H.scratch_dir(), "echo no list\n"))
+    assert note_json in garbage, garbage
+
+
+@item(
+    16,
+    "W5: a change of the gate's dials is applied, or bypassed by B2 when severity falls or a dial loosens",
+)
+def test_switch_off_dials() -> None:
+    """Five commits of the dials file: the gate's namespace added with `severity: block` (applied), severity
+    turned to `warn` (bypassed), back to `block` with `lenient: true`, the module's own loosened dial
+    (bypassed), a dial added that loosens nothing (applied), and another namespace changed (no moment). A
+    commit whose YAML cannot be read is a note. The lines are typed by hand."""
+    consumer = H.fresh_consumer()
+    root = consumer.root
+    steps = [
+        own(severity="block"),
+        own(severity="warn"),
+        own(severity="block", lenient=True),
+        own(severity="block", lenient=True, other=1),
+    ]
+    for step in steps:
+        consumer.write_dials(step)
+        consumer.commit()
+    text = (root / start.GATE.dials_file).read_text(encoding="utf-8")
+    consumer.write(start.GATE.dials_file, text + "another-gate:\n  severity: warn\n")
+    consumer.commit()
+    found = effect_lines(root, {}, no_plugins())
+    assert "  W5 (pattern): 4 moment(s): 2 applied, 2 bypassed, 0 missed — B2 2" in found, found
+    other = H.fresh_consumer()
+    other.write(start.GATE.dials_file, "know-check: [unclosed\n")
+    other.commit()
+    other.write_dials(own(severity="block"))
+    other.commit()
+    broken = effect_lines(other.root, {}, no_plugins())
+    note = (
+        "note: know-check: W5: the history of layer.yaml could not be read in full (2 commit(s) with"
+        " ParserError) — the changes it failed on are not counted"
+    )
+    assert "  W5 (pattern): 0 moment(s): 0 applied, 0 bypassed, 0 missed" in broken, broken
+    assert note in broken, broken
+
+
+@item(
+    17, "W6: after a red the next act on the file decides: a write is applied, a shell command bypassed by B3"
+)
+def test_after_red() -> None:
+    """Eight sessions, each a red of the hook on a write of a note. The next act a write of the same file
+    (applied); a `sed -i` of it (bypassed); a `git mv` of it (bypassed); a write of another file and then of
+    this one (applied); a write of another file and then a shell command naming this one (bypassed); a write
+    of another file and no more (bypassed); a human turn first (no moment); an `ask` verdict, then a write of
+    the file (applied). The line is typed by hand."""
+    root = H.fresh_consumer().root
+    notes = root / NOTES_DIR
+
+    def red(sid: str, name: str, *after: str, verdict: str = "red") -> list[str]:
+        call = tr_call(sid, root, WAY_AT, "r", "Write", notes / name)
+        run = tr_red(sid, root, "r", "RED: a finding") if verdict == "red" else tr_ask(sid, root, "r")
+        return [call, run, *after]
+
+    sessions = {
+        "s17a": red("s17a", "a.md", tr_call("s17a", root, WAY_AT, "n", "Write", notes / "a.md")),
+        "s17b": red(
+            "s17b", "b.md", tr_tool("s17b", root, "n", "Bash", command="sed -i '' s/a/b/ docs/notes/b.md")
+        ),
+        "s17c": red(
+            "s17c",
+            "c.md",
+            tr_tool("s17c", root, "n", "Bash", command="git mv docs/notes/c.md docs/notes/x.md"),
+        ),
+        "s17d": red(
+            "s17d",
+            "d.md",
+            tr_call("s17d", root, WAY_AT, "n1", "Write", notes / "other.md"),
+            tr_call("s17d", root, WAY_AT, "n2", "Edit", notes / "d.md"),
+        ),
+        "s17e": red(
+            "s17e",
+            "e.md",
+            tr_call("s17e", root, WAY_AT, "n1", "Write", notes / "other.md"),
+            tr_tool("s17e", root, "n2", "Bash", command="echo x >> docs/notes/e.md"),
+        ),
+        "s17f": red("s17f", "f.md", tr_call("s17f", root, WAY_AT, "n", "Write", notes / "other.md")),
+        "s17g": red(
+            "s17g",
+            "g.md",
+            tr_turn("s17g", root, WAY_AT, "stop"),
+            tr_call("s17g", root, WAY_AT, "n", "Write", notes / "g.md"),
+        ),
+        "s17h": red(
+            "s17h", "h.md", tr_call("s17h", root, WAY_AT, "n", "Write", notes / "h.md"), verdict="ask"
+        ),
+    }
+    found = effect_lines(root, sessions, no_plugins())
+    assert "  W6 (pattern): 7 moment(s): 3 applied, 4 bypassed, 0 missed — B3 4" in found, found
+    # a fixed_by of the module's own decides what the fix is: here an Edit alone
+    session = read_transcript(_write_transcript(sessions["s17a"]))
+    assert session is not None
+    history = History(root, frozenset({"check-layered.sh"}), (session,), (), "", NAMESPACE)
+    only_edit = ways.after_red("X", "x", lambda _red, act: act.name == "Edit")
+    assert [m.outcome for m in list(only_edit.find(history))] == [Outcome.BYPASSED]
+
+
+def _write_transcript(lines: Sequence[str]) -> Path:
+    path = H.scratch_dir() / "direct.jsonl"
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+@item(18, "W7: the skill a red names is loaded before the next act on the file, or the red is missed by B5")
+def test_skill_after_red() -> None:
+    """A red whose text says `load the skill know-check:notes`: a Skill call naming it, in full or bare,
+    before the next write of the file is applied; a write first is missed, and a load after that write too; a
+    Skill call after a write of another file and before the file's own is applied; a Skill call for another
+    skill is missed; a red whose text names no skill is no moment. The line is typed by hand."""
+    root = H.fresh_consumer().root
+    notes = root / NOTES_DIR
+    text = "RED: x\nknow-check: load the skill know-check:notes before you fix this — it teaches the rule"
+    skill = tr_tool
+
+    def case(sid: str, *after: str, said: str = text) -> list[str]:
+        return [
+            tr_call(sid, root, WAY_AT, "r", "Write", notes / "a.md"),
+            tr_red(sid, root, "r", said),
+            *after,
+        ]
+
+    sessions = {
+        "s18a": case("s18a", skill("s18a", root, "k", "Skill", skill="know-check:notes")),
+        "s18b": case("s18b", skill("s18b", root, "k", "Skill", skill="notes")),
+        "s18c": case("s18c", tr_call("s18c", root, WAY_AT, "w", "Write", notes / "a.md")),
+        "s18d": case(
+            "s18d",
+            tr_call("s18d", root, WAY_AT, "w", "Write", notes / "b.md"),
+            skill("s18d", root, "k", "Skill", skill="know-check:notes"),
+        ),
+        "s18e": case("s18e", skill("s18e", root, "k", "Skill", skill="know-check:other")),
+        "s18f": case("s18f", said="RED: x"),
+        "s18g": case(
+            "s18g",
+            tr_call("s18g", root, WAY_AT, "w", "Write", notes / "a.md"),
+            skill("s18g", root, "k", "Skill", skill="know-check:notes"),
+        ),
+    }
+    found = effect_lines(root, sessions, no_plugins())
+    assert "  W7 (pattern): 6 moment(s): 3 applied, 0 bypassed, 3 missed — B5 3" in found, found
+
+
+@item(19, "W8: a skill loaded earlier in the session makes the act applied, none makes it missed by B5")
+def test_skill_before() -> None:
+    """The moment is a write of a note. A Skill call for the skill, in full or bare, earlier in the session
+    makes it applied, and stays so for a later write; a write with no load, one after a load of another
+    skill, and one in another session are missed; a write that is no note is no moment. The line is typed by
+    hand."""
+    root = H.fresh_consumer().root
+    notes = root / NOTES_DIR
+    sessions = {
+        "s19a": [
+            tr_tool("s19a", root, "k", "Skill", skill="know-check:notes-guide"),
+            tr_call("s19a", root, WAY_AT, "w1", "Write", notes / "a.md"),
+            tr_call("s19a", root, WAY_AT, "w2", "Edit", notes / "b.md"),
+            tr_call("s19a", root, WAY_AT, "w3", "Write", root / "README.md"),
+        ],
+        "s19b": [
+            tr_call("s19b", root, WAY_AT, "w1", "Write", notes / "a.md"),
+            tr_tool("s19b", root, "k", "Skill", skill="notes-guide"),
+            tr_call("s19b", root, WAY_AT, "w2", "Write", notes / "b.md"),
+        ],
+        "s19c": [
+            tr_tool("s19c", root, "k", "Skill", skill="know-check:other"),
+            tr_call("s19c", root, WAY_AT, "w1", "Write", notes / "a.md"),
+        ],
+    }
+    found = effect_lines(root, sessions, no_plugins())
+    assert "  W8 (pattern): 5 moment(s): 3 applied, 0 bypassed, 2 missed — B5 2" in found, found
+
+
+def scratch_main(consumer: Consumer) -> Path:
+    """The consumer's repository with its branch named `main`, and its notes policy forbidding the phrase."""
+    consumer.git("branch", "-M", "main")
+    consumer.write(NOTES_POLICY, forbidding("notes-policy"))
+    consumer.commit()
+    return consumer.root
+
+
+@item(
+    20,
+    "W9: the scan on each commit of the main branch in a throwaway clone: green applied, red bypassed by B4",
+)
+def test_escape() -> None:
+    """Four commits of `main`: the fixture, the policy that forbids the phrase, a note that holds it (the
+    scan is red there), and the note without it. The scan of the current plugin runs on a shared clone at
+    each, outside the project, which stays as it was. The line is typed by hand."""
+    consumer = H.fresh_consumer()
+    root = scratch_main(consumer)
+    consumer.write(NOTE_A, RED.text)
+    consumer.commit()
+    consumer.write(NOTE_A, VALID.text)
+    consumer.commit()
+    before = git_in(root, "status", "--porcelain", "--ignored"), sorted(p.name for p in root.iterdir())
+    found = effect_lines(root, {}, no_plugins())
+    assert "  W9 (pattern): 4 moment(s): 3 applied, 1 bypassed, 0 missed — B4 1" in found, found
+    after = git_in(root, "status", "--porcelain", "--ignored"), sorted(p.name for p in root.iterdir())
+    assert after == before, (before, after)
+
+
+def fake_plugin(body: str) -> Path:
+    """A plugin folder whose one script, `check-fake.sh`, is `body`."""
+    folder = H.scratch_dir() / "plugin"
+    (folder / "scripts").mkdir(parents=True)
+    (folder / "scripts" / "check-fake.sh").write_text(body, encoding="utf-8")
+    return folder
+
+
+@item(
+    21,
+    "H7: the module gives the scan's arguments, other exit codes are notes, the last 50 commits count",
+)
+def test_escape_parameters() -> None:
+    """A fake scan wrapper that logs its folder and arguments and exits as the commit's number says. The
+    module's `scan_argv` gives its arguments, which name the commit; the folder is a clone outside the
+    project; exit 1 is a note and no moment. With no main branch it is a note. Over 50 commits only the
+    last 50 are scanned and a note says so."""
+    consumer = H.fresh_consumer()
+    root = scratch_main(consumer)
+    log = H.scratch_dir() / "log"
+    body = f'echo "$PWD $*" >> {shlex.quote(str(log))}\nexit 0\n'
+    plugin = fake_plugin(body)
+    scripts = frozenset({"check-fake.sh"})
+    rule = ways.escape("X", "x", lambda commit: ["--scan", "--change", commit], "check-fake.sh")
+    history = direct_history(root, plugin, scripts)
+    moments = list(rule.find(history))
+    head = git_in(root, "rev-parse", "HEAD").strip()
+    calls = log.read_text(encoding="utf-8").splitlines()
+    assert [m.outcome for m in moments] == [Outcome.APPLIED] * 2 and len(calls) == 2, (moments, calls)
+    assert calls[-1].endswith(f" --scan --change {head}") and not calls[-1].startswith(str(root)), calls
+    # an exit that is neither 0 nor 2 gives no verdict
+    failing = fake_plugin("exit 1\n")
+    noted = direct_history(root, failing, scripts)
+    assert list(rule.find(noted)) == []
+    oldest = git_in(root, "rev-list", "--max-parents=0", "main").strip()
+    assert noted.notes == [
+        f"note: know-check: X: the scan gave no verdict at 2 commit(s), the first {oldest[:12]} (exit 1) —"
+        " they are not counted"
+    ], noted.notes
+    # no main branch
+    bare = H.scratch_dir()
+    git_in(bare, "init", "-q", "-b", "trunk")
+    git_in(
+        bare,
+        "-c",
+        "user.name=f",
+        "-c",
+        "user.email=f@example.invalid",
+        "commit",
+        "-q",
+        "--allow-empty",
+        "-m",
+        "x",
+    )
+    lonely = direct_history(bare, plugin, scripts)
+    assert list(rule.find(lonely)) == []
+    assert lonely.notes == [
+        "note: know-check: X: no commit of the main branch could be scanned (no main branch)"
+    ], lonely.notes
+    # a cap of 50
+    many = H.scratch_dir()
+    git_in(many, "init", "-q", "-b", "main")
+    for number in range(52):
+        git_in(
+            many,
+            "-c",
+            "user.name=f",
+            "-c",
+            "user.email=f@example.invalid",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            str(number),
+        )
+    capped = direct_history(many, plugin, scripts)
+    found = list(rule.find(capped))
+    assert len(found) == 50 and capped.notes == [
+        "note: know-check: X: 52 commit(s) of the main branch in the window, only the last 50 are scanned"
+    ], capped.notes
+
+
+@item(22, "W10: a text the rule is owed at is applied when it shows the form, else missed by B6")
+def test_shape() -> None:
+    """The fixture's owed text names a note; the form shown is a markdown link to it. A text with the link
+    is applied, one that names it bare is missed, one that names none is no moment. The line is typed by
+    hand."""
+    root = H.fresh_consumer().root
+    sid = "s22"
+    lines = [
+        tr_say(sid, root, "I wrote [a](docs/notes/a.md)."),
+        tr_say(sid, root, "I changed [b](docs/notes/b.md) too."),
+        tr_say(sid, root, "I wrote docs/notes/c.md."),
+        tr_say(sid, root, "Nothing to show."),
+    ]
+    found = effect_lines(root, {sid: lines}, no_plugins())
+    assert "  W10 (pattern): 3 moment(s): 2 applied, 0 bypassed, 1 missed — B6 1" in found, found
+
+
+@item(
+    23,
+    "W11: a reader rule has one moment for each event the module names, the reader judges them with --reader",
+)
+def test_reader_rule() -> None:
+    """The fixture names each text of the assistant: three moments, not judged without `--reader`, and judged
+    by a fake reader that answers APPLIED with it. The moment's excerpt holds the events around it. The lines
+    are typed by hand."""
+    root = H.fresh_consumer().root
+    sid = "s23"
+    lines = [
+        tr_turn(sid, root, WAY_AT, "first"),
+        tr_say(sid, root, "one"),
+        tr_say(sid, root, "two"),
+        tr_say(sid, root, "three"),
+    ]
+    plain = effect_lines(root, {sid: lines}, no_plugins())
+    assert "  W11 (reader): 3 moment(s), not judged — run again with --reader to judge them" in plain, plain
+    env, _ = reader_fake(H.scratch_dir(), "claude.ai", json.dumps({"result": "APPLIED"}))
+    judged = effect_lines(root, {sid: lines}, env, "--reader")
+    assert "  W11 (reader): 3 moment(s): 3 applied, 0 bypassed, 0 missed" in judged, judged
+    session = read_transcript(_write_transcript(lines))
+    assert session is not None
+    reader = ways.reader_rule("X", "x", lambda _session: [2])
+    found = list(reader.find(History(root, frozenset(), (session,), (), "")))
+    assert len(found) == 1 and found[0].where == "AssistantText" and found[0].outcome is None
+    assert "HumanTurn: first" in found[0].excerpt and "AssistantText: three" in found[0].excerpt, found[0]
 
 
 SUBJECT = Subject(

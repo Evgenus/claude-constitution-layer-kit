@@ -4260,16 +4260,19 @@ def test_effect_flags_broken(subject: Subject) -> None:
     assert not problems, "; ".join(problems)
 
 
-@item(198, "effect report: a reader rule without --reader is not judged, and claude is not run")
+@item(198, "effect report: a reader rule without --reader is not judged, and the reader is not started")
 def test_effect_reader_not_judged(subject: Subject) -> None:
     """The U2 line of a reader rule says how many moments it found and that they are not judged; a fake
-    `claude` on PATH is never started."""
+    `claude` on PATH is never started as the reader: not for `--version`, `auth` or `-p`. A rule built from
+    `ways` may ask it for the plugin list, which is no reader."""
     it = shared(subject, "effect_reader_not_judged")
     root, folder, _ = project_with_turns(it)
     env, calls = reader_fake(it.h.scratch_dir(), "claude.ai", "{}")
     result = effect_run(it, root, "--transcripts", str(folder), env=env)
     moments = reader_moments(it, result)  # the line is matched whole inside
-    assert result.code == 0 and moments >= 2 and not calls.exists(), f"{moments} moments; {result.stdout!r}"
+    started = calls.read_text(encoding="utf-8").split() if calls.exists() else []
+    reader = [first for first in started if first in ("--version", "auth", "-p")]
+    assert result.code == 0 and moments >= 2 and not reader, f"{moments} moments; {result.stdout!r}"
 
 
 @item(199, "effect report: --reader on a login that bills by usage is refused, nothing is counted")
