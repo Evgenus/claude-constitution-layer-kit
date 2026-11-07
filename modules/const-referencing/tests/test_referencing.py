@@ -43,9 +43,13 @@ from constitution_layer_kit.testing.items import (
     NO_ENVELOPE,
     PatternDial,
     Subject,
+    fake_claude,
     git_patch,
     git_timeouts,
     no_clock,
+    tr_call,
+    tr_hook,
+    tr_line,
 )
 from referencing_gate import lychee, messages, start
 
@@ -2012,7 +2016,7 @@ def test_mover_entry_absences() -> None:
     assert (
         no_shared.returncode == 1
         and no_shared.stderr.splitlines()[0]
-        == "BROKEN: const-referencing needs the Python package constitution-layer-kit 2.0.0 or a later 2.x"
+        == "BROKEN: const-referencing needs the Python package constitution-layer-kit 2.1.0 or a later 2.x"
         " release, and python3 cannot import it — fix: install it for python3 as"
         f" {PLUGIN / 'INSTALL.md'} says"
         and closing in no_shared.stderr
@@ -2839,6 +2843,188 @@ def test_golden_tree_lines() -> None:
     assert not missing, f"not found: {missing}"
 
 
+# ----------------------------------------------------------------- the effect report (section 13)
+
+WAY_AT = "2026-11-03T10:00:00.000Z"
+CHECK = "check-references.sh"
+
+
+def tr_tool(sid: str, cwd: Path, call_id: str, name: str, **given: object) -> str:
+    """A tool call of any tool, with its input as given."""
+    block = {"type": "tool_use", "id": call_id, "name": name, "input": given}
+    return tr_line("assistant", sid, cwd, WAY_AT, message={"role": "assistant", "content": [block]})
+
+
+def tr_say(sid: str, cwd: Path, text: str) -> str:
+    block = {"type": "text", "text": text}
+    return tr_line("assistant", sid, cwd, WAY_AT, message={"role": "assistant", "content": [block]})
+
+
+def tr_red(sid: str, cwd: Path, call_id: str, text: str) -> str:
+    """A run of the gate's hook script that blocked its call, with the text it printed."""
+    done = {
+        "type": "hook_blocking_error",
+        "hookName": "PreToolUse:Write",
+        "toolUseID": call_id,
+        "hookEvent": "PreToolUse",
+        "blockingError": {"blockingError": f"[sh /x/plugin/scripts/{CHECK}]: {text}"},
+    }
+    return tr_line("attachment", sid, cwd, WAY_AT, attachment=done)
+
+
+def effect_lines(root: Path, sessions: dict[str, list[str]], env: dict[str, str] | None = None) -> list[str]:
+    """The lines of the report over the sessions, one transcript each; the report must exit 0."""
+    folder = H.scratch_dir()
+    for name, lines in sessions.items():
+        (folder / f"{name}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    result = H.run_gate(
+        "",
+        args=["--transcripts", str(folder)],
+        env={"CLAUDE_PLUGIN_DATA": str(H.scratch_dir()), **(env or {})},
+        command=[H.sh, str(SCRIPTS / "effect-report.sh")],
+        cwd=root,
+    )
+    assert result.code == 0, result.stdout + result.stderr
+    return result.stdout.splitlines()
+
+
+def no_plugins(listed: str = "[]") -> dict[str, str]:
+    return fake_claude(H.scratch_dir(), f"echo {shlex.quote(listed)}\n")
+
+
+def w1_lines() -> list[str]:
+    consumer = H.fresh_consumer()
+    consumer.write_dials(own(territories=["docs/notes/**"]))
+    root, sid = consumer.root, "w1"
+    lines = [
+        tr_call(sid, root, WAY_AT, "t1", "Write", root / "docs/notes/a.md"),
+        tr_hook(sid, root, WAY_AT, "t1", CHECK),
+        tr_call(sid, root, WAY_AT, "t2", "Write", root / "docs/notes/b.md"),
+        tr_tool(sid, root, "t3", "Bash", command="echo x > docs/notes/c.md"),
+        tr_call(sid, root, WAY_AT, "t4", "Write", root / "docs/other/d.md"),  # outside the territories
+        tr_call(sid, root, WAY_AT, "t5", "Write", root / "docs/notes/e.txt"),  # no Markdown
+    ]
+    return effect_lines(root, {sid: lines}, no_plugins())
+
+
+def w2_lines() -> tuple[list[str], list[str]]:
+    lane = {"pattern": r"\bREQ-[0-9]+\b", "names": "a requirement", "fix": "[REQ-7](reqs.md#req-7)"}
+    consumer = H.fresh_consumer()
+    steps = [
+        own(severity="block"),  # the namespace appears: applied
+        own(severity="warn"),  # bypassed: severity falls
+        own(severity="warn", bare_ids="allow"),  # bypassed: a switch turned to allow
+        own(severity="warn", bare_ids="allow", lanes=[lane]),  # applied: a lane added
+        own(severity="warn", bare_ids="allow", lanes=[]),  # bypassed: a lane removed
+        own(severity="warn", bare_ids="allow", territories=["*.md", "!vendor/**"]),  # bypassed: a tree out
+        own(severity="warn", territories=["*.md", "!vendor/**"]),  # applied: the switch back to refuse
+    ]
+    for step in steps:
+        consumer.write_dials(step)
+        consumer.commit()
+    history = effect_lines(consumer.root, {}, no_plugins())
+    other = H.fresh_consumer().root
+    here = {"projectPath": str(other)}
+    entries = [
+        {"id": f"{NAMESPACE}@a", "enabled": True, **here},
+        {"id": f"{NAMESPACE}@b", "enabled": False, **here},
+    ]
+    return history, effect_lines(other, {}, no_plugins(json.dumps(entries)))
+
+
+def w3_w4_lines() -> list[str]:
+    root = H.fresh_consumer().root
+    note = root / "docs/notes/a.md"
+    asked = f"RED: x\nload the skill {NAMESPACE}:referencing before you fix this"
+
+    def red(sid: str, *after: str, said: str = "RED: x") -> list[str]:
+        return [tr_call(sid, root, WAY_AT, "r", "Write", note), tr_red(sid, root, "r", said), *after]
+
+    fixed = tr_call("s", root, WAY_AT, "n", "Write", note)
+    sed = tr_tool("s", root, "n", "Bash", command="sed -i '' s/a/b/ docs/notes/a.md")
+    load = tr_tool("s", root, "k", "Skill", skill=f"{NAMESPACE}:referencing")
+    sessions = {
+        "a": red("a", fixed),  # W3 applied
+        "b": red("b", sed),  # W3 bypassed
+        "c": red("c", load, fixed, said=asked),  # W3 applied, W4 applied
+        "d": red("d", fixed, said=asked),  # W3 applied, W4 missed
+    }
+    return effect_lines(root, sessions, no_plugins())
+
+
+def w5_lines() -> list[str]:
+    root, sid = H.fresh_consumer().root, "w5"
+    doc, link = str(root / "docs/a.md"), "See [b](b.md).\n"
+    skill = tr_tool(sid, root, "k", "Skill", skill="referencing")
+    sessions = {
+        "a": [skill, tr_tool(sid, root, "w", "Write", file_path=doc, content=link)],  # applied
+        "b": [tr_tool(sid, root, "w", "Write", file_path=doc, content=link)],  # missed
+        "c": [tr_tool(sid, root, "w", "Write", file_path=doc, content="No link here.\n")],
+        "d": [  # the link was already there: not added
+            tr_tool(sid, root, "w", "Edit", file_path=doc, old_string=link, new_string=link + "More.\n")
+        ],
+        "e": [tr_tool(sid, root, "w", "Write", file_path=doc, content="[x](https://example.com/y)\n")],
+        "f": [tr_tool(sid, root, "w", "Write", file_path=str(root / "a.txt"), content=link)],
+        "g": [tr_tool(sid, root, "w", "Edit", file_path=doc, old_string="Old.\n", new_string=link)],  # missed
+    }
+    return effect_lines(root, sessions, no_plugins())
+
+
+def w6_lines() -> list[str]:
+    root, sid = H.fresh_consumer().root, "w6"
+    texts = [
+        "See [a](docs/a.md).",  # applied
+        "See docs/a.md.",  # missed
+        "Run `scripts/x.py` first.",  # missed: a code span is no link
+        "Both [a](docs/a.md) and README.md.",  # missed
+        "```\nsh scripts/x.sh\n```",  # a fence illustrates
+        "The page https://example.com/a/b.md says so.",  # an address
+        "Nothing to show.",
+    ]
+    return effect_lines(root, {sid: [tr_say(sid, root, text) for text in texts]}, no_plugins())
+
+
+def w7_lines() -> list[str]:
+    consumer = H.fresh_consumer()
+    consumer.git("branch", "-M", "main")
+    consumer.write("docs/notes/a.md", document(f"See `{OWNER_ID}`.\n", id="a", title="A", status="active"))
+    consumer.commit()
+    consumer.write("docs/notes/a.md", document(f"See [{OWNER_ID}]({TO_OWNER}).\n", id="a", title="A"))
+    consumer.commit()
+    return effect_lines(consumer.root, {}, no_plugins())
+
+
+@item(9, "effect report: W1 to W7 each count their moments and outcomes, typed by hand")
+def test_effect_rules() -> None:
+    """One hand-made history for each rule; the line of the rule is typed by hand. W1 reads the module's own
+    territories; W2 its dials, loosened and tightened; W3 and W4 a red and what follows it; W5 a write that
+    adds a link, W6 a chat text that names a file, W7 the scan on each commit of main."""
+    count = "  {key} (pattern): {n} moment(s): {a} applied, {b} bypassed, {m} missed{by}"
+    wanted = {
+        "W1": count.format(key="W1", n=3, a=1, b=2, m=0, by=" — B1 2"),
+        "W3": count.format(key="W3", n=4, a=3, b=1, m=0, by=" — B3 1"),
+        "W4": count.format(key="W4", n=2, a=1, b=0, m=1, by=" — B5 1"),
+        "W5": count.format(key="W5", n=3, a=1, b=0, m=2, by=" — B5 2"),
+        "W6": count.format(key="W6", n=4, a=1, b=0, m=3, by=" — B6 3"),
+        "W7": count.format(key="W7", n=3, a=2, b=1, m=0, by=" — B4 1"),
+    }
+    got = {
+        "W1": w1_lines(),
+        "W3": w3_w4_lines(),
+        "W4": w3_w4_lines(),
+        "W5": w5_lines(),
+        "W6": w6_lines(),
+        "W7": w7_lines(),
+    }
+    history, plugin = w2_lines()
+    missing = [key for key, line in wanted.items() if line not in got[key]]
+    if count.format(key="W2", n=7, a=3, b=4, m=0, by=" — B2 4") not in history:
+        missing.append("W2 dials")
+    if count.format(key="W2", n=2, a=1, b=1, m=0, by=" — B2 1") not in plugin:
+        missing.append("W2 plugin")
+    assert not missing, (missing, got, history, plugin)
+
+
 SUBJECT = Subject(
     harness=H,
     gate_on=gate_on,
@@ -2856,4 +3042,5 @@ SUBJECT = Subject(
     judges_envelopes=False,
     pattern_dial=PatternDial("territories", lambda pattern: own(territories=[pattern])),
     skill="referencing",  # the skill a red names (F10), typed by hand
+    effect="effect-report.sh",
 )
