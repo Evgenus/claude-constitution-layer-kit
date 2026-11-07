@@ -63,6 +63,7 @@ What this plugin ships and what each part carries. Every row stays: a component 
 | script (sh) | `plugin/scripts/<name>.sh` | a POSIX shell entry point, all paths via `${CLAUDE_PLUGIN_ROOT}`: the wrapper each hook and the scan call, which finds `python3`, prints its own two lines when there is none, and hands over to the Python entry file with `exec`; or a printer that reads nothing, such as the pointer line's |
 | script (py) | `plugin/scripts/<entry>.py` | a Python entry file: the interpreter floor, `REQUIRES`, the shared package's import with `C15`, the version call, then the module's own package (gate-script rule 1). Python 3, with PyYAML when the script reads YAML — a script that reads no YAML may instead be POSIX shell, the row above; a missing runtime or library is a configuration failure ([§9](#t9)); Python scripts follow the gate-script rules below |
 | package | `plugin/scripts/<module>_gate/` | the module's own code: model, messages, checks, modes, start, and the dials and session parts its printers need |
+| effect entry | `plugin/scripts/effect-report.sh` + `plugin/scripts/effect-report.py`, and the rules in the module's package | the report of [§13](#t13): the code that finds each rule's moments and their outcomes, handed to the shared runner; `none` while the module counts no rule, with its reason |
 | shared code | none in the plugin | the Python package `constitution-layer-kit`, which pip installs for the `python3` the hooks run; the plugin never carries it |
 | dependencies | `plugin/requirements.txt` | the libraries the scripts need beyond the shared package, installed by one command (gate-script rule 7) |
 | configuration | `plugin/<file>` | a pinned third-party tool's own configuration, read by the gate that runs the tool |
@@ -128,6 +129,7 @@ For each artifact of [§6](#t6) that runs or prints, the session-start printers 
 | E3 | the skill `<name>` | `advisory` |
 | E4 | the hook on `SessionStart` and `<printer>.sh`: the line it prints | `advisory` |
 | E5 | the hook on `PreToolUse` and `<grant>.sh`: the command it answers `allow` for, and that it says nothing for any other call | `grant` |
+| E6 | the effect entry `effect-report.sh`: it informs judgment, gives no finding, never exits 2 and is never red | `advisory` |
 
 Then the **honest limits** *(slot)*: first one line that cites the limits every gate shares, [kit-shared-gate-code §4](../shared/GATE.md#g4), and restates none; then the module's own, numbered, each a path the gate does not see (a tool that bypasses the hook's event, a moment outside its trigger) with its backstop, or `none — accepted` with the reason the gap is accepted.
 
@@ -156,6 +158,21 @@ For each gate: the red→green fixture proving it (a fixture that fails without 
 
 What this module deliberately does not ship yet, each with the friction signal that would earn it. The deferrals every gate shares stand once in [kit-shared-gate-code §1](../shared/GATE.md#g1), the deferred parts, and are cited, never restated; this list holds the module's own. Nothing here is a hidden requirement: a deferred item has no matrix row, or its row is marked deferred there.
 
+<a id="t13"></a>
+## 13. Effect
+
+What the module counts of its own effect in a project that installs it, [aspect A14](../docs/requirements.md#a14): at each moment where one of its rules applies, whether the rule was applied, bypassed or missed (records [dec-0113-module-effect-is-rules-applied-not-bypassed](../docs/decisions/dec-0113-module-effect-is-rules-applied-not-bypassed.md) and [dec-0114-module-effect-report-design](../docs/decisions/dec-0114-module-effect-report-design.md)). One row per rule the module's effect code counts, its key the key of the code's `Rule`:
+
+| # | rule | moment | judge | ways |
+|---|---|---|---|---|
+| W1 | the rule in the module's words, the text the reader is given | where the rule applies: the act, the event or the turn | `pattern` | the ways it can fail, of the six below |
+
+**Judge** *(template rule)*. A rule is judged by a deterministic pattern over what the project already holds — its transcripts, its gate logs and its git history — wherever a pattern can see it: `pattern`. It is judged by a fresh reader, a language model, only where no pattern can see it: `reader`. The report keeps the two judges' counts on lines of their own and never adds them together.
+
+**Ways** *(template rule)*. A gate can be gone around four ways. B1, a path bypass: a file of the gate's territory changed with no hook of the gate examining it, through a shell write, a script, `git mv`, a merge or a checkout. B2, a switch-off: the module switched off for a clone, its severity lowered to warn, or one of its dials loosened. B3, a workaround after a red: after a block, the next act is another path to the same end, not the fix the message teaches; a red followed by the taught fix, with no human turn between them, counts as applied. B4, an escape: the invariant broken on the main branch anyway, as a later scan or the project's CI finds it. An advisory rule can be missed two ways. B5, a skill skipped: the act at the skill's moment with no load of the skill before it. B6, a shape missed: the rule's visible form absent where the rule asks for it.
+
+**Code** *(template rule)*. The rules live in the module's package; the entry `effect-report.sh` and its Python entry file hand them to the shared runner, as item 10 of [kit-shared-gate-code §2](../shared/GATE.md#g2) says, and declare the release that adds it, `2.1.0`, or a later one, in `REQUIRES`. The entry is a row of [§9](#t9), `advisory`, with its reason in the row. The report blocks nothing, sets no threshold, and no check holds its numbers. A module that counts no rule yet writes `none` here, with its reason.
+
 ---
 
 ## Plugin skeleton
@@ -180,6 +197,7 @@ const-<aspect-name>/
 │       ├── session-start.sh # optional, with session-start.py: the line of a gate whose dial leaves it examining nothing
 │       ├── <grant>.sh       # optional, with <grant>.py: a grant's entry, the hook that answers allow for the module's own command
 │       ├── print-skill-pointer.sh  # optional: the pointer line, at session start and, with --subagent, at a subagent's start
+│       ├── effect-report.sh # optional, with effect-report.py: the effect report of §13, which hands the module's rules to the shared runner
 │       └── <module>_gate/   # the module's own package: model, messages, checks, modes, start, dials, session
 ├── evals/<case>/case.yaml   # the eval cases, each naming its plugin (plugins: ../../plugin), scaffold.sh beside one that needs a project; evals/results/ ignored by git; never installed
 └── tests/                   # conftest.py, test_<name>.py, test_shared_items.py; constitution_layer_kit linked from shared/, its testing/ the shared test files; <module>_gate from ../plugin/scripts/; one red→green fixture per gate ([law 7 of CLAUDE.md](../CLAUDE.md#law-7)); never installed
