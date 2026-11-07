@@ -13,7 +13,9 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 import shutil
+import subprocess
 import time
 from collections.abc import Sequence
 from pathlib import Path
@@ -26,7 +28,19 @@ from constitution_layer_kit.model import EnvelopeState
 from constitution_layer_kit.testing.acceptance import broken_first_line, check_case, expect, item
 from constitution_layer_kit.testing.consumer import Consumer, envelope
 from constitution_layer_kit.testing.harness import Case, Edit, Harness, Result, Write, event_json, red_lines
-from constitution_layer_kit.testing.items import NO_ENVELOPE, Subject, git_patch, git_timeouts, hook_budget
+from constitution_layer_kit.testing.items import (
+    NO_ENVELOPE,
+    Subject,
+    fake_claude,
+    git_patch,
+    git_timeouts,
+    hook_budget,
+    reader_fake,
+    tr_call,
+    tr_hook,
+    tr_line,
+    tr_turn,
+)
 from decision_records_gate import messages, start
 from decision_records_gate.model import Stakes
 
@@ -858,6 +872,292 @@ def claim(territory: Sequence[str]) -> dict[str, object]:
     return {RECORDS_POLICY: {"territory": list(territory)}}
 
 
+# ---------------------------------------------------------------- the effect report (items 42 to 48)
+# Each rule of the module's section "Effect" runs through the real entry `effect-report.sh` over transcripts
+# made by hand and, for the history rules, a scratch git repository. The lines asserted are typed by hand.
+
+EFFECT = SCRIPTS / "effect-report.sh"
+WAY_AT = "2026-11-03T10:00:00.000Z"
+SKILL_NAME = f"{NAMESPACE}:record-decision"
+HOOK_SCRIPT = "check-decision-record.sh"
+
+
+def source(plugin: str = NAMESPACE) -> str:
+    """The platform's last line of a blocking text, naming the plugin the hook comes from."""
+    return f"\n\nThis hook comes from the {plugin}@fixture-marketplace plugin."
+
+
+def tr_tool(sid: str, cwd: Path, call_id: str, name: str, **given: object) -> str:
+    """A tool call of any tool, with its input as given."""
+    block = {"type": "tool_use", "id": call_id, "name": name, "input": given}
+    return tr_line("assistant", sid, cwd, WAY_AT, message={"role": "assistant", "content": [block]})
+
+
+def tr_say(sid: str, cwd: Path, text: str) -> str:
+    block = {"type": "text", "text": text}
+    return tr_line("assistant", sid, cwd, WAY_AT, message={"role": "assistant", "content": [block]})
+
+
+def tr_red(sid: str, cwd: Path, call_id: str, text: str) -> str:
+    """A run of the gate's hook that blocked its call, as the platform records it when a hook of a later
+    event blocks: an attachment whose text opens with the script's command in brackets."""
+    done = {
+        "type": "hook_blocking_error",
+        "hookName": "PreToolUse:Write",
+        "toolUseID": call_id,
+        "hookEvent": "PreToolUse",
+        "blockingError": {"blockingError": f"[sh /x/plugin/scripts/{HOOK_SCRIPT}]: {text}"},
+    }
+    return tr_line("attachment", sid, cwd, WAY_AT, attachment=done)
+
+
+def tr_refused(sid: str, cwd: Path, call_id: str, text: str, plugin: str = NAMESPACE) -> str:
+    """A call a hook refused, as a PreToolUse refusal is recorded (Claude Code 2.1.286): only in the call's
+    tool result, its command named `command hook <n>`, the text ending with the plugin it comes from."""
+    result = {
+        "type": "tool_result",
+        "tool_use_id": call_id,
+        "is_error": True,
+        "content": f"PreToolUse:Write hook error: [command hook 7]: {text}{source(plugin)}",
+    }
+    return tr_line("user", sid, cwd, WAY_AT, message={"role": "user", "content": [result]})
+
+
+def effect_lines(
+    root: Path, sessions: dict[str, list[str]], env: dict[str, str] | None = None, *flags: str
+) -> list[str]:
+    """The lines of the report over the sessions, one transcript each; the report must exit 0."""
+    folder = H.scratch_dir()
+    for name, lines in sessions.items():
+        (folder / f"{name}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    result = H.run_gate(
+        "",
+        args=["--transcripts", str(folder), *flags],
+        env={"CLAUDE_PLUGIN_DATA": str(H.scratch_dir()), **(env or {})},
+        command=[H.sh, str(EFFECT)],
+        cwd=root,
+    )
+    assert result.code == 0, result.stdout + result.stderr
+    return result.stdout.splitlines()
+
+
+def no_plugins(listed: str = "[]") -> dict[str, str]:
+    """The environment of a fake `claude` that lists `listed` as its plugins."""
+    return fake_claude(H.scratch_dir(), f"echo {shlex.quote(listed)}\n")
+
+
+def record_root() -> Path:
+    """A consumer whose dials name the record policy, committed."""
+    return H.fresh_consumer(SETUP).root
+
+
+@item(
+    42, "W1: a Markdown write in record territory is applied when a hook run examined it, else bypassed by B1"
+)
+def test_effect_path_bypass() -> None:
+    """A write examined by a run of the gate's hook is applied; a write no run examined, a shell redirect and
+    a write through a worktree of the project are bypassed by B1, the worktree's read as the path in the root.
+    A governed document that is no record, the record policy itself, a file that is no Markdown and a path
+    outside the project are no moment."""
+    root, sid = record_root(), "s42"
+    worktree = root / ".claude" / "worktrees" / "w" / "docs" / "decisions" / "w.md"
+    lines = [
+        tr_call(sid, root, WAY_AT, "t1", "Write", root / RECORD_A),
+        tr_hook(sid, root, WAY_AT, "t1", HOOK_SCRIPT),
+        tr_call(sid, root, WAY_AT, "t2", "Write", root / "docs" / "decisions" / "b.md"),
+        tr_tool(sid, root, "t3", "Bash", command="echo x > docs/decisions/c.md"),
+        tr_call(sid, root, WAY_AT, "t4", "Write", worktree),
+        tr_call(sid, root, WAY_AT, "t5", "Write", root / NOTE_A),
+        tr_call(sid, root, WAY_AT, "t6", "Write", root / "docs" / "policies" / f"{RECORDS_POLICY}.md"),
+        tr_call(sid, root, WAY_AT, "t7", "Write", root / "docs" / "decisions" / "e.txt"),
+        tr_call(sid, root, WAY_AT, "t8", "Write", Path("/elsewhere/docs/decisions/f.md")),
+    ]
+    found = effect_lines(root, {sid: lines}, no_plugins())
+    wanted = "  W1 (pattern): 4 moment(s): 1 applied, 3 bypassed, 0 missed — B1 3"
+    assert wanted in found, found
+
+
+@item(43, "W2: the plugin disabled, severity lowered or a record policy dropped is bypassed by B2")
+def test_effect_switch_off() -> None:
+    """Six commits of the dials file, the namespace changed at each: the record policy named (applied);
+    severity warn where none stood, so from the default block (bypassed); severity block again (applied); a
+    second record policy added (applied); the first dropped (bypassed); a `deciders` entry added (applied).
+    A fake plugin list that lists the gate for this project disabled adds one more, bypassed."""
+    consumer = H.fresh_consumer(SETUP)
+    second = [RECORDS_POLICY, "other-policy"]
+    steps = [
+        own(severity="warn"),
+        own(severity="block"),
+        {NAMESPACE: {"record_policies": second}},
+        {NAMESPACE: {"record_policies": ["other-policy"]}},
+        {NAMESPACE: {"record_policies": ["other-policy"], "deciders": ["the maintainer"]}},
+    ]
+    for step in steps:
+        consumer.write("constitution.yaml", dials_text(step))
+        consumer.commit()
+    root = consumer.root
+    found = effect_lines(root, {}, no_plugins())
+    assert "  W2 (pattern): 6 moment(s): 4 applied, 2 bypassed, 0 missed — B2 2" in found, found
+    disabled = json.dumps([{"id": f"{NAMESPACE}@m", "enabled": False, "projectPath": str(root)}])
+    again = effect_lines(root, {}, no_plugins(disabled))
+    assert "  W2 (pattern): 7 moment(s): 4 applied, 3 bypassed, 0 missed — B2 3" in again, again
+
+
+@item(
+    44,
+    "W3: after a block for a record the next act on the file decides: write applied, shell bypassed by B3",
+)
+def test_effect_after_red() -> None:
+    """Five sessions, each a block of the hook on a write of a record: the next act a write of the same file
+    (applied); a `sed -i` of it after a refusal whose command names no script (bypassed); a write of another
+    file and no more (bypassed); a human turn first (no moment); a refusal of another plugin's hook (no
+    moment). The line is typed by hand."""
+    root = record_root()
+    doc = root / RECORD_A
+
+    def blocked(sid: str, *after: str, refusal: bool = False) -> list[str]:
+        red = tr_refused(sid, root, "r", "RED: x") if refusal else tr_red(sid, root, "r", "RED: x")
+        return [tr_call(sid, root, WAY_AT, "r", "Write", doc), red, *after]
+
+    foreign = tr_refused("s44e", root, "r", "RED: x", "some-other-plugin")
+    sessions = {
+        "s44a": blocked("s44a", tr_call("s44a", root, WAY_AT, "n", "Edit", doc)),
+        "s44b": blocked(
+            "s44b",
+            tr_tool("s44b", root, "n", "Bash", command=f"sed -i '' s/x/y/ {RECORD_A}"),
+            refusal=True,
+        ),
+        "s44c": blocked(
+            "s44c", tr_call("s44c", root, WAY_AT, "n", "Write", root / "docs" / "decisions" / "o.md")
+        ),
+        "s44d": blocked(
+            "s44d", tr_turn("s44d", root, WAY_AT, "stop"), tr_call("s44d", root, WAY_AT, "n", "Write", doc)
+        ),
+        "s44e": [
+            tr_call("s44e", root, WAY_AT, "r", "Write", doc),
+            foreign,
+            tr_call("s44e", root, WAY_AT, "n", "Write", doc),
+        ],
+    }
+    found = effect_lines(root, sessions, no_plugins())
+    assert "  W3 (pattern): 3 moment(s): 1 applied, 2 bypassed, 0 missed — B3 2" in found, found
+
+
+@item(
+    45, "W4: the skill a block names is loaded before the next act on the file, or the block is missed by B5"
+)
+def test_effect_skill_after_red() -> None:
+    """A block whose text says `load the skill const-decision-records:record-decision`: a Skill call naming it
+    before the next write of the file is applied, in full, or bare after a refusal whose command names no
+    script; a write first, or a Skill call for another skill, is missed; a block whose text names no skill is
+    no moment. The line is typed by hand."""
+    root = record_root()
+    doc = root / RECORD_A
+    said = f"RED: x\n{NAMESPACE}: load the skill {SKILL_NAME} before you fix this"
+
+    def case(sid: str, *after: str, text: str = said, refusal: bool = False) -> list[str]:
+        red = tr_refused(sid, root, "r", text) if refusal else tr_red(sid, root, "r", text)
+        return [tr_call(sid, root, WAY_AT, "r", "Write", doc), red, *after]
+
+    sessions = {
+        "s45a": case("s45a", tr_tool("s45a", root, "k", "Skill", skill=SKILL_NAME)),
+        "s45b": case("s45b", tr_tool("s45b", root, "k", "Skill", skill="record-decision"), refusal=True),
+        "s45c": case("s45c", tr_call("s45c", root, WAY_AT, "w", "Write", doc)),
+        "s45d": case("s45d", tr_tool("s45d", root, "k", "Skill", skill=f"{NAMESPACE}:other")),
+        "s45e": case("s45e", text="RED: x"),
+    }
+    found = effect_lines(root, sessions, no_plugins())
+    assert "  W4 (pattern): 4 moment(s): 2 applied, 0 bypassed, 2 missed — B5 2" in found, found
+
+
+@item(
+    46, "W5: a Write of a record after a load of record-decision is applied, none before it is missed by B5"
+)
+def test_effect_skill_before_write() -> None:
+    """A Write of a Markdown file in record territory after a Skill call for record-decision, in full or
+    bare, is applied; one with no load before it, and one after a load of another skill, are missed. A Write
+    outside record territory, an Edit of a record and a Write of a file that is no Markdown are no moment. The
+    line is typed by hand."""
+    root = record_root()
+    record = root / "docs" / "decisions" / "new.md"
+    sessions = {
+        "s46a": [
+            tr_tool("s46a", root, "k", "Skill", skill=SKILL_NAME),
+            tr_call("s46a", root, WAY_AT, "w", "Write", record),
+        ],
+        "s46b": [
+            tr_tool("s46b", root, "k", "Skill", skill="record-decision"),
+            tr_call("s46b", root, WAY_AT, "w", "Write", record),
+        ],
+        "s46c": [tr_call("s46c", root, WAY_AT, "w", "Write", record)],
+        "s46d": [
+            tr_tool("s46d", root, "k", "Skill", skill=f"{NAMESPACE}:promote-recurring-notes"),
+            tr_call("s46d", root, WAY_AT, "w", "Write", record),
+        ],
+        "s46e": [tr_call("s46e", root, WAY_AT, "w", "Write", root / NOTE_A)],
+        "s46f": [tr_call("s46f", root, WAY_AT, "w", "Edit", root / RECORD_A)],
+        "s46g": [tr_call("s46g", root, WAY_AT, "w", "Write", root / "docs" / "decisions" / "n.txt")],
+    }
+    found = effect_lines(root, sessions, no_plugins())
+    assert "  W5 (pattern): 4 moment(s): 2 applied, 0 bypassed, 2 missed — B5 2" in found, found
+
+
+@item(
+    47, "W6: the scan on each commit of main in a throwaway clone: green applied, a bad record bypassed by B4"
+)
+def test_effect_escape() -> None:
+    """Four commits of `main`: the fixture with no record policy named, the policy named, a record with no
+    envelope (the scan is red there), and the record made valid. The module's own scan runs on a shared
+    clone at each, outside the project, which stays as it was. The line is typed by hand."""
+    consumer = H.fresh_consumer(SETUP)
+    consumer.git("branch", "-M", "main")
+    consumer.write(RECORD_A, NO_ENVELOPE)
+    consumer.commit()
+    consumer.write(RECORD_A, record())
+    consumer.commit()
+    root = consumer.root
+    before = subprocess.run(
+        ["git", "status", "--porcelain", "--ignored"], cwd=root, capture_output=True, text=True
+    )
+    found = effect_lines(root, {}, no_plugins())
+    assert "  W6 (pattern): 4 moment(s): 3 applied, 1 bypassed, 0 missed — B4 1" in found, found
+    after = subprocess.run(
+        ["git", "status", "--porcelain", "--ignored"], cwd=root, capture_output=True, text=True
+    )
+    assert after.stdout == before.stdout, (before.stdout, after.stdout)
+
+
+@item(48, "W7: each human turn that answers lettered options by a letter is a moment for the reader")
+def test_effect_reader_rule() -> None:
+    """Four turns answer a message of lettered options with one of its letters: `B`, a lowercase `b` alone,
+    `I pick A, go ahead`, and an `A` followed by a second turn. Five do not: a long argument, a `yes` with no
+    letter, a letter after a message that offers none, a letter not among the options, and the second turn
+    after the first answer. Without `--reader` the four are counted and not judged; a fake reader that
+    answers APPLIED judges them. The lines are typed by hand."""
+    root = record_root()
+    offer = "Which do you want?\n\n- **A. Record it** — a process decision.\n- **B. Commit note** — routine."
+    argument = "I would like to think about this longer. " * 10
+    sessions = {
+        "s48a": [tr_say("s48a", root, offer), tr_turn("s48a", root, WAY_AT, "B")],
+        "s48b": [tr_say("s48b", root, offer), tr_turn("s48b", root, WAY_AT, "b")],
+        "s48c": [tr_say("s48c", root, offer), tr_turn("s48c", root, WAY_AT, "I pick A, go ahead")],
+        "s48d": [tr_say("s48d", root, offer), tr_turn("s48d", root, WAY_AT, argument)],
+        "s48e": [tr_say("s48e", root, offer), tr_turn("s48e", root, WAY_AT, "yes, record it")],
+        "s48f": [tr_say("s48f", root, "Shall I go on?"), tr_turn("s48f", root, WAY_AT, "B")],
+        "s48g": [tr_say("s48g", root, offer), tr_turn("s48g", root, WAY_AT, "C")],
+        "s48h": [
+            tr_say("s48h", root, offer),
+            tr_turn("s48h", root, WAY_AT, "A"),
+            tr_turn("s48h", root, WAY_AT, "B"),
+        ],
+    }
+    plain = effect_lines(root, sessions, no_plugins())
+    assert "  W7 (reader): 4 moment(s), not judged — run again with --reader to judge them" in plain, plain
+    env, _ = reader_fake(H.scratch_dir(), "claude.ai", json.dumps({"result": "APPLIED"}))
+    judged = effect_lines(root, sessions, env, "--reader")
+    assert "  W7 (reader): 4 moment(s): 4 applied, 0 bypassed, 0 missed" in judged, judged
+
+
 SUBJECT = Subject(
     harness=H,
     gate_on=gate_on,
@@ -872,4 +1172,6 @@ SUBJECT = Subject(
     # the skip reason once a negated pattern takes `red` out of the territory, typed by hand
     outside="docs/decisions/a.md is not governed by a record policy (records-policy)",
     skill="record-decision",  # the skill a red names (F10), typed by hand
+    effect="effect-report.sh",  # no `effect_reader`: its reader rule W7 has a moment for the human turns that
+    # answer lettered options, and the shared items about a reader rule need one for each human turn
 )
