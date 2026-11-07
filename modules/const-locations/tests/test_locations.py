@@ -18,6 +18,7 @@ import json
 import os
 import re
 import resource
+import shlex
 import shutil
 import string
 import subprocess
@@ -31,7 +32,7 @@ from constitution_layer_kit.model import Broken, Finding
 from constitution_layer_kit.testing.acceptance import broken_first_line, expect, failure_of, item
 from constitution_layer_kit.testing.consumer import ROOT_POLICY, Consumer, document, envelope
 from constitution_layer_kit.testing.harness import Edit, Harness, Result, Write
-from constitution_layer_kit.testing.items import Subject
+from constitution_layer_kit.testing.items import Subject, fake_claude, tr_line
 from locations_gate import filling, messages, start
 from locations_gate.dials import KEYS
 from locations_gate.model import ActKey
@@ -1180,6 +1181,8 @@ SUBJECT = Subject(
     event_driven=False,
     closing=messages.l4_nothing_written(),
     act_args=NOTE_ARGS,
+    effect="effect-report.sh",
+    effect_hook="grant-new-document.sh",  # the hook runs the grant, not the generator the harness wraps
 )
 
 
@@ -1208,6 +1211,7 @@ def event(command: object, name: str = "PreToolUse", tool: str = "Bash") -> str:
             "tool_name": tool,
             "tool_input": {"command": command},
             "session_id": "s1",
+            "transcript_path": "/t/s1.jsonl",
             "cwd": "/",
         }
     )
@@ -1407,8 +1411,8 @@ def test_grant_absence() -> None:
 
 @item(26, "the grant: its answer is logged as one record of the grant; a call that is no match leaves none")
 def test_grant_log() -> None:
-    """Under CLAUDE_PLUGIN_DATA the answer is one JSON line of the log, its gate the grant's; a call
-    the grant does not answer writes no record."""
+    """Under CLAUDE_PLUGIN_DATA the answer is one JSON line of the log, its gate the grant's, and its
+    session, path and transcript the event's; a call the grant does not answer writes no record."""
     data = H.scratch_dir()
     ask_grant(event("ls"), env={"CLAUDE_PLUGIN_DATA": str(data)})
     quiet = not (data / f"{NAMESPACE}.jsonl").exists()
@@ -1421,6 +1425,8 @@ def test_grant_log() -> None:
         and records[0]["gate"] == "grant-new-document"
         and records[0]["mode"] == "hook"
         and records[0]["session"] == "s1"
+        and records[0]["path"] == OWN
+        and records[0]["transcript"] == "/t/s1.jsonl"
         and records[0]["stream"] == "stdout"
         and records[0]["text"] + "\n" == ALLOW
     )
@@ -1459,3 +1465,123 @@ def test_grant_wiring() -> None:
     }
     granting_skill = sorted(name for name, front in fronts.items() if "allowed-tools" in front)
     assert hooks == expected and not granting_skill, f"hooks: {hooks}; allowed-tools in {granting_skill}"
+
+
+# ---------------------------------------------------------------- the effect report (items 28 on)
+# The three rules of MODULE.md §13, each run through `effect-report.sh` over hand-made transcripts and a
+# fake `claude`. The lines asserted are typed by hand.
+
+WAY_AT = "2026-11-03T10:00:00.000Z"
+CREATOR = f"sh {PLUGIN}/scripts/new-document.sh"
+
+
+def tr_tool(sid: str, cwd: Path, call_id: str, name: str, **given: object) -> str:
+    """A tool call of any tool, with its input as given."""
+    block = {"type": "tool_use", "id": call_id, "name": name, "input": given}
+    return tr_line("assistant", sid, cwd, WAY_AT, message={"role": "assistant", "content": [block]})
+
+
+def plugin_list(*, enabled: bool | None) -> dict[str, str]:
+    """The environment of a fake `claude` that lists this plugin enabled or disabled, or lists none."""
+    listed = [] if enabled is None else [{"id": "const-locations@m", "enabled": enabled}]
+    return fake_claude(H.scratch_dir(), f"echo {shlex.quote(json.dumps(listed))}\n")
+
+
+def effect_lines(root: Path, sessions: dict[str, list[str]], env: dict[str, str] | None = None) -> list[str]:
+    """The lines of the report over the sessions, one transcript each; the report must exit 0."""
+    folder = H.scratch_dir()
+    for name, lines in sessions.items():
+        (folder / f"{name}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    result = H.run_gate(
+        "",
+        args=["--transcripts", str(folder)],
+        env={"CLAUDE_PLUGIN_DATA": str(H.scratch_dir()), **(env or plugin_list(enabled=None))},
+        command=[H.sh, str(SCRIPTS / "effect-report.sh")],
+        cwd=root,
+    )
+    assert result.code == 0, result.stdout + result.stderr
+    return result.stdout.splitlines()
+
+
+def tr_write(sid: str, root: Path, call_id: str, tool: str, rel: str) -> str:
+    block = {"type": "tool_use", "id": call_id, "name": tool, "input": {"file_path": str(root / rel)}}
+    return tr_line("assistant", sid, root, WAY_AT, message={"role": "assistant", "content": [block]})
+
+
+@item(
+    28, "W1: a command that runs new-document.sh is applied; a Write that creates a document is missed by B6"
+)
+def test_effect_w1() -> None:
+    """Notes are a directory territory, so the command derives a home there. Applied: the command. Missed
+    by B6: a Write of a new note, and one through a worktree of the project. No moment: a dry run, a Write
+    after a Read of the file, a Write after a Write of it, a Write outside any territory and a file that is
+    no Markdown. Where a policy claims one path, the command has no home and a Write there is no moment."""
+    root = prepared().root
+    sid = "s28"
+    lines = [
+        tr_tool(sid, root, "c1", "Bash", command=f"{CREATOR} --kind notes-policy --stem a --title 'A'"),
+        tr_tool(sid, root, "c2", "Bash", command=f"{CREATOR} --kind notes-policy --stem a --dry-run"),
+        tr_tool(sid, root, "c3", "Bash", command="cat scripts/new-document.sh"),
+        tr_write(sid, root, "w1", "Write", "docs/notes/b.md"),
+        tr_write(sid, root, "w2", "Write", ".claude/worktrees/w/docs/notes/c.md"),
+        tr_write(sid, root, "r1", "Read", "docs/notes/d.md"),
+        tr_write(sid, root, "w3", "Write", "docs/notes/d.md"),
+        tr_write(sid, root, "w4", "Write", "docs/notes/e.md"),
+        tr_write(sid, root, "w5", "Write", "docs/notes/e.md"),
+        tr_write(sid, root, "w6", "Write", "docs/other/f.md"),
+        tr_write(sid, root, "w7", "Write", "docs/notes/g.txt"),
+    ]
+    found = effect_lines(root, {sid: lines})
+    assert "  W1 (pattern): 4 moment(s): 1 applied, 0 bypassed, 3 missed — B6 3" in found, found
+    single = prepared(claim(["docs/one.md"])).root
+    again = [tr_write("s28b", single, "w1", "Write", "docs/one.md")]
+    other = effect_lines(single, {"s28b": again})
+    assert "  W1 (pattern): 0 moment(s): 0 applied, 0 bypassed, 0 missed" in other, other
+
+
+@item(29, "W2: a creation after a load of new-document is applied; with none, or another skill, missed by B5")
+def test_effect_w2() -> None:
+    """The moments of W1. A Skill call for `new-document`, in full or bare, before a command or a Write
+    makes it applied; none before, or the load of another skill, makes it missed by B5."""
+    root = prepared().root
+    new = f"{CREATOR} --kind notes-policy --stem a --title 'A'"
+    sessions = {
+        "s29a": [
+            tr_tool("s29a", root, "k", "Skill", skill="const-locations:new-document"),
+            tr_tool("s29a", root, "c", "Bash", command=new),
+            tr_write("s29a", root, "w", "Write", "docs/notes/b.md"),
+        ],
+        "s29b": [
+            tr_tool("s29b", root, "k", "Skill", skill="new-document"),
+            tr_write("s29b", root, "w", "Write", "docs/notes/b.md"),
+        ],
+        "s29c": [tr_tool("s29c", root, "c", "Bash", command=new)],
+        "s29d": [
+            tr_tool("s29d", root, "k", "Skill", skill="const-locations:new-kind"),
+            tr_write("s29d", root, "w", "Write", "docs/notes/b.md"),
+        ],
+    }
+    found = effect_lines(root, sessions)
+    assert "  W2 (pattern): 5 moment(s): 3 applied, 0 bypassed, 2 missed — B5 2" in found, found
+
+
+@item(30, "W3: the plugin listed enabled is applied, listed disabled bypassed by B2; the dials add no moment")
+def test_effect_w3() -> None:
+    """A fake `claude` lists the plugin: enabled, one applied moment; disabled, one bypassed by B2; not
+    listed, none. A commit of the dials file that changes the namespace is no moment, since the module has
+    no severity to lower."""
+    root = prepared(own(templates=[])).root
+    consumer_dials = root / "constitution.yaml"
+    consumer_dials.write_text(dials_text(own(templates=[{"policy": "notes-policy", "template": TEMPLATE}])))
+    subprocess.run(["git", "commit", "-qam", "dials"], cwd=root, check=True)
+    counts = {
+        True: "  W3 (pattern): 1 moment(s): 1 applied, 0 bypassed, 0 missed",
+        False: "  W3 (pattern): 1 moment(s): 0 applied, 1 bypassed, 0 missed — B2 1",
+        None: "  W3 (pattern): 0 moment(s): 0 applied, 0 bypassed, 0 missed",
+    }
+    wrong = []
+    for enabled, line in counts.items():
+        found = effect_lines(root, {}, plugin_list(enabled=enabled))
+        if line not in found:
+            wrong.append(f"{enabled}: {found}")
+    assert not wrong, "\n".join(wrong)

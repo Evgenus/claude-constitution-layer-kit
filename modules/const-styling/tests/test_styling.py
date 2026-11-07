@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -29,7 +30,7 @@ import yaml
 from constitution_layer_kit.testing.acceptance import broken_first_line, check_case, expect, failure_of, item
 from constitution_layer_kit.testing.consumer import BASE_MARKDOWN, Consumer
 from constitution_layer_kit.testing.harness import Case, Harness, Result, Write, bash_json, red_lines
-from constitution_layer_kit.testing.items import PatternDial, Subject
+from constitution_layer_kit.testing.items import PatternDial, Subject, fake_claude, tr_line
 from styling_gate import messages, start
 from styling_gate.model import Hit, Signature
 
@@ -948,7 +949,7 @@ def test_t20() -> None:
         H.run_gate(  # the harness's shared folder left out, and no site-packages
             "", args, env={"PYTHONPATH": ""}, command=[sys.executable, "-S", str(H.entry)], shared=False
         ),
-        "BROKEN: const-styling needs the Python package constitution-layer-kit 2.0.0 or a later 2.x release,"
+        "BROKEN: const-styling needs the Python package constitution-layer-kit 2.1.0 or a later 2.x release,"
         " and python3 cannot import it — fix: install it for python3 as"
         f" {PLUGIN_ROOT / 'INSTALL.md'} says — {CLOSING}",
     )
@@ -1073,6 +1074,151 @@ def test_case(case: Case) -> None:
 
 # ---------------------------------------------------------------- the list
 
+# ---------------------------------------------------------------- the effect report (items 35 to 37)
+# Each rule of the module's section "Effect" runs through the real entry `effect-report.sh` over transcripts
+# made by hand and, for the history rules, a scratch git repository. The lines asserted are typed by hand.
+
+EFFECT = SCRIPTS / "effect-report.sh"
+WAY_AT = "2026-11-03T10:00:00.000Z"
+SKILL_NAME = "const-styling:style-defaults"
+
+
+def tr_tool(sid: str, cwd: Path, call_id: str, name: str, **given: object) -> str:
+    """A tool call of any tool, with its input as given."""
+    block = {"type": "tool_use", "id": call_id, "name": name, "input": given}
+    return tr_line("assistant", sid, cwd, WAY_AT, message={"role": "assistant", "content": [block]})
+
+
+def effect_lines(root: Path, sessions: dict[str, list[str]], env: dict[str, str] | None = None) -> list[str]:
+    """The lines of the report over the sessions, one transcript each; the report must exit 0."""
+    folder = H.scratch_dir()
+    for name, lines in sessions.items():
+        (folder / f"{name}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    result = H.run_gate(
+        "",
+        args=["--transcripts", str(folder)],
+        env={"CLAUDE_PLUGIN_DATA": str(H.scratch_dir()), **(env or {})},
+        command=[H.sh, str(EFFECT)],
+        cwd=root,
+    )
+    assert result.code == 0, result.stdout + result.stderr
+    return result.stdout.splitlines()
+
+
+def no_plugins(listed: str = "[]") -> dict[str, str]:
+    """The environment of a fake `claude` that lists `listed` as its plugins."""
+    return fake_claude(H.scratch_dir(), f"echo {shlex.quote(listed)}\n")
+
+
+def departure(path: str, *allow: str, reason: str = "the diagram is the point") -> dict[str, object]:
+    return {"paths": [path], "allow": list(allow), "reason": reason}
+
+
+@item(35, "W1: the plugin disabled, or a departure widened or a guide dropped, is bypassed by B2")
+def test_effect_switch_off() -> None:
+    """Ten commits of the dials file, the namespace changed at each: a territory only (applied); a departure
+    added (bypassed); its signatures widened (bypassed); its reason reworded (applied); a second path
+    allowed (bypassed); the first departure removed (applied); a guide added (applied); the guide dropped
+    (bypassed); the last departure removed (applied); a namespace this module cannot read (applied: read
+    as no change). A fake plugin list that lists the gate for this project disabled adds one more,
+    bypassed. The lines are typed by hand."""
+    consumer = H.fresh_consumer()
+    root = consumer.root
+    steps = [
+        own(territories=["*.md"]),
+        own(departures=[departure("docs/a.md", "plantuml")]),
+        own(departures=[departure("docs/a.md", "plantuml", "formula")]),
+        own(departures=[departure("docs/a.md", "plantuml", "formula", reason="another reason")]),
+        own(departures=[departure("docs/a.md", "plantuml", "formula"), departure("docs/b.md", "callout")]),
+        own(departures=[departure("docs/b.md", "callout")]),
+        own(departures=[departure("docs/b.md", "callout")], guides=["docs/guide.md"]),
+        own(departures=[departure("docs/b.md", "callout")]),
+        own(departures=[]),
+        own(departures="not a list"),
+    ]
+    for step in steps:
+        consumer.write_dials(step)
+        consumer.commit()
+    found = effect_lines(root, {}, no_plugins())
+    assert "  W1 (pattern): 10 moment(s): 6 applied, 4 bypassed, 0 missed — B2 4" in found, found
+    disabled = json.dumps([{"id": f"{NAMESPACE}@m", "enabled": False, "projectPath": str(root)}])
+    again = effect_lines(root, {}, no_plugins(disabled))
+    assert "  W1 (pattern): 11 moment(s): 6 applied, 5 bypassed, 0 missed — B2 5" in again, again
+
+
+@item(36, "W2: the scan on each commit of main in a throwaway clone: green applied, a trace bypassed by B4")
+def test_effect_escape() -> None:
+    """Three commits of `main`: the fixture, a document that holds a PlantUML block (the scan is red there),
+    and the document without it. The module's own scan runs on a shared clone at each, outside the project,
+    which stays as it was. The line is typed by hand."""
+    consumer = H.fresh_consumer()
+    consumer.git("branch", "-M", "main")
+    consumer.write("docs/notes/a.md", PLANTUML_FENCE)
+    consumer.commit()
+    consumer.write("docs/notes/a.md", "# T\n\n- a\n")
+    consumer.commit()
+    root = consumer.root
+    status = ["git", "status", "--porcelain", "--ignored"]
+    before = subprocess.run(status, cwd=root, capture_output=True, text=True)
+    found = effect_lines(root, {}, no_plugins())
+    assert "  W2 (pattern): 3 moment(s): 2 applied, 1 bypassed, 0 missed — B4 1" in found, found
+    after = subprocess.run(status, cwd=root, capture_output=True, text=True)
+    assert after.stdout == before.stdout, (before.stdout, after.stdout)
+
+
+@item(
+    37, "W3: a write with a table, a fence, a deep heading or a list is applied after the skill, else missed"
+)
+def test_effect_skill_before_write() -> None:
+    """A Write or an Edit of a Markdown file whose new content holds a table, a fenced block, a heading of
+    level four, a bullet or a numbered item is a moment: applied where a Skill call for style-defaults, in
+    full or bare, came earlier in the session; missed by B5 with no load, with a load of another skill, or
+    with the load after the write. A MultiEdit counts by its edits. Prose, a heading of level three, pipes
+    with no delimiter row, a rule, and a list written into a file that is no Markdown are no moment. The
+    line is typed by hand."""
+    root = H.fresh_consumer().root
+    doc = str(root / "docs" / "a.md")
+    table = "| k | v |\n|---|---|\n| a | b |\n"
+    fence = "```text\nx\n```\n"
+
+    def write(sid: str, call_id: str, content: str, tool: str = "Write", path: str = doc) -> str:
+        key = "content" if tool == "Write" else "new_string"
+        return tr_tool(sid, root, call_id, tool, file_path=path, **{key: content})
+
+    def skill(sid: str, name: str) -> str:
+        return tr_tool(sid, root, "k" + name, "Skill", skill=name)
+
+    sessions = {
+        "s37a": [skill("s37a", "style-defaults"), write("s37a", "w1", table), write("s37a", "w2", fence)],
+        "s37b": [skill("s37b", SKILL_NAME), write("s37b", "w1", "- a\n")],
+        "s37c": [
+            write("s37c", "w1", table),
+            write("s37c", "w2", fence),
+            write("s37c", "w3", "#### Deep\n", "Edit"),
+            write("s37c", "w4", "* a\n"),
+            write("s37c", "w5", "1. a\n"),
+            tr_tool(
+                "s37c",
+                root,
+                "w6",
+                "MultiEdit",
+                file_path=doc,
+                edits=[{"old_string": "a", "new_string": "- b"}],
+            ),
+        ],
+        "s37d": [skill("s37d", "const-styling:other"), write("s37d", "w1", table)],
+        "s37e": [write("s37e", "w1", table), skill("s37e", "style-defaults")],
+        "s37f": [
+            write("s37f", "w1", "Plain prose, nothing more.\n"),
+            write("s37f", "w2", "### Level three\n"),
+            write("s37f", "w3", "a | b\nc | d\n"),
+            write("s37f", "w4", "text\n\n---\n\ntext\n"),
+            write("s37f", "w5", "- a\n", path=str(root / "notes.txt")),
+        ],
+    }
+    found = effect_lines(root, sessions, no_plugins())
+    assert "  W3 (pattern): 11 moment(s): 3 applied, 0 bypassed, 8 missed — B5 8" in found, found
+
 
 SUBJECT = Subject(
     harness=H,
@@ -1091,4 +1237,5 @@ SUBJECT = Subject(
     scan_only=True,
     pattern_dial=PatternDial("territories", lambda pattern: own(territories=[pattern])),
     skill="style-defaults",  # the skill a red names (F10), typed by hand
+    effect="effect-report.sh",  # no `effect_reader`: the module has no reader rule
 )

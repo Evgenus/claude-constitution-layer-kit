@@ -53,6 +53,7 @@ class Mode(StrEnum):
     HOOK = "hook"
     SCAN = "scan"
     ACT = "act"  # a second entry point that changes files: a generator, never a gate
+    REPORT = "report"  # the effect report: it reads and counts, and changes and judges no file
 
 
 class SkipKind(StrEnum):
@@ -95,6 +96,8 @@ class SharedKey(StrEnum):
     C13 = "C13"
     C16 = "C16"
     C17 = "C17"
+    U5 = "U5"  # the effect report could not run
+    U6 = "U6"  # the shared effect entry could not run
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,6 +142,7 @@ class ToolEvent:
     replace_all: bool
     stop_hook_active: bool | None = None  # a Stop payload's loop guard; None for every tool event
     command: str | None = None  # the shell tool's command; None for every other event
+    transcript_path: str = ""  # the session's transcript as the payload names it; empty where it names none
 
 
 @dataclass(frozen=True, slots=True)

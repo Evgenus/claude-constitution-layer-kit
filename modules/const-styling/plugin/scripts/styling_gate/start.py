@@ -24,6 +24,18 @@ GATE = Identity(
     skills={Mode.SCAN: "style-defaults"},  # the skill a red names (F10); a scan-only gate
 )
 
+EFFECT = (
+    Identity(  # the effect report's own: it names no skill, and its failures end "the report is not made"
+        namespace=GATE.namespace,
+        gate="effect-report",
+        plugin_root=GATE.plugin_root,
+        dials_file=GATE.dials_file,
+        kernel_keys=KERNEL_KEYS,
+        hook_seconds=HOOK_SECONDS,
+        until_installed="until then the effect report is not made",
+    )
+)
+
 
 def load_modes() -> cli.Modes:
     # Necessary here, not at the top: the modes import the declared libraries, and only after the

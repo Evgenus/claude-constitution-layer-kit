@@ -65,7 +65,7 @@ class EventTarget:
 
 def locate_write(output: Output, stdin: TextIO) -> WriteTarget | Skip:
     event = read_event(stdin)
-    output.session = event.session_id
+    output.stamp(event)
     if event.tool is None:
         return Skip(messages.g1_skip_other_tool(event.tool_name), SkipKind.NO_FILE, event.tool_name)
     path = Path(os.path.expanduser(event.file_path))
@@ -97,7 +97,7 @@ def locate_event(output: Output, stdin: TextIO) -> EventTarget | Skip:
     """For a gate wired to an event without a file. The event is read by the one reader, so a
     tool event's fields are still validated; a cwd outside any repository is a visible skip."""
     event = read_event(stdin)
-    output.session = event.session_id
+    output.stamp(event)
     cwd = Path(os.path.realpath(event.cwd or os.getcwd()))
     root = repo_root(cwd)
     if root is None:

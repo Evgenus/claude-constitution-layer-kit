@@ -45,6 +45,17 @@ SESSION = Identity(
     until_installed="until then the gate's state is not said at session start",
 )
 
+# the effect report's own identity: the same plugin and dials file, the entry file effect-report.py
+REPORT = Identity(
+    namespace=NAMESPACE,
+    gate="effect-report",
+    plugin_root=PLUGIN_ROOT,
+    dials_file="constitution.yaml",
+    kernel_keys=KERNEL_KEYS,
+    hook_seconds=HOOK_SECONDS,
+    until_installed="until then the effect report is not made",
+)
+
 ARGUMENTS = (cli.Argument(COMMAND_FLAG, "text"),)
 
 

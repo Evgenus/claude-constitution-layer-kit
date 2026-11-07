@@ -587,3 +587,154 @@ def c17_module_too_old(namespace: str, required: str, found: str, guide: str, un
         f"update the plugin to a release written for {_major(found)}.x, or install a {_major(required)}.x"
         f" release of constitution-layer-kit for python3 as {escaped(guide)} says" + _clause(until),
     )
+
+
+# ---------------------------------------------------------------- the effect report (U1 to U6)
+# A report, never a verdict: its lines count, and none of them is red. Each line names the module, and the
+# counts of the two judges stand on lines of their own (template §13).
+
+
+def u1_headline(rules: int, sessions: int, since: str, unread: int) -> str:
+    window = f" since {since}" if since else ""
+    return (
+        f"EFFECT: {_ns()}: {rules} rule(s) over {sessions} session(s){window},"
+        f" {unread} transcript line(s) unread"
+    )
+
+
+def u1_no_session() -> str:
+    return (
+        f"note: {_ns()}: no session read — neither the module's log nor --transcripts names a transcript of a"
+        " session of this project; name the folder of this project's transcripts with --transcripts <dir>"
+    )
+
+
+def u2_counted(key: str, judge: str, moments: int, counts: Sequence[int], ways: str) -> str:
+    applied, bypassed, missed = counts
+    by = f" — {ways}" if ways else ""
+    return (
+        f"  {key} ({judge}): {moments} moment(s): {applied} applied, {bypassed} bypassed, {missed} missed{by}"
+    )
+
+
+def u2_not_judged(key: str, moments: int) -> str:
+    return f"  {key} (reader): {moments} moment(s), not judged — run again with --reader to judge them"
+
+
+def u2_no_verdict(key: str, count: int) -> str:
+    return (
+        f"  {key} (reader): {count} moment(s) without a verdict — the reader gave no outcome: its answer"
+        " named none, or claude failed or ran out of time"
+    )
+
+
+def u3_disagree(path: str, session: str, at: str) -> str:
+    return (
+        f"DISAGREE: {_ns()}: the log names '{escaped(shown(path))}' in session {escaped(session)} at {at},"
+        " and no run of the module's hooks in that session's transcript examined it — the transcript's count"
+        " stands"
+    )
+
+
+def u4_reader(model: str, version: str) -> str:
+    return f"READER: {_ns()}: judged by {escaped(model)} on Claude Code {escaped(version)}"
+
+
+def u5_could_not_run() -> str:
+    return "BROKEN: the report could not run — no rule counted"
+
+
+def u5_transcripts(folder: str) -> Broken:
+    return Broken(
+        SharedKey.U5,
+        f"{_ns()}: --transcripts '{echoed(folder)}' is no folder",
+        "name the folder that holds the session transcripts, the *.jsonl files",
+    )
+
+
+def u5_since(value: str) -> Broken:
+    return Broken(
+        SharedKey.U5, f"{_ns()}: --since '{echoed(value)}' is no date", "write the date as YYYY-MM-DD"
+    )
+
+
+def u5_no_claude(detail: str) -> Broken:
+    return Broken(
+        SharedKey.U5,
+        f"{_ns()}: the reader needs claude, which could not run: {echoed(detail)}",
+        "install Claude Code with claude on PATH, or run the report without --reader",
+    )
+
+
+def u5_not_subscription(method: str) -> Broken:
+    return Broken(
+        SharedKey.U5,
+        f"{_ns()}: the reader runs only on a subscription login, never billed by usage, and claude auth"
+        f" status reports '{echoed(method)}'",
+        "log in with claude auth login on a Claude subscription, or run the report without --reader",
+    )
+
+
+def u6_headline(reports: int, enabled: int) -> str:
+    return f"EFFECT: {reports} plugin(s) with an effect report, of {enabled} enabled for this project"
+
+
+def u6_report_failed(plugin: str, code: int) -> str:
+    return f"note: the effect report of {escaped(plugin)} exited {code}; its lines above say why"
+
+
+def u6_no_list(detail: str) -> Broken:
+    return Broken(
+        SharedKey.U6,
+        f"the plugin list could not be read: {echoed(detail)}",
+        "install Claude Code with claude on PATH, then run claude plugin list --json in this project and read"
+        " why it fails",
+    )
+
+
+def u6_could_not_run() -> str:
+    return "BROKEN: the effect reports could not run — no plugin read"
+
+
+# ---------------------------------------------------------------- the notes of the shared ways (U7)
+# What a rule built from `ways` could not read, said as a line after the rule's counts: a note, never a
+# finding and never a moment.
+
+
+def u7_no_plugin_list(key: str, detail: str) -> str:
+    return (
+        f"note: {_ns()}: {key}: the plugin list could not be read ({echoed(detail)}) — whether the plugin is"
+        " enabled is not counted"
+    )
+
+
+def u7_not_listed(key: str) -> str:
+    return (
+        f"note: {_ns()}: {key}: the plugin list names this plugin for no scope of this project —"
+        " whether it is enabled is not counted"
+    )
+
+
+def u7_no_history(key: str, detail: str) -> str:
+    return (
+        f"note: {_ns()}: {key}: the history of {escaped(_file())} could not be read in full"
+        f" ({echoed(detail)}) — the changes it failed on are not counted"
+    )
+
+
+def u7_no_scan(key: str, detail: str) -> str:
+    return f"note: {_ns()}: {key}: no commit of the main branch could be scanned ({echoed(detail)})"
+
+
+def u7_scan_failed(key: str, count: int, commit: str, detail: str) -> str:
+    return (
+        f"note: {_ns()}: {key}: the scan gave no verdict at {count} commit(s), the first {echoed(commit)}"
+        f" ({echoed(detail)}) — they are not counted"
+    )
+
+
+def u7_capped(key: str, cap: int, total: int) -> str:
+    return (
+        f"note: {_ns()}: {key}: {total} commit(s) of the main branch in the window, only the last {cap} are"
+        " scanned"
+    )

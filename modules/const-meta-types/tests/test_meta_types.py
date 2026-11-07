@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
 import subprocess
 import time
 from collections.abc import Sequence
@@ -23,7 +24,15 @@ from constitution_layer_kit.model import Match, MetaType
 from constitution_layer_kit.testing.acceptance import broken_first_line, check_case, expect, item
 from constitution_layer_kit.testing.consumer import ROOT_POLICY, document, envelope
 from constitution_layer_kit.testing.harness import Case, Edit, Harness, Result, Write, event_json, red_lines
-from constitution_layer_kit.testing.items import NO_ENVELOPE, Subject
+from constitution_layer_kit.testing.items import (
+    NO_ENVELOPE,
+    Subject,
+    fake_claude,
+    tr_call,
+    tr_hook,
+    tr_line,
+    tr_turn,
+)
 from meta_types_gate import messages, start
 from meta_types_gate.checks import envelope_errors
 
@@ -1223,6 +1232,261 @@ def claim(territory: Sequence[str]) -> dict[str, object]:
     return {"notes-policy": {"territory": list(territory)}}
 
 
+# ---------------------------------------------------------------- the effect report (items 40 on)
+# The six rules of MODULE.md §13, each run through `effect-report.sh` over hand-made transcripts, a scratch
+# git history of the dials file and of the main branch, and a fake `claude`. The lines are typed by hand.
+
+WAY_AT = "2026-11-03T10:00:00.000Z"
+NOTES_DIR = "docs/notes"
+TAIL = "\n\nThis hook comes from the const-meta-types@fixture-marketplace plugin."
+F10_TEXT = (
+    "const-meta-types: load the skill const-meta-types:choose-meta-type before you fix this"
+    " — it teaches the rule and the fix"
+)
+
+
+def tr_tool(sid: str, cwd: Path, call_id: str, name: str, **given: object) -> str:
+    """A tool call of any tool, with its input as given."""
+    block = {"type": "tool_use", "id": call_id, "name": name, "input": given}
+    return tr_line("assistant", sid, cwd, WAY_AT, message={"role": "assistant", "content": [block]})
+
+
+def tr_refused(sid: str, cwd: Path, call_id: str, text: str, tool: str = "Write") -> str:
+    """The form in which Claude Code records a call this module's PreToolUse hook refused: the call's tool
+    result, with the hook's text and the plugin it comes from (observed on 2.1.286, typed by hand)."""
+    refusal = {
+        "type": "tool_result",
+        "tool_use_id": call_id,
+        "is_error": True,
+        "content": f"PreToolUse:{tool} hook error: [sh /x/plugin/scripts/check-governed-document.sh]: {text}"
+        + TAIL,
+    }
+    return tr_line("user", sid, cwd, WAY_AT, message={"role": "user", "content": [refusal]})
+
+
+def tr_red_attached(sid: str, cwd: Path, call_id: str, text: str) -> str:
+    """The same red as a PostToolUse attachment, the other form the reader takes."""
+    done = {
+        "type": "hook_blocking_error",
+        "hookName": "PostToolUse:Write",
+        "toolUseID": call_id,
+        "hookEvent": "PostToolUse",
+        "blockingError": {"blockingError": f"[sh /x/plugin/scripts/check-governed-document.sh]: {text}"},
+    }
+    return tr_line("attachment", sid, cwd, WAY_AT, attachment=done)
+
+
+def no_plugins() -> dict[str, str]:
+    """The environment of a fake `claude` that lists no plugin."""
+    return fake_claude(H.scratch_dir(), f"echo {shlex.quote('[]')}\n")
+
+
+def effect_lines(root: Path, sessions: dict[str, list[str]]) -> list[str]:
+    """The lines of the report over the sessions, one transcript each; the report must exit 0."""
+    folder = H.scratch_dir()
+    for name, lines in sessions.items():
+        (folder / f"{name}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    result = H.run_gate(
+        "",
+        args=["--transcripts", str(folder)],
+        env={"CLAUDE_PLUGIN_DATA": str(H.scratch_dir()), **no_plugins()},
+        command=[H.sh, str(SCRIPTS / "effect-report.sh")],
+        cwd=root,
+    )
+    assert result.code == 0, result.stdout + result.stderr
+    return result.stdout.splitlines()
+
+
+@item(
+    40, "W1: a write in claimed territory is applied when a run of the hook examined it, else bypassed by B1"
+)
+def test_effect_w1() -> None:
+    """The claimed territory is the notes policy's, the root policy's and the shared policy's. A write a run
+    of check-governed-document.sh examined is applied; a write no run examined, one through a worktree of the
+    project, a shell redirect and a `git mv` into the territory are bypassed by B1; a write outside the
+    territory and a file that is no Markdown are no moment."""
+    root = H.fresh_consumer().root
+    sid = "s40"
+    notes = root / NOTES_DIR
+    worktree = root / ".claude" / "worktrees" / "w" / NOTES_DIR / "w.md"
+    lines = [
+        tr_call(sid, root, WAY_AT, "t1", "Write", notes / "a.md"),
+        tr_hook(sid, root, WAY_AT, "t1", "check-governed-document.sh"),
+        tr_call(sid, root, WAY_AT, "t2", "Write", notes / "b.md"),
+        tr_call(sid, root, WAY_AT, "t3", "Write", worktree),
+        tr_tool(sid, root, "t4", "Bash", command="echo x > docs/notes/c.md"),
+        tr_tool(sid, root, "t5", "Bash", command="git mv README.md docs/policies/moved.md"),
+        tr_tool(sid, root, "t6", "Bash", command="echo x > README.md"),
+        tr_call(sid, root, WAY_AT, "t7", "Write", root / "docs" / "other" / "d.md"),
+        tr_call(sid, root, WAY_AT, "t8", "Write", notes / "e.txt"),
+    ]
+    found = effect_lines(root, {sid: lines})
+    assert "  W1 (pattern): 5 moment(s): 1 applied, 4 bypassed, 0 missed — B1 4" in found, found
+
+
+@item(41, "W2: a change of the dials is applied, or bypassed by B2 when severity goes down to warn")
+def test_effect_w2() -> None:
+    """Seven commits of the dials file. Applied: the namespace added at block, warn turned back to block,
+    block turned to the default by an empty namespace, `log_dir` added beside warn, and warn back to block.
+    Bypassed by B2: block turned to warn, and the default turned to warn by a namespace that had no
+    `severity` (a loosening the helper's own test of `block` to `warn` does not see)."""
+    consumer = H.fresh_consumer()
+    consumer.write(".gitignore", "logs/\n")  # the log folder a dial may name must be git-ignored
+    consumer.commit()
+    logs = "logs"
+    steps: list[dict[str, object]] = [
+        {"severity": "block"},
+        {"severity": "warn"},
+        {"severity": "block"},
+        {},
+        {"severity": "warn"},
+        {"severity": "warn", "log_dir": logs},
+        {"severity": "block", "log_dir": logs},
+    ]
+    for step in steps:
+        consumer.write_dials(own(**step))
+        consumer.commit()
+    found = effect_lines(consumer.root, {})
+    assert "  W2 (pattern): 7 moment(s): 5 applied, 2 bypassed, 0 missed — B2 2" in found, found
+
+
+@item(
+    42,
+    "W3: after a red the next act on the document decides: a write is applied, a shell command bypassed",
+)
+def test_effect_w3() -> None:
+    """Five sessions, each a red of the hook on a write of a note: a call the hook refused (the tool result)
+    or a PostToolUse attachment. The next act a write of the same file (applied); a `sed -i` of it
+    (bypassed); a write of another file and then a shell command naming this one (bypassed); a `git mv` of
+    it (bypassed); a human turn first (no moment)."""
+    root = H.fresh_consumer().root
+    notes = root / NOTES_DIR
+
+    def red(sid: str, *after: str, attached: bool = False) -> list[str]:
+        call = tr_call(sid, root, WAY_AT, "r", "Write", notes / "a.md")
+        mark = (
+            tr_red_attached(sid, root, "r", "RED: a finding")
+            if attached
+            else tr_refused(sid, root, "r", "RED: a finding")
+        )
+        return [call, mark, *after]
+
+    sessions = {
+        "s42a": red("s42a", tr_call("s42a", root, WAY_AT, "n", "Edit", notes / "a.md")),
+        "s42b": red(
+            "s42b",
+            tr_tool("s42b", root, "n", "Bash", command="sed -i '' s/a/b/ docs/notes/a.md"),
+            attached=True,
+        ),
+        "s42c": red(
+            "s42c",
+            tr_call("s42c", root, WAY_AT, "n1", "Write", notes / "other.md"),
+            tr_tool("s42c", root, "n2", "Bash", command="echo x >> docs/notes/a.md"),
+        ),
+        "s42d": red(
+            "s42d", tr_tool("s42d", root, "n", "Bash", command="git mv docs/notes/a.md docs/notes/z.md")
+        ),
+        "s42e": red(
+            "s42e",
+            tr_turn("s42e", root, WAY_AT, "stop"),
+            tr_call("s42e", root, WAY_AT, "n", "Write", notes / "a.md"),
+        ),
+    }
+    found = effect_lines(root, sessions)
+    assert "  W3 (pattern): 4 moment(s): 1 applied, 3 bypassed, 0 missed — B3 3" in found, found
+
+
+@item(
+    43, "W4: the skill a red names is loaded before the next act on the document, or the red is missed by B5"
+)
+def test_effect_w4() -> None:
+    """A red whose text says `load the skill const-meta-types:choose-meta-type`, refused or attached: a
+    Skill call naming it, in full or bare, before the next write of the file is applied; a write first, and
+    a Skill call for another skill, are missed; a red whose text names no skill is no moment."""
+    root = H.fresh_consumer().root
+    notes = root / NOTES_DIR
+
+    def case(sid: str, *after: str, said: str = F10_TEXT, attached: bool = False) -> list[str]:
+        text = f"RED: x\n{said}"
+        mark = tr_red_attached(sid, root, "r", text) if attached else tr_refused(sid, root, "r", text)
+        return [tr_call(sid, root, WAY_AT, "r", "Write", notes / "a.md"), mark, *after]
+
+    sessions = {
+        "s43a": case("s43a", tr_tool("s43a", root, "k", "Skill", skill="const-meta-types:choose-meta-type")),
+        "s43b": case("s43b", tr_tool("s43b", root, "k", "Skill", skill="choose-meta-type"), attached=True),
+        "s43c": case("s43c", tr_call("s43c", root, WAY_AT, "w", "Write", notes / "a.md")),
+        "s43d": case("s43d", tr_tool("s43d", root, "k", "Skill", skill="const-meta-types:other")),
+        "s43e": case("s43e", said="nothing to load"),
+    }
+    found = effect_lines(root, sessions)
+    assert "  W4 (pattern): 4 moment(s): 2 applied, 0 bypassed, 2 missed — B5 2" in found, found
+
+
+@item(
+    44,
+    "W5: a Write in claimed territory is applied when choose-meta-type was loaded earlier, else missed by B5",
+)
+def test_effect_w5() -> None:
+    """A Skill call for choose-meta-type earlier in the session makes a Write of a Markdown file in claimed
+    territory applied; a Write with no load, one through a worktree of the project and one after the load of
+    another skill are missed; an Edit, a Write outside the territory and a Write of a file that is no
+    Markdown are no moment."""
+    root = H.fresh_consumer().root
+    notes = root / NOTES_DIR
+    worktree = root / ".claude" / "worktrees" / "w" / NOTES_DIR / "w.md"
+    sessions = {
+        "s44a": [
+            tr_tool("s44a", root, "k", "Skill", skill="const-meta-types:choose-meta-type"),
+            tr_call("s44a", root, WAY_AT, "w1", "Write", notes / "a.md"),
+            tr_call("s44a", root, WAY_AT, "w2", "Write", root / "docs" / "policies" / "p-policy.md"),
+            tr_call("s44a", root, WAY_AT, "w3", "Write", root / "README.md"),
+            tr_call("s44a", root, WAY_AT, "w4", "Edit", notes / "b.md"),
+            tr_call("s44a", root, WAY_AT, "w5", "Write", notes / "c.txt"),
+        ],
+        "s44b": [
+            tr_call("s44b", root, WAY_AT, "w1", "Write", notes / "a.md"),
+            tr_call("s44b", root, WAY_AT, "w2", "Write", worktree),
+        ],
+        "s44c": [
+            tr_tool("s44c", root, "k", "Skill", skill="const-styling:style-defaults"),
+            tr_call("s44c", root, WAY_AT, "w1", "Write", notes / "c.md"),
+        ],
+    }
+    found = effect_lines(root, sessions)
+    assert "  W5 (pattern): 5 moment(s): 2 applied, 0 bypassed, 3 missed — B5 3" in found, found
+
+
+@item(
+    45,
+    "W6: the scan on each commit of the main branch in a throwaway clone: green applied, red bypassed by B4",
+)
+def test_effect_w6() -> None:
+    """Three commits of `main`: the fixture, a note with no envelope in claimed territory, and the note
+    given one. The scan of the current plugin runs on a shared clone at each, outside the project, which
+    stays as it was."""
+    consumer = H.fresh_consumer()
+    consumer.git("branch", "-M", "main")
+    consumer.write(NOTE_A, NO_ENVELOPE)
+    consumer.commit()
+    consumer.write(NOTE_A, envelope("note-a"))
+    consumer.commit()
+    root = consumer.root
+
+    def tree() -> str:
+        return subprocess.run(
+            ["git", "status", "--porcelain", "--ignored"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+
+    before = tree()
+    found = effect_lines(root, {})
+    assert "  W6 (pattern): 3 moment(s): 2 applied, 1 bypassed, 0 missed — B4 1" in found, found
+    assert tree() == before
+
+
 SUBJECT = Subject(
     harness=H,
     gate_on=gate_on,
@@ -1237,4 +1501,6 @@ SUBJECT = Subject(
     # the skip reason once a negated pattern takes `red` out of the territory, typed by hand
     outside="docs/notes/a.md is outside claimed territory",
     skill="choose-meta-type",  # the skill a red names (F10), typed by hand
+    effect="effect-report.sh",
+    # no effect_reader: this module has no reader rule
 )

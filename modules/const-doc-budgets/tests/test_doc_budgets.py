@@ -36,7 +36,17 @@ from constitution_layer_kit.model import Finding
 from constitution_layer_kit.testing.acceptance import broken_first_line, check_case, item
 from constitution_layer_kit.testing.consumer import Consumer
 from constitution_layer_kit.testing.harness import Case, Edit, Harness, Result, Write, event_json
-from constitution_layer_kit.testing.items import PatternDial, Subject, git_patch, git_timeouts, hook_budget
+from constitution_layer_kit.testing.items import (
+    PatternDial,
+    Subject,
+    fake_claude,
+    git_patch,
+    git_timeouts,
+    hook_budget,
+    tr_blocked,
+    tr_call,
+    tr_line,
+)
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 PLUGIN_ROOT = SCRIPTS.parent
@@ -1225,7 +1235,7 @@ def test_t20() -> None:
     )
     broken_first_line(
         no_shared,
-        "BROKEN: const-doc-budgets needs the Python package constitution-layer-kit 2.0.0 or a later 2.x"
+        "BROKEN: const-doc-budgets needs the Python package constitution-layer-kit 2.1.0 or a later 2.x"
         " release, and python3 cannot import it — fix: install it for python3 as"
         f" {PLUGIN_ROOT / 'INSTALL.md'} says — until then the gate's state is not said at session start",
     )
@@ -1286,6 +1296,188 @@ def test_t21() -> None:
     assert manifest["name"] == NAMESPACE, f"the manifest names {manifest['name']}"
 
 
+# ---------------------------------------------------------------- the effect report (items 25 to 28)
+# Each rule of the module's section "Effect" runs through the real entry `effect-report.sh` over transcripts
+# made by hand and, for the history rules, a scratch git repository. The lines asserted are typed by hand.
+
+EFFECT = SCRIPTS / "effect-report.sh"
+WAY_AT = "2026-11-03T10:00:00.000Z"
+SKILL_NAME = "const-doc-budgets:set-ceilings"
+DEPARTURE = {"paths": ["docs/notes/old.md"], "allow": ["notes"], "reason": "an accepted record"}
+
+
+def tr_tool(sid: str, cwd: Path, call_id: str, name: str, **given: object) -> str:
+    """A tool call of any tool, with its input as given."""
+    block = {"type": "tool_use", "id": call_id, "name": name, "input": given}
+    return tr_line("assistant", sid, cwd, WAY_AT, message={"role": "assistant", "content": [block]})
+
+
+def tr_post(sid: str, cwd: Path, call_id: str, script: str) -> str:
+    """A run of the module's PostToolUse hook that examined its call and passed it."""
+    done = {
+        "hookName": "PostToolUse:Write",
+        "toolUseID": call_id,
+        "hookEvent": "PostToolUse",
+        "command": f"sh /plugins/x/scripts/{script}",
+        "exitCode": 0,
+        "stdout": "GREEN",
+    }
+    return tr_line("attachment", sid, cwd, WAY_AT, attachment=done)
+
+
+def effect_lines(root: Path, sessions: dict[str, list[str]], env: dict[str, str] | None = None) -> list[str]:
+    """The lines of the report over the sessions, one transcript each; the report must exit 0."""
+    folder = H.scratch_dir()
+    for name, lines in sessions.items():
+        (folder / f"{name}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    result = H.run_gate(
+        "",
+        args=["--transcripts", str(folder)],
+        env={"CLAUDE_PLUGIN_DATA": str(H.scratch_dir()), **(env or {})},
+        command=[H.sh, str(EFFECT)],
+        cwd=root,
+    )
+    assert result.code == 0, result.stdout + result.stderr
+    return result.stdout.splitlines()
+
+
+def no_plugins(listed: str = "[]") -> dict[str, str]:
+    """The environment of a fake `claude` that lists `listed` as its plugins."""
+    return fake_claude(H.scratch_dir(), f"echo {shlex.quote(listed)}\n")
+
+
+@item(25, "W1: a write of a held document is applied when a hook run examined it, else bypassed by B1")
+def test_effect_path_bypass() -> None:
+    """Two ceilings hold documents. A write examined by a run of the gate's hook, passed or blocked, is
+    applied; a write no run examined, a shell redirect, a write through a worktree of the project and a
+    write under the second ceiling are bypassed by B1. A document no ceiling holds, a file that is no
+    Markdown and a path outside the project are no moment. The line is typed by hand."""
+    consumer = H.fresh_consumer()
+    plans = {**NOTES, "name": "plans", "paths": ["docs/plans/**"]}
+    consumer.write_dials(own(ceilings=[NOTES, plans]))
+    root, sid = consumer.root, "s25"
+    notes = root / "docs" / "notes"
+    worktree = root / ".claude" / "worktrees" / "w" / "docs" / "notes" / "w.md"
+    lines = [
+        tr_call(sid, root, WAY_AT, "t1", "Write", notes / "a.md"),
+        tr_post(sid, root, "t1", "check-budgets.sh"),
+        tr_call(sid, root, WAY_AT, "t2", "Edit", notes / "b.md"),
+        tr_blocked(sid, root, WAY_AT, "t2", "check-budgets.sh"),
+        tr_call(sid, root, WAY_AT, "t3", "Write", notes / "c.md"),
+        tr_tool(sid, root, "t4", "Bash", command="echo x > docs/notes/d.md"),
+        tr_call(sid, root, WAY_AT, "t5", "Write", worktree),
+        tr_call(sid, root, WAY_AT, "t6", "Write", root / "docs" / "plans" / "p.md"),
+        tr_call(sid, root, WAY_AT, "t7", "Write", root / "docs" / "other" / "o.md"),
+        tr_call(sid, root, WAY_AT, "t8", "Write", notes / "e.txt"),
+        tr_call(sid, root, WAY_AT, "t9", "Write", Path("/elsewhere/docs/notes/f.md")),
+    ]
+    found = effect_lines(root, {sid: lines}, no_plugins())
+    wanted = "  W1 (pattern): 6 moment(s): 2 applied, 4 bypassed, 0 missed — B1 4"
+    assert wanted in found, found
+
+
+@item(26, "W2: the plugin disabled, or a ceiling raised, lowered to a warning or removed, is bypassed by B2")
+def test_effect_switch_off() -> None:
+    """Eleven commits of the dials file, the namespace changed at each: the ceiling set (applied); severity
+    block written out (applied); its number raised (bypassed); lowered (applied); its level moved to warning
+    (bypassed); back to error (applied); a departure added (bypassed); that departure removed (applied); the
+    ceiling removed (bypassed); put back (applied); severity warn (bypassed). A fake plugin list that lists
+    the gate for this project disabled adds one more, bypassed. The lines are typed by hand."""
+    consumer = H.fresh_consumer()
+    root = consumer.root
+    steps = [
+        own(),
+        own(severity="block"),
+        own(severity="block", ceilings=[{**NOTES, "max": 200}]),
+        own(severity="block", ceilings=[{**NOTES, "max": 150}]),
+        own(severity="block", ceilings=[{**NOTES, "max": 150, "level": "warning"}]),
+        own(severity="block", ceilings=[{**NOTES, "max": 150}]),
+        own(severity="block", ceilings=[{**NOTES, "max": 150}], departures=[DEPARTURE]),
+        own(severity="block", ceilings=[{**NOTES, "max": 150}]),
+        own(severity="block", ceilings=[]),
+        own(severity="block"),
+        own(severity="warn"),
+    ]
+    for step in steps:
+        consumer.write_dials(step)
+        consumer.commit()
+    found = effect_lines(root, {}, no_plugins())
+    assert "  W2 (pattern): 11 moment(s): 6 applied, 5 bypassed, 0 missed — B2 5" in found, found
+    disabled = json.dumps([{"id": f"{NAMESPACE}@m", "enabled": False, "projectPath": str(root)}])
+    again = effect_lines(root, {}, no_plugins(disabled))
+    assert "  W2 (pattern): 12 moment(s): 6 applied, 6 bypassed, 0 missed — B2 6" in again, again
+
+
+@item(27, "W3: the scan on each commit of main in a throwaway clone: green applied, a long document bypassed")
+def test_effect_escape() -> None:
+    """Four commits of `main`: the fixture, the ceiling of 100 characters set, a document of 151 (the scan is
+    red there), and the document cut to 100. The module's own scan runs on a shared clone at each, outside
+    the project, which stays as it was. The line is typed by hand."""
+    consumer = H.fresh_consumer()
+    consumer.git("branch", "-M", "main")
+    consumer.write_dials(own())
+    consumer.commit()
+    consumer.write("docs/notes/long.md", doc(151))
+    consumer.commit()
+    consumer.write("docs/notes/long.md", doc(100))
+    consumer.commit()
+    root = consumer.root
+    before = subprocess.run(
+        ["git", "status", "--porcelain", "--ignored"], cwd=root, capture_output=True, text=True, check=True
+    )
+    found = effect_lines(root, {}, no_plugins())
+    assert "  W3 (pattern): 4 moment(s): 3 applied, 1 bypassed, 0 missed — B4 1" in found, found
+    after = subprocess.run(
+        ["git", "status", "--porcelain", "--ignored"], cwd=root, capture_output=True, text=True, check=True
+    )
+    assert after.stdout == before.stdout, (before.stdout, after.stdout)
+
+
+@item(
+    28,
+    "W4: set-ceilings loaded before an edit of the dials file that touches the ceilings, else missed by B5",
+)
+def test_effect_skill_before_edit() -> None:
+    """An Edit of the dials file that writes a `max:` after a load of `set-ceilings`, in full, and a Write
+    of the file that holds `ceilings:` after a load, bare, are applied. The same Edit with no load, a Write
+    of `departures:` after a load of another skill, and an Edit made before the load are missed by B5. An
+    Edit of the dials file that touches no ceiling and an Edit of a Markdown file that names the ceilings are
+    no moment. The line is typed by hand."""
+    root = H.fresh_consumer().root
+    dials = str(root / "constitution.yaml")
+
+    def edit(sid: str, call_id: str, text: str) -> str:
+        return tr_tool(sid, root, call_id, "Edit", file_path=dials, old_string="x", new_string=text)
+
+    def write(sid: str, call_id: str, text: str) -> str:
+        return tr_tool(sid, root, call_id, "Write", file_path=dials, content=text)
+
+    def load(sid: str, name: str) -> str:
+        return tr_tool(sid, root, "k", "Skill", skill=name)
+
+    sessions = {
+        "s28a": [load("s28a", SKILL_NAME), edit("s28a", "e", "    max: 5000")],
+        "s28b": [load("s28b", "set-ceilings"), write("s28b", "w", "const-doc-budgets:\n  ceilings: []\n")],
+        "s28c": [edit("s28c", "e", "    max: 9000")],
+        "s28d": [load("s28d", "const-doc-budgets:other"), write("s28d", "w", "  departures: []\n")],
+        "s28e": [edit("s28e", "e", "    max: 9000"), load("s28e", SKILL_NAME)],
+        "s28f": [edit("s28f", "e", "  severity: warn")],
+        "s28g": [
+            tr_tool(
+                "s28g",
+                root,
+                "d",
+                "Edit",
+                file_path=str(root / "docs" / "a.md"),
+                old_string="x",
+                new_string="ceilings",
+            )
+        ],
+    }
+    found = effect_lines(root, sessions, no_plugins())
+    assert "  W4 (pattern): 5 moment(s): 2 applied, 0 bypassed, 3 missed — B5 3" in found, found
+
+
 NOTED = Write("docs/notes/ok.md", doc(151))
 
 
@@ -1327,4 +1519,5 @@ SUBJECT = Subject(
         "ceilings entry 1 paths", lambda pattern: own(ceilings=[{**NOTES, "paths": [pattern]}])
     ),
     skill="set-ceilings",  # the skill a red names (F10), typed by hand
+    effect="effect-report.sh",
 )
