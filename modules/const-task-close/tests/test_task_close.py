@@ -32,7 +32,14 @@ from constitution_layer_kit.model import Finding
 from constitution_layer_kit.testing.acceptance import broken_first_line, expect, failure_of, item
 from constitution_layer_kit.testing.consumer import Consumer
 from constitution_layer_kit.testing.harness import Edit, Harness, Result, Write, stop_json
-from constitution_layer_kit.testing.items import PatternDial, Subject, git_patch
+from constitution_layer_kit.testing.items import (
+    PatternDial,
+    Subject,
+    fake_claude,
+    git_patch,
+    tr_line,
+    tr_turn,
+)
 from task_close_gate import dials, messages, start
 from task_close_gate.model import BODY, Declaration, Pair
 
@@ -1919,7 +1926,7 @@ def test_closing_is_the_gates_own() -> None:
             command=[sys.executable, "-S", str(entry)],
             shared=False,
         ),
-        "BROKEN: const-task-close needs the Python package constitution-layer-kit 2.0.0 or a later 2.x"
+        "BROKEN: const-task-close needs the Python package constitution-layer-kit 2.1.0 or a later 2.x"
         " release, and python3 cannot import it — fix: install it for python3 as"
         f" {SCRIPTS.parent / 'INSTALL.md'} says — {CLOSING}",
     )
@@ -2013,6 +2020,224 @@ def claim(territory: Sequence[str]) -> dict[str, object]:
     return own()
 
 
+# ------------------------------------------------------------------ the effect report (items 42 on)
+# The rules W1 to W5 of the module's section 13, each run through `effect-report.sh` over transcripts made
+# by hand and, for W1 and W3, over a git history made in a scratch repository. The lines are typed by hand.
+
+EFFECT_AT = "2026-11-03T10:00:00.000Z"
+EFFECT_CALL = "const-task-close:commit-before-edit"
+EFFECT_CLOSE = "const-task-close:close-task"
+
+
+def tr_tool(sid: str, cwd: Path, call_id: str, name: str, **given: object) -> str:
+    block = {"type": "tool_use", "id": call_id, "name": name, "input": given}
+    return tr_line("assistant", sid, cwd, EFFECT_AT, message={"role": "assistant", "content": [block]})
+
+
+def tr_stop_red(sid: str, cwd: Path, hook: str = "Stop", script: str = "check-task-close.sh") -> str:
+    """A run of a hook script that blocked, with no call it examined: the turn-end hook's block."""
+    done = {
+        "type": "hook_blocking_error",
+        "hookName": hook,
+        "toolUseID": "",
+        "hookEvent": hook.partition(":")[0],
+        "blockingError": {
+            "blockingError": f"[sh /x/plugin/scripts/{script}]: RED: the working tree is dirty"
+        },
+    }
+    return tr_line("attachment", sid, cwd, EFFECT_AT, attachment=done)
+
+
+def effect_lines(root: Path, sessions: Mapping[str, Sequence[str]] | None = None) -> list[str]:
+    """The lines of the report over the sessions, one transcript each; a fake `claude` lists no plugin."""
+    folder = H.scratch_dir()
+    for name, lines in (sessions or {}).items():
+        (folder / f"{name}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    env = {"CLAUDE_PLUGIN_DATA": str(H.scratch_dir()), **fake_claude(H.scratch_dir(), "echo '[]'\n")}
+    result = H.run_gate(
+        "",
+        args=["--transcripts", str(folder)],
+        env=env,
+        command=[H.sh, str(SCRIPTS / "effect-report.sh")],
+        cwd=root,
+    )
+    assert result.code == 0, result.stdout + result.stderr
+    return result.stdout.splitlines()
+
+
+@item(
+    42,
+    "W1: a change of the module's dials is applied, or bypassed by B2 when the map narrows or severity falls",
+)
+def test_effect_switch_off() -> None:
+    """Six commits of the dials file: a map of two pairs and severity block (applied), one pair removed
+    (bypassed), a pattern added to a pair's code (applied), a pattern removed from it (bypassed), severity
+    turned to warn (bypassed), the trunk renamed (applied). The plugin list names no plugin."""
+    r = repo(own())
+    core = {"name": "core", "code": ["src/**"], "docs": ["docs/core.md"]}
+    extra = {"name": "extra", "code": ["lib/**"], "docs": ["docs/extra.md"]}
+    wider = {**core, "code": ["src/**", "app/**"]}
+    narrower = {**core, "code": ["app/**"]}
+    steps = [
+        own(coverage=[core, extra], severity="block"),
+        own(coverage=[core], severity="block"),
+        own(coverage=[wider], severity="block"),
+        own(coverage=[narrower], severity="block"),
+        own(coverage=[narrower], severity="warn"),
+        own(coverage=[narrower], severity="warn", trunk="trunk"),
+    ]
+    for number, step in enumerate(steps, start=1):
+        commit(r.root, f"step {number}", {"constitution.yaml": dials_text(step)})
+    found = effect_lines(r.root)
+    assert "  W1 (pattern): 6 moment(s): 3 applied, 3 bypassed, 0 missed — B2 3" in found, found
+
+
+@item(43, "W2: after a red at a turn end, a commit or a stash is applied and any other act is bypassed by B3")
+def test_effect_after_turn_end_red() -> None:
+    """Each session holds a red of the turn-end hook. The next act a commit (applied); a look at the tree,
+    then a stash (applied); a write of a file, a `rm`, a `git checkout --` (bypassed). A human turn first,
+    a look at the tree and then a human turn, a red of the same script on a call, and a red of another
+    script are no moment."""
+    root = repo(own()).root
+    sid = "s43"
+
+    def case(name: str, *after: str, red: str = "") -> list[str]:
+        return [red or tr_stop_red(name, root), *after]
+
+    sessions = {
+        "a": case("a", tr_tool("a", root, "1", "Bash", command="git add -A && git commit -qm x")),
+        "b": case(
+            "b",
+            tr_tool("b", root, "1", "Bash", command="git status --short"),
+            tr_tool("b", root, "2", "Bash", command="git stash -u"),
+        ),
+        "c": case("c", tr_tool("c", root, "1", "Write", file_path="x.md", content="x")),
+        "d": case("d", tr_tool("d", root, "1", "Bash", command="rm scratch.txt")),
+        "e": case("e", tr_tool("e", root, "1", "Bash", command="git checkout -- .")),
+        "f": case(
+            "f", tr_turn("f", root, EFFECT_AT, "stop"), tr_tool("f", root, "1", "Bash", command="git commit")
+        ),
+        "g": case(
+            "g", tr_tool("g", root, "1", "Bash", command="git diff"), tr_turn("g", root, EFFECT_AT, "x")
+        ),
+        "h": case(
+            "h",
+            tr_tool("h", root, "1", "Bash", command="rm x"),
+            red=tr_stop_red("h", root, "PreToolUse:Write"),
+        ),
+        "i": case(
+            "i",
+            tr_tool("i", root, "1", "Bash", command="rm x"),
+            red=tr_stop_red("i", root, script="other.sh"),
+        ),
+    }
+    assert sid
+    found = effect_lines(root, sessions)
+    assert "  W2 (pattern): 5 moment(s): 2 applied, 3 bypassed, 0 missed — B3 3" in found, found
+
+
+@item(
+    44,
+    "W3: the range check on each commit of main in a throwaway clone: green applied, red bypassed by B4",
+)
+def test_effect_escape() -> None:
+    """Four commits of main: the fixture, the setup and two merges. One merge changes code with no document
+    and no declaration (red, bypassed); the other changes code and its document (green, applied). The scan of
+    the current plugin runs on a shared clone at each commit with `--scan --change`, outside the project,
+    which stays as it was."""
+    r = repo(with_map())
+    branch(r.root, "work/a")
+    commit(r.root, "code only", {"src/a.py": "2\n"})
+    merge(r.root, "work/a")
+    branch(r.root, "work/b")
+    commit(r.root, "code and page", {"src/a.py": "3\n", "docs/core.md": "# core 2\n"})
+    merge(r.root, "work/b")
+    before = (
+        git(r.root, "status", "--porcelain", "--ignored").stdout,
+        sorted(p.name for p in r.root.iterdir()),
+    )
+    found = effect_lines(r.root)
+    assert "  W3 (pattern): 4 moment(s): 3 applied, 1 bypassed, 0 missed — B4 1" in found, found
+    after = git(r.root, "status", "--porcelain", "--ignored").stdout, sorted(p.name for p in r.root.iterdir())
+    assert after == before, (before, after)
+
+
+@item(
+    45,
+    "W4: the first edit after a human turn is applied after a load of commit-before-edit, else missed by B5",
+)
+def test_effect_commit_before_edit() -> None:
+    """The moment is the first call of an editing tool after each human turn. A load of the skill, in full or
+    bare, before it makes it applied, and stays so for later turns; none makes it missed. A second edit of
+    the same turn, a shell write and a read are no moment."""
+    root = repo(own()).root
+    s = "s45"
+    sessions = {
+        "a": [
+            tr_turn(s, root, EFFECT_AT, "go"),
+            tr_tool(s, root, "k", "Skill", skill=EFFECT_CALL),
+            tr_tool(s, root, "w1", "Write", file_path="a.md", content="x"),
+            tr_tool(s, root, "w2", "Edit", file_path="a.md"),
+        ],
+        "b": [
+            tr_turn(s, root, EFFECT_AT, "go"),
+            tr_tool(s, root, "w1", "Write", file_path="a.md", content="x"),
+            tr_tool(s, root, "w2", "Edit", file_path="a.md"),
+            tr_turn(s, root, EFFECT_AT, "more"),
+            tr_tool(s, root, "w3", "NotebookEdit", file_path="a.ipynb"),
+            tr_tool(s, root, "w4", "Write", file_path="b.md", content="x"),
+        ],
+        "c": [
+            tr_turn(s, root, EFFECT_AT, "go"),
+            tr_tool(s, root, "k", "Skill", skill="commit-before-edit"),
+            tr_tool(s, root, "w1", "Write", file_path="a.md", content="x"),
+            tr_turn(s, root, EFFECT_AT, "more"),
+            tr_tool(s, root, "w2", "Edit", file_path="a.md"),
+        ],
+        "d": [
+            tr_turn(s, root, EFFECT_AT, "go"),
+            tr_tool(s, root, "b1", "Bash", command="echo x > a.md"),
+            tr_tool(s, root, "r1", "Read", file_path="a.md"),
+        ],
+    }
+    found = effect_lines(root, sessions)
+    assert "  W4 (pattern): 5 moment(s): 3 applied, 0 bypassed, 2 missed — B5 2" in found, found
+
+
+@item(46, "W5: close-task loaded earlier makes a merge applied, none makes it missed by B5")
+def test_effect_close_task() -> None:
+    """The moment is a shell command that merges: `gh pr merge` or `git merge`, behind `cd`, with options
+    of git before the subcommand. A load of the skill earlier in the session, in full or bare, makes it
+    applied; none, or a load of the other skill, makes it missed. `git merge --abort`, `git merge-base`,
+    a log of merges and a quoted phrase are no moment."""
+    root = repo(own()).root
+    s = "s46"
+    merge_pr = "cd . && gh pr merge 5 --merge --subject 'Work: x'"
+    sessions = {
+        "a": [
+            tr_tool(s, root, "k", "Skill", skill=EFFECT_CLOSE),
+            tr_tool(s, root, "m", "Bash", command=merge_pr),
+        ],
+        "b": [tr_tool(s, root, "m", "Bash", command="git merge work/x")],
+        "c": [
+            tr_tool(s, root, "k", "Skill", skill=EFFECT_CALL),
+            tr_tool(s, root, "m", "Bash", command="gh pr merge 6"),
+        ],
+        "d": [
+            tr_tool(s, root, "1", "Bash", command="git merge --abort"),
+            tr_tool(s, root, "2", "Bash", command="git merge-base main work/x"),
+            tr_tool(s, root, "3", "Bash", command="git log --merges"),
+            tr_tool(s, root, "4", "Bash", command='echo "gh pr merge 7"'),
+        ],
+        "e": [
+            tr_tool(s, root, "k", "Skill", skill="close-task"),
+            tr_tool(s, root, "m", "Bash", command="git -C /elsewhere merge --no-ff work/y"),
+        ],
+    }
+    found = effect_lines(root, sessions)
+    assert "  W5 (pattern): 4 moment(s): 2 applied, 0 bypassed, 2 missed — B5 2" in found, found
+
+
 SUBJECT = Subject(
     harness=H,
     gate_on=gate_on,
@@ -2028,4 +2253,5 @@ SUBJECT = Subject(
     event="Stop",
     pattern_dial=PatternDial("working_files", lambda pattern: own(working_files=[pattern])),
     skill="commit-before-edit",  # the skill a red names (F10), typed by hand
+    effect="effect-report.sh",
 )
