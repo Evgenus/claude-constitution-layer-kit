@@ -28,7 +28,7 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Iterator, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from . import repository
@@ -42,6 +42,9 @@ REFUSED = re.compile(r"\A([A-Za-z]+:[A-Za-z0-9_]+) hook error: (\[[^\]]*\]):")
 FEEDBACK = re.compile(r"\A([A-Za-z]+) hook feedback:\n(\[[^\]]*\]):")
 # the plugin a blocking text comes from, the platform's last line:
 # `This hook comes from the <name>@<marketplace> plugin.`
+# the module a run that let its call through names: every gate's green line, `GREEN: <namespace>: …`, which
+# stands in the run's text where the platform records its command as `command hook <n>`, naming no script
+GREEN = re.compile(r"GREEN: ([A-Za-z0-9_.-]+): ")
 PLUGIN = re.compile(r"This hook comes from the ([A-Za-z0-9_.-]+)@[A-Za-z0-9_.-]+ plugin\.")
 
 
@@ -58,6 +61,7 @@ class ToolCall:
     name: str
     input: Mapping[str, object]
     cwd: str = ""  # the folder the platform's line says the call ran in
+    failed: bool = False  # its tool result was an error: a hook refused it, or the tool could not do it
 
     def names(self) -> str:
         """What the call acts on, as a hook's event names it: the file, or the shell tool's command."""
@@ -122,6 +126,7 @@ class _Reading:
     events: list[Event] = field(default_factory=list)
     cwds: set[str] = field(default_factory=set)
     unread: int = 0
+    failed: set[str] = field(default_factory=set)  # the ids of the calls whose tool result was an error
 
 
 def script_of(command: str) -> str:
@@ -148,10 +153,14 @@ def read_transcript(path: Path) -> Session | None:
             reading.unread += 1
             continue
         _take(reading, loaded)
+    events = tuple(
+        replace(event, failed=True) if isinstance(event, ToolCall) and event.id in reading.failed else event
+        for event in reading.events
+    )
     return Session(
         reading.session or path.stem,
         str(path),
-        tuple(reading.events),
+        events,
         frozenset(reading.cwds),
         reading.unread,
     )
@@ -167,6 +176,7 @@ def _take(reading: _Reading, line: Mapping[str, object]) -> None:
     message = line.get("message")
     content = message.get("content") if isinstance(message, dict) else None
     if kind == "user":
+        reading.failed.update(_failed(content))
         reading.events.extend(_refusals(at, content))
         feedback = _feedback(at, content) if line.get("isMeta") else None
         human = None if line.get("isMeta") else _human_text(content)
@@ -212,6 +222,13 @@ def _assistant_events(at: str, content: Sequence[object], cwd: str) -> Iterator[
 def _plugin(text: str) -> str:
     found = PLUGIN.search(text)
     return found[1] if found else ""
+
+
+def _failed(content: object) -> Iterator[str]:
+    """The ids of the calls whose tool result is an error."""
+    for block in content if isinstance(content, list) else []:
+        if isinstance(block, dict) and block.get("type") == "tool_result" and block.get("is_error") is True:
+            yield _text(block.get("tool_use_id"))
 
 
 def _refusals(at: str, content: object) -> Iterator[HookRun]:
@@ -272,8 +289,13 @@ def _hook_run(at: str, attachment: object) -> HookRun | None:
         exit_code,
         isinstance(blocking, str),
         printed,
-        _plugin(printed) if isinstance(blocking, str) else "",
+        _plugin(printed) if isinstance(blocking, str) else _green(printed),
     )
+
+
+def _green(text: str) -> str:
+    found = GREEN.search(text)
+    return found[1] if found else ""
 
 
 def read_log(directory: Path, namespace: str) -> list[LogRecord]:

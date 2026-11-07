@@ -201,7 +201,8 @@ def path_bypass(key: str, text: str, in_territory: Callable[[str], bool]) -> Rul
     """B1. A moment for each Write or Edit of a Markdown file in the territory, applied where a run of the
     module's hook examined the call and bypassed where none did, and for each shell command that seems to
     change a Markdown file in the territory, bypassed. `in_territory` takes a path relative to the project's
-    root and reads the territory on the current tree; a path outside the project is no moment."""
+    root and reads the territory on the current tree; a path outside the project is no moment, and so is a
+    call whose result was an error that no hook of the module examined: it changed nothing."""
 
     def find(history: History) -> list[Moment]:
         return [m for session in history.sessions for m in _path_moments(history, session, in_territory)]
@@ -214,6 +215,8 @@ def _path_moments(
 ) -> Iterator[Moment]:
     examined = {call.id for call, _ in history.runs(session) if call is not None}
     for call in session.calls():
+        if call.failed and call.id not in examined:
+            continue  # it changed nothing, and the gate never saw it: another hook refused it, or it failed
         if call.name in WRITES:
             rel = relative(history, call.names(), call.cwd)
             if rel is not None and rel.lower().endswith(".md") and in_territory(rel):
