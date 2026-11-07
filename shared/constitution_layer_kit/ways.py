@@ -364,7 +364,7 @@ def _reds(history: History, session: Session) -> Iterator[tuple[int, ToolCall | 
     examined, and the run."""
     calls = {call.id: call for call in session.calls()}
     for index, event in enumerate(session.events):
-        if isinstance(event, HookRun) and event.script in history.scripts and _is_red(event):
+        if isinstance(event, HookRun) and history.ours(event) and _is_red(event):
             yield index, calls.get(event.tool_use_id), event
 
 
