@@ -940,6 +940,27 @@ def test_red_by_plugin() -> None:
         assert all(m.outcome is Outcome.APPLIED for m in fixed + loaded), (fixed, loaded)
 
 
+@item(
+    26,
+    "W5: an absent severity reads as the default, so absent to warn is lowered; adding the namespace is not",
+)
+def test_switch_off_default() -> None:
+    """Two histories of the dials file. In the first the gate's namespace comes in with no severity, which
+    reads as `block` (applied), then gains `severity: warn` (bypassed by B2). In the second it comes in at
+    `warn`: a project may adopt a module at warn, so that is no lowering (applied). Typed by hand."""
+    first = H.fresh_consumer()
+    for step in (own(other=1), own(other=1, severity="warn")):
+        first.write_dials(step)
+        first.commit()
+    found = effect_lines(first.root, {}, no_plugins())
+    assert "  W5 (pattern): 2 moment(s): 1 applied, 1 bypassed, 0 missed — B2 1" in found, found
+    second = H.fresh_consumer()
+    second.write_dials(own(severity="warn"))
+    second.commit()
+    adopted = effect_lines(second.root, {}, no_plugins())
+    assert "  W5 (pattern): 1 moment(s): 1 applied, 0 bypassed, 0 missed" in adopted, adopted
+
+
 SUBJECT = Subject(
     harness=H,
     gate_on=gate_on,
