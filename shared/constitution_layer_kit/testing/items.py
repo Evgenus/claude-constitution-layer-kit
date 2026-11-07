@@ -3989,6 +3989,18 @@ def tr_hook(sid: str, cwd: Path, at: str, call_id: str, script: str) -> str:
     return tr_line("attachment", sid, cwd, at, attachment=done)
 
 
+def tr_blocked(sid: str, cwd: Path, at: str, call_id: str, script: str) -> str:
+    """A hook run that blocked its call: no `command`, the text opens with the command in brackets."""
+    done = {
+        "type": "hook_blocking_error",
+        "hookName": "PreToolUse:Write",
+        "toolUseID": call_id,
+        "hookEvent": "PreToolUse",
+        "blockingError": {"blockingError": f"[sh /x/plugin/scripts/{script}]: RED: a finding"},
+    }
+    return tr_line("attachment", sid, cwd, at, attachment=done)
+
+
 def log_record(ns: str, at: str, mode: str, session: str, path: str = "", transcript: str = "") -> str:
     return json.dumps(
         {
@@ -4092,8 +4104,8 @@ def test_effect_no_transcript(subject: Subject) -> None:
     result = effect_run(it, root)
     headline = effect_headline(it.ns, result)
     note = (  # typed by hand
-        f"note: {it.ns}: no session read — no record of the module's log names a transcript of this project;"
-        " name a folder of transcripts with --transcripts <dir>"
+        f"note: {it.ns}: no session read — neither the module's log nor --transcripts names a transcript of a"
+        " session of this project; name the folder of this project's transcripts with --transcripts <dir>"
     )
     ok = (
         result.code == 0
@@ -4148,6 +4160,16 @@ def test_effect_log_finds_transcript(subject: Subject) -> None:
     result = effect_run(it, root, data=data)
     headline = effect_headline(it.ns, result)
     assert result.code == 0 and headline.endswith(effect_tail(it.ns, 1)), result.stdout
+    # the same file named by the log's absolute path and found again under a folder given relatively
+    solo = it.h.scratch_dir()
+    kept = solo / "own.jsonl"
+    kept.write_text(own.read_text(encoding="utf-8"), encoding="utf-8")
+    twice = it.h.scratch_dir()
+    (twice / log_name()).write_text(log_record(it.ns, EFFECT_DAY, "hook", "s-own", "", str(kept)) + "\n")
+    relative = os.path.relpath(solo, root)
+    again = effect_run(it, root, "--transcripts", relative, data=twice)
+    said = effect_headline(it.ns, again)
+    assert again.code == 0 and said.endswith(effect_tail(it.ns, 1)), f"counted twice: {again.stdout}"
 
 
 @item(195, "effect report: a hook record whose path no hook run of its session examined prints DISAGREE")
@@ -4221,6 +4243,10 @@ def test_effect_flags_broken(subject: Subject) -> None:
             "--since",
             "11/03",
         ): f"BROKEN: {it.ns}: --since '11/03' is no date — fix: write the date as YYYY-MM-DD\n",
+        (
+            "--since",
+            "2026-13-45",
+        ): f"BROKEN: {it.ns}: --since '2026-13-45' is no date — fix: write the date as YYYY-MM-DD\n",
         ("--transcripts", str(missing)): (
             f"BROKEN: {it.ns}: --transcripts '{missing}' is no folder — fix: name the folder that holds the"
             " session transcripts, the *.jsonl files\n"
@@ -4306,7 +4332,10 @@ def test_effect_reader_no_verdict(subject: Subject) -> None:
     key = it.s.effect_reader
     wanted = [  # typed by hand
         f"  {key} (reader): {moments} moment(s): 0 applied, 0 bypassed, 0 missed",
-        f"  {key} (reader): {moments} moment(s) without a verdict — the reader's answer named no outcome",
+        (
+            f"  {key} (reader): {moments} moment(s) without a verdict — the reader gave no outcome:"
+            " its answer named none, or claude failed or ran out of time"
+        ),
         f"READER: {it.ns}: judged by the default model on Claude Code 9.9.9",
     ]
     lines = result.stdout.splitlines()

@@ -13,11 +13,20 @@ from pathlib import Path
 
 from constitution_layer_kit import identity
 from constitution_layer_kit import messages as shared
+from constitution_layer_kit.history import read_transcript
 from constitution_layer_kit.model import KERNEL_KEYS
 from constitution_layer_kit.testing.acceptance import broken_first_line, expect, item
 from constitution_layer_kit.testing.consumer import ROOT_POLICY, Consumer, document, dump, envelope
 from constitution_layer_kit.testing.harness import Edit, Harness, Result, Write, event_json
-from constitution_layer_kit.testing.items import NO_ENVELOPE, Subject, tr_call, tr_hook
+from constitution_layer_kit.testing.items import (
+    NO_ENVELOPE,
+    Subject,
+    log_record,
+    tr_blocked,
+    tr_call,
+    tr_hook,
+    tr_turn,
+)
 from layered_gate import messages, start
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
@@ -237,9 +246,10 @@ def test_unreadable_envelope_is_no_crash() -> None:
     "W1: a Markdown write is applied when a run of the hook script examined it, else bypassed by B1",
 )
 def test_effect_pattern_rule() -> None:
-    """A hand-made transcript: a Write examined by a run of `check-layered.sh` and an Edit likewise are
-    applied; a Write with no run, and one whose only run is of another script, are bypassed by way B1; a
-    write of a file that is no Markdown is no moment. The line is typed by hand."""
+    """A hand-made transcript: a Write examined by a run of `check-layered.sh`, an Edit likewise, and a Write
+    whose call that script blocked are applied; a Write with no run, and one whose only run is of another
+    script, are bypassed by way B1; a write of a file that is no Markdown is no moment. The line is typed by
+    hand."""
     root = H.fresh_consumer().root
     folder = H.scratch_dir()
     sid, at = "s9", "2026-11-03T10:00:00.000Z"
@@ -252,6 +262,8 @@ def test_effect_pattern_rule() -> None:
         tr_call(sid, root, at, "t4", "Write", root / "d.txt"),
         tr_call(sid, root, at, "t5", "Edit", root / "e.md"),
         tr_hook(sid, root, at, "t5", "check-layered.sh"),
+        tr_call(sid, root, at, "t6", "Write", root / "f.md"),
+        tr_blocked(sid, root, at, "t6", "check-layered.sh"),
     ]
     (folder / "s9.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
     result = H.run_gate(
@@ -261,7 +273,52 @@ def test_effect_pattern_rule() -> None:
         command=[H.sh, str(SCRIPTS / "effect-report.sh")],
         cwd=root,
     )
-    wanted = "  W1 (pattern): 4 moment(s): 2 applied, 2 bypassed, 0 missed — B1 2"
+    wanted = "  W1 (pattern): 5 moment(s): 3 applied, 2 bypassed, 0 missed — B1 2"
+    assert result.code == 0 and wanted in result.stdout.splitlines(), result.stdout + result.stderr
+
+
+@item(10, "a run of the hook script that blocked its call is read as that script's run, and as blocked")
+def test_blocked_hook_run() -> None:
+    """The transcript line of a hook that blocked has no `command`: its text opens with the command in
+    brackets. The reader takes the script from there and marks the run blocked; a run that let the call
+    through is not blocked."""
+    root = H.fresh_consumer().root
+    path = H.scratch_dir() / "s10.jsonl"
+    lines = [
+        tr_call("s10", root, "2026-11-03T10:00:00.000Z", "t1", "Write", root / "a.md"),
+        tr_blocked("s10", root, "2026-11-03T10:00:00.000Z", "t1", "check-layered.sh"),
+        tr_call("s10", root, "2026-11-03T10:00:00.000Z", "t2", "Write", root / "b.md"),
+        tr_hook("s10", root, "2026-11-03T10:00:00.000Z", "t2", "check-layered.sh"),
+    ]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    session = read_transcript(path)
+    assert session is not None
+    seen = [(run.tool_use_id, run.script, run.blocked) for run in session.hook_runs()]
+    assert seen == [("t1", "check-layered.sh", True), ("t2", "check-layered.sh", False)], seen
+
+
+@item(11, "W3: a hook record of the log counts only where no transcript holds its session")
+def test_effect_log_only() -> None:
+    """The log holds a hook record of session `held`, whose transcript is read, and one of `unheld`, whose
+    transcript is not; only the second is a moment of W3, applied. A scan record counts for none."""
+    root = H.fresh_consumer().root
+    folder, data = H.scratch_dir(), H.scratch_dir()
+    at = "2026-11-03T10:00:00.000Z"
+    (folder / "held.jsonl").write_text(tr_turn("held", root, at, "hello") + "\n", encoding="utf-8")
+    records = [
+        log_record(NAMESPACE, at, "hook", "held", str(root / "a.md")),
+        log_record(NAMESPACE, at, "hook", "unheld", str(root / "b.md")),
+        log_record(NAMESPACE, at, "scan", "unheld", ""),
+    ]
+    (data / f"{NAMESPACE}.jsonl").write_text("\n".join(records) + "\n", encoding="utf-8")
+    result = H.run_gate(
+        "",
+        args=["--transcripts", str(folder)],
+        env={"CLAUDE_PLUGIN_DATA": str(data)},
+        command=[H.sh, str(SCRIPTS / "effect-report.sh")],
+        cwd=root,
+    )
+    wanted = "  W3 (pattern): 1 moment(s): 1 applied, 0 bypassed, 0 missed"
     assert result.code == 0 and wanted in result.stdout.splitlines(), result.stdout + result.stderr
 
 

@@ -44,8 +44,15 @@ def human_turns(history: History) -> list[Moment]:
     return found
 
 
+def unheld_hook_records(history: History) -> list[Moment]:
+    """W3: each hook record of the log whose session no transcript holds is a moment, applied: the log
+    alone says the hook ran there."""
+    return [Moment(r.session, r.at, r.path, Outcome.APPLIED) for r in history.log_only()]
+
+
 def rules() -> Sequence[Rule]:
     return (
         Rule("W1", Judge.PATTERN, (Way.B1,), "Every write of a Markdown file is examined.", markdown_writes),
         Rule("W2", Judge.READER, (Way.B6,), W2_TEXT, human_turns),
+        Rule("W3", Judge.PATTERN, (), "The hook ran, where only the log says so.", unheld_hook_records),
     )
