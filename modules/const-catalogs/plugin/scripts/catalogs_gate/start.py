@@ -25,6 +25,17 @@ GATE = Identity(
     hook_seconds=HOOK_SECONDS,
     skills={Mode.HOOK: "catalog-item", Mode.SCAN: "catalog-item"},  # the skill a red names (F10)
 )
+EFFECT = (
+    Identity(  # the effect report's own: it names no skill, and its failures end "the report is not made"
+        namespace=NAMESPACE,
+        gate="effect-report",
+        plugin_root=PLUGIN_ROOT,
+        dials_file="constitution.yaml",
+        kernel_keys=KERNEL_KEYS,
+        hook_seconds=HOOK_SECONDS,
+        until_installed="until then the effect report is not made",
+    )
+)
 SESSION = Identity(
     namespace=NAMESPACE,
     gate="session-start",
