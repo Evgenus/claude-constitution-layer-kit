@@ -856,6 +856,56 @@ def test_reader_rule() -> None:
     assert "HumanTurn: first" in found[0].excerpt and "AssistantText: three" in found[0].excerpt, found[0]
 
 
+@item(
+    24,
+    "a call a PreToolUse hook refused and a red on a Stop are read as blocked runs of the plugin they name",
+)
+def test_refusal_and_feedback() -> None:
+    """Claude Code records a refusal of a PreToolUse hook only in the call's tool result, and a hook's red
+    on a Stop only as a line marked isMeta; each text names its command in brackets — a script, or
+    `command hook <n>` — and ends with the plugin it comes from. The texts are those observed on Claude
+    Code 2.1.286 on 2026-11-07, typed by hand. A run whose command names no script counts as the module's
+    by its plugin."""
+    root = H.fresh_consumer().root
+    sid = "s24"
+    tail = "\n\nThis hook comes from the know-check@fixture-marketplace plugin."
+    refusal = {
+        "type": "tool_result",
+        "tool_use_id": "t1",
+        "is_error": True,
+        "content": "PreToolUse:Write hook error: [command hook 7]: RED: docs/notes/a.md: forbidden" + tail,
+    }
+    lines = [
+        tr_call(sid, root, WAY_AT, "t1", "Write", root / "docs/notes/a.md"),
+        tr_line("user", sid, root, WAY_AT, message={"role": "user", "content": [refusal]}),
+        tr_line(
+            "user",
+            sid,
+            root,
+            WAY_AT,
+            isMeta=True,
+            message={"role": "user", "content": "Stop hook feedback:\n[command hook]: RED: dirty" + tail},
+        ),
+        tr_turn(sid, root, WAY_AT, "a human turn"),
+    ]
+    session = read_transcript(_write_transcript(lines))
+    assert session is not None
+    seen = [(r.tool_use_id, r.hook, r.script, r.blocked, r.plugin) for r in session.hook_runs()]
+    assert seen == [
+        ("t1", "PreToolUse:Write", "", True, "know-check"),
+        ("", "Stop", "", True, "know-check"),
+    ], seen
+    turns = [e for e in session.events if type(e).__name__ == "HumanTurn"]
+    assert len(turns) == 1, turns  # the feedback is no human turn
+    history = History(root, frozenset(), (session,), (), "", namespace="know-check")
+    runs = history.runs(session)
+    assert [(call is not None, run.hook) for call, run in runs] == [
+        (True, "PreToolUse:Write"),
+        (False, "Stop"),
+    ]
+    assert not History(root, frozenset(), (session,), (), "", namespace="another").runs(session)
+
+
 SUBJECT = Subject(
     harness=H,
     gate_on=gate_on,
