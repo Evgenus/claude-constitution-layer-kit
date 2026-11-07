@@ -6,10 +6,9 @@ A module's plugin ships the code that finds its rules' moments, as a list of ``R
 the transcripts the module's log names, and those of a folder ``--transcripts`` names; the module's log —
 counts each rule's moments, and prints the report. A rule judged by a pattern finds each moment with its
 outcome; a rule judged by a reader finds each moment with an excerpt, and the reader of ``judge`` gives the
-outcome, with
-``--reader`` alone. The two judges' counts stand on lines of their own and are never added together, and
-counts are summed per module and never across modules. The report blocks nothing, sets no threshold and is
-never red: it exits 0 once printed, and 1 when it could not run.
+outcome, with ``--reader`` alone. The two judges' counts stand on lines of their own and are never added
+together, and counts are summed per module and never across modules. The report blocks nothing, sets no
+threshold and is never red: it exits 0 once printed, and 1 when it could not run.
 
 Run as ``python3 -m constitution_layer_kit.effect``, this file is the shared entry: it asks Claude Code for
 the plugins enabled for the project in the current folder, runs the entry of each one that ships it with the
@@ -18,6 +17,7 @@ same flags, and prints their reports in turn. It names no module.
 
 from __future__ import annotations
 
+import datetime
 import json
 import os
 import re
@@ -145,12 +145,23 @@ def parse(argv: Sequence[str], usage: str) -> Flags:
     parser.add_argument("--transcripts", default=None, metavar="DIR")
     parser.add_argument("--since", default="", metavar="DATE")
     args = parser.parse_args(list(argv))
-    if args.since and DATE.fullmatch(args.since) is None:
+    if args.since and not _is_date(args.since):
         raise ConfigurationFailure(messages.u5_since(args.since))
     folder = Path(args.transcripts) if args.transcripts else None
     if folder is not None and not folder.is_dir():
         raise ConfigurationFailure(messages.u5_transcripts(args.transcripts))
     return Flags(bool(args.reader), folder, str(args.since))
+
+
+def _is_date(text: str) -> bool:
+    """A calendar date written YYYY-MM-DD: the form, and a day the calendar has."""
+    if DATE.fullmatch(text) is None:
+        return False
+    try:
+        datetime.date.fromisoformat(text)
+    except ValueError:
+        return False
+    return True
 
 
 USAGE = "[--reader] [--transcripts <dir>] [--since <YYYY-MM-DD>]"
@@ -245,9 +256,10 @@ def gather(output: Output, flags: Flags) -> History:
     namespace = identity.current().namespace
     log = read_log(log_dir, namespace) if log_dir is not None else []
     log = [r for r in log if r.mode in (Mode.HOOK.value, Mode.SCAN.value) and r.at >= flags.since]
-    paths = {Path(r.transcript) for r in log if r.transcript}
+    # one file read once, however it is named: by the log's absolute path and by a folder given relatively
+    paths = {Path(r.transcript).resolve() for r in log if r.transcript}
     if flags.transcripts is not None:
-        paths.update(flags.transcripts.rglob("*.jsonl"))
+        paths.update(found.resolve() for found in flags.transcripts.rglob("*.jsonl"))
     sessions = [s for s in map(read_transcript, sorted(paths)) if s is not None and _ours(s, root)]
     return History(root, _scripts(identity.current().plugin_root), tuple(sessions), tuple(log), flags.since)
 

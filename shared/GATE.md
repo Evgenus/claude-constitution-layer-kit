@@ -131,15 +131,15 @@ The tests of [item 8 of §2](#g2) stop with lines of their own, from `constituti
 | H5.2 | fix, no number is free below 101: `{keep}; but no number is free below 101 for {the other one, or each of the other {m}} — raise it as a decision, since the shared numbers are never moved` |
 | H5.3 | fix, some are free and not enough: as `H5.1`, with `{g} of the other {m}` where it has the other items, and after `below 101` the text `; {l} {item is, or items are} then left with no free number — raise it as a decision, since the shared numbers are never moved` |
 | U1 | headline: `EFFECT: {module}: {r} rule(s) over {s} session(s){window}, {u} transcript line(s) unread` — `{window}` is ` since {date}` when `--since` names one, else nothing |
-| U1.1 | `note: {module}: no session read — no record of the module's log names a transcript of this project; name a folder of transcripts with --transcripts <dir>` |
+| U1.1 | `note: {module}: no session read — neither the module's log nor --transcripts names a transcript of a session of this project; name the folder of this project's transcripts with --transcripts <dir>` |
 | U2 | a counted rule: `  {key} ({judge}): {n} moment(s): {a} applied, {b} bypassed, {m} missed`, then, when a bypass or a miss names a way, ` — {way} {count}`, the ways in the order B1 to B6, joined by `, ` |
 | U2.1 | `  {key} (reader): {n} moment(s), not judged — run again with --reader to judge them` |
-| U2.2 | `  {key} (reader): {n} moment(s) without a verdict — the reader's answer named no outcome` |
+| U2.2 | `  {key} (reader): {n} moment(s) without a verdict — the reader gave no outcome: its answer named none, or claude failed or ran out of time` |
 | U3 | `DISAGREE: {module}: the log names '{path}' in session {session} at {at}, and no run of the module's hooks in that session's transcript examined it — the transcript's count stands` — `{path}` cut at 80 characters and escaped, `{session}` escaped |
 | U4 | `READER: {module}: judged by {model} on Claude Code {version}` — `{model}` the models the reader's answers named, joined by `, `, or `the default model` |
 | U5 | closing line: `BROKEN: the report could not run — no rule counted` |
 | U5.1 | `BROKEN: {module}: --transcripts '{dir}' is no folder — fix: name the folder that holds the session transcripts, the *.jsonl files` |
-| U5.2 | `BROKEN: {module}: --since '{value}' is no date — fix: write the date as YYYY-MM-DD` |
+| U5.2 | `BROKEN: {module}: --since '{value}' is no date — fix: write the date as YYYY-MM-DD` — a value of that form that names no day of the calendar, `2026-13-45`, is no date either |
 | U5.3 | `BROKEN: {module}: the reader needs claude, which could not run: {detail} — fix: install Claude Code with claude on PATH, or run the report without --reader` |
 | U5.4 | `BROKEN: {module}: the reader runs only on a subscription login, never billed by usage, and claude auth status reports '{method}' — fix: log in with claude auth login on a Claude subscription, or run the report without --reader` — `{method}` is `no login` where it reports none |
 | U6 | `EFFECT: {n} plugin(s) with an effect report, of {m} enabled for this project` |

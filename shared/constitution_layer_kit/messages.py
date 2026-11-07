@@ -604,8 +604,8 @@ def u1_headline(rules: int, sessions: int, since: str, unread: int) -> str:
 
 def u1_no_session() -> str:
     return (
-        f"note: {_ns()}: no session read — no record of the module's log names a transcript of this project;"
-        " name a folder of transcripts with --transcripts <dir>"
+        f"note: {_ns()}: no session read — neither the module's log nor --transcripts names a transcript of a"
+        " session of this project; name the folder of this project's transcripts with --transcripts <dir>"
     )
 
 
@@ -622,7 +622,10 @@ def u2_not_judged(key: str, moments: int) -> str:
 
 
 def u2_no_verdict(key: str, count: int) -> str:
-    return f"  {key} (reader): {count} moment(s) without a verdict — the reader's answer named no outcome"
+    return (
+        f"  {key} (reader): {count} moment(s) without a verdict — the reader gave no outcome: its answer"
+        " named none, or claude failed or ran out of time"
+    )
 
 
 def u3_disagree(path: str, session: str, at: str) -> str:
