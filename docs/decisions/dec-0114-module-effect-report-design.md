@@ -121,12 +121,31 @@ The session proposed the names of R2, R6, R8, R9 and R10 as defaults, and an ord
 
 <a id="r11"></a>**R11.** The work lands in this order, each step one pull request or more. First, this record. Second, the shared part: the runner, the two fields of the log, the reader, the template section, the widening of rule 2 and aspect A14, with their tests. Third, the modules, a few in each pull request: each fills its section "Effect" and ships its entry, with a new eval receipt for every module it touches. Last, the first report on the knowledge kit.
 
+## 7. Which kind the entries declare
+
+The carry audit of this record found that [law 5 of CLAUDE.md](../../CLAUDE.md#law-5) asks every artifact to be declared a gate, advisory or a grant, and that nothing said which the entries of R9 are. They count by patterns, the reader adds judgment, and they block nothing. [The module document of `const-locations`](../../modules/const-locations/MODULE.md#t9) declares its deterministic command `new-document.sh` advisory in its row E3, with the reason in the row.
+
+- **A. `advisory`, with the reason in the row.** Each enforcement table declares the entry advisory: it informs judgment, gives no finding, never exits 2 and is never red.
+  - **Pros:** no change to the law, to the template's list of kinds or to the checks that read them; it follows the precedent of row E3; R6 of [dec-0113-module-effect-is-rules-applied-not-bypassed](dec-0113-module-effect-is-rules-applied-not-bypassed.md#r6) already says the report is never a gate.
+  - **Cons:** "advisory" mostly means skill prose, so a counting script under that word needs its reason in every row; the two judges' counts sit under one kind, kept apart only by the report.
+- **B. A fourth kind, `report`, added to the law.** As [dec-0110-new-document-command-granted-by-a-hook](dec-0110-new-document-command-granted-by-a-hook.md) added the grant, [law 5 of CLAUDE.md](../../CLAUDE.md#law-5) and [template §9](../../module-template/MODULE.md#t9) gain a kind for a script that counts and prints.
+  - **Pros:** the most explicit name; no reader takes a counting script for prose; ready for a later report.
+  - **Cons:** a change to CLAUDE.md, the template and the requirements' list of enforcement classes; a new kind for one use, which the kit's rule on earned growth argues against.
+- **C. No artifact under the law.** The entries are tooling, like [the kit's metrics report](../../scripts/metrics.py), left out of each enforcement table.
+  - **Pros:** nothing to declare.
+  - **Cons:** the entries ship in each plugin, so they are module artifacts; leaving them undeclared is the blur that [law 5 of CLAUDE.md](../../CLAUDE.md#law-5) forbids.
+
+The session recommended A, since the kit already declares a deterministic command that blocks nothing as advisory, with the reason in its row. The decider chose A in chat on 2026-11-07.
+
+<a id="r12"></a>**R12.** Each module's enforcement table declares its entry `scripts/effect-report.sh` `advisory`, with the reason in its row: it informs judgment, gives no finding, never exits 2 and is never red. The document [kit-shared-gate-code](../../shared/GATE.md) declares the shared entry of R9 the same way, with the same reason.
+
 ## Applied
 
-The change states R1 to R11 as intent in items 9.33a to 9.33c of [the rollout plan](../rollout-plan.md#s9-33), beside item 9.33, which holds R1 to R7 of record [dec-0113-module-effect-is-rules-applied-not-bypassed](dec-0113-module-effect-is-rules-applied-not-bypassed.md), with the rows of the status matrix. Every item has its home, so the record is `inactive`.
+The change states R1 to R12 as intent in items 9.33a to 9.33c of [the rollout plan](../rollout-plan.md#s9-33), beside item 9.33, which holds R1 to R7 of record [dec-0113-module-effect-is-rules-applied-not-bypassed](dec-0113-module-effect-is-rules-applied-not-bypassed.md), with the rows of the status matrix. Every item has its home, so the record is `inactive`.
 
 ## Carry list
 
 1. R1, R2, R3, R4, R5, R6, R7, R8 — pending: [item 9.33a of the rollout plan](../rollout-plan.md#s9-33a).
 2. R9, R10 — pending: [item 9.33a of the rollout plan](../rollout-plan.md#s9-33a) and [item 9.33b](../rollout-plan.md#s9-33b).
 3. R11 — pending: [items 9.33a, 9.33b and 9.33c of the rollout plan](../rollout-plan.md#s9-33a).
+4. R12 — pending: [item 9.33a of the rollout plan](../rollout-plan.md#s9-33a) and [item 9.33b](../rollout-plan.md#s9-33b).
