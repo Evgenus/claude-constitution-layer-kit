@@ -19,4 +19,4 @@ installed release).
 # The package's version, major.minor.patch, and the one source of it: the distribution's metadata reads
 # it from here when the package is built. A release keeps every module written for an earlier release
 # of its major working.
-__version__ = "2.0.0"
+__version__ = "2.1.0"

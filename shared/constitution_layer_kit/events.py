@@ -58,6 +58,7 @@ def read_event(stream: TextIO) -> ToolEvent:
         replace_all=fields.get("replace_all") is True,
         stop_hook_active=_flag(loaded.get("stop_hook_active")),
         command=command,
+        transcript_path=_text(loaded.get("transcript_path")) or "",
     )
 
 

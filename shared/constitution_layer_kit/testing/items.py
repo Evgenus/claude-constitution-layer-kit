@@ -55,6 +55,7 @@ from .acceptance import broken_first_line, expect, item
 from .consumer import CONSTITUTION_FILE, CONSTITUTION_PREFIX, ROOT_POLICY, own_prefix
 from .harness import (
     SHARED,
+    TRANSCRIPT,
     Edit,
     Harness,
     Result,
@@ -1870,7 +1871,7 @@ def test_severity_warn(subject: Subject) -> None:
 def test_log_in_plugin_data(subject: Subject) -> None:
     it = shared(subject, "log_in_plugin_data")
     data = it.h.scratch_dir()
-    result, _ = it.s.gate_on(it.s.red, env={"CLAUDE_PLUGIN_DATA": str(data)})
+    result, root = it.s.gate_on(it.s.red, env={"CLAUDE_PLUGIN_DATA": str(data)})
     lines = it.log_lines(data / log_name())
     line = lines[0]
     first = ("RED: " if it.s.event_driven else "BROKEN: ") + it.s.red_finding.headline
@@ -1882,12 +1883,18 @@ def test_log_in_plugin_data(subject: Subject) -> None:
     # prints its finding and its count line on stdout, one record each
     verdict_stream = "stdout" if (it.s.ask or it.s.scan_only) else "stderr"
     records = (3 if it.s.skill else 2) if it.s.scan_only else 1  # a scan prints F10 as a record of its own
+    hooked = it.s.event_driven and not it.s.scan_only
+    examined = it.s.red.text if it.shell else str(root / it.s.red.target)
     ok = (
-        set(line) == {"ts", "module", "gate", "mode", "session", "stream", "text"}
+        set(line) == {"ts", "module", "gate", "mode", "session", "path", "transcript", "stream", "text"}
         and (first in line["text"] if it.s.ask else line["text"].startswith(first))
         and line["module"] == it.ns
         and line["stream"] == verdict_stream
-        and line["session"] == ("fixture-session" if it.s.event_driven and not it.s.scan_only else "")
+        and line["session"] == ("fixture-session" if hooked else "")
+        # the event's own names: the transcript, and the file or the shell command the gate examines,
+        # which a Stop and a scan do not name
+        and line["transcript"] == (TRANSCRIPT if hooked else "")
+        and line["path"] == (examined if hooked and not it.stop else "")
         # one record per print: the records rebuild both streams exactly, and a block verdict,
         # printed at once, is one record of several lines
         and "".join(text + "\n" for text in said["stdout"]) == result.stdout

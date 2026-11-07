@@ -3,9 +3,12 @@ standard library's ``logging``, not a hand-made tee.
 
 A blocked write leaves no trace in git, and neither does a warn-level finding or a
 configuration failure; the log is where those events survive. Each call of ``out`` or
-``err`` becomes one JSON line: timestamp, module, gate, mode, session, stream, text — a
-text of several lines, a verdict or a traceback, stays one record, its newlines escaped
-by JSON. The log holds what was printed and nothing more.
+``err`` becomes one JSON line: timestamp, module, gate, mode, session, path, transcript,
+stream, text — a text of several lines, a verdict or a traceback, stays one record, its
+newlines escaped by JSON. ``path`` is what the hook's event names for the gate to examine,
+the file as the payload gives it or the shell tool's command, and ``transcript`` the
+session's transcript the payload names; a run with nothing to name, a scan, leaves either
+empty. The log holds what was printed and the run's own stamp, nothing more.
 
 How ``logging`` is wired:
 
@@ -42,7 +45,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from . import identity
-from .model import Mode, Stream
+from .model import Mode, Stream, ToolEvent
 
 
 def log_name() -> str:
@@ -56,16 +59,20 @@ _LEVEL = {Stream.STDOUT: logging.INFO, Stream.STDERR: logging.WARNING}
 
 
 class _Context(logging.Filter):
-    """Stamps every record with the run's mode and session."""
+    """Stamps every record with the run's mode, session, path and transcript."""
 
     def __init__(self, mode: Mode) -> None:
         super().__init__()
         self.mode = mode
         self.session = ""
+        self.path = ""
+        self.transcript = ""
 
     def filter(self, record: logging.LogRecord) -> bool:
         record.gate_mode = self.mode.value
         record.gate_session = self.session
+        record.gate_path = self.path
+        record.gate_transcript = self.transcript
         return True
 
 
@@ -79,6 +86,8 @@ class _JsonLine(logging.Formatter):
                 "gate": identity.current().gate,
                 "mode": getattr(record, "gate_mode", ""),
                 "session": getattr(record, "gate_session", ""),
+                "path": getattr(record, "gate_path", ""),
+                "transcript": getattr(record, "gate_transcript", ""),
                 "stream": stream.value,
                 "text": record.getMessage(),
             },
@@ -124,6 +133,14 @@ class Output:
     @session.setter
     def session(self, value: str) -> None:
         self._context.session = value
+
+    def stamp(self, event: ToolEvent) -> None:
+        """Stamp the run's records with what the event names: its session, the file or the shell command
+        the gate examines, and the session's transcript. A record is stamped when it is printed, so the
+        pipeline stamps the run right after it reads the event, before anything is printed."""
+        self._context.session = event.session_id
+        self._context.path = event.file_path or event.command or ""
+        self._context.transcript = event.transcript_path
 
     def use_log_dir(self, directory: Path) -> None:
         self.log_file = directory / log_name()

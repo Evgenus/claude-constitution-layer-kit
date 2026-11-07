@@ -116,6 +116,9 @@ class Case:
     # half, typed by hand, since "1 document examined" is a hook's
 
 
+TRANSCRIPT = "fixture-transcript.jsonl"  # the transcript path every payload of the harness names
+
+
 def event_json(
     repo: Path, action: Write | Edit, session: str = "fixture-session", event: str = "PreToolUse"
 ) -> str:
@@ -130,6 +133,7 @@ def event_json(
         {
             "hook_event_name": event,
             "session_id": session,
+            "transcript_path": TRANSCRIPT,
             "cwd": str(repo),
             "tool_name": type(action).__name__,
             "tool_input": tool_input,
@@ -147,7 +151,13 @@ def stop_json(root: Path, active: bool = False, session: str = "fixture-session"
     """A Stop payload as the platform sends it, reduced to what a gate reads: the session's
     directory and the loop guard."""
     return json.dumps(
-        {"hook_event_name": "Stop", "session_id": session, "cwd": str(root), "stop_hook_active": active}
+        {
+            "hook_event_name": "Stop",
+            "session_id": session,
+            "transcript_path": TRANSCRIPT,
+            "cwd": str(root),
+            "stop_hook_active": active,
+        }
     )
 
 
@@ -158,6 +168,7 @@ def bash_json(root: Path, command: str, session: str = "fixture-session") -> str
         {
             "hook_event_name": "PreToolUse",
             "session_id": session,
+            "transcript_path": TRANSCRIPT,
             "cwd": str(root),
             "tool_name": "Bash",
             "tool_input": {"command": command},

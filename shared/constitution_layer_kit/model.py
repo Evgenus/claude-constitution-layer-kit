@@ -53,6 +53,7 @@ class Mode(StrEnum):
     HOOK = "hook"
     SCAN = "scan"
     ACT = "act"  # a second entry point that changes files: a generator, never a gate
+    REPORT = "report"  # the effect report: it reads and counts, and changes and judges no file
 
 
 class SkipKind(StrEnum):
@@ -139,6 +140,7 @@ class ToolEvent:
     replace_all: bool
     stop_hook_active: bool | None = None  # a Stop payload's loop guard; None for every tool event
     command: str | None = None  # the shell tool's command; None for every other event
+    transcript_path: str = ""  # the session's transcript as the payload names it; empty where it names none
 
 
 @dataclass(frozen=True, slots=True)
