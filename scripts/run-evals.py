@@ -52,7 +52,9 @@ asks docker for the image. For each module, in turn:
      case's copied traces after the case and, when one holds the start of C15, C16 or C17 of shared/GATE.md
      section 3 (`PACKAGE_FAILURE`), reports one BROKEN line naming the case, the trace, the line found and
      the fix, and counts the attempt as failed, as a partial result is: a command of the case did not see the
-     change's shared code, so the receipt would not hold what it says (R18). The
+     change's shared code, so the receipt would not hold what it says (R18). A match that still holds a
+     placeholder, `%s`, `%d` or `{`, is the message's template in a source file the model read (found
+     2026-11-07 in a run of const-locations' case new-kind, which read new-document.py), and no finding. The
      image is unchanged for this: its Debian python3 makes the environment with no package of its own, and
      a virtual environment's `.pth` entries come before the system's folders on `sys.path`. Then it runs
      `claude plugin eval` on the copy, `--case
@@ -203,6 +205,7 @@ PACKAGE_FAILURE = re.compile(  # the fixed middles of C15, C16 and C17 of shared
     r"BROKEN: [^\s\"\\]+ (?:needs the Python package constitution-layer-kit |needs constitution-layer-kit "
     r"|was written for constitution-layer-kit ).{0,200}"
 )
+TEMPLATE = re.compile(r"%[sd]|\{")  # a placeholder: the match is a message's source, never a printed line
 SUBSCRIPTION = (
     "oauth_token",
     "claude.ai",
@@ -422,10 +425,13 @@ def streamed(
 def package_failures(case: str, traces: list[Path]) -> tuple[str, ...]:
     """One line for each of the case's copied `traces` that holds the start of a package failure, C15, C16 or
     C17 of shared/GATE.md section 3 (`PACKAGE_FAILURE`): the case, the trace, the text found, and the fix.
-    A command a case ran printed it, so the eval's Bash sandbox did not see the change's shared code."""
+    A command a case ran printed it, so the eval's Bash sandbox did not see the change's shared code. A match
+    that still holds a placeholder, `%s`, `%d` or `{`, is the message's template, which the model read in a
+    source file, and never a printed line: it is no finding."""
     lines = []
     for trace in traces:
-        found = PACKAGE_FAILURE.search(trace.read_text(encoding="utf-8", errors="replace"))
+        text = trace.read_text(encoding="utf-8", errors="replace")
+        found = next((m for m in PACKAGE_FAILURE.finditer(text) if not TEMPLATE.search(m.group(0))), None)
         if found:
             lines.append(
                 f"BROKEN: case {case}: the trace {trace.name} holds the line {found.group(0)!r}, so a command"
@@ -1005,6 +1011,9 @@ def environment_cases(case: Callable[[str, bool], None], argv: list[str], tmp: P
         "c17": '{"output": "BROKEN: const-x was written for constitution-layer-kit 1.0.0, a 1.x release,'
         ' found 2.0.0 — fix: update the plugin"}',
         "clean": '{"output": "ok: 3 documents examined", "text": "the BROKEN line of the check is gone"}',
+        # the source of an entry file the model read, as const-locations' new-document.py holds it
+        "template": '{"output": "    \\"BROKEN: const-x needs the Python package constitution-layer-kit %s'
+        ' or a later %s.x release,\\"\\n    \\" and python3 cannot import it — fix: install it as %s says"}',
     }
     traces = tmp / "traces"
     traces.mkdir()
@@ -1026,6 +1035,11 @@ def environment_cases(case: Callable[[str, bool], None], argv: list[str], tmp: P
         and "needs constitution-layer-kit 1.2.0" in said_of["c16"][0],
     )
     case("a clean trace, one that only names BROKEN, is no finding", said_of["clean"] == ())
+    case(
+        "a trace that holds a message's template, read in a source file, `%s` in place of the versions, is no"
+        " finding",
+        said_of["template"] == (),
+    )
     shared_text = (KIT / "shared" / "constitution_layer_kit" / "messages.py").read_text(encoding="utf-8")
     entry_text = "".join(
         f.read_text(encoding="utf-8", errors="replace")
