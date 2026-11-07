@@ -231,6 +231,12 @@ def _path_moments(
                     yield Moment(session.id, call.at, rel, Outcome.BYPASSED, Way.B1)
 
 
+def _since_arg(since: str) -> str:
+    """Git's `--since` for the window's first day. A bare date is read by git as that day at the clock time of
+    the run, so the day's earlier commits would fall out of it: the day's first second is named."""
+    return f"--since={since} 00:00:00"
+
+
 # ---------------------------------------------------------------- H3: switch-off (B2)
 
 
@@ -312,7 +318,7 @@ def _dials_moments(
         return []
     args = ["log", "--format=%H %cI"]
     if history.since:
-        args.append(f"--since={history.since}")
+        args.append(_since_arg(history.since))
     listed = _run_git([*args, "--", name], history.root)
     if listed is None:
         history.note(messages.u7_no_history(key, "git log failed"))
@@ -570,7 +576,7 @@ def _wrapper(history: History, script: str) -> Path | None:
 def _window_commits(history: History, branch: str) -> list[tuple[str, str]]:
     args = ["log", "--first-parent", "--format=%H %cI"]
     if history.since:
-        args.append(f"--since={history.since}")
+        args.append(_since_arg(history.since))
     listed = _run_git([*args, branch], history.root)
     lines = (listed or "").splitlines()
     return [(line.partition(" ")[0], line.partition(" ")[2]) for line in lines]
