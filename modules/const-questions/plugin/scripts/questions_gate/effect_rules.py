@@ -7,13 +7,14 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from functools import cache
 from pathlib import Path
 
 from constitution_layer_kit import ways
 from constitution_layer_kit.dials import load_dials
 from constitution_layer_kit.effect import History, Judge, Moment, Outcome, Rule, Way
-from constitution_layer_kit.history import AssistantText, Session, ToolCall
+from constitution_layer_kit.history import AssistantText, HookRun, Session, ToolCall
 from constitution_layer_kit.repository import repo_root
 from constitution_layer_kit.territory import Matcher
 
@@ -154,12 +155,30 @@ def question_texts(session: Session) -> list[int]:
     ]
 
 
+def _named(history: History) -> History:
+    """The history with each refusal of this plugin's hook, which names a plugin and no script, given the
+    gate's script, since the helpers of `ways` for a red know the module's runs by script alone."""
+
+    def mine(event: object) -> object:
+        if isinstance(event, HookRun) and not event.script and event.plugin == history.namespace:
+            return replace(event, script=SCAN)
+        return event
+
+    sessions = tuple(replace(s, events=tuple(mine(e) for e in s.events)) for s in history.sessions)  # type: ignore[misc]
+    return replace(history, sessions=sessions, scripts=history.scripts | {SCAN}, notes=history.notes)
+
+
+def named(rule: Rule) -> Rule:
+    """A rule about reds, reading the refusals that name only the plugin as the gate's runs."""
+    return Rule(rule.key, rule.judge, rule.ways, rule.text, lambda history: rule.find(_named(history)))
+
+
 def rules() -> Sequence[Rule]:
     return (
         ways.path_bypass("W1", W1_TEXT, in_territory),
         ways.switch_off("W2", W2_TEXT, loosened),
-        ways.after_red("W3", W3_TEXT),
-        ways.skill_after_red("W4", W4_TEXT),
+        named(ways.after_red("W3", W3_TEXT)),
+        named(ways.skill_after_red("W4", W4_TEXT)),
         Rule("W5", Judge.PATTERN, (Way.B5,), W5_TEXT, skill_before_options),
         ways.shape("W6", W6_TEXT, lettered, has_shape),
         ways.escape("W7", W7_TEXT, script=SCAN),

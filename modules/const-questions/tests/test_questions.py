@@ -620,7 +620,20 @@ def tr_say(sid: str, cwd: Path, text: str) -> str:
 
 
 def tr_red(sid: str, cwd: Path, call_id: str, text: str) -> str:
-    """A run of the module's hook script that blocked its call, with the text it printed."""
+    """A call the module's PreToolUse hook refused, as Claude Code records it (observed on 2.1.286): only in
+    the call's tool result, the command named in brackets as `command hook <n>`, the plugin at the end."""
+    refusal = {
+        "type": "tool_result",
+        "tool_use_id": call_id,
+        "is_error": True,
+        "content": f"PreToolUse:Write hook error: [command hook 3]: {text}\n\n"
+        "This hook comes from the const-questions@fixture-marketplace plugin.",
+    }
+    return tr_line("user", sid, cwd, WAY_AT, message={"role": "user", "content": [refusal]})
+
+
+def tr_red_attached(sid: str, cwd: Path, call_id: str, text: str) -> str:
+    """A run of the module's hook script that blocked its call, recorded as an attachment with the script."""
     done = {
         "type": "hook_blocking_error",
         "hookName": "PreToolUse:Write",
@@ -733,17 +746,18 @@ def test_effect_after_red() -> None:
     root = H.fresh_consumer().root
     docs = root / "docs"
 
-    def red(sid: str, *after: str) -> list[str]:
+    def red(sid: str, *after: str, attached: bool = False) -> list[str]:
+        made = tr_red_attached if attached else tr_red
         return [
             tr_call(sid, root, WAY_AT, "r", "Write", docs / "a.md"),
-            tr_red(sid, root, "r", "RED: x"),
+            made(sid, root, "r", "RED: x"),
             *after,
         ]
 
     sessions = {
         "s23a": red("s23a", tr_call("s23a", root, WAY_AT, "n", "Edit", docs / "a.md")),
         "s23b": red("s23b", tr_tool("s23b", root, "n", "Bash", command="sed -i '' s/TBD/x/ docs/a.md")),
-        "s23c": red("s23c", tr_call("s23c", root, WAY_AT, "n", "Write", docs / "other.md")),
+        "s23c": red("s23c", tr_call("s23c", root, WAY_AT, "n", "Write", docs / "other.md"), attached=True),
         "s23d": red(
             "s23d",
             tr_turn("s23d", root, WAY_AT, "stop"),
