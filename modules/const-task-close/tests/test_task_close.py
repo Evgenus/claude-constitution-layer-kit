@@ -2098,12 +2098,17 @@ def test_effect_switch_off() -> None:
     assert "  W1 (pattern): 6 moment(s): 3 applied, 3 bypassed, 0 missed — B2 3" in found, found
 
 
-@item(43, "W2: after a red at a turn end, a commit or a stash is applied and any other act is bypassed by B3")
+@item(
+    43,
+    "W2: after a red at a turn end, a commit or a stash before the next human turn is applied, else B3",
+)
 def test_effect_after_turn_end_red() -> None:
-    """Each session holds a red of the turn-end hook. The next act a commit (applied); a look at the tree,
-    then a stash (applied); a write of a file, a `rm`, a `git checkout --` (bypassed). A human turn first,
-    a look at the tree and then a human turn, a refusal of a call by this plugin, and a red of another
-    plugin are no moment. The red is the `isMeta` line the platform writes for a Stop hook."""
+    """Each session holds a red of the turn-end hook. A commit or a stash before the next human turn is
+    applied, whatever acts come between: a commit alone, a look at the tree and a stash, a write of a file and
+    then a commit. The end of the session with a `rm` only, a `git checkout --` and then a human turn, a human
+    turn first, and a look at the tree and then a human turn are bypassed by B3. A refusal of a call by this
+    plugin and a red of another plugin are no moment. The red is the `isMeta` line the platform writes for a
+    Stop hook."""
     root = repo(own()).root
     sid = "s43"
 
@@ -2117,9 +2122,17 @@ def test_effect_after_turn_end_red() -> None:
             tr_tool("b", root, "1", "Bash", command="git status --short"),
             tr_tool("b", root, "2", "Bash", command="git stash -u"),
         ),
-        "c": case("c", tr_tool("c", root, "1", "Write", file_path="x.md", content="x")),
+        "c": case(
+            "c",
+            tr_tool("c", root, "1", "Write", file_path="x.md", content="x"),
+            tr_tool("c", root, "2", "Bash", command="git commit -qam done"),
+        ),
         "d": case("d", tr_tool("d", root, "1", "Bash", command="rm scratch.txt")),
-        "e": case("e", tr_tool("e", root, "1", "Bash", command="git checkout -- .")),
+        "e": case(
+            "e",
+            tr_tool("e", root, "1", "Bash", command="git checkout -- ."),
+            tr_turn("e", root, EFFECT_AT, "x"),
+        ),
         "f": case(
             "f", tr_turn("f", root, EFFECT_AT, "stop"), tr_tool("f", root, "1", "Bash", command="git commit")
         ),
@@ -2139,7 +2152,7 @@ def test_effect_after_turn_end_red() -> None:
     }
     assert sid
     found = effect_lines(root, sessions)
-    assert "  W2 (pattern): 5 moment(s): 2 applied, 3 bypassed, 0 missed — B3 3" in found, found
+    assert "  W2 (pattern): 7 moment(s): 3 applied, 4 bypassed, 0 missed — B3 4" in found, found
 
 
 @item(

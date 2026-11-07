@@ -17,7 +17,9 @@ from . import dials
 from .model import TaskCloseDials
 
 W1_TEXT = "The module stays on and its coverage map stays as wide as it was."
-W2_TEXT = "After a dirty tree is reported at the end of a turn, the work is committed, or stashed."
+W2_TEXT = (
+    "After a dirty tree is reported at a turn end, the work is committed or stashed before the next turn."
+)
 W3_TEXT = "Every change that landed on the main branch passed the range check."
 W4_TEXT = "Load the skill commit-before-edit before the first edit after each human turn."
 W5_TEXT = "Load the skill close-task before a pull request or a branch is merged."
@@ -27,8 +29,6 @@ EDITS = ("Write", "Edit", "MultiEdit", "NotebookEdit")
 MERGERS = {("gh", "pr", "merge"), ("git", "merge")}
 MERGE_STOPS = ("--abort", "--continue", "--quit")
 GIT_OPTIONS_WITH_ARGUMENT = ("-C", "-c", "--git-dir", "--work-tree", "--namespace")
-TREE_READS = ("status", "diff", "log", "show", "add", "ls-files", "rev-parse")
-PLAIN_READS = ("cd", "ls", "cat", "pwd")
 ANSWERS = ("commit", "stash")
 
 
@@ -99,64 +99,44 @@ def merges(call: ToolCall, _session: Session) -> bool:
 # ---------------------------------------------------------------- W2: the answer to a red at a turn's end
 
 
-def _is_neutral(words: tuple[str, ...]) -> bool:
-    if words[0] == "git":
-        return len(words) > 1 and words[1] in TREE_READS
-    return words[0] in PLAIN_READS
-
-
-def _answer(call: ToolCall) -> Outcome | None:
-    """What a shell command, or another act, says of the red: applied where it commits or stashes, bypassed
-    where it is anything else, none where it only looks at the tree or stages it."""
+def _commits(call: ToolCall) -> bool:
+    """Whether a shell command commits or stashes."""
     if call.name != "Bash":
-        return Outcome.BYPASSED
-    found = commands(call.names())
-    if any(len(words) > 1 and words[0] == "git" and words[1] in ANSWERS for words in found):
-        return Outcome.APPLIED
-    if all(_is_neutral(words) for words in found):
-        return None
-    return Outcome.BYPASSED
+        return False
+    return any(
+        len(words) > 1 and words[0] == "git" and words[1] in ANSWERS for words in commands(call.names())
+    )
 
 
 def _turn_end_red(history: History, event: object) -> HookRun | None:
-    """The module's turn-end hook run that blocked the turn: a run of its script, or one the platform's text
-    names as coming from this plugin."""
-    if (
-        isinstance(event, HookRun)
-        and event.blocked
-        and event.hook.startswith("Stop")
-        and (event.script in history.scripts or (event.plugin != "" and event.plugin == history.namespace))
-    ):
+    """The module's turn-end hook run that blocked the turn."""
+    if isinstance(event, HookRun) and event.blocked and event.hook.startswith("Stop") and history.ours(event):
         return event
     return None
 
 
 def after_turn_end_red(history: History) -> list[Moment]:
-    """W2: for each red of the turn-end hook, the first act before a human turn that is more than a look at
-    the tree or a staging of it: a commit or a stash is applied, any other act bypassed by B3. A human turn
-    first, or no act, is no moment."""
+    """W2: a moment for each red of the turn-end hook. The taught fix is to commit what is finished and stash
+    or discard what is not, so any acts may come between: applied where a `git commit` or `git stash` comes
+    before the next human turn, bypassed by B3 where that turn, or the end of the session, comes with none."""
     found: list[Moment] = []
     for session in history.sessions:
         for index, event in enumerate(session.events):
             run = _turn_end_red(history, event)
             if run is not None:
-                moment = _decide(session, index, run)
-                if moment is not None:
-                    found.append(moment)
+                answered = _answered(session.events[index + 1 :])
+                outcome = Outcome.APPLIED if answered else Outcome.BYPASSED
+                found.append(Moment(session.id, run.at, "turn end", outcome, None if answered else Way.B3))
     return found
 
 
-def _decide(session: Session, index: int, run: HookRun) -> Moment | None:
-    for later in session.events[index + 1 :]:
+def _answered(events: Sequence[object]) -> bool:
+    for later in events:
         if isinstance(later, HumanTurn):
-            return None
-        if isinstance(later, ToolCall) and later.name in ways.ACTS:
-            outcome = _answer(later)
-            if outcome is Outcome.APPLIED:
-                return Moment(session.id, run.at, "turn end", outcome)
-            if outcome is Outcome.BYPASSED:
-                return Moment(session.id, run.at, "turn end", outcome, Way.B3)
-    return None
+            return False
+        if isinstance(later, ToolCall) and _commits(later):
+            return True
+    return False
 
 
 # ---------------------------------------------------------------- W4: the first edit after a human turn
