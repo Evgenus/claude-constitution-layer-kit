@@ -69,7 +69,7 @@ def grant(output: Output, stdin: TextIO, root: str) -> int:
         raise ConfigurationFailure(
             Broken(failure.broken.key, failure.broken.headline, messages.l9_input())
         ) from None
-    output.session = event.session_id
+    output.stamp(event)  # the session, the command and the transcript, as the shared pipeline stamps a run
     if event.event_name != PRE_TOOL_USE or event.tool_name != SHELL or event.command is None:
         return EXIT_GREEN
     if granted(event.command, root):
