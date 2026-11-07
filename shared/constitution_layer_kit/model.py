@@ -96,6 +96,8 @@ class SharedKey(StrEnum):
     C13 = "C13"
     C16 = "C16"
     C17 = "C17"
+    E5 = "E5"  # the effect report could not run
+    E6 = "E6"  # the shared effect entry could not run
 
 
 @dataclass(frozen=True, slots=True)

@@ -587,3 +587,107 @@ def c17_module_too_old(namespace: str, required: str, found: str, guide: str, un
         f"update the plugin to a release written for {_major(found)}.x, or install a {_major(required)}.x"
         f" release of constitution-layer-kit for python3 as {escaped(guide)} says" + _clause(until),
     )
+
+
+# ---------------------------------------------------------------- the effect report (E1 to E6)
+# A report, never a verdict: its lines count, and none of them is red. Each line names the module, and the
+# counts of the two judges stand on lines of their own (R5 of dec-0113-module-effect-is-rules-applied-not-
+# bypassed).
+
+
+def e1_headline(rules: int, sessions: int, since: str, unread: int) -> str:
+    window = f" since {since}" if since else ""
+    return (
+        f"EFFECT: {_ns()}: {rules} rule(s) over {sessions} session(s){window},"
+        f" {unread} transcript line(s) unread"
+    )
+
+
+def e1_no_session() -> str:
+    return (
+        f"note: {_ns()}: no session read — no record of the module's log names a transcript of this project;"
+        " name a folder of transcripts with --transcripts <dir>"
+    )
+
+
+def e2_counted(key: str, judge: str, moments: int, counts: Sequence[int], ways: str) -> str:
+    applied, bypassed, missed = counts
+    by = f" — {ways}" if ways else ""
+    return (
+        f"  {key} ({judge}): {moments} moment(s): {applied} applied, {bypassed} bypassed, {missed} missed{by}"
+    )
+
+
+def e2_not_judged(key: str, moments: int) -> str:
+    return f"  {key} (reader): {moments} moment(s), not judged — run again with --reader to judge them"
+
+
+def e2_no_verdict(key: str, count: int) -> str:
+    return f"  {key} (reader): {count} moment(s) without a verdict — the reader's answer named no outcome"
+
+
+def e3_disagree(path: str, session: str, at: str) -> str:
+    return (
+        f"DISAGREE: {_ns()}: the log names '{escaped(shown(path))}' in session {escaped(session)} at {at},"
+        " and no tool call of that session's transcript names it — the transcript's count stands"
+    )
+
+
+def e4_reader(model: str, version: str) -> str:
+    return f"READER: {_ns()}: judged by {escaped(model)} on Claude Code {escaped(version)}"
+
+
+def e5_could_not_run() -> str:
+    return "BROKEN: the report could not run — no rule counted"
+
+
+def e5_transcripts(folder: str) -> Broken:
+    return Broken(
+        SharedKey.E5,
+        f"{_ns()}: --transcripts '{echoed(folder)}' is no folder",
+        "name the folder that holds the session transcripts, the *.jsonl files",
+    )
+
+
+def e5_since(value: str) -> Broken:
+    return Broken(
+        SharedKey.E5, f"{_ns()}: --since '{echoed(value)}' is no date", "write the date as YYYY-MM-DD"
+    )
+
+
+def e5_no_claude(detail: str) -> Broken:
+    return Broken(
+        SharedKey.E5,
+        f"{_ns()}: the reader needs claude, which could not run: {echoed(detail)}",
+        "install Claude Code with claude on PATH, or run the report without --reader",
+    )
+
+
+def e5_not_subscription(method: str) -> Broken:
+    return Broken(
+        SharedKey.E5,
+        f"{_ns()}: the reader runs only on a subscription login, never billed by usage, and claude auth"
+        f" status reports '{echoed(method)}'",
+        "log in with claude auth login on a Claude subscription, or run the report without --reader",
+    )
+
+
+def e6_headline(reports: int, enabled: int) -> str:
+    return f"EFFECT: {reports} plugin(s) with an effect report, of {enabled} enabled for this project"
+
+
+def e6_report_failed(plugin: str, code: int) -> str:
+    return f"note: the effect report of {escaped(plugin)} exited {code}; its lines above say why"
+
+
+def e6_no_list(detail: str) -> Broken:
+    return Broken(
+        SharedKey.E6,
+        f"the plugin list could not be read: {echoed(detail)}",
+        "install Claude Code with claude on PATH, then run claude plugin list --json in this project and read"
+        " why it fails",
+    )
+
+
+def e6_could_not_run() -> str:
+    return "BROKEN: the effect reports could not run — no plugin read"
