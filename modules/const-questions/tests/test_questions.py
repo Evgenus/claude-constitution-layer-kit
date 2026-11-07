@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 import subprocess
 from collections.abc import Sequence
 from pathlib import Path
@@ -32,7 +33,16 @@ from constitution_layer_kit.testing.harness import (
     event_json,
     red_lines,
 )
-from constitution_layer_kit.testing.items import PatternDial, Subject
+from constitution_layer_kit.testing.items import (
+    PatternDial,
+    Subject,
+    fake_claude,
+    reader_fake,
+    tr_call,
+    tr_hook,
+    tr_line,
+    tr_turn,
+)
 from questions_gate import messages, start
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
@@ -589,6 +599,286 @@ def test_edit_removing_a_marker_passes() -> None:
     blocked(action, messages.q1_marker(DOC, line_of(two, "TBD two"), "TBD", "TBD two"), files={DOC: two})
 
 
+# ---------------------------------------------------------------- the effect report (items 21 to 28)
+# Each rule of the module's section "Effect" runs through the real entry `effect-report.sh` over transcripts
+# made by hand and, for the history rules, a scratch git repository. The lines asserted are typed by hand.
+
+EFFECT = SCRIPTS / "effect-report.sh"
+WAY_AT = "2026-11-03T10:00:00.000Z"
+SKILL_NAME = "const-questions:ask-or-decide"
+
+
+def tr_tool(sid: str, cwd: Path, call_id: str, name: str, **given: object) -> str:
+    """A tool call of any tool, with its input as given."""
+    block = {"type": "tool_use", "id": call_id, "name": name, "input": given}
+    return tr_line("assistant", sid, cwd, WAY_AT, message={"role": "assistant", "content": [block]})
+
+
+def tr_say(sid: str, cwd: Path, text: str) -> str:
+    block = {"type": "text", "text": text}
+    return tr_line("assistant", sid, cwd, WAY_AT, message={"role": "assistant", "content": [block]})
+
+
+def tr_red(sid: str, cwd: Path, call_id: str, text: str) -> str:
+    """A run of the module's hook script that blocked its call, with the text it printed."""
+    done = {
+        "type": "hook_blocking_error",
+        "hookName": "PreToolUse:Write",
+        "toolUseID": call_id,
+        "hookEvent": "PreToolUse",
+        "blockingError": {"blockingError": f"[sh /x/plugin/scripts/check-open-questions.sh]: {text}"},
+    }
+    return tr_line("attachment", sid, cwd, WAY_AT, attachment=done)
+
+
+def effect_lines(
+    root: Path, sessions: dict[str, list[str]], env: dict[str, str] | None = None, *flags: str
+) -> list[str]:
+    """The lines of the report over the sessions, one transcript each; the report must exit 0."""
+    folder = H.scratch_dir()
+    for name, lines in sessions.items():
+        (folder / f"{name}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    result = H.run_gate(
+        "",
+        args=["--transcripts", str(folder), *flags],
+        env={"CLAUDE_PLUGIN_DATA": str(H.scratch_dir()), **(env or {})},
+        command=[H.sh, str(EFFECT)],
+        cwd=root,
+    )
+    assert result.code == 0, result.stdout + result.stderr
+    return result.stdout.splitlines()
+
+
+def no_plugins(listed: str = "[]") -> dict[str, str]:
+    """The environment of a fake `claude` that lists `listed` as its plugins."""
+    return fake_claude(H.scratch_dir(), f"echo {shlex.quote(listed)}\n")
+
+
+def options(
+    *parts: str, closing: str = "Recommendation: B, because it is the smaller change.\nDecider: you.\n"
+) -> str:
+    """A message of lettered options: `parts` are the bullets, each already with its sub-bullets."""
+    return "Which one do you want?\n\n" + "".join(parts) + "\n" + closing
+
+
+def option(letter: str, pros: bool = True, cons: bool = True) -> str:
+    text = f"- **{letter}. Option {letter}** — one sentence.\n"
+    text += "  - **Pros:** a gain.\n" if pros else ""
+    return text + ("  - **Cons:** a cost.\n" if cons else "")
+
+
+@item(21, "W1: a covered Markdown write is applied when a hook run examined it, else bypassed by B1")
+def test_effect_path_bypass() -> None:
+    """A write examined by a run of the gate's hook is applied; a write no run examined, a shell redirect, a
+    shell redirect to a README and a write through a worktree of the project are bypassed by B1, the
+    worktree's read as the path in the root. A file taken out of the territories by a negated pattern, one
+    that is no Markdown and a path outside the project are no moment."""
+    consumer = H.fresh_consumer()
+    consumer.write_dials(claim(["*.md", "!drafts/**"]))
+    root, sid = consumer.root, "s21"
+    worktree = root / ".claude" / "worktrees" / "w" / "docs" / "w.md"
+    lines = [
+        tr_call(sid, root, WAY_AT, "t1", "Write", root / "docs" / "a.md"),
+        tr_hook(sid, root, WAY_AT, "t1", "check-open-questions.sh"),
+        tr_call(sid, root, WAY_AT, "t2", "Write", root / "docs" / "b.md"),
+        tr_tool(sid, root, "t3", "Bash", command="echo x > docs/c.md"),
+        tr_tool(sid, root, "t4", "Bash", command="echo x > README.md"),
+        tr_call(sid, root, WAY_AT, "t5", "Write", worktree),
+        tr_call(sid, root, WAY_AT, "t6", "Write", root / "drafts" / "d.md"),
+        tr_call(sid, root, WAY_AT, "t7", "Write", root / "docs" / "e.txt"),
+        tr_call(sid, root, WAY_AT, "t8", "Write", Path("/elsewhere/docs/f.md")),
+    ]
+    found = effect_lines(root, {sid: lines}, no_plugins())
+    wanted = "  W1 (pattern): 5 moment(s): 1 applied, 4 bypassed, 0 missed — B1 4"
+    assert wanted in found, found
+
+
+@item(22, "W2: the plugin disabled, or a dial of the gate loosened, is bypassed by B2")
+def test_effect_switch_off() -> None:
+    """Seven commits of the dials file, the namespace changed at each: severity block (applied); the
+    defaults written out with no severity (applied); severity warn where none stood, so from the default
+    block (bypassed); the markers cut to one (bypassed); a marker added (applied); a negated territory added
+    (bypassed); that negation removed (applied). A fake plugin list that lists the gate for this project
+    disabled adds one more, bypassed. The lines are typed by hand."""
+    consumer = H.fresh_consumer()
+    root = consumer.root
+    defaults = ["[decide:", "TODO", "TBD", "FIXME"]
+    steps = [
+        own(severity="block"),
+        own(markers=defaults),
+        own(markers=defaults, severity="warn"),
+        own(markers=["TODO"]),
+        own(markers=["TODO", "XXX"]),
+        own(markers=["TODO", "XXX"], territories=["*.md", "!drafts/**"]),
+        own(markers=["TODO", "XXX"], territories=["*.md"]),
+    ]
+    for step in steps:
+        consumer.write_dials(step)
+        consumer.commit()
+    found = effect_lines(root, {}, no_plugins())
+    assert "  W2 (pattern): 7 moment(s): 4 applied, 3 bypassed, 0 missed — B2 3" in found, found
+    disabled = json.dumps([{"id": f"{NAMESPACE}@m", "enabled": False, "projectPath": str(root)}])
+    again = effect_lines(root, {}, no_plugins(disabled))
+    assert "  W2 (pattern): 8 moment(s): 4 applied, 4 bypassed, 0 missed — B2 4" in again, again
+
+
+@item(
+    23,
+    "W3: after a block for a marker the next act on the file decides: write applied, shell bypassed by B3",
+)
+def test_effect_after_red() -> None:
+    """Four sessions, each a block of the hook on a write of a document: the next act a write of the same
+    file (applied); a `sed -i` of it (bypassed); a write of another file and no more (bypassed); a human turn
+    first (no moment). The line is typed by hand."""
+    root = H.fresh_consumer().root
+    docs = root / "docs"
+
+    def red(sid: str, *after: str) -> list[str]:
+        return [
+            tr_call(sid, root, WAY_AT, "r", "Write", docs / "a.md"),
+            tr_red(sid, root, "r", "RED: x"),
+            *after,
+        ]
+
+    sessions = {
+        "s23a": red("s23a", tr_call("s23a", root, WAY_AT, "n", "Edit", docs / "a.md")),
+        "s23b": red("s23b", tr_tool("s23b", root, "n", "Bash", command="sed -i '' s/TBD/x/ docs/a.md")),
+        "s23c": red("s23c", tr_call("s23c", root, WAY_AT, "n", "Write", docs / "other.md")),
+        "s23d": red(
+            "s23d",
+            tr_turn("s23d", root, WAY_AT, "stop"),
+            tr_call("s23d", root, WAY_AT, "n", "Write", docs / "a.md"),
+        ),
+    }
+    found = effect_lines(root, sessions, no_plugins())
+    assert "  W3 (pattern): 3 moment(s): 1 applied, 2 bypassed, 0 missed — B3 2" in found, found
+
+
+@item(
+    24, "W4: the skill a block names is loaded before the next act on the file, or the block is missed by B5"
+)
+def test_effect_skill_after_red() -> None:
+    """A block whose text says `load the skill const-questions:ask-or-decide`: a Skill call naming it before
+    the next write of the file is applied, in full or bare; a write first, or a Skill call for another skill,
+    is missed; a block whose text names no skill is no moment. The line is typed by hand."""
+    root = H.fresh_consumer().root
+    doc = root / "docs" / "a.md"
+    said = f"RED: x\nconst-questions: load the skill {SKILL_NAME} before you fix this"
+
+    def case(sid: str, *after: str, text: str = said) -> list[str]:
+        return [tr_call(sid, root, WAY_AT, "r", "Write", doc), tr_red(sid, root, "r", text), *after]
+
+    sessions = {
+        "s24a": case("s24a", tr_tool("s24a", root, "k", "Skill", skill=SKILL_NAME)),
+        "s24b": case("s24b", tr_tool("s24b", root, "k", "Skill", skill="ask-or-decide")),
+        "s24c": case("s24c", tr_call("s24c", root, WAY_AT, "w", "Write", doc)),
+        "s24d": case("s24d", tr_tool("s24d", root, "k", "Skill", skill="const-questions:other")),
+        "s24e": case("s24e", text="RED: x"),
+    }
+    found = effect_lines(root, sessions, no_plugins())
+    assert "  W4 (pattern): 4 moment(s): 2 applied, 0 bypassed, 2 missed — B5 2" in found, found
+
+
+@item(
+    25,
+    "W5: a skill loaded earlier makes a message of lettered options applied, none missed by B5",
+)
+def test_effect_skill_before_options() -> None:
+    """A message of lettered options after a Skill call for ask-or-decide, in full or bare, is applied; one
+    with no load before it, and one after a load of another skill, are missed; a load after the message
+    does not count for it; a message with no lettered options is no moment. The line is typed by hand."""
+    root = H.fresh_consumer().root
+    chosen = options(option("A"), option("B"))
+    sessions = {
+        "s25a": [tr_tool("s25a", root, "k", "Skill", skill=SKILL_NAME), tr_say("s25a", root, chosen)],
+        "s25b": [tr_tool("s25b", root, "k", "Skill", skill="ask-or-decide"), tr_say("s25b", root, chosen)],
+        "s25c": [tr_say("s25c", root, chosen), tr_tool("s25c", root, "k", "Skill", skill=SKILL_NAME)],
+        "s25d": [
+            tr_tool("s25d", root, "k", "Skill", skill="const-questions:other"),
+            tr_say("s25d", root, chosen),
+        ],
+        "s25e": [tr_say("s25e", root, "I did it, and nothing is left to choose.")],
+    }
+    found = effect_lines(root, sessions, no_plugins())
+    assert "  W5 (pattern): 4 moment(s): 2 applied, 0 bypassed, 2 missed — B5 2" in found, found
+
+
+@item(
+    26,
+    "W6: lettered options are applied when they show Pros and Cons, a recommendation, the decider",
+)
+def test_effect_decision_shape() -> None:
+    """The whole shape is applied. Each of these is missed by B6: options with no sub-bullets, one option
+    with no Cons, no recommendation, no decider. A plain question with no letters, and one whose bold letters
+    are not a run from A, are no moment. The line is typed by hand."""
+    root = H.fresh_consumer().root
+    whole = options(option("A"), option("B"))
+    texts = [
+        whole,
+        options(option("A", pros=False, cons=False), option("B", pros=False, cons=False)),
+        options(option("A"), option("B", cons=False)),
+        options(option("A"), option("B"), closing="Decider: you.\n"),
+        options(option("A"), option("B"), closing="Recommendation: B.\n"),
+        "Should the file go in docs or in notes?",
+        "- **C. Third** — alone.\n  - **Pros:** x.\n  - **Cons:** y.\n",
+    ]
+    lines = [tr_say("s26", root, text) for text in texts]
+    found = effect_lines(root, {"s26": lines}, no_plugins())
+    assert "  W6 (pattern): 5 moment(s): 1 applied, 0 bypassed, 4 missed — B6 4" in found, found
+
+
+@item(
+    27,
+    "W7: the scan on each commit of main in a throwaway clone: green applied, a marker bypassed by B4",
+)
+def test_effect_escape() -> None:
+    """Three commits of `main`: the fixture, a document that holds a `TBD` (the scan is red there), and the
+    document without it. The module's own scan runs on a shared clone at each, outside the project, which
+    stays as it was. The line is typed by hand."""
+    consumer = H.fresh_consumer()
+    consumer.git("branch", "-M", "main")
+    consumer.write(DOC, note("TBD: who owns this\n"))
+    consumer.commit()
+    consumer.write(DOC, note("Done.\n"))
+    consumer.commit()
+    root = consumer.root
+    before = subprocess.run(
+        ["git", "status", "--porcelain", "--ignored"], cwd=root, capture_output=True, text=True
+    )
+    found = effect_lines(root, {}, no_plugins())
+    assert "  W7 (pattern): 3 moment(s): 2 applied, 1 bypassed, 0 missed — B4 1" in found, found
+    after = subprocess.run(
+        ["git", "status", "--porcelain", "--ignored"], cwd=root, capture_output=True, text=True
+    )
+    assert after.stdout == before.stdout, (before.stdout, after.stdout)
+
+
+@item(28, "W8: each message that puts a question is a moment for the reader, who judges it with --reader")
+def test_effect_reader_rule() -> None:
+    """Four messages put a question: one that ends in a question mark, one of lettered options with none, one
+    whose last line is a question inside bold, and one with a question after a code block. Three do not: a
+    statement, a question mark inside a code span, a question mark inside a fenced block. Without `--reader`
+    the four are counted and not judged; a fake reader that answers APPLIED judges them. The lines are typed
+    by hand."""
+    root = H.fresh_consumer().root
+    sid = "s28"
+    texts = [
+        "Shall I put the scratch file under docs/?",
+        options(option("A"), option("B"), closing=""),
+        "I read this as the first. **Is that right?**",
+        "```\nwhat?\n```\nWhich do you want?",
+        "The change is made.",
+        "Run `git status ?` to see it.",
+        "```\nIs this a question?\n```\nIt is not.",
+    ]
+    lines = [tr_turn(sid, root, WAY_AT, "start"), *(tr_say(sid, root, text) for text in texts)]
+    plain = effect_lines(root, {sid: lines}, no_plugins())
+    assert "  W8 (reader): 4 moment(s), not judged — run again with --reader to judge them" in plain, plain
+    env, _ = reader_fake(H.scratch_dir(), "claude.ai", json.dumps({"result": "APPLIED"}))
+    judged = effect_lines(root, {sid: lines}, env, "--reader")
+    assert "  W8 (reader): 4 moment(s): 4 applied, 0 bypassed, 0 missed" in judged, judged
+
+
 SUBJECT = Subject(
     harness=H,
     gate_on=gate_on,
@@ -607,4 +897,6 @@ SUBJECT = Subject(
     long_value=wrote("[decide:" + "x" * 11992 + "\n"),
     pattern_dial=PatternDial("territories", lambda pattern: own(territories=[pattern])),
     skill="ask-or-decide",  # the skill a red names (F10), typed by hand
+    effect="effect-report.sh",  # no `effect_reader`: its reader rule W8 has a moment for each question put,
+    # and the shared items about a reader rule need one for each human turn
 )
