@@ -115,7 +115,9 @@ class History:
         """The module's hook runs of a session, each with the tool call it examined, where it names one."""
         calls = {call.id: call for call in session.calls()}
         return [
-            (calls.get(run.tool_use_id), run) for run in session.hook_runs() if run.script in self.scripts
+            (calls.get(run.tool_use_id), run)
+            for run in session.hook_runs()
+            if run.script in self.scripts or (run.plugin and run.plugin == self.namespace)
         ]
 
     def log_only(self) -> list[LogRecord]:
