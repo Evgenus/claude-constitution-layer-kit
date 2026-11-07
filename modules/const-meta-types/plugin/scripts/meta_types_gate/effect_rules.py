@@ -1,7 +1,7 @@
-"""The rules of const-meta-types' effect report (MODULE.md §13), all judged by a pattern, each built by one
-helper of `constitution_layer_kit.ways` with what only this module knows: its claimed territory, its
-skill, and what loosens its one dial. The territory is read as the hook reads it, through the shared
-index of policies and the shared matcher, never a second time."""
+"""The rules of const-meta-types' effect report (its module document, §13), all judged by a pattern, each
+built by one helper of `constitution_layer_kit.ways` with what only this module knows: its claimed territory,
+its skill, and what loosens its one dial. The territory is read as the hook reads it, through the shared index
+of policies and the shared matcher, never a second time."""
 
 from __future__ import annotations
 

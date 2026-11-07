@@ -954,6 +954,23 @@ def test_switch_off_default() -> None:
         first.commit()
     found = effect_lines(first.root, {}, no_plugins())
     assert "  W5 (pattern): 2 moment(s): 1 applied, 1 bypassed, 0 missed — B2 1" in found, found
+    # a module whose default is warn: the same history lowers nothing, since absent already read as warn
+    history = History(
+        first.root, frozenset(), (), (), "", namespace=NAMESPACE, dials_file=start.GATE.dials_file
+    )
+    lenient = ways.switch_off("X", "x", default_severity="warn")
+    outcomes = [m.outcome for m in lenient.find(history) if m.where.endswith(start.GATE.dials_file)]
+    assert outcomes == [Outcome.APPLIED, Outcome.APPLIED], outcomes
+    # and there, removing a written `severity: block` lowers the gate to the default, warn
+    third = H.fresh_consumer()
+    for step in (own(severity="block"), own(other=1)):
+        third.write_dials(step)
+        third.commit()
+    history = History(
+        third.root, frozenset(), (), (), "", namespace=NAMESPACE, dials_file=start.GATE.dials_file
+    )
+    removed = [m.outcome for m in lenient.find(history) if m.where.endswith(start.GATE.dials_file)]
+    assert removed == [Outcome.APPLIED, Outcome.BYPASSED], removed
     second = H.fresh_consumer()
     second.write_dials(own(severity="warn"))
     second.commit()

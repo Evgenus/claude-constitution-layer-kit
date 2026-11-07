@@ -1,7 +1,7 @@
-"""The rules of const-language's effect report (MODULE.md §13): W1 to W6 judged by a pattern, each built by
-one helper of `constitution_layer_kit.ways` with what only this module knows — its territory, the dials it
-counts as loosened, its skill — and W7 judged by a reader. The territory is read through this module's own
-dials reader and matcher, never a second time."""
+"""The rules of const-language's effect report (its module document, §13): W1 to W6 judged by a pattern, each
+built by one helper of `constitution_layer_kit.ways` with what only this module knows — its territory, the
+dials it counts as loosened, its skill — and W7 judged by a reader. The territory is read through this
+module's own dials reader and matcher, never a second time."""
 
 from __future__ import annotations
 

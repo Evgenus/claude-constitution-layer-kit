@@ -1,7 +1,7 @@
-"""The rules of const-locations' effect report (MODULE.md §13): W1 and W2 on one moment, a new governed
-document of a kind whose home the create command derives, W3 on the plugin. The territory is read through
-this module's own code, the index of policies, the matcher and the home rules of the command, never a second
-time. The module has no gate and no severity, so no rule reads a red or a dial."""
+"""The rules of const-locations' effect report (its module document, §13): W1 and W2 on one moment, a new
+governed document of a kind whose home the create command derives, W3 on the plugin. The territory is read
+through this module's own code, the index of policies, the matcher and the home rules of the command, never a
+second time. The module has no gate and no severity, so no rule reads a red or a dial."""
 
 from __future__ import annotations
 

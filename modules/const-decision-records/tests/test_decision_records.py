@@ -985,7 +985,7 @@ def test_effect_switch_off() -> None:
     A fake plugin list that lists the gate for this project disabled adds one more, bypassed."""
     consumer = H.fresh_consumer(SETUP)
     second = [RECORDS_POLICY, "other-policy"]
-    steps = [
+    steps: list[dict[str, object]] = [
         own(severity="warn"),
         own(severity="block"),
         {NAMESPACE: {"record_policies": second}},

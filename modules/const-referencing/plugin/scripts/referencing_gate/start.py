@@ -20,6 +20,16 @@ GATE = Identity(
     skills={Mode.HOOK: "referencing", Mode.SCAN: "referencing"},  # the skill a red names (F10)
 )
 
+EFFECT = Identity(  # the effect report's run: it counts, and names no skill
+    namespace="const-referencing",
+    gate="effect-report",
+    plugin_root=Path(__file__).resolve().parents[2],
+    dials_file="constitution.yaml",
+    kernel_keys=KERNEL_KEYS,
+    hook_seconds=HOOK_SECONDS,
+    until_installed="until then the effect report is not made",
+)
+
 
 def load_modes() -> cli.Modes:
     # Necessary here, not at the top: the modes import the declared libraries, and only after the
