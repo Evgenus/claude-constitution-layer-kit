@@ -13,7 +13,12 @@ the report and never as a quiet count of nothing. What it knows, observed on Cla
 - a line of type ``attachment`` whose ``attachment`` has a ``hookName`` is a hook run: ``toolUseID`` names
   the tool call it examined, ``hookEvent`` the event; ``command``, ``exitCode`` and ``stdout`` stand on a
   run that let the call through, ``blockingError`` on a run that blocked it, whose text opens with the
-  command in brackets, ``[sh <script>]:``.
+  command in brackets, ``[sh <script>]:`` or ``[command hook <n>]:``;
+- a call a ``PreToolUse`` hook refused leaves no attachment: its tool result's text opens
+  ``PreToolUse:<tool> hook error: [<command>]:``; a hook's red on a ``Stop`` is a line of type ``user``
+  marked ``isMeta`` whose text opens ``Stop hook feedback:`` and a line ``[<command>]:``; each such text
+  ends ``This hook comes from the <plugin>@<marketplace> plugin.``, which names the plugin when the command
+  names no script.
 
 Every line carries ``timestamp``, ``sessionId`` and ``cwd``.
 """
@@ -30,6 +35,14 @@ from . import repository
 
 SCRIPT = re.compile(r"scripts/([A-Za-z0-9_.-]+\.(?:sh|py))\b")  # a hook's script, by its file name
 BLOCKED_COMMAND = re.compile(r"\A\[([^\]]*)\]:")  # the command a blocking run's text opens with
+# a call a PreToolUse hook refused: its tool result, `PreToolUse:Write hook error: [<command>]: <text>`
+REFUSED = re.compile(r"\A([A-Za-z]+:[A-Za-z0-9_]+) hook error: (\[[^\]]*\]):")
+# a hook's red on an event without a call, a Stop: a line the platform adds,
+# `Stop hook feedback:\n[…]: …`
+FEEDBACK = re.compile(r"\A([A-Za-z]+) hook feedback:\n(\[[^\]]*\]):")
+# the plugin a blocking text comes from, the platform's last line:
+# `This hook comes from the <name>@<marketplace> plugin.`
+PLUGIN = re.compile(r"This hook comes from the ([A-Za-z0-9_.-]+)@[A-Za-z0-9_.-]+ plugin\.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +77,7 @@ class HookRun:
     exit_code: int | None
     blocked: bool
     text: str  # what it printed: its standard output, or the blocking text
+    plugin: str = ""  # the plugin a blocking text names as its source; empty when it names none
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,9 +166,13 @@ def _take(reading: _Reading, line: Mapping[str, object]) -> None:
     kind = line.get("type")
     message = line.get("message")
     content = message.get("content") if isinstance(message, dict) else None
-    if kind == "user" and not line.get("isMeta"):
-        human = _human_text(content)
-        if human is not None:
+    if kind == "user":
+        reading.events.extend(_refusals(at, content))
+        feedback = _feedback(at, content) if line.get("isMeta") else None
+        human = None if line.get("isMeta") else _human_text(content)
+        if feedback is not None:
+            reading.events.append(feedback)
+        elif human is not None:
             reading.events.append(HumanTurn(at, human))
     elif kind == "assistant" and isinstance(content, list):
         reading.events.extend(_assistant_events(at, content, cwd))
@@ -191,6 +209,46 @@ def _assistant_events(at: str, content: Sequence[object], cwd: str) -> Iterator[
             yield AssistantText(at, _text(block.get("text")))
 
 
+def _plugin(text: str) -> str:
+    found = PLUGIN.search(text)
+    return found[1] if found else ""
+
+
+def _refusals(at: str, content: object) -> Iterator[HookRun]:
+    """The calls a PreToolUse hook refused: the platform records such a run only in the call's tool result."""
+    for block in content if isinstance(content, list) else []:
+        if not isinstance(block, dict) or block.get("type") != "tool_result":
+            continue
+        given = block.get("content")
+        texts = (
+            [given]
+            if isinstance(given, str)
+            else [_text(b.get("text")) for b in given or [] if isinstance(b, dict)]
+        )
+        for text in texts:
+            refused = REFUSED.match(text)
+            if refused:
+                yield HookRun(
+                    at,
+                    _text(block.get("tool_use_id")),
+                    refused[1],
+                    script_of(refused[2]),
+                    2,
+                    True,
+                    text,
+                    _plugin(text),
+                )
+
+
+def _feedback(at: str, content: object) -> HookRun | None:
+    """A hook's red on an event without a call, as the platform adds it to the conversation."""
+    text = content if isinstance(content, str) else _human_text(content) or ""
+    fed = FEEDBACK.match(text)
+    if fed is None:
+        return None
+    return HookRun(at, "", fed[1], script_of(fed[2]), 2, True, text, _plugin(text))
+
+
 def _hook_run(at: str, attachment: object) -> HookRun | None:
     if not isinstance(attachment, dict) or not isinstance(attachment.get("hookName"), str):
         return None
@@ -214,6 +272,7 @@ def _hook_run(at: str, attachment: object) -> HookRun | None:
         exit_code,
         isinstance(blocking, str),
         printed,
+        _plugin(printed) if isinstance(blocking, str) else "",
     )
 
 
