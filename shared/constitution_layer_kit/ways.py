@@ -235,15 +235,18 @@ def switch_off(
     key: str,
     text: str,
     loosened: Callable[[Mapping[str, object], Mapping[str, object]], bool] | None = None,
+    default_severity: str = "block",
 ) -> Rule:
     """B2. A moment for the module's plugin in `claude plugin list --json` for this project, applied where it
     is enabled and bypassed where it is listed and disabled; and one for each commit in the window that
     changes the module's namespace in the dials file, bypassed where `severity` went from `block` to `warn`
-    or where `loosened(old, new)` says so, with the namespace's two values as mappings, and applied
-    otherwise. What cannot be read is a note."""
+    — an absent `severity` read as `default_severity`, the module's default — or where `loosened(old, new)`
+    says so, with the namespace's two values as mappings, and applied otherwise. A commit that adds the
+    namespace is no lowering of its severity: a project may adopt a module at warn. What cannot be read is a
+    note."""
 
     def find(history: History) -> list[Moment]:
-        return [*_plugin_moments(history, key), *_dials_moments(history, key, loosened)]
+        return [*_plugin_moments(history, key), *_dials_moments(history, key, loosened, default_severity)]
 
     return Rule(key, Judge.PATTERN, (Way.B2,), text, find)
 
@@ -299,6 +302,7 @@ def _dials_moments(
     history: History,
     key: str,
     loosened: Callable[[Mapping[str, object], Mapping[str, object]], bool] | None,
+    default_severity: str,
 ) -> list[Moment]:
     name = history.dials_file
     if not name:
@@ -315,7 +319,7 @@ def _dials_moments(
     for line in reversed(listed.splitlines()):
         commit, _, at = line.partition(" ")
         try:
-            moment = _dials_change(history, commit, at, loosened)
+            moment = _dials_change(history, commit, at, loosened, default_severity)
         except yaml.YAMLError as exc:
             failed.append(type(exc).__name__)
             continue
@@ -331,6 +335,7 @@ def _dials_change(
     commit: str,
     at: str,
     loosened: Callable[[Mapping[str, object], Mapping[str, object]], bool] | None,
+    default_severity: str,
 ) -> Moment | None:
     name = history.dials_file
     old = _namespace_values(_run_git(["show", f"{commit}^:{name}"], history.root), history.namespace)
@@ -338,7 +343,11 @@ def _dials_change(
     if old == new:
         return None
     where = f"{commit[:12]} {name}"
-    went_down = old.get("severity") == "block" and new.get("severity") == "warn"
+    went_down = (
+        bool(old)
+        and old.get("severity", default_severity) == "block"
+        and new.get("severity", default_severity) == "warn"
+    )
     if went_down or (loosened is not None and loosened(old, new)):
         return Moment("", at, where, Outcome.BYPASSED, Way.B2)
     return Moment("", at, where, Outcome.APPLIED)
@@ -364,7 +373,7 @@ def _reds(history: History, session: Session) -> Iterator[tuple[int, ToolCall | 
     examined, and the run."""
     calls = {call.id: call for call in session.calls()}
     for index, event in enumerate(session.events):
-        if isinstance(event, HookRun) and event.script in history.scripts and _is_red(event):
+        if isinstance(event, HookRun) and history.ours(event) and _is_red(event):
             yield index, calls.get(event.tool_use_id), event
 
 
