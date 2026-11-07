@@ -24,8 +24,7 @@ REQUIRES = "2.1.0"  # the release of the Python package constitution-layer-kit t
 # Percent formatting on purpose: this file must parse on any Python 3, and f-strings do not.
 TOO_OLD = (
     "BROKEN: const-task-close needs Python %d.%d or newer, found %d.%d — fix: install a current"
-    " Python 3 (https://www.python.org/downloads/) and put it first on PATH"
-    " — until then the effect report is not made\n"
+    " Python 3 (https://www.python.org/downloads/) and put it first on PATH\n"
     "BROKEN: the report could not run — no rule counted\n"
 )
 
@@ -36,8 +35,7 @@ if sys.version_info < FLOOR:
 GUIDE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "INSTALL.md")
 NO_SHARED_CODE = (
     "BROKEN: const-task-close needs the Python package constitution-layer-kit %s or a later %s.x release,"
-    " and python3 cannot import it — fix: install it for python3 as %s says"
-    " — until then the effect report is not made\n"
+    " and python3 cannot import it — fix: install it for python3 as %s says\n"
     "BROKEN: the report could not run — no rule counted\n"
 )
 
@@ -48,7 +46,7 @@ except ImportError:
     sys.stderr.write(NO_SHARED_CODE % (REQUIRES, REQUIRES.partition(".")[0], shown))  # noqa: UP031
     sys.exit(1)
 
-failure = cli.version_failure("const-task-close", REQUIRES, GUIDE, "until then the effect report is not made")
+failure = cli.version_failure("const-task-close", REQUIRES, GUIDE, "")
 if failure is not None:
     sys.stderr.write(failure + "\n" + NO_SHARED_CODE.partition("\n")[2])
     sys.exit(1)
@@ -57,4 +55,4 @@ from constitution_layer_kit import effect  # noqa: E402
 from task_close_gate import effect_rules, start  # noqa: E402
 
 if __name__ == "__main__":
-    sys.exit(effect.run(sys.argv[1:], start.GATE, effect_rules.rules))
+    sys.exit(effect.run(sys.argv[1:], start.REPORT, effect_rules.rules))

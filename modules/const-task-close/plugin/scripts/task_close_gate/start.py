@@ -24,6 +24,17 @@ GATE = Identity(
     skills={Mode.HOOK: "commit-before-edit", Mode.SCAN: "close-task"},
 )
 
+# the effect report's own identity: the same plugin and dials file, the entry file effect-report.py
+REPORT = Identity(
+    namespace="const-task-close",
+    gate="effect-report",
+    plugin_root=Path(__file__).resolve().parents[2],
+    dials_file="constitution.yaml",
+    kernel_keys=KERNEL_KEYS,
+    hook_seconds=HOOK_SECONDS,
+    until_installed="until then the effect report is not made",
+)
+
 ARGUMENTS = (
     cli.Argument("--since", "ref"),
     cli.Argument("--change", "commit"),

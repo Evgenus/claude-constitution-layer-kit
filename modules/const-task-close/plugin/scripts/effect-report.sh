@@ -5,7 +5,7 @@
 # line, never a silent report.
 here=$(dirname "$0")
 if ! command -v python3 >/dev/null 2>&1; then
-  echo "BROKEN: const-task-close needs python3 — fix: install Python 3.12 or newer (https://www.python.org/downloads/) — until then the effect report is not made" >&2
+  echo "BROKEN: const-task-close needs python3 — fix: install Python 3.12 or newer (https://www.python.org/downloads/)" >&2
   echo "BROKEN: the report could not run — no rule counted" >&2
   exit 1
 fi

@@ -119,12 +119,13 @@ def _answer(call: ToolCall) -> Outcome | None:
 
 
 def _turn_end_red(history: History, event: object) -> HookRun | None:
-    """The module's turn-end hook run that blocked the turn."""
+    """The module's turn-end hook run that blocked the turn: a run of its script, or one the platform's text
+    names as coming from this plugin."""
     if (
         isinstance(event, HookRun)
         and event.blocked
-        and event.script in history.scripts
         and event.hook.startswith("Stop")
+        and (event.script in history.scripts or (event.plugin != "" and event.plugin == history.namespace))
     ):
         return event
     return None

@@ -1926,7 +1926,7 @@ def test_closing_is_the_gates_own() -> None:
             command=[sys.executable, "-S", str(entry)],
             shared=False,
         ),
-        "BROKEN: const-task-close needs the Python package constitution-layer-kit 2.1.0 or a later 2.x"
+        "BROKEN: const-task-close needs the Python package constitution-layer-kit 2.0.0 or a later 2.x"
         " release, and python3 cannot import it — fix: install it for python3 as"
         f" {SCRIPTS.parent / 'INSTALL.md'} says — {CLOSING}",
     )
@@ -2034,18 +2034,24 @@ def tr_tool(sid: str, cwd: Path, call_id: str, name: str, **given: object) -> st
     return tr_line("assistant", sid, cwd, EFFECT_AT, message={"role": "assistant", "content": [block]})
 
 
-def tr_stop_red(sid: str, cwd: Path, hook: str = "Stop", script: str = "check-task-close.sh") -> str:
-    """A run of a hook script that blocked, with no call it examined: the turn-end hook's block."""
-    done = {
-        "type": "hook_blocking_error",
-        "hookName": hook,
-        "toolUseID": "",
-        "hookEvent": hook.partition(":")[0],
-        "blockingError": {
-            "blockingError": f"[sh /x/plugin/scripts/{script}]: RED: the working tree is dirty"
-        },
-    }
-    return tr_line("attachment", sid, cwd, EFFECT_AT, attachment=done)
+def tr_stop_red(sid: str, cwd: Path, plugin: str = "const-task-close", command: str = "command hook") -> str:
+    """A red of a Stop hook as Claude Code 2.1.286 records it: a user line marked `isMeta`, the text naming
+    the command in brackets and, last, the plugin it comes from."""
+    text = (
+        f"Stop hook feedback:\n[{command}]: RED: the working tree is dirty"
+        f"\n\nThis hook comes from the {plugin}@fixture-marketplace plugin."
+    )
+    return tr_line("user", sid, cwd, EFFECT_AT, isMeta=True, message={"role": "user", "content": text})
+
+
+def tr_refusal(sid: str, cwd: Path, call_id: str) -> str:
+    """A refusal of a PreToolUse hook of this plugin, recorded in the call's tool result."""
+    text = (
+        "PreToolUse:Write hook error: [command hook 7]: RED: x"
+        "\n\nThis hook comes from the const-task-close@fixture-marketplace plugin."
+    )
+    block = {"type": "tool_result", "tool_use_id": call_id, "is_error": True, "content": text}
+    return tr_line("user", sid, cwd, EFFECT_AT, message={"role": "user", "content": [block]})
 
 
 def effect_lines(root: Path, sessions: Mapping[str, Sequence[str]] | None = None) -> list[str]:
@@ -2096,8 +2102,8 @@ def test_effect_switch_off() -> None:
 def test_effect_after_turn_end_red() -> None:
     """Each session holds a red of the turn-end hook. The next act a commit (applied); a look at the tree,
     then a stash (applied); a write of a file, a `rm`, a `git checkout --` (bypassed). A human turn first,
-    a look at the tree and then a human turn, a red of the same script on a call, and a red of another
-    script are no moment."""
+    a look at the tree and then a human turn, a refusal of a call by this plugin, and a red of another
+    plugin are no moment. The red is the `isMeta` line the platform writes for a Stop hook."""
     root = repo(own()).root
     sid = "s43"
 
@@ -2123,12 +2129,12 @@ def test_effect_after_turn_end_red() -> None:
         "h": case(
             "h",
             tr_tool("h", root, "1", "Bash", command="rm x"),
-            red=tr_stop_red("h", root, "PreToolUse:Write"),
+            red=tr_refusal("h", root, "r"),
         ),
         "i": case(
             "i",
             tr_tool("i", root, "1", "Bash", command="rm x"),
-            red=tr_stop_red("i", root, script="other.sh"),
+            red=tr_stop_red("i", root, "another"),
         ),
     }
     assert sid
