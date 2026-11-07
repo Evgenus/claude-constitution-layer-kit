@@ -1,6 +1,5 @@
 """The reader judge of the effect report: a fresh reader, a language model, given one rule and an excerpt of a
-session, answers whether the rule was applied, bypassed or missed there (R5 of dec-0114-module-effect-report-
-design).
+session, answers whether the rule was applied, bypassed or missed there (kit-shared-gate-code §1, `judge`).
 
 It runs `claude -p` with no tools, in an empty folder, on the person's own login, and never billed by usage:
 before the first question it asks `claude auth status`, and it refuses unless the login is a subscription's.
@@ -52,14 +51,14 @@ def _ask(argv: list[str], seconds: float) -> subprocess.CompletedProcess[str]:
     try:
         return subprocess.run(argv, capture_output=True, text=True, timeout=seconds, env=_environment())
     except (OSError, subprocess.TimeoutExpired) as exc:
-        raise ConfigurationFailure(messages.e5_no_claude(f"{type(exc).__name__}: {exc}")) from exc
+        raise ConfigurationFailure(messages.u5_no_claude(f"{type(exc).__name__}: {exc}")) from exc
 
 
 def ready() -> tuple[str, str]:
     """The Claude Code version the reader runs on, once the login is a subscription's, and no model yet."""
     version = _ask(["claude", "--version"], ASK_SECONDS)
     if version.returncode != 0 or not version.stdout.strip():
-        raise ConfigurationFailure(messages.e5_no_claude(f"claude --version exited {version.returncode}"))
+        raise ConfigurationFailure(messages.u5_no_claude(f"claude --version exited {version.returncode}"))
     status = _ask(["claude", "auth", "status"], ASK_SECONDS)
     try:
         loaded: object = json.loads(status.stdout)
@@ -67,7 +66,7 @@ def ready() -> tuple[str, str]:
         loaded = {}
     method = loaded.get("authMethod") if isinstance(loaded, dict) else None
     if method not in SUBSCRIPTION:
-        raise ConfigurationFailure(messages.e5_not_subscription(str(method or "no login")))
+        raise ConfigurationFailure(messages.u5_not_subscription(str(method or "no login")))
     return version.stdout.split()[0], ""
 
 

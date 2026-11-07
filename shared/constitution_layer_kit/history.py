@@ -2,7 +2,7 @@
 typed records.
 
 A transcript is the platform's own file, one JSON object per line, whose format Claude Code does not
-document (limit 21 of §4 of kit-shared-gate-code). The reader takes the fields it knows and skips every
+document (limit 17 of §4 of kit-shared-gate-code). The reader takes the fields it knows and skips every
 other line, and it counts the lines it could not read, so that a changed format shows as unread lines in
 the report and never as a quiet count of nothing. What it knows, observed on Claude Code 2.1.286 on
 2026-11-07:

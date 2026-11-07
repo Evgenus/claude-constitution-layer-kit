@@ -1,12 +1,12 @@
 """The effect report: at each moment where one of a module's rules applies, whether it was applied, bypassed
-or missed (records dec-0113-module-effect-is-rules-applied-not-bypassed and dec-0114-module-effect-report-
-design).
+or missed (template §13; kit-shared-gate-code §1, `effect`, and §2, item 10).
 
 A module's plugin ships the code that finds its rules' moments, as a list of ``Rule``; its entry
-``scripts/effect-report.sh`` hands that list to ``run``. This runner reads the evidence — the transcripts the
-module's log names, and those of a folder ``--transcripts`` names; the module's log — counts each rule's
-moments, and prints the report. A rule judged by a pattern finds each moment with its outcome; a rule judged
-by a reader finds each moment with an excerpt, and the reader of ``judge`` gives the outcome, with
+``effect-report.sh``, in its scripts folder, hands that list to ``run``. This runner reads the evidence —
+the transcripts the module's log names, and those of a folder ``--transcripts`` names; the module's log —
+counts each rule's moments, and prints the report. A rule judged by a pattern finds each moment with its
+outcome; a rule judged by a reader finds each moment with an excerpt, and the reader of ``judge`` gives the
+outcome, with
 ``--reader`` alone. The two judges' counts stand on lines of their own and are never added together, and
 counts are summed per module and never across modules. The report blocks nothing, sets no threshold and is
 never red: it exits 0 once printed, and 1 when it could not run.
@@ -40,7 +40,7 @@ from .output import Output
 from .pipeline import route_log
 from .repository import repo_root
 
-ENTRY = "scripts/effect-report.sh"  # a plugin's entry, relative to its root
+ENTRY = ("scripts", "effect-report.sh")  # a plugin's entry, by its parts below the plugin's root
 FLAGS = ("--reader", "--transcripts", "--since")
 DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 LIST_SECONDS = 60.0  # the plugin list's clock
@@ -55,7 +55,7 @@ class Judge(StrEnum):
 
 
 class Way(StrEnum):
-    """The six ways of R2 and R3 of dec-0113-module-effect-is-rules-applied-not-bypassed."""
+    """The six ways a rule fails, as template §13 names them."""
 
     B1 = "B1"  # path bypass: a file of the gate's territory changed with no hook of the gate examining it
     B2 = "B2"  # switch-off: the module off for a clone, its severity lowered, or a dial loosened
@@ -112,7 +112,7 @@ class History:
 
     def log_only(self) -> list[LogRecord]:
         """The log's hook records of the sessions no transcript holds: they count where no transcript does
-        (R3 of dec-0114-module-effect-report-design)."""
+        (kit-shared-gate-code §1, `effect`)."""
         held = {session.id for session in self.sessions}
         return [r for r in self.log if r.mode == Mode.HOOK.value and r.session and r.session not in held]
 
@@ -146,10 +146,10 @@ def parse(argv: Sequence[str], usage: str) -> Flags:
     parser.add_argument("--since", default="", metavar="DATE")
     args = parser.parse_args(list(argv))
     if args.since and DATE.fullmatch(args.since) is None:
-        raise ConfigurationFailure(messages.e5_since(args.since))
+        raise ConfigurationFailure(messages.u5_since(args.since))
     folder = Path(args.transcripts) if args.transcripts else None
     if folder is not None and not folder.is_dir():
-        raise ConfigurationFailure(messages.e5_transcripts(args.transcripts))
+        raise ConfigurationFailure(messages.u5_transcripts(args.transcripts))
     return Flags(bool(args.reader), folder, str(args.since))
 
 
@@ -158,7 +158,7 @@ USAGE = "[--reader] [--transcripts <dir>] [--since <YYYY-MM-DD>]"
 
 def run(argv: Sequence[str], gate: Identity, rules: Callable[[], Sequence[Rule]]) -> int:
     """A module's effect entry: which gate it is, and how to load its rules once the libraries are there."""
-    return guarded(gate, Mode.REPORT, lambda output: _report(argv, output, rules), messages.e5_could_not_run)
+    return guarded(gate, Mode.REPORT, lambda output: _report(argv, output, rules), messages.u5_could_not_run)
 
 
 def _report(argv: Sequence[str], output: Output, rules: Callable[[], Sequence[Rule]]) -> int:
@@ -171,15 +171,15 @@ def _report(argv: Sequence[str], output: Output, rules: Callable[[], Sequence[Ru
         judge.ready() if flags.reader and any(r.judge is Judge.READER for r in loaded) else ("", "")
     )
     unread = sum(session.unread for session in history.sessions)
-    output.out(messages.e1_headline(len(loaded), len(history.sessions), flags.since, unread))
+    output.out(messages.u1_headline(len(loaded), len(history.sessions), flags.since, unread))
     if not history.sessions:
-        output.out(messages.e1_no_session())
+        output.out(messages.u1_no_session())
     for record in disagreements(history):
-        output.out(messages.e3_disagree(record.path, record.session, record.at))
+        output.out(messages.u3_disagree(record.path, record.session, record.at))
     for rule in loaded:
         model = _rule_lines(output, rule, history, flags.reader, model)
     if version:
-        output.out(messages.e4_reader(model or "the default model", version))
+        output.out(messages.u4_reader(model or "the default model", version))
     return 0
 
 
@@ -198,7 +198,7 @@ def _rule_lines(output: Output, rule: Rule, history: History, reader: bool, mode
         output.out(_counted(rule, moments))
         return model
     if not reader:
-        output.out(messages.e2_not_judged(rule.key, len(moments)))
+        output.out(messages.u2_not_judged(rule.key, len(moments)))
         return model
     judged: list[Moment] = []
     for moment in moments:
@@ -207,7 +207,7 @@ def _rule_lines(output: Output, rule: Rule, history: History, reader: bool, mode
             judged.append(Moment(moment.session, moment.at, moment.where, Outcome(outcome)))
     output.out(_counted(rule, judged, len(moments)))
     if len(judged) < len(moments):
-        output.out(messages.e2_no_verdict(rule.key, len(moments) - len(judged)))
+        output.out(messages.u2_no_verdict(rule.key, len(moments) - len(judged)))
     return model
 
 
@@ -225,7 +225,7 @@ def _counted(rule: Rule, moments: Sequence[Moment], total: int | None = None) ->
     ways = Counter(m.way for m in moments if m.way is not None)
     by = ", ".join(f"{way.value} {ways[way]}" for way in Way if ways[way])
     counts = [outcomes[Outcome.APPLIED], outcomes[Outcome.BYPASSED], outcomes[Outcome.MISSED]]
-    return messages.e2_counted(
+    return messages.u2_counted(
         rule.key, rule.judge.value, len(moments) if total is None else total, counts, by
     )
 
@@ -270,9 +270,10 @@ def _scripts(plugin_root: Path) -> frozenset[str]:
     while stack:
         item = stack.pop()
         if isinstance(item, dict):
-            command = item.get("command")
-            if isinstance(command, str) and script_of(command):
-                found.add(script_of(command))
+            # a hook is `"command": "sh"` with the script in `"args"`, or the whole line in `"command"`
+            args = item.get("args")
+            words = [item.get("command"), *(args if isinstance(args, list) else [])]
+            found.update(script_of(word) for word in words if isinstance(word, str) and script_of(word))
             stack.extend(item.values())
         elif isinstance(item, list):
             stack.extend(item)
@@ -281,7 +282,7 @@ def _scripts(plugin_root: Path) -> frozenset[str]:
 
 def disagreements(history: History) -> list[LogRecord]:
     """The log's hook records that name a file or a command which no tool call of their session's transcript
-    names, in a session a transcript holds (R3 of dec-0114-module-effect-report-design)."""
+    names, in a session a transcript holds; the transcript's count stands."""
     named: dict[str, set[str]] = {}
     for session in history.sessions:
         named.setdefault(session.id, set()).update(
@@ -300,21 +301,21 @@ def disagreements(history: History) -> list[LogRecord]:
 def main_all(argv: Sequence[str]) -> int:
     """Every enabled plugin's effect report for the project in the current folder, in turn."""
     try:
-        Parser(USAGE, "constitution_layer_kit.effect").parse_args(list(argv))  # refuse what no entry takes
+        parse(argv, USAGE)  # refuse what no entry takes, as an entry would
         plugins = enabled_plugins(Path(os.getcwd()).resolve())
     except ConfigurationFailure as failure:
         print(failure.broken.render(), file=sys.stderr)
-        print(messages.e6_could_not_run(), file=sys.stderr)
+        print(messages.u6_could_not_run(), file=sys.stderr)
         return EXIT_BROKEN
-    reports = [(name, path / ENTRY) for name, path in plugins if (path / ENTRY).is_file()]
-    print(messages.e6_headline(len(reports), len(plugins)), flush=True)
+    reports = [(name, path.joinpath(*ENTRY)) for name, path in plugins if path.joinpath(*ENTRY).is_file()]
+    print(messages.u6_headline(len(reports), len(plugins)), flush=True)
     for name, entry in reports:
         try:
             code = subprocess.run(["sh", str(entry), *argv], timeout=REPORT_SECONDS, check=False).returncode
         except subprocess.TimeoutExpired:
             code = EXIT_BROKEN
         if code != 0:
-            print(messages.e6_report_failed(name, code), flush=True)
+            print(messages.u6_report_failed(name, code), flush=True)
     return 0
 
 
@@ -325,13 +326,13 @@ def enabled_plugins(top: Path) -> list[tuple[str, Path]]:
             ["claude", "plugin", "list", "--json"], capture_output=True, text=True, timeout=LIST_SECONDS
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        raise ConfigurationFailure(messages.e6_no_list(f"{type(exc).__name__}: {exc}")) from exc
+        raise ConfigurationFailure(messages.u6_no_list(f"{type(exc).__name__}: {exc}")) from exc
     try:
         listed: object = json.loads(done.stdout)
     except ValueError as exc:
-        raise ConfigurationFailure(messages.e6_no_list(f"exit {done.returncode}, no JSON list")) from exc
+        raise ConfigurationFailure(messages.u6_no_list(f"exit {done.returncode}, no JSON list")) from exc
     if done.returncode != 0 or not isinstance(listed, list):
-        raise ConfigurationFailure(messages.e6_no_list(f"exit {done.returncode}, no JSON list"))
+        raise ConfigurationFailure(messages.u6_no_list(f"exit {done.returncode}, no JSON list"))
     found: dict[str, Path] = {}
     for entry in listed:
         if not isinstance(entry, dict) or entry.get("enabled") is not True:

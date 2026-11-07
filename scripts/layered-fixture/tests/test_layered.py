@@ -17,7 +17,7 @@ from constitution_layer_kit.model import KERNEL_KEYS
 from constitution_layer_kit.testing.acceptance import broken_first_line, expect, item
 from constitution_layer_kit.testing.consumer import ROOT_POLICY, Consumer, document, dump, envelope
 from constitution_layer_kit.testing.harness import Edit, Harness, Result, Write, event_json
-from constitution_layer_kit.testing.items import NO_ENVELOPE, Subject
+from constitution_layer_kit.testing.items import NO_ENVELOPE, Subject, tr_call, tr_hook
 from layered_gate import messages, start
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
@@ -232,6 +232,39 @@ def test_unreadable_envelope_is_no_crash() -> None:
         expect(result, 0, "GREEN: know-check: 1 document examined, governed by notes-policy", "stdout")
 
 
+@item(
+    9,
+    "W1: a Markdown write is applied when a run of the hook script examined it, else bypassed by B1",
+)
+def test_effect_pattern_rule() -> None:
+    """A hand-made transcript: a Write examined by a run of `check-layered.sh` and an Edit likewise are
+    applied; a Write with no run, and one whose only run is of another script, are bypassed by way B1; a
+    write of a file that is no Markdown is no moment. The line is typed by hand."""
+    root = H.fresh_consumer().root
+    folder = H.scratch_dir()
+    sid, at = "s9", "2026-11-03T10:00:00.000Z"
+    lines = [
+        tr_call(sid, root, at, "t1", "Write", root / "a.md"),
+        tr_hook(sid, root, at, "t1", "check-layered.sh"),
+        tr_call(sid, root, at, "t2", "Write", root / "b.md"),
+        tr_call(sid, root, at, "t3", "Write", root / "c.md"),
+        tr_hook(sid, root, at, "t3", "other.sh"),
+        tr_call(sid, root, at, "t4", "Write", root / "d.txt"),
+        tr_call(sid, root, at, "t5", "Edit", root / "e.md"),
+        tr_hook(sid, root, at, "t5", "check-layered.sh"),
+    ]
+    (folder / "s9.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    result = H.run_gate(
+        "",
+        args=["--transcripts", str(folder)],
+        env={"CLAUDE_PLUGIN_DATA": str(H.scratch_dir())},
+        command=[H.sh, str(SCRIPTS / "effect-report.sh")],
+        cwd=root,
+    )
+    wanted = "  W1 (pattern): 4 moment(s): 2 applied, 2 bypassed, 0 missed — B1 2"
+    assert result.code == 0 and wanted in result.stdout.splitlines(), result.stdout + result.stderr
+
+
 SUBJECT = Subject(
     harness=H,
     gate_on=gate_on,
@@ -249,4 +282,6 @@ SUBJECT = Subject(
         " it claims nothing until it does"
     ),
     outside="docs/notes/a.md is outside claimed territory",
+    effect="effect-report.sh",
+    effect_reader="W2",
 )

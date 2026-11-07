@@ -63,6 +63,7 @@ from .harness import (
     ask_reason,
     bash_json,
     event_json,
+    fake_program,
     red_lines,
     stop_json,
 )
@@ -298,6 +299,10 @@ class Subject:
     # scan prints its verdict; `bare_readme` is that scan's green line with a README at the top
     skill: str = ""  # the skill a red of `red` names after its count line (F10), typed by hand; empty: the
     # gate names none for that mode, and the item about the line is left out
+    effect: str = ""  # the file name of the module's effect entry, `effect-report.sh`, in its scripts folder;
+    # empty: the module has no effect part, and the items about the effect runner are left out
+    effect_reader: str = ""  # the key of one rule of that entry judged by a reader, which finds at least one
+    # moment for each human turn of a session; empty leaves the items about the reader out
 
 
 AS_ROOT = (
@@ -1478,6 +1483,11 @@ def shared(subject: Subject, name: str) -> SharedItems:
         ),
         (subject.noted is None and name == "notes_reach_the_model", "Subject.noted is None"),
         (subject.skill == "" and name == "skill_named_after_red", "Subject.skill is empty"),
+        (subject.effect == "" and name.startswith("effect_"), "Subject.effect is empty"),
+        (
+            subject.effect_reader == "" and name.startswith("effect_reader_"),
+            "Subject.effect_reader is empty",
+        ),
     ):
         if leaves_out:
             pytest.skip(f"not this gate's: {reason}")
@@ -3935,3 +3945,430 @@ def test_reading_keeps_the_deadline(subject: Subject, monkeypatch: pytest.Monkey
     if (outside, inside, mode) != (6.0, 6.0, Mode.HOOK):
         problems.append(f"outside {outside} s, inside {inside} s, mode inside {mode}")
     assert not problems, "; ".join(problems)
+
+
+# ---------------------------------------------------------------- the effect runner (items 192 on)
+# A module with an effect entry names it in `Subject.effect`. The lines asserted are typed by hand from the
+# messages of the report, U1 to U6; a rule count and a rule's key are the module's own, so a line that
+# carries one is matched whole with the module's value read from the same run or the Subject.
+
+EFFECT_DAY = "2026-11-01T10:00:00.000Z"
+EFFECT_LATER = "2026-11-05T10:00:00.000Z"
+EFFECT_BILLED = (
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_AUTH_TOKEN",
+    "CLAUDE_CODE_USE_BEDROCK",
+    "CLAUDE_CODE_USE_VERTEX",
+    "CLAUDE_CODE_USE_FOUNDRY",
+)
+
+
+def tr_line(kind: str, sid: str, cwd: Path, at: str, **rest: object) -> str:
+    """One line of a session transcript as Claude Code writes it, reduced to what the reader takes."""
+    return json.dumps({"type": kind, "timestamp": at, "sessionId": sid, "cwd": str(cwd), **rest})
+
+
+def tr_turn(sid: str, cwd: Path, at: str, text: str) -> str:
+    return tr_line("user", sid, cwd, at, message={"role": "user", "content": text})
+
+
+def tr_call(sid: str, cwd: Path, at: str, call_id: str, tool: str, target: Path) -> str:
+    block = {"type": "tool_use", "id": call_id, "name": tool, "input": {"file_path": str(target)}}
+    return tr_line("assistant", sid, cwd, at, message={"role": "assistant", "content": [block]})
+
+
+def tr_hook(sid: str, cwd: Path, at: str, call_id: str, script: str) -> str:
+    done = {
+        "hookName": "PreToolUse:Write",
+        "toolUseID": call_id,
+        "hookEvent": "PreToolUse",
+        "command": f"sh /plugins/x/scripts/{script}",
+        "exitCode": 0,
+        "stdout": "GREEN",
+    }
+    return tr_line("attachment", sid, cwd, at, attachment=done)
+
+
+def log_record(ns: str, at: str, mode: str, session: str, path: str = "", transcript: str = "") -> str:
+    return json.dumps(
+        {
+            "ts": at,
+            "module": ns,
+            "gate": "g",
+            "mode": mode,
+            "session": session,
+            "path": path,
+            "transcript": transcript,
+            "stream": "stdout",
+            "text": "x",
+        }
+    )
+
+
+def fake_claude(folder: Path, body: str) -> dict[str, str]:
+    """The environment that puts a fake `claude` first on PATH; `body` is the shell it runs."""
+    where = folder / "fake-bin"
+    where.mkdir()
+    fake_program(where / "claude", body)
+    return {"PATH": where.as_posix() + os.pathsep + os.environ.get("PATH", "")}
+
+
+def reader_fake(folder: Path, method: str, answer: str) -> tuple[dict[str, str], Path]:
+    """A fake `claude` of a reader run: `--version` prints 9.9.9, `auth status` reports `method`, `-p`
+    prints `answer`; every start logs its first argument and its environment. Returns the PATH and the
+    environment log."""
+    calls, seen = folder / "claude-calls", folder / "claude-env"
+    status = json.dumps({"authMethod": method})
+    body = (
+        f'echo "$1" >> {shlex.quote(str(calls))}\nenv >> {shlex.quote(str(seen))}\n'
+        'case "$1" in\n'
+        '  --version) echo "9.9.9 (Claude Code)" ;;\n'
+        f"  auth) echo {shlex.quote(status)} ;;\n"
+        f"  -p) echo {shlex.quote(answer)} ;;\n"
+        "esac\n"
+    )
+    return fake_claude(folder, body), calls
+
+
+def effect_run(
+    it: SharedItems,
+    root: Path,
+    *args: str,
+    env: dict[str, str] | None = None,
+    data: Path | None = None,
+    command: Sequence[str] | None = None,
+) -> Result:
+    """The module's effect entry in the consumer `root`, with a plugin data directory of its own (the log
+    the entry reads when the dials name none)."""
+    merged = {"CLAUDE_PLUGIN_DATA": str(data or it.h.scratch_dir()), **(env or {})}
+    entry = command or [it.h.sh, str(it.h.scripts / it.s.effect)]
+    return it.h.run_gate("", args=args, env=merged, command=entry, cwd=root)
+
+
+def effect_headline(ns: str, result: Result) -> str:
+    """The first line of the report, which must be the U1 headline: `EFFECT: <ns>: <n> rule(s) over ...`."""
+    lines = result.stdout.splitlines()
+    assert lines and lines[0].startswith(f"EFFECT: {ns}: "), f"exit {result.code}: {result.stdout!r}"
+    return lines[0]
+
+
+def effect_tail(ns: str, sessions: int, since: str = "", unread: int = 0) -> str:
+    """What the U1 headline says after the module's rule count, typed by hand."""
+    window = f" since {since}" if since else ""
+    return f" rule(s) over {sessions} session(s){window}, {unread} transcript line(s) unread"
+
+
+def reader_moments(it: SharedItems, result: Result) -> int:
+    """The number of moments the reader rule reports, from its U2 line of a run without `--reader`."""
+    wanted = f"  {it.s.effect_reader} (reader): "
+    found = [line for line in result.stdout.splitlines() if line.startswith(wanted)]
+    tail = " moment(s), not judged — run again with --reader to judge them"
+    assert len(found) == 1 and found[0].endswith(tail), f"exit {result.code}: {result.stdout!r}"
+    return int(found[0][len(wanted) : -len(tail)])
+
+
+def project_with_turns(it: SharedItems) -> tuple[Path, Path, Path]:
+    """A consumer, a folder of transcripts, and the transcript in it of a session of the consumer with two
+    human turns, four days apart."""
+    root = it.h.fresh_consumer().root
+    folder = it.h.scratch_dir()
+    own = folder / "own.jsonl"
+    own.write_text(
+        tr_turn("s-own", root, EFFECT_DAY, "first")
+        + "\n"
+        + tr_turn("s-own", root / "docs", EFFECT_LATER, "second")
+        + "\n",
+        encoding="utf-8",
+    )
+    return root, folder, own
+
+
+@item(192, "effect report: with no transcript it prints the headline with 0 sessions and the U1 note, exit 0")
+def test_effect_no_transcript(subject: Subject) -> None:
+    """Nothing names a transcript: the report is not red and not silent. The headline counts 0 sessions and
+    0 unread lines; the note says that no session was read and how to name a folder; nothing is on stderr."""
+    it = shared(subject, "effect_no_transcript")
+    root = it.h.fresh_consumer().root
+    result = effect_run(it, root)
+    headline = effect_headline(it.ns, result)
+    note = (  # typed by hand
+        f"note: {it.ns}: no session read — no record of the module's log names a transcript of this project;"
+        " name a folder of transcripts with --transcripts <dir>"
+    )
+    ok = (
+        result.code == 0
+        and result.stderr == ""
+        and headline.endswith(effect_tail(it.ns, 0))
+        and headline[len(f"EFFECT: {it.ns}: ") :].split(" ")[0].isdigit()
+        and result.stdout.splitlines()[1] == note
+    )
+    assert ok, f"exit {result.code}; stdout {result.stdout!r}; stderr {result.stderr!r}"
+
+
+@item(
+    193, "effect report: a folder of transcripts counts the sessions of this project, a line that is no JSON"
+)
+def test_effect_transcripts_folder(subject: Subject) -> None:
+    """`--transcripts` reads a folder and the folders in it: a session whose cwd lies inside the consumer
+    counts, one of another project does not, and a line that is no JSON counts as one unread line; with a
+    session read, the note of no session is not printed."""
+    it = shared(subject, "effect_transcripts_folder")
+    root, folder, own = project_with_turns(it)
+    own.write_text(own.read_text(encoding="utf-8") + "this line is no JSON\n", encoding="utf-8")
+    (folder / "deeper").mkdir()
+    other = it.h.scratch_dir()  # another project's folder
+    (folder / "deeper" / "other.jsonl").write_text(
+        tr_turn("s-other", other, EFFECT_DAY, "elsewhere") + "\n", encoding="utf-8"
+    )
+    result = effect_run(it, root, "--transcripts", str(folder))
+    headline = effect_headline(it.ns, result)
+    ok = (
+        result.code == 0
+        and result.stderr == ""
+        and headline.endswith(effect_tail(it.ns, 1, unread=1))
+        and "no session read" not in result.stdout
+    )
+    assert ok, f"exit {result.code}; stdout {result.stdout!r}; stderr {result.stderr!r}"
+
+
+@item(194, "effect report: the transcript field of the module's log finds a transcript with no flag")
+def test_effect_log_finds_transcript(subject: Subject) -> None:
+    """A hook or scan record of the log names a transcript: the report reads it with no flag. A record of
+    another mode (the report's own) names none that counts."""
+    it = shared(subject, "effect_log_finds_transcript")
+    root, folder, own = project_with_turns(it)
+    data = it.h.scratch_dir()
+    spare = folder / "spare.jsonl"
+    spare.write_text(tr_turn("s-spare", root, EFFECT_DAY, "x") + "\n", encoding="utf-8")
+    records = [
+        log_record(it.ns, EFFECT_DAY, "hook", "s-own", "", str(own)),
+        log_record(it.ns, EFFECT_DAY, "report", "s-spare", "", str(spare)),
+    ]
+    (data / log_name()).write_text("\n".join(records) + "\n", encoding="utf-8")
+    result = effect_run(it, root, data=data)
+    headline = effect_headline(it.ns, result)
+    assert result.code == 0 and headline.endswith(effect_tail(it.ns, 1)), result.stdout
+
+
+@item(195, "effect report: a hook record whose path no tool call of its session names prints DISAGREE")
+def test_effect_disagree(subject: Subject) -> None:
+    """The log says the hook examined `docs/c.md` in a session whose transcript holds a hook run on
+    `docs/a.md` alone: one DISAGREE line, whole. A record whose path the transcript names, and one of a
+    session no transcript holds, print none."""
+    it = shared(subject, "effect_disagree")
+    root = it.h.fresh_consumer().root
+    folder, data = it.h.scratch_dir(), it.h.scratch_dir()
+    named, unnamed = Path("/w/docs/a.md"), Path("/w/docs/c.md")  # short: a long path is echoed cut
+    (folder / "s1.jsonl").write_text(
+        "\n".join(
+            [
+                tr_call("s1", root, EFFECT_DAY, "t1", "Write", named),
+                tr_hook("s1", root, EFFECT_DAY, "t1", it.h.wrapper.name),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    at = "2026-11-02T09:00:00+00:00"
+    records = [
+        log_record(it.ns, EFFECT_DAY, "hook", "s1", str(named)),
+        log_record(it.ns, at, "hook", "s1", str(unnamed)),
+        log_record(it.ns, at, "hook", "s-no-transcript", str(unnamed)),
+    ]
+    (data / log_name()).write_text("\n".join(records) + "\n", encoding="utf-8")
+    result = effect_run(it, root, "--transcripts", str(folder), data=data)
+    wanted = (  # typed by hand
+        f"DISAGREE: {it.ns}: the log names '{unnamed}' in session s1 at {at}, and no tool call of that"
+        " session's transcript names it — the transcript's count stands"
+    )
+    said = [line for line in result.stdout.splitlines() if line.startswith("DISAGREE:")]
+    assert result.code == 0 and said == [wanted], f"exit {result.code}; stdout {result.stdout!r}"
+
+
+@item(196, "effect report: --since keeps what is at or after the date")
+def test_effect_since(subject: Subject) -> None:
+    """The window shows in the headline and cuts the log's records and the rules' moments: a DISAGREE of
+    2026-11-01 stays under `--since 2026-11-01`, the date itself, and goes under `--since 2026-11-03`; a
+    reader rule's moments, two turns four days apart, are all of them, one fewer, and none."""
+    it = shared(subject, "effect_since")
+    root, folder, own = project_with_turns(it)
+    data = it.h.scratch_dir()
+    stray = root / "docs" / "stray.md"
+    records = [log_record(it.ns, EFFECT_DAY, "hook", "s-own", str(stray))]
+    (data / log_name()).write_text("\n".join(records) + "\n", encoding="utf-8")
+    problems: list[str] = []
+    for since, kept in (("", 1), ("2026-11-01", 1), ("2026-11-03", 0)):
+        args = ["--transcripts", str(folder), *(["--since", since] if since else [])]
+        result = effect_run(it, root, *args, data=data)
+        said = [line for line in result.stdout.splitlines() if line.startswith("DISAGREE:")]
+        if result.code != 0 or len(said) != kept:
+            problems.append(f"since {since!r}: exit {result.code}, {len(said)} DISAGREE line(s)")
+        elif not effect_headline(it.ns, result).endswith(effect_tail(it.ns, 1, since)):
+            problems.append(f"since {since!r}: headline {result.stdout.splitlines()[0]!r}")
+    assert not problems, "; ".join(problems)
+
+
+@item(197, "effect report: a malformed --since and a missing --transcripts folder are BROKEN, exit 1")
+def test_effect_flags_broken(subject: Subject) -> None:
+    """Each is a configuration failure of the report: the line of what failed with its fix, then the closing
+    line, on stderr; nothing is counted on stdout."""
+    it = shared(subject, "effect_flags_broken")
+    root = it.h.fresh_consumer().root
+    closing = "BROKEN: the report could not run — no rule counted\n"
+    missing = Path("no-such-folder")  # relative to the consumer, short enough to be echoed whole
+    cases = {
+        (
+            "--since",
+            "11/03",
+        ): f"BROKEN: {it.ns}: --since '11/03' is no date — fix: write the date as YYYY-MM-DD\n",
+        ("--transcripts", str(missing)): (
+            f"BROKEN: {it.ns}: --transcripts '{missing}' is no folder — fix: name the folder that holds the"
+            " session transcripts, the *.jsonl files\n"
+        ),
+    }
+    problems = []
+    for args, line in cases.items():
+        result = effect_run(it, root, *args)
+        if (result.code, result.stdout, result.stderr) != (1, "", line + closing):
+            problems.append(f"{args}: exit {result.code}, stdout {result.stdout!r}, stderr {result.stderr!r}")
+    assert not problems, "; ".join(problems)
+
+
+@item(198, "effect report: a reader rule without --reader is not judged, and claude is not run")
+def test_effect_reader_not_judged(subject: Subject) -> None:
+    """The U2 line of a reader rule says how many moments it found and that they are not judged; a fake
+    `claude` on PATH is never started."""
+    it = shared(subject, "effect_reader_not_judged")
+    root, folder, _ = project_with_turns(it)
+    env, calls = reader_fake(it.h.scratch_dir(), "claude.ai", "{}")
+    result = effect_run(it, root, "--transcripts", str(folder), env=env)
+    moments = reader_moments(it, result)  # the line is matched whole inside
+    assert result.code == 0 and moments >= 2 and not calls.exists(), f"{moments} moments; {result.stdout!r}"
+
+
+@item(199, "effect report: --reader on a login that bills by usage is refused, nothing is counted")
+def test_effect_reader_refuses_usage_billing(subject: Subject) -> None:
+    """`claude auth status` reports `console`: the report stops with the subscription refusal, exit 1, and
+    the fake is asked its version and its login and never a question."""
+    it = shared(subject, "effect_reader_refuses_usage_billing")
+    root, folder, _ = project_with_turns(it)
+    env, calls = reader_fake(it.h.scratch_dir(), "console", "{}")
+    result = effect_run(it, root, "--transcripts", str(folder), "--reader", env=env)
+    wanted = (  # typed by hand
+        f"BROKEN: {it.ns}: the reader runs only on a subscription login, never billed by usage, and claude"
+        " auth status reports 'console' — fix: log in with claude auth login on a Claude subscription, or run"
+        " the report without --reader\n"
+        "BROKEN: the report could not run — no rule counted\n"
+    )
+    asked = calls.read_text(encoding="utf-8").split() if calls.exists() else []
+    ok = (result.code, result.stdout, result.stderr) == (1, "", wanted) and "-p" not in asked
+    assert ok, f"exit {result.code}; stdout {result.stdout!r}; stderr {result.stderr!r}; asked {asked}"
+
+
+@item(
+    200, "effect report: a reader that answers APPLIED counts the moments applied and names model and version"
+)
+def test_effect_reader_judges(subject: Subject) -> None:
+    """A fake `claude` on a subscription login answers `APPLIED because`: every moment of the reader rule is
+    applied, none is left without a verdict, and the READER line (U4) names the model the answer reports and
+    the version `claude --version` printed."""
+    it = shared(subject, "effect_reader_judges")
+    root, folder, _ = project_with_turns(it)
+    before = effect_run(it, root, "--transcripts", str(folder))
+    moments = reader_moments(it, before)
+    answer = json.dumps({"result": "APPLIED because", "modelUsage": {"fake-model": {}}})
+    env, _ = reader_fake(it.h.scratch_dir(), "claude.ai", answer)
+    result = effect_run(it, root, "--transcripts", str(folder), "--reader", env=env)
+    counted = (  # typed by hand
+        f"  {it.s.effect_reader} (reader): {moments} moment(s): {moments} applied, 0 bypassed, 0 missed"
+    )
+    lines = result.stdout.splitlines()
+    ok = (
+        result.code == 0
+        and result.stderr == ""
+        and counted in lines
+        and lines[-1] == f"READER: {it.ns}: judged by fake-model on Claude Code 9.9.9"
+        and "without a verdict" not in result.stdout
+    )
+    assert ok, f"exit {result.code}; stdout {result.stdout!r}; stderr {result.stderr!r}"
+
+
+@item(201, "effect report: an answer that names no outcome is a moment without a verdict, never an outcome")
+def test_effect_reader_no_verdict(subject: Subject) -> None:
+    """The fake answers `maybe`: nothing is counted applied, bypassed or missed, the U2 line of no verdict
+    says how many moments, and with no model reported the READER line says the default model."""
+    it = shared(subject, "effect_reader_no_verdict")
+    root, folder, _ = project_with_turns(it)
+    moments = reader_moments(it, effect_run(it, root, "--transcripts", str(folder)))
+    answer = json.dumps({"result": "maybe", "modelUsage": {}})
+    env, _ = reader_fake(it.h.scratch_dir(), "claude.ai", answer)
+    result = effect_run(it, root, "--transcripts", str(folder), "--reader", env=env)
+    key = it.s.effect_reader
+    wanted = [  # typed by hand
+        f"  {key} (reader): {moments} moment(s): 0 applied, 0 bypassed, 0 missed",
+        f"  {key} (reader): {moments} moment(s) without a verdict — the reader's answer named no outcome",
+        f"READER: {it.ns}: judged by the default model on Claude Code 9.9.9",
+    ]
+    lines = result.stdout.splitlines()
+    assert result.code == 0 and all(line in lines for line in wanted), f"stdout {result.stdout!r}"
+
+
+@item(202, "effect report: the reader never sees a variable that bills by usage")
+def test_effect_reader_environment(subject: Subject) -> None:
+    """The five variables Claude Code prefers over a login are set for the report; the fake `claude`,
+    which logs its environment at each of its starts, sees none of them and sees PATH."""
+    it = shared(subject, "effect_reader_environment")
+    root, folder, _ = project_with_turns(it)
+    answer = json.dumps({"result": "APPLIED", "modelUsage": {"fake-model": {}}})
+    folder_of_fake = it.h.scratch_dir()
+    env, _ = reader_fake(folder_of_fake, "claude.ai", answer)
+    env.update({name: "set-by-the-test" for name in EFFECT_BILLED})
+    result = effect_run(it, root, "--transcripts", str(folder), "--reader", env=env)
+    seen = (folder_of_fake / "claude-env").read_text(encoding="utf-8").splitlines()
+    names = {line.split("=", 1)[0] for line in seen}
+    leaked = sorted(set(EFFECT_BILLED) & names)
+    assert result.code == 0 and "PATH" in names and not leaked, f"exit {result.code}; leaked {leaked}"
+
+
+@item(203, "effect report: the shared entry runs the entry of each plugin enabled for this project")
+def test_effect_shared_entry(subject: Subject) -> None:
+    """`python3 -m constitution_layer_kit.effect` asks `claude plugin list --json`: of four plugins, one
+    enabled for this project with an effect entry, one enabled for it with none, one disabled, one enabled
+    for another project, the headline counts 1 report of 2 enabled and the entry's own report follows, run
+    with the same flags. A list that is no JSON is the U6 failure, exit 1, nothing run."""
+    it = shared(subject, "effect_shared_entry")
+    root = it.h.fresh_consumer().root
+    other, bare = it.h.scratch_dir(), it.h.scratch_dir()
+    plugin = it.h.scripts.parent
+    listed = json.dumps(
+        [
+            {"id": "a@m", "enabled": True, "installPath": str(plugin), "projectPath": str(root)},
+            {"id": "b@m", "enabled": True, "installPath": str(bare), "projectPath": str(root)},
+            {"id": "c@m", "enabled": False, "installPath": str(plugin), "projectPath": str(root)},
+            {"id": "d@m", "enabled": True, "installPath": str(plugin), "projectPath": str(other)},
+        ]
+    )
+    folder = it.h.scratch_dir()
+    (folder / "list.json").write_text(listed, encoding="utf-8")
+    body = f'[ "$*" = "plugin list --json" ] && cat {shlex.quote(str(folder / "list.json"))}\n'
+    env = fake_claude(it.h.scratch_dir(), body)
+    shared_entry = [sys.executable, "-m", "constitution_layer_kit.effect"]
+    result = effect_run(it, root, "--since", "2026-11-03", env=env, command=shared_entry)
+    lines = result.stdout.splitlines()
+    ok = (
+        result.code == 0
+        and lines[:1] == ["EFFECT: 1 plugin(s) with an effect report, of 2 enabled for this project"]
+        and len(lines) > 1
+        and lines[1].startswith(f"EFFECT: {it.ns}: ")
+        and lines[1].endswith(effect_tail(it.ns, 0, "2026-11-03"))
+        and sum(line.startswith("EFFECT: ") for line in lines) == 2
+    )
+    assert ok, f"exit {result.code}; stdout {result.stdout!r}; stderr {result.stderr!r}"
+    broken = fake_claude(it.h.scratch_dir(), "echo 'this is no list'\n")
+    failed = effect_run(it, root, env=broken, command=shared_entry)
+    wanted = (  # typed by hand
+        "BROKEN: the plugin list could not be read: exit 0, no JSON list — fix: install Claude Code with"
+        " claude on PATH, then run claude plugin list --json in this project and read why it fails\n"
+        "BROKEN: the effect reports could not run — no plugin read\n"
+    )
+    assert (failed.code, failed.stdout, failed.stderr) == (1, "", wanted), f"{failed}"
