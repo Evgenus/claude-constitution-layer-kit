@@ -4150,7 +4150,7 @@ def test_effect_log_finds_transcript(subject: Subject) -> None:
     assert result.code == 0 and headline.endswith(effect_tail(it.ns, 1)), result.stdout
 
 
-@item(195, "effect report: a hook record whose path no tool call of its session names prints DISAGREE")
+@item(195, "effect report: a hook record whose path no hook run of its session examined prints DISAGREE")
 def test_effect_disagree(subject: Subject) -> None:
     """The log says the hook examined `docs/c.md` in a session whose transcript holds a hook run on
     `docs/a.md` alone: one DISAGREE line, whole. A record whose path the transcript names, and one of a
@@ -4178,8 +4178,8 @@ def test_effect_disagree(subject: Subject) -> None:
     (data / log_name()).write_text("\n".join(records) + "\n", encoding="utf-8")
     result = effect_run(it, root, "--transcripts", str(folder), data=data)
     wanted = (  # typed by hand
-        f"DISAGREE: {it.ns}: the log names '{unnamed}' in session s1 at {at}, and no tool call of that"
-        " session's transcript names it — the transcript's count stands"
+        f"DISAGREE: {it.ns}: the log names '{unnamed}' in session s1 at {at}, and no run of the module's"
+        " hooks in that session's transcript examined it — the transcript's count stands"
     )
     said = [line for line in result.stdout.splitlines() if line.startswith("DISAGREE:")]
     assert result.code == 0 and said == [wanted], f"exit {result.code}; stdout {result.stdout!r}"

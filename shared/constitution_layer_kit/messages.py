@@ -628,7 +628,8 @@ def u2_no_verdict(key: str, count: int) -> str:
 def u3_disagree(path: str, session: str, at: str) -> str:
     return (
         f"DISAGREE: {_ns()}: the log names '{escaped(shown(path))}' in session {escaped(session)} at {at},"
-        " and no tool call of that session's transcript names it — the transcript's count stands"
+        " and no run of the module's hooks in that session's transcript examined it — the transcript's count"
+        " stands"
     )
 
 

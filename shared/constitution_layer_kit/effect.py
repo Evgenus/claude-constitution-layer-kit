@@ -281,8 +281,8 @@ def _scripts(plugin_root: Path) -> frozenset[str]:
 
 
 def disagreements(history: History) -> list[LogRecord]:
-    """The log's hook records that name a file or a command which no tool call of their session's transcript
-    names, in a session a transcript holds; the transcript's count stands."""
+    """The log's hook records that name a file or a command which no run of the module's hooks in their
+    session's transcript examined, in a session a transcript holds; the transcript's count stands."""
     named: dict[str, set[str]] = {}
     for session in history.sessions:
         named.setdefault(session.id, set()).update(
