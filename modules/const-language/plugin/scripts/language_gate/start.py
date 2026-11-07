@@ -22,6 +22,15 @@ GATE = Identity(
     hook_seconds=HOOK_SECONDS,
     skills={Mode.HOOK: "plain-language", Mode.SCAN: "plain-language"},  # the skill a red names (F10)
 )
+EFFECT = Identity(
+    namespace=NAMESPACE,
+    gate="effect-report",
+    plugin_root=PLUGIN_ROOT,
+    dials_file="constitution.yaml",
+    kernel_keys=KERNEL_KEYS,
+    hook_seconds=HOOK_SECONDS,
+    until_installed="until then the effect report is not made",
+)
 
 
 def load_modes() -> cli.Modes:

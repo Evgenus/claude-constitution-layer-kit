@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -29,6 +30,7 @@ from pathlib import Path
 import pytest
 import yaml
 from constitution_layer_kit import messages as shared
+from constitution_layer_kit.history import read_transcript
 from constitution_layer_kit.model import Finding
 from constitution_layer_kit.repository import list_markdown
 from constitution_layer_kit.testing.acceptance import broken_first_line, check_case, expect, failure_of, item
@@ -44,9 +46,19 @@ from constitution_layer_kit.testing.harness import (
     red_lines,
     stop_json,
 )
-from constitution_layer_kit.testing.items import PatternDial, Subject, git_patch
+from constitution_layer_kit.testing.items import (
+    PatternDial,
+    Subject,
+    fake_claude,
+    git_patch,
+    reader_fake,
+    tr_call,
+    tr_hook,
+    tr_line,
+    tr_turn,
+)
 from language_gate import dials as own_dials
-from language_gate import messages, rules, start, vale
+from language_gate import effect_rules, messages, rules, start, vale
 from language_gate.model import Departure, Rule
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
@@ -1482,6 +1494,289 @@ def test_t20() -> None:
         pytest.fail("the line names no folder under skills/")
 
 
+# ---------------------------------------------------------------- the effect report (items 26 on)
+# The seven rules of MODULE.md §13, each run through `effect-report.sh` over hand-made transcripts, a scratch
+# git history of the dials file and of the main branch, and a fake `claude`. The lines are typed by hand.
+
+WAY_AT = "2026-11-03T10:00:00.000Z"
+NOTES = "docs/notes"
+F10_TEXT = (
+    "const-language: load the skill const-language:plain-language before you fix this — it teaches the rule"
+)
+
+
+def tr_tool(sid: str, cwd: Path, call_id: str, name: str, **given: object) -> str:
+    """A tool call of any tool, with its input as given."""
+    block = {"type": "tool_use", "id": call_id, "name": name, "input": given}
+    return tr_line("assistant", sid, cwd, WAY_AT, message={"role": "assistant", "content": [block]})
+
+
+def tr_say(sid: str, cwd: Path, text: str) -> str:
+    block = {"type": "text", "text": text}
+    return tr_line("assistant", sid, cwd, WAY_AT, message={"role": "assistant", "content": [block]})
+
+
+def tr_red(sid: str, cwd: Path, call_id: str, text: str) -> str:
+    """A run of the module's hook script that blocked its call, with the text it printed."""
+    done = {
+        "type": "hook_blocking_error",
+        "hookName": "PostToolUse:Write",
+        "toolUseID": call_id,
+        "hookEvent": "PostToolUse",
+        "blockingError": {"blockingError": f"[sh /x/plugin/scripts/check-language.sh]: {text}"},
+    }
+    return tr_line("attachment", sid, cwd, WAY_AT, attachment=done)
+
+
+def effect_lines(
+    root: Path, sessions: dict[str, list[str]], env: dict[str, str] | None = None, *flags: str
+) -> list[str]:
+    """The lines of the report over the sessions, one transcript each; the report must exit 0. A fake
+    `claude` that lists no plugin stands first on PATH unless the item gives its own."""
+    folder = H.scratch_dir()
+    for name, lines in sessions.items():
+        (folder / f"{name}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    result = H.run_gate(
+        "",
+        args=["--transcripts", str(folder), *flags],
+        env={"CLAUDE_PLUGIN_DATA": str(H.scratch_dir()), **(env or no_plugins())},
+        command=[H.sh, str(SCRIPTS / "effect-report.sh")],
+        cwd=root,
+    )
+    assert result.code == 0, result.stdout + result.stderr
+    return result.stdout.splitlines()
+
+
+def no_plugins() -> dict[str, str]:
+    """The environment of a fake `claude` that lists no plugin."""
+    return fake_claude(H.scratch_dir(), f"echo {shlex.quote('[]')}\n")
+
+
+def noted_root(patch: dict[str, object] | None = None) -> Path:
+    """A consumer whose covered documents are the notes folder, or as the patch says."""
+    return prepared(patch if patch is not None else claim([f"{NOTES}/**"]))
+
+
+@item(
+    26, "W1: a write of a covered document is applied when a run of the hook examined it, else bypassed by B1"
+)
+def test_effect_w1() -> None:
+    """The covered documents are the notes folder. A write examined by a run of check-language.sh is
+    applied; a write no run examined, one through a worktree of the project and a shell redirect are
+    bypassed by B1; a write outside the territory and a file that is no Markdown are no moment. Under the
+    default territories a README at the top is covered."""
+    root = noted_root()
+    sid = "s26"
+    inside = root / NOTES
+    worktree = root / ".claude" / "worktrees" / "w" / NOTES / "w.md"
+    lines = [
+        tr_call(sid, root, WAY_AT, "t1", "Write", inside / "a.md"),
+        tr_hook(sid, root, WAY_AT, "t1", "check-language.sh"),
+        tr_call(sid, root, WAY_AT, "t2", "Write", inside / "b.md"),
+        tr_call(sid, root, WAY_AT, "t3", "Write", worktree),
+        tr_tool(sid, root, "t4", "Bash", command="echo x > docs/notes/c.md"),
+        tr_tool(sid, root, "t5", "Bash", command="echo x > README.md"),
+        tr_call(sid, root, WAY_AT, "t6", "Write", root / "docs" / "other" / "d.md"),
+        tr_call(sid, root, WAY_AT, "t7", "Write", inside / "e.txt"),
+    ]
+    found = effect_lines(root, {sid: lines})
+    assert "  W1 (pattern): 4 moment(s): 1 applied, 3 bypassed, 0 missed — B1 3" in found, found
+    plain = noted_root({})
+    again = [tr_call("s26b", plain, WAY_AT, "t1", "Write", plain / "README.md")]
+    other = effect_lines(plain, {"s26b": again})
+    assert "  W1 (pattern): 1 moment(s): 0 applied, 1 bypassed, 0 missed — B1 1" in other, other
+
+
+@item(27, "W2: a change of the dials is applied, or bypassed by B2 when it takes strictness away")
+def test_effect_w2() -> None:
+    """Eleven commits of the dials file. Applied: the namespace added at block, the grade ceiling lowered
+    twice, a rule raised to error twice. Bypassed by B2: severity turned to warn, then block with the grade
+    ceiling raised, the sentence limit raised, a rule lowered to warning, an exception added, a departure
+    added. The lowerings outnumber the raisings of one kind, so a test turned the wrong way changes the
+    count."""
+    consumer = H.fresh_consumer()
+    departure = {"paths": ["docs/**"], "allow": ["grade"], "reason": "an accepted record"}
+    base: dict[str, object] = {"severity": "block", "grade_ceiling": 12, "sentence_words": 30}
+    warning = {"grade": "warning"}
+    steps: list[dict[str, object]] = [
+        {"severity": "block"},
+        {"severity": "warn"},
+        {"severity": "block", "grade_ceiling": 12},
+        base,
+        {**base, "levels": warning},
+        {**base, "levels": warning, "exceptions": ["by and large"]},
+        {**base, "levels": warning, "exceptions": ["by and large"], "departures": [departure]},
+    ]
+    rest: dict[str, object] = {**steps[-1]}
+    edits: list[dict[str, object]] = [
+        {"grade_ceiling": 9},
+        {"grade_ceiling": 8},
+        {"levels": {"grade": "error"}},
+        {"levels": {"grade": "error", "passive": "error"}},
+    ]
+    for edit in edits:
+        rest = {**rest, **edit}
+        steps.append(rest)
+    for step in steps:
+        consumer.write_dials(own(**step))
+        consumer.commit()
+    found = effect_lines(consumer.root, {})
+    assert "  W2 (pattern): 11 moment(s): 5 applied, 6 bypassed, 0 missed — B2 6" in found, found
+
+
+@item(
+    28,
+    "W3: after a red the next act on the document decides: a write is applied, a shell command bypassed",
+)
+def test_effect_w3() -> None:
+    """Four sessions, each a red of the hook on a write of a note. The next act a write of the same file
+    (applied); a `sed -i` of it (bypassed); a write of another file and then a shell command naming this
+    one (bypassed); a human turn first (no moment)."""
+    root = noted_root()
+    notes = root / NOTES
+
+    def red(sid: str, *after: str) -> list[str]:
+        call = tr_call(sid, root, WAY_AT, "r", "Write", notes / "a.md")
+        return [call, tr_red(sid, root, "r", "RED: a finding"), *after]
+
+    sessions = {
+        "s28a": red("s28a", tr_call("s28a", root, WAY_AT, "n", "Edit", notes / "a.md")),
+        "s28b": red("s28b", tr_tool("s28b", root, "n", "Bash", command="sed -i '' s/a/b/ docs/notes/a.md")),
+        "s28c": red(
+            "s28c",
+            tr_call("s28c", root, WAY_AT, "n1", "Write", notes / "other.md"),
+            tr_tool("s28c", root, "n2", "Bash", command="echo x >> docs/notes/a.md"),
+        ),
+        "s28d": red(
+            "s28d",
+            tr_turn("s28d", root, WAY_AT, "stop"),
+            tr_call("s28d", root, WAY_AT, "n", "Write", notes / "a.md"),
+        ),
+    }
+    found = effect_lines(root, sessions)
+    assert "  W3 (pattern): 3 moment(s): 1 applied, 2 bypassed, 0 missed — B3 2" in found, found
+
+
+@item(
+    29, "W4: the skill a red names is loaded before the next act on the document, or the red is missed by B5"
+)
+def test_effect_w4() -> None:
+    """A red whose text says `load the skill const-language:plain-language`: a Skill call naming it, in full
+    or bare, before the next write of the file is applied; a write first, and a Skill call for another
+    skill, are missed; a red whose text names no skill is no moment."""
+    root = noted_root()
+    notes = root / NOTES
+
+    def case(sid: str, *after: str, said: str = F10_TEXT) -> list[str]:
+        return [
+            tr_call(sid, root, WAY_AT, "r", "Write", notes / "a.md"),
+            tr_red(sid, root, "r", f"RED: x\n{said}"),
+            *after,
+        ]
+
+    sessions = {
+        "s29a": case("s29a", tr_tool("s29a", root, "k", "Skill", skill="const-language:plain-language")),
+        "s29b": case("s29b", tr_tool("s29b", root, "k", "Skill", skill="plain-language")),
+        "s29c": case("s29c", tr_call("s29c", root, WAY_AT, "w", "Write", notes / "a.md")),
+        "s29d": case("s29d", tr_tool("s29d", root, "k", "Skill", skill="const-language:other")),
+        "s29e": case("s29e", said="nothing to load"),
+    }
+    found = effect_lines(root, sessions)
+    assert "  W4 (pattern): 4 moment(s): 2 applied, 0 bypassed, 2 missed — B5 2" in found, found
+
+
+@item(
+    30,
+    "W5: a write of a covered document is applied when plain-language was loaded earlier, else missed by B5",
+)
+def test_effect_w5() -> None:
+    """The covered documents are the notes folder. A Skill call for plain-language earlier in the session
+    makes a write or an edit of a covered document applied; a write with no load, one through a worktree
+    of the project and one after the load of another skill are missed; a write outside the territory is
+    no moment."""
+    root = noted_root()
+    notes = root / NOTES
+    worktree = root / ".claude" / "worktrees" / "w" / NOTES / "w.md"
+    sessions = {
+        "s30a": [
+            tr_tool("s30a", root, "k", "Skill", skill="const-language:plain-language"),
+            tr_call("s30a", root, WAY_AT, "w1", "Write", notes / "a.md"),
+            tr_call("s30a", root, WAY_AT, "w2", "Edit", notes / "b.md"),
+            tr_call("s30a", root, WAY_AT, "w3", "Write", root / "README.md"),
+        ],
+        "s30b": [
+            tr_call("s30b", root, WAY_AT, "w1", "Write", notes / "a.md"),
+            tr_call("s30b", root, WAY_AT, "w2", "Write", worktree),
+        ],
+        "s30c": [
+            tr_tool("s30c", root, "k", "Skill", skill="const-styling:style-defaults"),
+            tr_call("s30c", root, WAY_AT, "w1", "Write", notes / "c.md"),
+        ],
+    }
+    found = effect_lines(root, sessions)
+    assert "  W5 (pattern): 5 moment(s): 2 applied, 0 bypassed, 3 missed — B5 3" in found, found
+
+
+@item(
+    31,
+    "W6: the scan on each commit of the main branch in a throwaway clone: green applied, red bypassed by B4",
+)
+def test_effect_w6() -> None:
+    """Four commits of `main`: the fixture, the covered folder, a note with a word that has a plain one, and
+    the note fixed.
+    The scan of the current plugin runs on a shared clone at each, outside the project, which stays as it
+    was."""
+    consumer = H.fresh_consumer()
+    consumer.write_dials(claim([f"{NOTES}/**"]))
+    consumer.commit()
+    consumer.git("branch", "-M", "main")
+    consumer.write(DOC, SIMPLER_RED)
+    consumer.commit()
+    consumer.write(DOC, SIMPLER_GREEN)
+    consumer.commit()
+    root = consumer.root
+    before = subprocess.run(
+        ["git", "status", "--porcelain", "--ignored"], cwd=root, capture_output=True, text=True, check=True
+    ).stdout
+    found = effect_lines(root, {})
+    assert "  W6 (pattern): 4 moment(s): 3 applied, 1 bypassed, 0 missed — B4 1" in found, found
+    after = subprocess.run(
+        ["git", "status", "--porcelain", "--ignored"], cwd=root, capture_output=True, text=True, check=True
+    ).stdout
+    assert after == before, (before, after)
+
+
+@item(
+    32,
+    "W7: the reader rule's moments are the last text of the assistant before each human turn, and the last",
+)
+def test_effect_w7() -> None:
+    """A session of two human turns and three texts of the assistant, a tool call between the first two:
+    the moments are the second text and the third, not the first. Not judged without `--reader`; judged by
+    a fake reader that answers APPLIED with it. The moment's excerpt holds the text it judges."""
+    root = noted_root()
+    sid = "s32"
+    lines = [
+        tr_turn(sid, root, WAY_AT, "first question"),
+        tr_say(sid, root, "one"),
+        tr_tool(sid, root, "t1", "Bash", command="ls"),
+        tr_say(sid, root, "two"),
+        tr_turn(sid, root, WAY_AT, "second question"),
+        tr_say(sid, root, "three"),
+    ]
+    plain = effect_lines(root, {sid: lines})
+    assert "  W7 (reader): 2 moment(s), not judged — run again with --reader to judge them" in plain, plain
+    env, _ = reader_fake(H.scratch_dir(), "claude.ai", json.dumps({"result": "APPLIED"}))
+    judged = effect_lines(root, {sid: lines}, env, "--reader")
+    assert "  W7 (reader): 2 moment(s): 2 applied, 0 bypassed, 0 missed" in judged, judged
+    path = H.scratch_dir() / "direct.jsonl"
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    session = read_transcript(path)
+    assert session is not None
+    said = [getattr(session.events[i], "text", "") for i in effect_rules.final_texts(session)]
+    assert said == ["two", "three"], said
+
+
 # ---------------------------------------------------------------- the list
 
 
@@ -1506,4 +1801,7 @@ SUBJECT = Subject(
     " const-language.levels.passive is warning",
     pattern_dial=PatternDial("territories", lambda pattern: own(territories=[pattern])),
     skill="plain-language",  # the skill a red names (F10), typed by hand
+    effect="effect-report.sh",
+    # no effect_reader: the shared reader items need a moment for each human turn of a session that holds
+    # no text of the assistant, and W7 judges the final text of the assistant (item 32 proves it)
 )
