@@ -11,11 +11,13 @@ decider: Eugene Chernyshov
 
 ## Context
 
-Record [dec-0113-module-effect-is-rules-applied-not-bypassed](dec-0113-module-effect-is-rules-applied-not-bypassed.md) defines a module's efficiency as its effect. At each moment where one of the module's rules applies, the rule was applied, bypassed or missed. R7 of that record leaves two things to the report's own design: where the report runs, and what it needs from the gate logs. This record is that design. The decider asked to proceed with [item 9.33 of the rollout plan](../rollout-plan.md#s9-33), and the session put the questions in chat on 2026-11-07, one per message.
+Record [dec-0113-module-effect-is-rules-applied-not-bypassed](dec-0113-module-effect-is-rules-applied-not-bypassed.md) defines a module's efficiency as its effect. At each moment where one of the module's rules applies, the rule was applied, bypassed or missed. [R7 of dec-0113-module-effect-is-rules-applied-not-bypassed](dec-0113-module-effect-is-rules-applied-not-bypassed.md#r7) leaves two things to the report's own design: where the report runs, and what it needs from the gate logs. This record is that design. The decider asked to proceed with [item 9.33 of the rollout plan](../rollout-plan.md#s9-33), and the session put the questions in chat on 2026-11-07, one per message.
 
 Before the first question, the session read the knowledge kit again, the project the report serves first. Its 8 session transcripts hold a record for every hook run, and each record carries the `toolUseID` of the tool call the hook examined. All 1,728 hook records from tool calls matched their call, and the call names its file. The transcripts also hold 390 shell commands, 48 skill loads and 61 blocks, 45 of them by the hooks of module [`const-language`](../requirements.md#const-language) and 16 by those of module [`const-referencing`](../requirements.md#const-referencing). Claude Code gives every hook the path of its session's transcript in the hook's input, but it does not document the transcript's format. The gate logs remain the only record of the scans.
 
 ## 1. Where the report lives and runs
+
+The report must live somewhere: in the kit, in a module of its own, or in the modules it measures.
 
 - **A. A kit script, run by hand.** A script under the kit's `scripts/`, run on the machine that holds the transcripts, with the project folder and its transcript folder as arguments; its list of rules is a data file beside it.
   - **Pros:** no module changes, so no version bumps and no stale eval receipts; [law 2 of CLAUDE.md](../../CLAUDE.md#law-2) holds, since the project path is only an argument; it follows [the kit's metrics report](../../scripts/metrics.py), also a kit-only report.
@@ -61,7 +63,7 @@ R4 of record [dec-0113-module-effect-is-rules-applied-not-bypassed](dec-0113-mod
   - **Pros:** a smaller change; the deterministic half lands first; the first reports show which rules need a reader most.
   - **Cons:** an accepted ruling stays unbuilt; the advisory rules hardest to see get no verdict yet.
 - **B. The runner starts the reader.** With a flag, the runner sends each moment of a rule for a reader to `claude -p`, with the rule's text and an excerpt of the transcript around it.
-  - **Pros:** R4 of that record is built whole; one command gives both counts, kept apart; without the flag a run costs nothing.
+  - **Pros:** [R4 of dec-0113-module-effect-is-rules-applied-not-bypassed](dec-0113-module-effect-is-rules-applied-not-bypassed.md#r4) is built whole; one command gives both counts, kept apart; without the flag a run costs nothing.
   - **Cons:** each run with the flag costs subscription time and is slow on long histories; its verdicts drift between runs and models; the shared package gains a call to `claude`, which no part of it makes today.
 - **C. A reader agent in the session.** Each module ships an agent that reads the transcripts for its own rules when the person asks.
   - **Pros:** no new machinery in the shared package; the person sees the reader's reasoning as it works.
@@ -95,6 +97,8 @@ The session recommended A, since a report is a duty of the kit's modules and no 
 
 ## 5. How a person runs the report
 
+Under R1 each module holds its own effect code, and [rule 3 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r3) forbids the shared code to name a module, so something must find the modules or each must be run alone.
+
 - **A. One command per module.** Each module ships an entry beside its scan that runs the runner over its own rules and prints its own report.
   - **Pros:** the same shape as the scans; nothing has to find the modules; [law 3 of CLAUDE.md](../../CLAUDE.md#law-3) is easy to test, since each module reports alone.
   - **Cons:** a full picture takes one command per module; the reader flag is given to each; no report sets the modules side by side.
@@ -105,7 +109,7 @@ The session recommended A, since a report is a duty of the kit's modules and no 
   - **Pros:** each module stays testable alone, and the person still gets one report.
   - **Cons:** two entry points to build, test and document; B's dependency on the plugin list.
 
-The session recommended A, since R1 of record [dec-0113-module-effect-is-rules-applied-not-bypassed](dec-0113-module-effect-is-rules-applied-not-bypassed.md#r1) sums the counts per module and never across modules. The decider chose C in chat on 2026-11-07 and gave no other reason.
+The session recommended A, since R1 of record [dec-0113-module-effect-is-rules-applied-not-bypassed](dec-0113-module-effect-is-rules-applied-not-bypassed.md#r1) sums the counts per module, and asks for no total across modules. The decider chose C in chat on 2026-11-07 and gave no other reason.
 
 <a id="r9"></a>**R9.** Each module's plugin ships the entry `scripts/effect-report.sh`, which reports that module alone. The shared package ships the entry `python3 -m constitution_layer_kit.effect`, which asks `claude plugin list --json` for the enabled plugins and calls the entry of each one that ships it. It prints their reports as one, each module's counts apart, summed per module and never across modules.
 
