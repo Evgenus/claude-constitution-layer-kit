@@ -4050,9 +4050,20 @@ def effect_run(
     data: Path | None = None,
     command: Sequence[str] | None = None,
 ) -> Result:
-    """The module's effect entry in the consumer `root`, with a plugin data directory of its own (the log
-    the entry reads when the dials name none)."""
-    merged = {"CLAUDE_PLUGIN_DATA": str(data or it.h.scratch_dir()), **(env or {})}
+    """The module's effect entry in the consumer `root`, with a plugin data directory of its own (the
+    log the entry reads when the dials name none). Unless the item gives its own PATH, a fake `claude`
+    stands first on it, listing no plugin and failing every other call, so that no run reaches the
+    machine's Claude Code."""
+    quiet = it.h.scratch_dir()
+    fake_program(
+        quiet / "claude",
+        'if [ "$1 $2 $3" = "plugin list --json" ]; then echo "[]"; exit 0; fi\nexit 1\n',
+    )
+    merged = {
+        "CLAUDE_PLUGIN_DATA": str(data or it.h.scratch_dir()),
+        "PATH": f"{quiet}{os.pathsep}{os.environ.get('PATH', '')}",
+        **(env or {}),
+    }
     entry = command or [it.h.sh, str(it.h.scripts / it.s.effect)]
     return it.h.run_gate("", args=args, env=merged, command=entry, cwd=root)
 
