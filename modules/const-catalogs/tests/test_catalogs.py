@@ -49,9 +49,14 @@ from constitution_layer_kit.testing.items import (
     NO_ENVELOPE,
     PatternDial,
     Subject,
+    fake_claude,
     git_patch,
     git_timeouts,
     hook_budget,
+    tr_call,
+    tr_hook,
+    tr_line,
+    tr_turn,
 )
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
@@ -1503,6 +1508,256 @@ def test_skill_pointer_printed() -> None:
     pass
 
 
+# ---------------------------------------------------------------- the effect report (items 79 to 84)
+# Each rule of the module's section "Effect" runs through the real entry `effect-report.sh` over transcripts
+# made by hand and, for the history rules, a scratch git repository. The lines asserted are typed by hand.
+
+EFFECT = SCRIPTS / "effect-report.sh"
+WAY_AT = "2026-11-03T10:00:00.000Z"
+SKILL_NAME = "const-catalogs:catalog-item"
+TAIL = f"\n\nThis hook comes from the {NAMESPACE}@fixture-marketplace plugin."
+
+
+def tr_tool(sid: str, cwd: Path, call_id: str, name: str, **given: object) -> str:
+    """A tool call of any tool, with its input as given."""
+    block = {"type": "tool_use", "id": call_id, "name": name, "input": given}
+    return tr_line("assistant", sid, cwd, WAY_AT, message={"role": "assistant", "content": [block]})
+
+
+def tr_red(sid: str, cwd: Path, call_id: str, text: str) -> str:
+    """A run of the module's hook script that blocked its call, as an attachment, with the text it printed."""
+    done = {
+        "type": "hook_blocking_error",
+        "hookName": "PreToolUse:Write",
+        "toolUseID": call_id,
+        "hookEvent": "PreToolUse",
+        "blockingError": {"blockingError": f"[sh /x/plugin/scripts/check-catalog-item.sh]: {text}"},
+    }
+    return tr_line("attachment", sid, cwd, WAY_AT, attachment=done)
+
+
+def tr_refused(sid: str, cwd: Path, call_id: str, text: str) -> str:
+    """The same block as Claude Code records a call a PreToolUse hook refused: only in the call's tool result,
+    its command naming no script, and the plugin it comes from at the end."""
+    refusal = {
+        "type": "tool_result",
+        "tool_use_id": call_id,
+        "is_error": True,
+        "content": f"PreToolUse:Write hook error: [command hook 3]: {text}{TAIL}",
+    }
+    return tr_line("user", sid, cwd, WAY_AT, message={"role": "user", "content": [refusal]})
+
+
+def effect_lines(
+    root: Path, sessions: dict[str, list[str]], env: dict[str, str] | None = None, *flags: str
+) -> list[str]:
+    """The lines of the report over the sessions, one transcript each; the report must exit 0."""
+    folder = H.scratch_dir()
+    for name, lines in sessions.items():
+        (folder / f"{name}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    result = H.run_gate(
+        "",
+        args=["--transcripts", str(folder), *flags],
+        env={"CLAUDE_PLUGIN_DATA": str(H.scratch_dir()), **(env or {})},
+        command=[H.sh, str(EFFECT)],
+        cwd=root,
+    )
+    assert result.code == 0, result.stdout + result.stderr
+    return result.stdout.splitlines()
+
+
+def no_plugins(listed: str = "[]") -> dict[str, str]:
+    """The environment of a fake `claude` that lists `listed` as its plugins."""
+    return fake_claude(H.scratch_dir(), f"echo {shlex.quote(listed)}\n")
+
+
+def listing(**more: object) -> dict[str, object]:
+    """A patch of the dials file that lists the `itm` catalog, with the keys of the namespace `more`."""
+    return {NAMESPACE: {"catalogs": [entry()], **more}}
+
+
+@acceptance_item(79, "W1: a Markdown write in a catalog's territory is applied when a hook run examined it")
+def test_effect_path_bypass() -> None:
+    """A write examined by a run of the gate's hook is applied; a write no run examined, two shell commands
+    that change an item and a write through a worktree of the project are bypassed by B1, the worktree's read
+    as the path in the root. A file outside every territory, one that is no Markdown and a path outside the
+    project are no moment."""
+    consumer = H.fresh_consumer()
+    consumer.write_dials(listing())
+    root, sid = consumer.root, "s79"
+    worktree = root / ".claude" / "worktrees" / "w" / "docs" / "items" / "itm-0005-w.md"
+    lines = [
+        tr_call(sid, root, WAY_AT, "t1", "Write", root / "docs" / "items" / "itm-0001-a.md"),
+        tr_hook(sid, root, WAY_AT, "t1", "check-catalog-item.sh"),
+        tr_call(sid, root, WAY_AT, "t2", "Write", root / "docs" / "items" / "itm-0002-b.md"),
+        tr_tool(sid, root, "t3", "Bash", command="echo x > docs/items/itm-0003-c.md"),
+        tr_tool(sid, root, "t4", "Bash", command="git mv docs/items/old.md docs/items/itm-0004-d.md"),
+        tr_call(sid, root, WAY_AT, "t5", "Write", worktree),
+        tr_call(sid, root, WAY_AT, "t6", "Write", root / "docs" / "elsewhere" / "e.md"),
+        tr_call(sid, root, WAY_AT, "t7", "Write", root / "docs" / "items" / "f.txt"),
+        tr_call(sid, root, WAY_AT, "t8", "Write", Path("/elsewhere/docs/items/g.md")),
+    ]
+    found = effect_lines(root, {sid: lines}, no_plugins())
+    wanted = "  W1 (pattern): 6 moment(s): 1 applied, 5 bypassed, 0 missed — B1 5"
+    assert wanted in found, found
+
+
+@acceptance_item(80, "W2: the plugin disabled, or a dial of the gate loosened, is bypassed by B2")
+def test_effect_switch_off() -> None:
+    """Eight commits of the dials file, the namespace changed at each: a catalog listed (applied); a second
+    catalog listed (applied); severity warn where none stood, so from the default block (bypassed); severity
+    block again (applied); the first catalog's territory narrowed to another pattern (bypassed); a negated
+    pattern added to it (bypassed); its width changed (applied); the second catalog unlisted (bypassed). A
+    fake plugin list that lists the gate for this project disabled adds one more, bypassed. The lines are
+    typed by hand."""
+    consumer = H.fresh_consumer()
+    root = consumer.root
+    first, second = entry(), entry("note", ["docs/notes/**"])
+    narrow = entry(territory=["docs/items/some/**"])
+    steps = [
+        {"catalogs": [first]},
+        {"catalogs": [first, second]},
+        {"catalogs": [first, second], "severity": "warn"},
+        {"catalogs": [first, second], "severity": "block"},
+        {"catalogs": [narrow, second], "severity": "block"},
+        {"catalogs": [entry(territory=["docs/items/some/**", "!docs/items/some/x/**"]), second]},
+        {"catalogs": [entry(territory=["docs/items/some/**", "!docs/items/some/x/**"], width=5), second]},
+        {"catalogs": [entry(territory=["docs/items/some/**", "!docs/items/some/x/**"], width=5)]},
+    ]
+    for step in steps:
+        consumer.write_dials({NAMESPACE: step})
+        consumer.commit()
+    found = effect_lines(root, {}, no_plugins())
+    assert "  W2 (pattern): 8 moment(s): 4 applied, 4 bypassed, 0 missed — B2 4" in found, found
+    disabled = json.dumps([{"id": f"{NAMESPACE}@m", "enabled": False, "projectPath": str(root)}])
+    again = effect_lines(root, {}, no_plugins(disabled))
+    assert "  W2 (pattern): 9 moment(s): 4 applied, 5 bypassed, 0 missed — B2 5" in again, again
+
+
+@acceptance_item(
+    81, "W3: after a block the next act on the file decides: a write applied, a shell command bypassed by B3"
+)
+def test_effect_after_red() -> None:
+    """Six sessions, each a block of the hook on a write of an item, as an attachment or as the refusal of
+    the call, which names no script: the next act a write of the same file (applied, in both forms); a `sed
+    -i` of it and a `git mv` of it (bypassed); a write of another file and no more (bypassed); a human turn
+    first (no moment). The line is typed by hand."""
+    root = H.fresh_consumer().root
+    doc = root / "docs" / "items" / "first.md"
+
+    def red(sid: str, refused: bool, *after: str) -> list[str]:
+        block = tr_refused if refused else tr_red
+        return [tr_call(sid, root, WAY_AT, "r", "Write", doc), block(sid, root, "r", "RED: x"), *after]
+
+    sessions = {
+        "s81a": red("s81a", False, tr_call("s81a", root, WAY_AT, "n", "Write", doc)),
+        "s81b": red("s81b", True, tr_call("s81b", root, WAY_AT, "n", "Write", doc)),
+        "s81c": red(
+            "s81c", False, tr_tool("s81c", root, "n", "Bash", command="sed -i '' s/a/b/ " + str(doc))
+        ),
+        "s81d": red("s81d", True, tr_tool("s81d", root, "n", "Bash", command=f"git mv {doc} itm-1.md")),
+        "s81e": red("s81e", False, tr_call("s81e", root, WAY_AT, "n", "Write", doc.with_name("other.md"))),
+        "s81f": red(
+            "s81f",
+            True,
+            tr_turn("s81f", root, WAY_AT, "stop"),
+            tr_call("s81f", root, WAY_AT, "n", "Write", doc),
+        ),
+    }
+    found = effect_lines(root, sessions, no_plugins())
+    assert "  W3 (pattern): 5 moment(s): 2 applied, 3 bypassed, 0 missed — B3 3" in found, found
+
+
+@acceptance_item(
+    82, "W4: the skill a block names is loaded before the next act on the file, or the block is missed by B5"
+)
+def test_effect_skill_after_red() -> None:
+    """A block whose text says `load the skill const-catalogs:catalog-item`, as an attachment or as a refusal:
+    a Skill call naming it before the next write of the file is applied, in full or bare; a write first, or
+    a Skill call for another skill, is missed; a block whose text names no skill is no moment. The line is
+    typed by hand."""
+    root = H.fresh_consumer().root
+    doc = root / "docs" / "items" / "first.md"
+    said = f"RED: x\nconst-catalogs: load the skill {SKILL_NAME} before you fix this"
+
+    def case(sid: str, refused: bool, *after: str, text: str = said) -> list[str]:
+        block = tr_refused if refused else tr_red
+        return [tr_call(sid, root, WAY_AT, "r", "Write", doc), block(sid, root, "r", text), *after]
+
+    sessions = {
+        "s82a": case("s82a", False, tr_tool("s82a", root, "k", "Skill", skill=SKILL_NAME)),
+        "s82b": case("s82b", True, tr_tool("s82b", root, "k", "Skill", skill="catalog-item")),
+        "s82c": case("s82c", True, tr_call("s82c", root, WAY_AT, "w", "Write", doc)),
+        "s82d": case("s82d", False, tr_tool("s82d", root, "k", "Skill", skill="const-catalogs:other")),
+        "s82e": case("s82e", False, text="RED: x"),
+    }
+    found = effect_lines(root, sessions, no_plugins())
+    assert "  W4 (pattern): 4 moment(s): 2 applied, 0 bypassed, 2 missed — B5 2" in found, found
+
+
+@acceptance_item(
+    83, "W5: a skill loaded earlier makes a Write of a numbered document applied, none missed by B5"
+)
+def test_effect_skill_before_write() -> None:
+    """A Write of a Markdown file in a catalog's territory after a Skill call for catalog-item, in full or
+    bare, is applied; one with no load before it, one after a load of another skill and one whose load comes
+    after the write are missed; an Edit of an item, a Write of a Markdown file outside every territory and a
+    Write of a file that is no Markdown are no moment. The line is typed by hand."""
+    consumer = H.fresh_consumer()
+    consumer.write_dials(listing())
+    root = consumer.root
+    item_path = root / "docs" / "items" / "itm-0001-a.md"
+
+    def load(sid: str, skill: str) -> str:
+        return tr_tool(sid, root, "k", "Skill", skill=skill)
+
+    def write(sid: str, path: Path = item_path, tool: str = "Write") -> str:
+        return tr_call(sid, root, WAY_AT, "w", tool, path)
+
+    sessions = {
+        "s83a": [load("s83a", SKILL_NAME), write("s83a")],
+        "s83b": [load("s83b", "catalog-item"), write("s83b")],
+        "s83c": [write("s83c")],
+        "s83d": [load("s83d", "const-catalogs:other"), write("s83d")],
+        "s83e": [write("s83e"), load("s83e", SKILL_NAME)],
+        "s83f": [write("s83f", tool="Edit"), write("s83f", root / "docs" / "elsewhere" / "e.md")],
+        "s83g": [write("s83g", root / "docs" / "items" / "f.txt")],
+    }
+    found = effect_lines(root, sessions, no_plugins())
+    assert "  W5 (pattern): 5 moment(s): 2 applied, 0 bypassed, 3 missed — B5 3" in found, found
+
+
+@acceptance_item(
+    84,
+    "W6: the scan on each commit of main in a throwaway clone: green applied, a refused name bypassed by B4",
+)
+def test_effect_escape() -> None:
+    """Four commits of `main`: the fixture with no catalog listed (the scan examines nothing), the catalog
+    listed with a valid item, an item whose name has not the form (the scan is red there), and that item
+    renamed. The module's own scan runs on a shared clone at each, outside the project, which stays as it
+    was. The line is typed by hand."""
+    consumer = H.fresh_consumer()
+    consumer.git("branch", "-M", "main")
+    consumer.write_dials(listing())
+    consumer.write(ITEM_A, item())
+    consumer.commit()
+    consumer.write(at("first"), item("first"))
+    consumer.commit()
+    consumer.git("mv", at("first"), at("itm-0002-first"))
+    consumer.write(at("itm-0002-first"), item("itm-0002-first"))
+    consumer.commit()
+    root = consumer.root
+    before = subprocess.run(
+        ["git", "status", "--porcelain", "--ignored"], cwd=root, capture_output=True, text=True, check=False
+    )
+    found = effect_lines(root, {}, no_plugins())
+    assert "  W6 (pattern): 4 moment(s): 3 applied, 1 bypassed, 0 missed — B4 1" in found, found
+    after = subprocess.run(
+        ["git", "status", "--porcelain", "--ignored"], cwd=root, capture_output=True, text=True, check=False
+    )
+    assert after.stdout == before.stdout, (before.stdout, after.stdout)
+
+
 def claim(territory: Sequence[str]) -> dict[str, object]:
     """The dials patch that gives the catalog another territory."""
     return catalogs(entry(territory=list(territory)))
@@ -1524,4 +1779,5 @@ SUBJECT = Subject(
     resolves_policies=False,
     pattern_dial=PatternDial("catalogs[itm]", lambda pattern: catalogs(entry(territory=[pattern]))),
     skill="catalog-item",  # the skill a red names (F10), typed by hand
+    effect="effect-report.sh",  # no `effect_reader`: the module has no reader rule
 )
