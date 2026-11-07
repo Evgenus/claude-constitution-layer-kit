@@ -7,7 +7,7 @@ first `Write` or `Edit` of any file, with the fix on the first line; nothing is 
 The shared code is the Python package `constitution-layer-kit`, which brings PyYAML with it. A project
 installs it once, for the `python3` its hooks run, at the tag of the highest `REQUIRES` among the entry files:
 ```bash
-python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v2.0.0#subdirectory=shared"
+python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v2.1.0#subdirectory=shared"
 ```
 A line that starts `BROKEN: const-meta-types needs the Python package constitution-layer-kit`,
 `BROKEN: const-meta-types needs constitution-layer-kit` or
