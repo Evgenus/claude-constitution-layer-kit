@@ -303,6 +303,8 @@ class Subject:
     # empty: the module has no effect part, and the items about the effect runner are left out
     effect_reader: str = ""  # the key of one rule of that entry judged by a reader, which finds at least one
     # moment for each human turn of a session; empty leaves the items about the reader out
+    effect_hook: str = ""  # the file name of the script a hook of the module runs on a call, where it is not
+    # the harness's wrapper, as a grant's is not; empty: the wrapper's
 
 
 AS_ROOT = (
@@ -1446,6 +1448,7 @@ about_listing = {"ls_files_fails", "init_fails", "check_ignore_fails", "document
 # A gate without a hook mode never reads hook input, a written file or the warn channel, and
 # takes a file out of its territory with a count, not a skip: these items are a hook gate's.
 about_hooks = {
+    "effect_disagree",  # a hook run of the module on a call, which a gate with no hook mode never makes
     "unparseable_input",
     "input_not_an_object",
     "malformed_event",
@@ -4196,7 +4199,7 @@ def test_effect_disagree(subject: Subject) -> None:
         "\n".join(
             [
                 tr_call("s1", root, EFFECT_DAY, "t1", "Write", named),
-                tr_hook("s1", root, EFFECT_DAY, "t1", it.h.wrapper.name),
+                tr_hook("s1", root, EFFECT_DAY, "t1", it.s.effect_hook or it.h.wrapper.name),
             ]
         )
         + "\n",
