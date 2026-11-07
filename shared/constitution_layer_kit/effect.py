@@ -114,11 +114,12 @@ class History:
     def runs(self, session: Session) -> list[tuple[ToolCall | None, HookRun]]:
         """The module's hook runs of a session, each with the tool call it examined, where it names one."""
         calls = {call.id: call for call in session.calls()}
-        return [
-            (calls.get(run.tool_use_id), run)
-            for run in session.hook_runs()
-            if run.script in self.scripts or (run.plugin and run.plugin == self.namespace)
-        ]
+        return [(calls.get(run.tool_use_id), run) for run in session.hook_runs() if self.ours(run)]
+
+    def ours(self, run: HookRun) -> bool:
+        """Whether a hook run is the module's: its script is one the module's hooks run, or its text names the
+        module's plugin, as a run whose command names no script does. The one test every helper uses."""
+        return run.script in self.scripts or bool(run.plugin and run.plugin == self.namespace)
 
     def log_only(self) -> list[LogRecord]:
         """The log's hook records of the sessions no transcript holds: they count where no transcript does

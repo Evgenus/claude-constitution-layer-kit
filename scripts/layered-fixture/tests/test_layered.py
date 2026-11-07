@@ -906,6 +906,40 @@ def test_refusal_and_feedback() -> None:
     assert not History(root, frozenset(), (session,), (), "", namespace="another").runs(session)
 
 
+@item(25, "B3 and B5 after a red see a refusal whose command names no script, by the plugin its text names")
+def test_red_by_plugin() -> None:
+    """A PreToolUse refusal of `[command hook 7]` names no script, only the plugin. The workaround and the
+    skill helpers count it as the module's red when its plugin is the module's, and as nobody's when it is
+    another's. The fix is a Write of the same file after a load of the skill the red names."""
+    root = H.fresh_consumer().root
+    sid = "s25"
+
+    def refusal(plugin: str) -> dict[str, object]:
+        text = (
+            "PreToolUse:Write hook error: [command hook 7]: RED: docs/notes/a.md: forbidden\n"
+            "know-check: load the skill know-check:notes before you fix this"
+            f"\n\nThis hook comes from the {plugin}@fixture-marketplace plugin."
+        )
+        return {"type": "tool_result", "tool_use_id": "t1", "is_error": True, "content": text}
+
+    def lines(plugin: str) -> list[str]:
+        return [
+            tr_call(sid, root, WAY_AT, "t1", "Write", root / "docs/notes/a.md"),
+            tr_line("user", sid, root, WAY_AT, message={"role": "user", "content": [refusal(plugin)]}),
+            tr_tool(sid, root, "t2", "Skill", skill="know-check:notes"),
+            tr_call(sid, root, WAY_AT, "t3", "Write", root / "docs/notes/a.md"),
+        ]
+
+    for plugin, wanted in (("know-check", 1), ("another", 0)):
+        session = read_transcript(_write_transcript(lines(plugin)))
+        assert session is not None
+        history = History(root, frozenset(), (session,), (), "", namespace="know-check")
+        fixed = list(ways.after_red("X", "x").find(history))
+        loaded = list(ways.skill_after_red("Y", "y").find(history))
+        assert len(fixed) == wanted and len(loaded) == wanted, (plugin, fixed, loaded)
+        assert all(m.outcome is Outcome.APPLIED for m in fixed + loaded), (fixed, loaded)
+
+
 SUBJECT = Subject(
     harness=H,
     gate_on=gate_on,
