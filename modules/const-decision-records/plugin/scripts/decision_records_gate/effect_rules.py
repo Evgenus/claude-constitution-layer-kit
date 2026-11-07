@@ -6,15 +6,15 @@ moments are the human turns that answer a lettered choice."""
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, replace
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 
 from constitution_layer_kit import ways
 from constitution_layer_kit.dials import load_dials
-from constitution_layer_kit.effect import History, Moment, Rule
-from constitution_layer_kit.history import AssistantText, HookRun, HumanTurn, Session, ToolCall
+from constitution_layer_kit.effect import History, Rule
+from constitution_layer_kit.history import AssistantText, HumanTurn, Session, ToolCall
 from constitution_layer_kit.index import build_index
 from constitution_layer_kit.repository import repo_root
 from constitution_layer_kit.territory import Matcher
@@ -83,10 +83,8 @@ def _list(value: object) -> list[str]:
 
 
 def loosened(old: Mapping[str, object], new: Mapping[str, object]) -> bool:
-    """A change of the namespace that lets a document through that the gate held: severity from block (the
-    default, where none stands) to warn, or a record policy no longer named."""
-    if old.get("severity", "block") == "block" and new.get("severity", "block") == "warn":
-        return True
+    """A change of the namespace that lets a document through that the gate held: a record policy no longer
+    named. Severity block to warn is read by the helper."""
     return bool(set(_list(old.get("record_policies"))) - set(_list(new.get("record_policies"))))
 
 
@@ -135,34 +133,12 @@ def _answers(text: str, offered: set[str]) -> bool:
     )
 
 
-def attributed(rule: Rule) -> Rule:
-    """The rule over a history in which a blocked run whose command names no script (`[command hook 7]`)
-    but whose text names this plugin carries the name of the gate's script, as `History.runs` counts such a
-    run as the module's already; the helpers of the after-a-red ways read a run by its script alone."""
-
-    def find(history: History) -> Iterable[Moment]:
-        sessions = tuple(_with_scripts(session, history.namespace) for session in history.sessions)
-        return rule.find(replace(history, sessions=sessions))
-
-    return replace(rule, find=find)
-
-
-def _with_scripts(session: Session, namespace: str) -> Session:
-    events = tuple(
-        replace(event, script=SCAN)
-        if isinstance(event, HookRun) and not event.script and event.plugin == namespace
-        else event
-        for event in session.events
-    )
-    return replace(session, events=events)
-
-
 def rules() -> Sequence[Rule]:
     return (
         ways.path_bypass("W1", W1_TEXT, in_territory),
         ways.switch_off("W2", W2_TEXT, loosened),
-        attributed(ways.after_red("W3", W3_TEXT)),
-        attributed(ways.skill_after_red("W4", W4_TEXT)),
+        ways.after_red("W3", W3_TEXT),
+        ways.skill_after_red("W4", W4_TEXT),
         ways.skill_before("W5", W5_TEXT, SKILL, writes_a_record),
         ways.escape("W6", W6_TEXT, script=SCAN),
         ways.reader_rule("W7", W7_TEXT, lettered_answers),

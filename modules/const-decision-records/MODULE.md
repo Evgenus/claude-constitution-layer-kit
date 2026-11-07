@@ -302,4 +302,4 @@ What the module counts of its own effect in a project that installs it, [aspect 
 
 **Ways** *(template rule)*. The ways B1 to B6 as [template §13](../../module-template/MODULE.md#t13) defines them.
 
-**Code** *(template rule)*. As [template §13](../../module-template/MODULE.md#t13) says: the rules in `decision_records_gate/effect_rules.py`, built by the helpers of `constitution_layer_kit.ways` with this module's record territory, loosened dials, scan and skill, W3 and W4 over runs whose command names no script attributed to the module by their plugin; the entry is E6 of [§9](#t9), `REQUIRES` `2.1.0`.
+**Code** *(template rule)*. As [template §13](../../module-template/MODULE.md#t13) says: the rules in `decision_records_gate/effect_rules.py`, built by the helpers of `constitution_layer_kit.ways` with this module's record territory, loosened dials, scan and skill; the entry is E6 of [§9](#t9), `REQUIRES` `2.1.0`.
