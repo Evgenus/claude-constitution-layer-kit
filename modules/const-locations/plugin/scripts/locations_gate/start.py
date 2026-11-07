@@ -44,6 +44,16 @@ GRANT = Identity(
     until_fixed="until it is fixed the command asks for approval as any other command does",
 )
 
+EFFECT = Identity(
+    namespace="const-locations",
+    gate="effect-report",
+    plugin_root=Path(__file__).resolve().parents[2],
+    dials_file="constitution.yaml",
+    kernel_keys=KERNEL_KEYS,
+    hook_seconds=HOOK_SECONDS,
+    until_installed="until then the effect report is not made",
+)
+
 
 class Parser(argparse.ArgumentParser):
     def error(self, message: str) -> NoReturn:
