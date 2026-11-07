@@ -5,14 +5,13 @@ its loosened dials, its skill's moment and its scan."""
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import replace
 from functools import cache
 from pathlib import Path
 
 from constitution_layer_kit import ways
 from constitution_layer_kit.dials import load_dials
 from constitution_layer_kit.effect import History, Judge, Moment, Rule, Way
-from constitution_layer_kit.history import HookRun, Session, ToolCall
+from constitution_layer_kit.history import Session, ToolCall
 from constitution_layer_kit.repository import repo_root
 from constitution_layer_kit.territory import Matcher
 
@@ -67,11 +66,9 @@ def _entries(values: Mapping[str, object]) -> dict[str, list[str]]:
 
 
 def loosened(old: Mapping[str, object], new: Mapping[str, object]) -> bool:
-    """A change of the namespace that lets a document through that the gate held: severity from block (the
-    default) to warn, a catalog no longer listed, a territory pattern of a catalog removed or a negated one
+    """A change of the namespace that lets a document through that the gate held, besides severity, which
+    the helper reads: a catalog no longer listed, a territory pattern of a catalog removed or a negated one
     added."""
-    if old.get("severity", "block") == "block" and new.get("severity", "block") == "warn":
-        return True
     before, after = _entries(old), _entries(new)
     for prefix, patterns in before.items():
         if prefix not in after:
@@ -100,38 +97,12 @@ def skill_before_write(history: History) -> list[Moment]:
     return list(ways.skill_before("W5", W5_TEXT, SKILL, at).find(history))
 
 
-def _named(history: History, run: HookRun) -> HookRun:
-    """A refusal that names its command as `command hook <n>` carries no script, and the helpers of the
-    after-red rules count only the runs of the module's scripts; one that names this plugin is given the
-    gate's script, so that it counts."""
-    if run.script or not run.plugin or run.plugin != history.namespace:
-        return run
-    return replace(run, script=SCAN)
-
-
-def with_named_refusals(history: History) -> History:
-    """The history with each hook run of this plugin that names no script given the gate's script."""
-    sessions = tuple(
-        replace(
-            session,
-            events=tuple(_named(history, e) if isinstance(e, HookRun) else e for e in session.events),
-        )
-        for session in history.sessions
-    )
-    return replace(history, sessions=sessions, scripts=history.scripts | {SCAN})
-
-
-def after_red_named(rule: Rule) -> Rule:
-    """The rule with its moments read on the history of `with_named_refusals`."""
-    return replace(rule, find=lambda history: rule.find(with_named_refusals(history)))
-
-
 def rules() -> Sequence[Rule]:
     return (
         ways.path_bypass("W1", W1_TEXT, in_territory),
         ways.switch_off("W2", W2_TEXT, loosened),
-        after_red_named(ways.after_red("W3", W3_TEXT)),
-        after_red_named(ways.skill_after_red("W4", W4_TEXT)),
+        ways.after_red("W3", W3_TEXT),
+        ways.skill_after_red("W4", W4_TEXT),
         Rule("W5", Judge.PATTERN, (Way.B5,), W5_TEXT, skill_before_write),
         ways.escape("W6", W6_TEXT, script=SCAN),
     )
