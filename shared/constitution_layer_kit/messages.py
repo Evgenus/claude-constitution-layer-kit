@@ -738,3 +738,13 @@ def u7_capped(key: str, cap: int, total: int) -> str:
         f"note: {_ns()}: {key}: {total} commit(s) of the main branch in the window, only the last {cap} are"
         " scanned"
     )
+
+
+def u8_help(entry: str, usage: str) -> str:
+    """What `--help` prints, on either entry: the usage and what each flag does."""
+    return (
+        f"usage: {entry} {usage}\n"
+        "  --reader       let a fresh reader judge the rules no pattern can see, on a subscription login\n"
+        "  --transcripts  a folder of session transcripts, for the sessions whose transcript no log names\n"
+        "  --since        count only what stands on that day or later"
+    )

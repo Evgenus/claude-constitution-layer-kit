@@ -176,6 +176,11 @@ def _is_date(text: str) -> bool:
 
 
 USAGE = "[--reader] [--transcripts <dir>] [--since <YYYY-MM-DD>]"
+HELP = ("--help", "-h")
+
+
+def _asks_help(argv: Sequence[str]) -> bool:
+    return any(arg in HELP for arg in argv)
 
 
 def run(argv: Sequence[str], gate: Identity, rules: Callable[[], Sequence[Rule]]) -> int:
@@ -184,6 +189,9 @@ def run(argv: Sequence[str], gate: Identity, rules: Callable[[], Sequence[Rule]]
 
 
 def _report(argv: Sequence[str], output: Output, rules: Callable[[], Sequence[Rule]]) -> int:
+    if _asks_help(argv):
+        output.out(messages.u8_help("effect-report.sh", USAGE))
+        return 0
     flags = parse(argv, USAGE)
     preflight.check()
     loaded = list(rules())
@@ -336,6 +344,9 @@ def disagreements(history: History) -> list[LogRecord]:
 
 def main_all(argv: Sequence[str]) -> int:
     """Every enabled plugin's effect report for the project in the current folder, in turn."""
+    if _asks_help(argv):
+        print(messages.u8_help("python3 -m constitution_layer_kit.effect", USAGE))
+        return 0
     try:
         parse(argv, USAGE)  # refuse what no entry takes, as an entry would
         plugins = enabled_plugins(Path(os.getcwd()).resolve())

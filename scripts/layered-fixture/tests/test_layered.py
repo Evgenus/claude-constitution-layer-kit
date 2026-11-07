@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import shlex
 import subprocess
+import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
@@ -976,6 +977,96 @@ def test_switch_off_default() -> None:
     second.commit()
     adopted = effect_lines(second.root, {}, no_plugins())
     assert "  W5 (pattern): 1 moment(s): 1 applied, 0 bypassed, 0 missed" in adopted, adopted
+
+
+def tr_green(sid: str, cwd: Path, call_id: str, module: str) -> str:
+    """A run that let its call through, recorded as Claude Code 2.1.317 records it on 2026-11-07: its command
+    `command hook <n>`, naming no script, and only its output naming the module."""
+    done = {
+        "type": "hook_success",
+        "hookName": "PreToolUse:Write",
+        "toolUseID": call_id,
+        "hookEvent": "PreToolUse",
+        "command": "command hook 3",
+        "exitCode": "0",
+        "stdout": f"GREEN: {module}: 1 document examined, governed by notes-policy\n",
+    }
+    return tr_line("attachment", sid, cwd, WAY_AT, attachment=done)
+
+
+def tr_result(sid: str, cwd: Path, call_id: str, text: str, error: bool) -> str:
+    block = {"type": "tool_result", "tool_use_id": call_id, "is_error": error, "content": text}
+    return tr_line("user", sid, cwd, WAY_AT, message={"role": "user", "content": [block]})
+
+
+@item(27, "a run recorded as `command hook <n>` is its module's by the green line its output opens")
+def test_green_by_module() -> None:
+    """The run names no script and no plugin line; its output, `GREEN: <module>: …`, names the module. W4
+    counts the write it examined applied, and a run that names another module leaves its write bypassed."""
+    root = H.fresh_consumer().root
+    sid = "s27"
+    inside = root / "docs" / "notes"
+    lines = [
+        tr_call(sid, root, WAY_AT, "t1", "Write", inside / "a.md"),
+        tr_green(sid, root, "t1", "know-check"),
+        tr_call(sid, root, WAY_AT, "t2", "Write", inside / "b.md"),
+        tr_green(sid, root, "t2", "another-check"),
+    ]
+    found = effect_lines(root, {sid: lines}, no_plugins())
+    assert "  W4 (pattern): 2 moment(s): 1 applied, 1 bypassed, 0 missed — B1 1" in found, found
+    session = read_transcript(_write_transcript(lines))
+    assert session is not None
+    assert [run.plugin for run in session.hook_runs()] == ["know-check", "another-check"]
+
+
+@item(28, "W4: a write that failed, or that another hook refused, is no moment unless the gate examined it")
+def test_failed_writes() -> None:
+    """Four writes in the territory, each with its tool result: one that went through with no run of the
+    hook (bypassed by B1); one the tool could not do and one another module's hook refused, neither seen
+    by the hook (no moment: nothing changed); and one this gate's own hook refused (applied: the gate
+    held)."""
+    root = H.fresh_consumer().root
+    sid = "s28"
+    inside = root / "docs" / "notes"
+    refused = (
+        "PreToolUse:Write hook error: [command hook 7]: RED: docs/notes/d.md: forbidden"
+        "\n\nThis hook comes from the {}@fixture-marketplace plugin."
+    )
+    lines = [
+        tr_call(sid, root, WAY_AT, "t1", "Write", inside / "a.md"),
+        tr_result(sid, root, "t1", "File created", False),
+        tr_call(sid, root, WAY_AT, "t2", "Edit", inside / "b.md"),
+        tr_result(sid, root, "t2", "String to replace not found in file.", True),
+        tr_call(sid, root, WAY_AT, "t3", "Write", inside / "c.md"),
+        tr_result(sid, root, "t3", refused.format("another-check"), True),
+        tr_call(sid, root, WAY_AT, "t4", "Write", inside / "d.md"),
+        tr_result(sid, root, "t4", refused.format("know-check"), True),
+    ]
+    found = effect_lines(root, {sid: lines}, no_plugins())
+    assert "  W4 (pattern): 2 moment(s): 1 applied, 1 bypassed, 0 missed — B1 1" in found, found
+    session = read_transcript(_write_transcript(lines))
+    assert session is not None
+    assert [call.failed for call in session.calls()] == [False, True, True, True]
+
+
+@item(29, "--help on a module's entry and on the shared entry prints the usage and each flag, exit 0")
+def test_effect_help() -> None:
+    """Typed by hand: the usage line and the three flags' lines, on standard output, nothing on stderr."""
+    root = H.fresh_consumer().root
+    flags = (
+        "  --reader       let a fresh reader judge the rules no pattern can see, on a subscription login\n"
+        "  --transcripts  a folder of session transcripts, for the sessions whose transcript no log names\n"
+        "  --since        count only what stands on that day or later\n"
+    )
+    usage = "[--reader] [--transcripts <dir>] [--since <YYYY-MM-DD>]\n"
+    entry = H.run_gate("", args=["--help"], command=[H.sh, str(SCRIPTS / "effect-report.sh")], cwd=root)
+    assert entry.code == 0 and not entry.stderr, entry
+    assert entry.stdout == "usage: effect-report.sh " + usage + flags, entry.stdout
+    shared_entry = H.run_gate(
+        "", args=["-h"], command=[sys.executable, "-m", "constitution_layer_kit.effect"], cwd=root
+    )
+    assert shared_entry.code == 0 and not shared_entry.stderr, shared_entry
+    assert shared_entry.stdout == "usage: python3 -m constitution_layer_kit.effect " + usage + flags
 
 
 SUBJECT = Subject(
