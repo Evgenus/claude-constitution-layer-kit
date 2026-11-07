@@ -1182,6 +1182,7 @@ SUBJECT = Subject(
     closing=messages.l4_nothing_written(),
     act_args=NOTE_ARGS,
     effect="effect-report.sh",
+    effect_hook="grant-new-document.sh",  # the hook runs the grant, not the generator the harness wraps
 )
 
 

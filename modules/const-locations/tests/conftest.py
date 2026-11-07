@@ -2,7 +2,6 @@
 and the scope every test runs in."""
 
 from collections.abc import Iterator
-from dataclasses import replace
 
 import pytest
 from constitution_layer_kit import identity
@@ -24,13 +23,8 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     acceptance.collected(items)
 
 
-@pytest.fixture
-def subject(request: pytest.FixtureRequest) -> Subject:
-    """The module's subject. The shared item about a log record the transcript does not confirm writes a
-    run of the harness's own script into its transcript; this module's hook script is the grant's, not the
-    generator's, so that item is run with the grant's harness."""
-    if request.node.name == "test_effect_disagree":
-        return replace(test_locations.SUBJECT, harness=test_locations.G)
+@pytest.fixture(scope="session")
+def subject() -> Subject:
     return test_locations.SUBJECT
 
 
