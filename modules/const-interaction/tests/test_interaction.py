@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
+import subprocess
 import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
@@ -36,7 +37,17 @@ from constitution_layer_kit.testing.harness import (
     event_json,
     red_lines,
 )
-from constitution_layer_kit.testing.items import PatternDial, Subject, git_patch, git_timeouts, hook_budget
+from constitution_layer_kit.testing.items import (
+    PatternDial,
+    Subject,
+    fake_claude,
+    git_patch,
+    git_timeouts,
+    hook_budget,
+    reader_fake,
+    tr_line,
+    tr_turn,
+)
 from interaction_gate import messages, start, tokens
 from interaction_gate.model import (
     DEFAULT_DESTRUCTIVE,
@@ -2180,6 +2191,237 @@ def test_t42() -> None:
     assert not problems, "; ".join(problems)
 
 
+# ------------------------------------------------------------------ the effect report (items 43 on)
+# The rules W1 to W4 of the module's section 13, each run through `effect-report.sh` over transcripts made
+# by hand and, for W1 and W3, over a git history made in a scratch repository. The lines are typed by hand.
+
+EFFECT_AT = "2026-11-03T10:00:00.000Z"
+EFFECT = SCRIPTS / "effect-report.sh"
+GATE_COMMAND = "sh ${CLAUDE_PLUGIN_ROOT}/scripts/check-destructive.sh"
+ASK_WHY = (
+    "RED: destructive command: '{command}' matches the entry {entry}\n"
+    "  why: it cannot be undone\n  fix: use the reversible way\nRED: 1 finding(s) — 1 command examined"
+)
+
+
+def tr_tool(sid: str, cwd: Path, call_id: str, name: str, **given: object) -> str:
+    block = {"type": "tool_use", "id": call_id, "name": name, "input": given}
+    return tr_line("assistant", sid, cwd, EFFECT_AT, message={"role": "assistant", "content": [block]})
+
+
+def tr_say(sid: str, cwd: Path, text: str) -> str:
+    block = {"type": "text", "text": text}
+    return tr_line("assistant", sid, cwd, EFFECT_AT, message={"role": "assistant", "content": [block]})
+
+
+def tr_ask(
+    sid: str, cwd: Path, call_id: str, command: str, entry: str, script: str = "check-destructive.sh"
+) -> str:
+    """The run of the shell gate that asked, as Claude Code 2.1.295 records it: a `hook_success` attachment
+    whose standard output holds the verdict."""
+    reason = ASK_WHY.format(command=command, entry=entry)
+    answer = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "ask",
+            "permissionDecisionReason": reason,
+        }
+    }
+    done = {
+        "type": "hook_success",
+        "hookName": "PreToolUse:Bash",
+        "toolUseID": call_id,
+        "hookEvent": "PreToolUse",
+        "stdout": json.dumps(answer) + "\n",
+        "exitCode": 0,
+        "command": GATE_COMMAND.replace("check-destructive.sh", script),
+    }
+    return tr_line("attachment", sid, cwd, EFFECT_AT, attachment=done)
+
+
+def tr_result(sid: str, cwd: Path, call_id: str, text: str, error: bool) -> str:
+    """The result of a call: an error where the user refused it at the prompt or the platform refused it."""
+    block = {"type": "tool_result", "tool_use_id": call_id, "content": text, "is_error": error}
+    return tr_line("user", sid, cwd, EFFECT_AT, message={"role": "user", "content": [block]})
+
+
+NO_PROMPT = "The user doesn't want to proceed with this tool use. The tool use was rejected."
+
+
+def effect_lines(
+    root: Path, sessions: dict[str, list[str]], env: dict[str, str] | None = None, *flags: str
+) -> list[str]:
+    """The lines of the report over the sessions, one transcript each; the report must exit 0."""
+    folder = H.scratch_dir()
+    for name, lines in sessions.items():
+        (folder / f"{name}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    result = H.run_gate(
+        "",
+        args=["--transcripts", str(folder), *flags],
+        env={
+            "CLAUDE_PLUGIN_DATA": str(H.scratch_dir()),
+            **(env or fake_claude(H.scratch_dir(), "echo '[]'\n")),
+        },
+        command=[H.sh, str(EFFECT)],
+        cwd=root,
+    )
+    assert result.code == 0, result.stdout + result.stderr
+    return result.stdout.splitlines()
+
+
+@item(
+    43, "W1: a change of the module's dials is applied, or bypassed by B2 when a gate or a territory loosens"
+)
+def test_effect_switch_off() -> None:
+    """Seven commits of the dials file, each changing this module's namespace: severity block (applied);
+    the destructive list cut to one entry, the defaults gone (bypassed); an entry added (applied); severity
+    warn (bypassed); severity back to block, with the territories narrowed to one folder, a pattern of the
+    default gone (bypassed); a negated pattern added (bypassed); a handle form added (applied). The plugin
+    list names no plugin."""
+    consumer = H.fresh_consumer()
+    rm = {"command": ["rm"], "flags": ["-r"], "teach": "t", "alternative": "a"}
+    reset = {"command": ["git", "reset"], "flags": ["--hard"], "teach": "t", "alternative": "a"}
+    steps = [
+        own(severity="block"),
+        own(destructive=[rm]),
+        own(destructive=[rm, reset]),
+        own(destructive=[rm, reset], severity="warn"),
+        own(destructive=[rm, reset], territories=["docs/**"]),
+        own(destructive=[rm, reset], territories=["docs/**", "!docs/drafts/**"]),
+        own(destructive=[rm, reset], territories=["docs/**", "!docs/drafts/**"], handles=["^[0-9]+\\."]),
+    ]
+    for step in steps:
+        consumer.write("constitution.yaml", dials_text(step))
+        consumer.commit()
+    found = effect_lines(consumer.root, {})
+    assert "  W1 (pattern): 7 moment(s): 3 applied, 4 bypassed, 0 missed — B2 4" in found, found
+
+
+@item(
+    44,
+    "W2: after an ask the same command again is applied, another route to the same target is bypassed by B3",
+)
+def test_effect_after_ask() -> None:
+    """Each session holds an ask of the shell gate, as the platform records it. The ask refused at the prompt,
+    then the same command again: applied. Refused, then `find build -delete`, which the gate did not ask for:
+    bypassed by B3, as is a refused `git push --force origin main`, a refusal recorded as a hook error, then
+    `git push -f origin main`. No moment: a human turn first; an ask the user accepted, whose next command
+    names the same target; a refused ask followed by commands that name nothing of it; an ask of another
+    plugin's script; a command that the gate asked for and that is another command."""
+    root = H.fresh_consumer().root
+    rm = ("rm -rf build", "rm with -r")
+    push = ("git push --force origin main", "git push with --force")
+
+    def asked(sid: str, command: str, entry: tuple[str, str], accepted: bool = False) -> list[str]:
+        return [
+            tr_tool(sid, root, "a", "Bash", command=command),
+            tr_ask(sid, root, "a", entry[0], entry[1]),
+            tr_result(sid, root, "a", "done" if accepted else NO_PROMPT, not accepted),
+        ]
+
+    refused_text = (
+        "PreToolUse:Bash hook error: [sh /x/plugin/scripts/check-destructive.sh]: RED: destructive command:"
+        " 'git push --force origin main' matches the entry git push with --force\\n  why: w\\n  fix: f"
+        "\n\nThis hook comes from the const-interaction@fixture-marketplace plugin."
+    )
+    sessions = {
+        "a": [*asked("a", rm[0], rm), tr_tool("a", root, "b", "Bash", command="rm -rf build")],
+        "b": [*asked("b", rm[0], rm), tr_tool("b", root, "b", "Bash", command="find build -delete")],
+        "c": [
+            tr_tool("c", root, "a", "Bash", command=push[0]),
+            tr_result("c", root, "a", refused_text, True),
+            tr_tool("c", root, "b", "Bash", command="git push -f origin main"),
+        ],
+        "d": [
+            *asked("d", rm[0], rm),
+            tr_turn("d", root, EFFECT_AT, "yes"),
+            tr_tool("d", root, "b", "Bash", command="find build -delete"),
+        ],
+        "e": [*asked("e", rm[0], rm, accepted=True), tr_tool("e", root, "b", "Bash", command="ls build")],
+        "f": [
+            *asked("f", rm[0], rm),
+            tr_tool("f", root, "b", "Bash", command="git status"),
+            tr_tool("f", root, "c", "Read", file_path="build/x"),
+            tr_tool("f", root, "d", "Bash", command="ls dist"),
+        ],
+        "g": [
+            tr_tool("g", root, "a", "Bash", command=rm[0]),
+            tr_ask("g", root, "a", rm[0], rm[1], script="check-other.sh"),
+            tr_result("g", root, "a", NO_PROMPT, True),
+            tr_tool("g", root, "b", "Bash", command="find build -delete"),
+        ],
+        "h": [
+            *asked("h", rm[0], rm),
+            tr_tool("h", root, "b", "Bash", command="rm -rf dist"),
+            tr_ask("h", root, "b", "rm -rf dist", rm[1]),
+            tr_result("h", root, "b", NO_PROMPT, True),
+        ],
+    }
+    found = effect_lines(root, sessions)
+    assert "  W2 (pattern): 3 moment(s): 1 applied, 2 bypassed, 0 missed — B3 2" in found, found
+
+
+@item(45, "W3: the list scan on each commit of main in a throwaway clone: green applied, red bypassed by B4")
+def test_effect_escape() -> None:
+    """Three commits of the main branch: the fixture, one that adds a document with a list of two plain
+    items (red, bypassed), and one that gives the items handles (green, applied). The scan of the current
+    plugin runs on a shared clone at each commit, outside the project, which stays as it was."""
+    consumer = H.fresh_consumer()
+    consumer.write("docs/notes/list.md", "# List\n\n- first thing\n- second thing\n")
+    consumer.commit()
+    consumer.write("docs/notes/list.md", "# List\n\n- A1 first thing\n- A2 second thing\n")
+    consumer.commit()
+    root = consumer.root
+    before = subprocess.run(
+        ["git", "status", "--porcelain", "--ignored"], cwd=root, capture_output=True, text=True
+    )
+    names = sorted(p.name for p in root.iterdir())
+    found = effect_lines(root, {})
+    assert "  W3 (pattern): 3 moment(s): 2 applied, 1 bypassed, 0 missed — B4 1" in found, found
+    after = subprocess.run(
+        ["git", "status", "--porcelain", "--ignored"], cwd=root, capture_output=True, text=True
+    )
+    assert (after.stdout, sorted(p.name for p in root.iterdir())) == (before.stdout, names)
+
+
+@item(46, "W4: the last reply before each human turn is a moment for the reader, who judges it with --reader")
+def test_effect_reader_rule() -> None:
+    """A session of three human turns holds two replies before the first, one before the second, a call and
+    no reply before the third, and a reply after the third. The moments are the second text before the first
+    turn and the one before the second turn: two. Without `--reader` they are counted and not judged; a fake
+    reader that answers APPLIED judges them, and is given the rules a to i of the start text, taken from the
+    module's `rules.txt`. The lines are typed by hand."""
+    root = H.fresh_consumer().root
+    sid = "s46"
+    lines = [
+        tr_turn(sid, root, EFFECT_AT, "one"),
+        tr_say(sid, root, "A first reply."),
+        tr_say(sid, root, "The last reply of the first turn."),
+        tr_turn(sid, root, EFFECT_AT, "two"),
+        tr_say(sid, root, "The reply of the second turn."),
+        tr_turn(sid, root, EFFECT_AT, "three"),
+        tr_tool(sid, root, "t", "Bash", command="ls"),
+        tr_say(sid, root, "A reply after the last turn."),
+    ]
+    plain = effect_lines(root, {sid: lines})
+    assert "  W4 (reader): 2 moment(s), not judged — run again with --reader to judge them" in plain, plain
+    env, calls = reader_fake(H.scratch_dir(), "claude.ai", json.dumps({"result": "APPLIED"}))
+    judged = effect_lines(root, {sid: lines}, env, "--reader")
+    assert "  W4 (reader): 2 moment(s): 2 applied, 0 bypassed, 0 missed" in judged, judged
+    asked = H.scratch_dir()
+    spy = fake_claude(
+        asked,
+        f'echo "$*" >> {asked}/prompts\ncase "$1" in\n  --version) echo "9.9.9 (Claude Code)" ;;\n'
+        '  auth) echo \'{"authMethod": "claude.ai"}\' ;;\n  -p) echo \'{"result": "APPLIED"}\' ;;\nesac\n',
+    )
+    effect_lines(root, {sid: lines}, spy, "--reader")
+    prompts = (asked / "prompts").read_text(encoding="utf-8") if (asked / "prompts").exists() else ""
+    assert (
+        "a. Classify the shape the question asks for" in prompts
+        and "i. Write chat in plain language" in prompts
+    )
+
+
 # ---------------------------------------------------------------- the runner
 
 RED_LONG = "git push --force " + "x" * (12_000 - len("git push --force "))
@@ -2199,4 +2441,6 @@ SUBJECT = Subject(
     ask=True,
     long_value=command(RED_LONG),
     pattern_dial=PatternDial("territories", lambda pattern: own(territories=[pattern])),
+    effect="effect-report.sh",  # no `effect_reader`: its reader rule W4 has a moment for the last reply
+    # before each human turn, and the shared items about a reader rule need a moment for each human turn
 )
