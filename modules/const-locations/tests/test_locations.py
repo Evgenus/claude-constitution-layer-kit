@@ -381,6 +381,9 @@ def created(consumer: Consumer, rel: str, expected: str, result: Result, lines: 
 
 @item(1, "a directory-prefix territory: the four-field envelope, the heading body, lines L1–L4")
 def test_directory_prefix() -> None:
+    """A directory-prefix territory: `--kind notes-policy --stem a --title 'A note' --type non-authoritative`
+    creates `docs/notes/a.md` with exactly the four-field envelope and the heading body, and prints L1, L2
+    (none), L3 and L4 word for word."""
     consumer = prepared()
     created(consumer, NOTE, NOTE_TEXT, run(consumer, *NOTE_ARGS), NOTE_LINES)
     # A home over 80 characters is a path the next step opens, so its lines show it whole — never cut
@@ -413,6 +416,9 @@ def test_prefix_forms() -> None:
 
 @item(3, "one free segment: the home filled, the id derived, --stem and --segment refused where not taken")
 def test_free_segment() -> None:
+    """One free segment: `packages/*/README.md` with `--segment alpha` creates `packages/alpha/README.md`
+    with id `readme-alpha`; `--stem` given there is L5.9; `--segment` missing is L5.8; `--segment` given
+    on a directory-prefix kind is L5.21."""
     pattern = "packages/*/README.md"
     patch = claim([pattern])
     consumer = prepared(patch)
@@ -450,6 +456,9 @@ def test_free_segment() -> None:
 
 @item(4, "a single path and every fourth-class territory: no home, refused and taught")
 def test_no_home() -> None:
+    """A single-path territory is L5.6; two patterns, a negated pattern, a `*` inside a file name, a bare
+    directory `<dir>/` and `./<dir>/**`, whose derived home git does not claim, are each L5.7; a namespace
+    with no `territory` line, and one with an empty list, are each L5.24."""
     broken(
         run(prepared(claim(["docs/one.md"])), *NOTE_ARGS),
         messages.l5_single_path("notes-policy", "docs/one.md"),
@@ -479,6 +488,13 @@ def test_no_home() -> None:
     " `--- ` and every line ending of Markdown read",
 )
 def test_from_template() -> None:
+    """The created document carries the command's `id`, `title` and `status`, the template's `type` and
+    every other envelope field verbatim, and the template's body byte for byte after the block; the same
+    with a closer `--- `; and for a template given as text, each line ending of Markdown (LF, CRLF, a lone
+    carriage return) and two byte-order marks, the rewritten block with LF endings and the body as written,
+    a closing line with no ending at the text's end left so, each expected file typed by hand. The command
+    itself reads a template with `read_text`, which turns CRLF and a lone carriage return into LF, so those
+    two endings reach the generator in this item only."""
     dials = own(templates=[{"policy": "notes-policy", "template": TEMPLATE}])
     consumer = prepared(dials, files={TEMPLATE: TEMPLATE_TEXT})
     result = run(consumer, "--kind", "notes-policy", "--stem", "a", "--title", 'A ruling: "quoted"')
@@ -561,6 +577,11 @@ def from_text_in_process() -> list[tuple[bool, str]]:
     " template, one not UTF-8",
 )
 def test_template_refusals() -> None:
+    """No template and no `--type` is L5.13; a template and `--type` is L5.14; a template whose `type` is no
+    meta-type is L5.17; a template without an envelope is L5.16, and so is one with a form feed before its
+    closer or one followed by text on the closer's line, since a line ends at a line break and nowhere else
+    and YAML refuses the character; a missing template is L5.15, and a template that is not UTF-8 is
+    L5.15's second form, `cannot be read`, the tree left as it was."""
     with_template = own(templates=[{"policy": "notes-policy", "template": TEMPLATE}])
     bad_type = TEMPLATE_TEXT.replace("type: task-record", "type: ruling")
     not_utf8 = prepared(with_template, files={TEMPLATE: TEMPLATE_TEXT})
@@ -717,6 +738,8 @@ def test_template_refusals() -> None:
 
 @item(7, "an overlap, an existing file, an id in use")
 def test_proof_refusals() -> None:
+    """A home another policy also claims is L5.12 (the shared consumer's overlap); a home that exists is
+    L5.11; an id another document carries is L5.19."""
     overlap = run(
         prepared(), "--kind", "shared-policy", "--stem", "b", "--title", "B", "--type", "non-authoritative"
     )
@@ -832,6 +855,10 @@ def test_repository_refusals() -> None:
 
 @item(10, "a stem, an id, a segment, a title, a missing stem")
 def test_argument_refusals() -> None:
+    """A stem, a segment and an id that are no kebab-case names are each L5.10, a stem or an id holding a
+    line break or a carriage return too, shown escaped and cut at 80 characters, the tree untouched; no
+    `--title` is L5.18; an empty title and one of whitespace are L5.22, in a dry run too, and one holding a
+    line break is L5.23, each leaving the tree as it was; no `--stem` on a directory-prefix kind is L5.1."""
     pairs = [
         (
             run(prepared(), "--kind", "notes-policy", "--stem", "Bad_Stem", "--title", "T"),
@@ -917,6 +944,9 @@ def test_argument_refusals() -> None:
 
 @item(11, "the dials: an unknown key, severity, and every shape of a bad templates entry")
 def test_dial_failures() -> None:
+    """An unknown key is C5.a; `severity` present is C5.b; `templates` not a list is C5.c; an entry that is
+    no mapping, lacks a key, carries an unknown key, repeats a policy (one named with a line break too,
+    shown escaped on one line) or leaves the repository is C5.d with that clause."""
     entries: list[tuple[object, Broken, str]] = [
         ("x", messages.c5_templates_shape(), "C5.c"),
         (["x"], messages.c5_template_entry(0, messages.entry_not_a_mapping()), "C5.d not a mapping"),
@@ -968,6 +998,8 @@ def test_dial_failures() -> None:
 
 @item(12, "every refusal leaves the tree as it was")
 def test_refusals_leave_the_tree() -> None:
+    """After four refusals of different classes (an overlap, a missing template, an unknown kind, a bad
+    stem) `git status` is empty and no directory was made."""
     consumer = prepared(own(templates=[{"policy": "notes-policy", "template": TEMPLATE}]))
     runs = [
         run(
@@ -984,7 +1016,13 @@ def test_refusals_leave_the_tree() -> None:
 
 @item(13, "golden lines: stdout and stderr character for character")
 def test_golden_lines() -> None:
-    """The texts of the module's document, character for character, against what was printed."""
+    """The texts of the module's document, character for character, against what was printed: L1-L4,
+    the refusal L5.11 and the closing line as literals. Every L5 and C5 line the runner reaches is typed as
+    a literal keyed by its handle, the three that name the run's directory (L5.2, L5.3, L5.20) with that
+    directory filled in. T3, T4, T6, T7, T9-T11 and T16-T18 require the first stderr line to be that
+    literal as well as what the message function returns; a handle with no literal is red, never a crash
+    of the runner. Seen to fail with one word of the L5.9 fix changed. The table of the module document's
+    section 6 and the code agree where review compared them (V4)."""
     consumer = prepared()
     out = run(consumer, *NOTE_ARGS).stdout
     refused = run(consumer, *NOTE_ARGS).stderr
@@ -1045,7 +1083,10 @@ def test_closing_is_the_generators() -> None:
 
 @item(16, "a write the system refuses is refused in turn, and leaves nothing behind")
 def test_write_refused() -> None:
-    """A write the system refuses is L5.20, and leaves nothing: no file, no directory made for it."""
+    """A write the system refuses (`docs` made read-only, so `docs/notes` cannot be made) is L5.20, and
+    leaves nothing: no file, no directory made for it. The line is the literal of item 13 with the
+    system's error naming the directory, the closing line after it, `git status` empty. Reported as not
+    exercised, with a zero count, when the runner runs as root, where a mode bit denies no write."""
     if os.geteuid() == 0:
         return
     consumer = prepared()
@@ -1071,7 +1112,8 @@ def test_write_refused() -> None:
 @item(17, "a link that points nowhere at the home is refused at the write, and is left as it was")
 def test_write_refused_by_a_link() -> None:
     """A link that points nowhere, standing at the home, passes the existence proof and meets the
-    write: L5.20 with the system's own error, the link left as it was."""
+    write: L5.20 with the system's own error (`File exists`, naming the home), its fix naming a file or
+    link in the way, the closing line after it, the link left as it was."""
     consumer = prepared()
     notes = consumer.root / "docs" / "notes"
     notes.mkdir(parents=True)
@@ -1129,7 +1171,10 @@ def limited_to_file_size() -> None:
 @item(18, "a write that fails part-way leaves neither the file nor the directory made for it")
 def test_write_fails_part_way() -> None:
     """A write that fails once the file is open — part of the text written, the rest refused —
-    is L5.20, and the file and the directory made for it are removed: the tree as it was."""
+    is L5.20, and the file and the directory made for it are removed: the tree as it was. The generator
+    runs under a limit on the size of a file it may write, below the length of the document, so the file
+    is opened and the write meets `File too large`; the line carries the system's error, the closing line
+    follows, `git status` as before."""
     consumer = prepared()
     before = tree_state(consumer)
     done = subprocess.run(
@@ -1282,7 +1327,9 @@ EXCLUDED_ROOT = [c for c in string.printable + "\u00a0" if c not in PLAIN - {":"
 @item(20, "the grant: the plugin's own command, plain or single-quoted, is answered allow, typed by hand")
 def test_grant_allows_its_own_command() -> None:
     """Each form the allowlist names gets the one JSON object and exit 0, nothing on stderr — a trailing
-    slash on the root changes nothing."""
+    slash on the root changes nothing. GRANTED holds the forms: the module's own command alone, with a dry
+    run, with plain values, with single-quoted values holding a space, a dash, a separator, a `$`, a
+    backtick, a double quote and a glob, and an empty one."""
     wrong = []
     for command in GRANTED:
         for root in (str(PLUGIN), f"{PLUGIN}/"):
@@ -1297,8 +1344,15 @@ def test_grant_allows_its_own_command() -> None:
 )
 def test_grant_says_nothing_else() -> None:
     """The allowlist's red half: each of these is no match, so the hook prints nothing and exits 0, and
-    the platform's own permission flow decides the call. An `allow` here would skip the platform's split
-    of a compound command and grant what follows the separator."""
+    the platform's own permission flow decides the call. NOT_OWN lists the forms: the command followed by
+    `;`, `&&`, `||`, a pipe, `&`, a line break, a redirection of each direction, a substitution of each
+    form, a variable, a double-quoted value, a glob, `~`, a word opening `=`, a quote closed and reopened,
+    a quote joined to a plain word so that a `;` stands outside it, an unbalanced quote, `--title='...'`, a
+    line break, a carriage return or a NUL inside quotes, `#` and `!` as words, two spaces, a trailing
+    space, a suffix on the script's name, another script, `bash`, an assignment, the `command` builtin and
+    a `cd` before it, another root, and `ls`; one value for each printable character the plain class does
+    not hold, and for a no-break space, a line separator and two full-width separators. An `allow` here
+    would skip the platform's split of a compound command and grant what follows the separator."""
     wrong = []
     for command in NOT_OWN:
         result = ask_grant(event(command))
@@ -1512,7 +1566,13 @@ def tr_write(sid: str, root: Path, call_id: str, tool: str, rel: str) -> str:
     28, "W1: a command that runs new-document.sh is applied; a Write that creates a document is missed by B6"
 )
 def test_effect_w1() -> None:
-    """Notes are a directory territory, so the command derives a home there. Applied: the command. Missed
+    """Over a hand-made transcript: a shell command that runs the create command is applied; a `Write`
+    that creates a Markdown file in the territory of a policy with a derivable home, with no earlier
+    read, write or edit of it, is missed by B6. A dry run, a `Write` after a `Read` of the file, a
+    `Write` in a single-path territory, one outside any territory and a file that is no Markdown are no
+    moment.
+
+    Notes are a directory territory, so the command derives a home there. Applied: the command. Missed
     by B6: a Write of a new note, and one through a worktree of the project. No moment: a dry run, a Write
     after a Read of the file, a Write after a Write of it, a Write outside any territory and a file that is
     no Markdown. Where a policy claims one path, the command has no home and a Write there is no moment."""

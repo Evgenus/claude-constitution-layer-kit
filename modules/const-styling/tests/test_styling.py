@@ -152,8 +152,9 @@ MERMAID = "# T\n\n```mermaid\nflowchart LR\n  A --> B\n```\n"
 
 @item(1, "PlantUML is red with Y1 typed whole, Mermaid green, a departure by path allows it")
 def test_t1() -> None:
-    """red and green: a PlantUML fence is red with Y1 typed whole; a Mermaid fence is green; a departure
-    entry naming the file makes the same document green and the count says one departure."""
+    """Y1 typed whole for a `plantuml` fence, for a `puml` fence, for `@startuml` inside a `text`
+    fence and for `@startuml` outside any fence; a Mermaid fence green; a departure by path makes
+    the same document green and the count says one departure"""
     result = scan({"docs/notes/d.md": PLANTUML_FENCE})
     wanted = (
         "RED: docs/notes/d.md:3: PlantUML, where the shipped default is Mermaid — ```plantuml\n"
@@ -214,9 +215,10 @@ def test_t3() -> None:
 
 @item(4, "a fourth heading level is red, twice when it also skips; three levels are green")
 def test_t4() -> None:
-    """red and green: a level-four heading is red (Y4), and one that also skips a level is two findings;
-    three levels in order are green; a closing sequence of hashes and a heading in a fence are not; a
-    departure over the whole tree turns the signature off, level six included (the limit of section 9)."""
+    """Y4 for a level-four heading; one that also skips a level is Y4 and Y5 on one line; three
+    levels in order, a closing hash sequence, a heading inside a fence and a heading indented four
+    spaces green; one departure for `deep-heading` over the whole tree makes a level-six heading
+    green, the limit 9 of [§9](#t9)"""
     one_finding(
         {"docs/notes/h.md": "# T\n\n## A\n\n### B\n\n#### C\n"},
         "docs/notes/h.md:7: a heading of level 4, deeper than the shipped default of three",
@@ -245,8 +247,9 @@ def test_t4() -> None:
 
 @item(5, "a skipped level and a second H1 are red; stepping back up is green")
 def test_t5() -> None:
-    """red and green: a skipped level (Y5) and a second level-one heading (Y6) are red; a level that
-    steps back up by any number is green."""
+    """Y5 for a level-three heading under the title; Y6 for a second level-one heading, after a
+    byte-order mark before the title, and right after a fence closes; stepping back up by any number
+    green"""
     one_finding(
         {"docs/notes/s.md": "# T\n\n### B\n"}, "docs/notes/s.md:3: a heading of level 3, skipping a level"
     )
@@ -266,8 +269,9 @@ def test_t5() -> None:
 
 @item(6, "a fence without a language is red; text, nested, attributed and indented fences green")
 def test_t6() -> None:
-    """red and green: a fence with no language is red (Y7), a tilde fence too; `text` is green; a fence
-    closed by a longer one, an info string with attributes, and an indented fence in a list item."""
+    """Y7 for a backtick fence and for a tilde fence with no language; `text`, a nested fence closed
+    by a longer one, an info string with attributes, a fence indented inside a list item and under a
+    nested item, and a fence that a fence with an info string does not close, green"""
     one_finding(
         {"docs/notes/k.md": "# T\n\n```\nls\n```\n"},
         "docs/notes/k.md:3: a fenced block that names no language",
@@ -288,8 +292,10 @@ def test_t6() -> None:
 
 @item(7, "star and plus items are red; dashes, a bold line and a rule are green")
 def test_t7() -> None:
-    """red and green: a star item and a plus item are red (Y8); dashes are green; a bold line and a
-    horizontal rule are no items."""
+    """Y8 for a star item, a nested plus item, and a star item after a line that looks like a fence
+    but carries a backtick in its info string; dashes, a bold line and a horizontal rule green; an
+    item of 105 characters holding backslashes, cut at 80 with the cut said, then escaped; a path of
+    over 80 characters with a line break, whole and escaped in the headline"""
     one_finding(
         {"docs/notes/l.md": "# T\n\n* one\n- two\n"},
         "docs/notes/l.md:3: a bullet item whose marker is not the shipped default, a dash — one",
@@ -317,9 +323,10 @@ def test_t7() -> None:
 
 @item(8, "all-ones and a jump are red; counting on from anywhere, a new list, nesting green")
 def test_t8() -> None:
-    """red and green: all-ones numbering and a jump are red (Y9); a list starting anywhere and counting
-    on is green, a paragraph ends a list so the next may start over, and a nested ordered list
-    counts on its own; a fence ends a list too, so the item after it may start anywhere."""
+    """Y9 for all-ones numbering and for a jump; a list starting at 101, a new list after a
+    paragraph, a nested ordered list counting on its own, a bullet inside an ordered list, a change
+    of delimiter, a list restarting under the same delimiter after a heading, and one starting
+    anywhere after a fence green"""
     one_finding(
         {"docs/notes/n.md": "# T\n\n1. a\n1. b\n2. c\n"},
         "docs/notes/n.md:4: an ordered item numbered 1 after 1",
@@ -338,8 +345,12 @@ def test_t8() -> None:
 
 @item(9, "underscore emphasis is red; names, words, code spans and stars are green")
 def test_t9() -> None:
-    """red and green: _italic_ and __bold__ are red (Y10); a name with underscores, an underscore inside
-    a word, a code span and a star are green."""
+    """Y10 for `_italic_` and `__bold__`, and inside a link's text; a snake-case name, an underscore
+    inside a word, a code span, asterisks, a link's destination absolute or relative, a bare URL, an
+    autolink and an HTML comment on one line or across lines green; a comment opener inside a fence
+    or a code span hides nothing after it, a closer inside a code span closes and the comment is
+    masked, a second opener after a closed comment opens, and a comment's closing line is hidden
+    whole"""
     one_finding(
         {"docs/notes/e.md": "# T\n\nSome _quiet_ words.\n"},
         "docs/notes/e.md:3: emphasis by underscores — quiet",
@@ -384,9 +395,10 @@ def test_t9() -> None:
 
 @item(10, "a short row, an empty cell and a short delimiter row are red; a keyed table green")
 def test_t10() -> None:
-    """red and green: a row with a cell too few (Y11) and an empty cell (Y12) are red, the delimiter row
-    is counted too; a table with a key column and an escaped pipe is green; lines with pipes and no
-    delimiter row are no table; a comment that opens on a row and runs on ends the table."""
+    """Y11 for a row with a cell too few and for a short delimiter row; Y12 for an empty cell; a
+    keyed table with an escaped pipe and `none`, lines with pipes and no delimiter row, a dash line
+    without a pipe under a line with one, and a short row after a comment that opens on a row and
+    runs on, which ends the table, green"""
     one_finding(
         {"docs/notes/t.md": "# T\n\n| key | value |\n|---|---|\n| a |\n"},
         "docs/notes/t.md:5: a table row with 1 cell(s) under a header of 2",
@@ -413,9 +425,11 @@ def test_t10() -> None:
 
 @item(11, "departures: by territory, by path, one signature at a time; a stale entry is a note")
 def test_t11() -> None:
-    """Departures: an entry over a territory allows every document there; one by path allows that
-    document alone; an entry allowing one signature does not allow another; an entry matching no
-    covered document is a note, typed by hand, and never a finding."""
+    """Departures: an entry by territory allows every document there; one by path allows that
+    document alone; an entry allowing one signature does not allow another; a stale entry is N2,
+    typed by hand, first on stdout, and the scan green; an entry over documents a negated pattern
+    took out of the territory is stale too; a stale pattern of 110 characters with a backslash is
+    cut at 80 with the cut said, then escaped"""
     files = {
         "docs/notes/a.md": PLANTUML_FENCE,
         "docs/notes/b.md": PLANTUML_FENCE,
@@ -497,7 +511,12 @@ def test_t12() -> None:
 
 @item(13, "this module's C5 lines typed by hand, each exit 1")
 def test_t13() -> None:
-    """This module's C5 lines typed by hand, each exit 1."""
+    """This module's C5 lines typed by hand — a key that is no dial, `severity`, `territories`
+    empty, `guides` not a list, `departures` not a list, an entry not a mapping, an unknown field,
+    `paths` empty, a pattern git would misread in `territories`, in `guides` with its line break
+    shown escaped, and in `paths`, an unknown signature key, an empty reason, a reason broken by a
+    line feed or a carriage return — each exit 1. A reason with a line break at its end is taken,
+    trimmed"""
     entry_fix = (
         "write the entry as paths: [<patterns>], allow: [<signature keys>], reason: <one line saying why"
         " these documents depart>; the keys are plantuml, formula, callout, deep-heading, skipped-level,"
@@ -859,9 +878,9 @@ def test_t19() -> None:
 
 @item(17, "the shipped guide passes its own scan with ten entries; the skill's description size")
 def test_t17() -> None:
-    """The shipped style guide passes the scan it describes, placed in a consumer as its guide, and
-    carries the ten defaults as numbered entries; the skill's description is under the platform's
-    listing cap and of the size the module's document states."""
+    """The shipped guide, placed in a consumer as its guide, passes the scan it describes; it
+    carries entries d1 to d10; the skill's description is under the platform's cap and of the size
+    [§6](#t6) states — the number read from this document"""
     guide = GUIDE.read_text(encoding="utf-8")
     no_finding({"docs/style-guide.md": guide})
     entries = re.findall(r"^\d+\. <a id=\"d(\d+)\"></a>\*\*", guide, flags=re.M)
@@ -900,12 +919,12 @@ CLOSING = "until then no document is scanned for style"
 
 @item(20, "C1, C2, C14 and C15 close with the gate's own clause, and the entry files carry it")
 def test_t20() -> None:
-    """Every install-failure line closes with this gate's own clause, never the write gates' "until then
-    Markdown writes pass unchecked": C1 (no python3, the POSIX entry), C2 (PyYAML missing, in the scan),
-    C14 (an interpreter below the floor, run by a version it is told it has) and C15 (the shared package
-    missing for python3), each first line typed whole; and the entry files' source holds the clause exactly
-    four times, once per entry text (C1, C14, C15) and once as the clause the Python entry file hands to
-    the version check of the shared package (C16, C17), and "Markdown writes" nowhere."""
+    """The install-failure lines close with this gate's own clause, never the write gates': C1 with
+    no `python3` on `PATH`, C2 with PyYAML hidden, C14 with the entry file run as an interpreter of
+    3.11, C15 with the entry file run under `python3 -S` and the shared folder left out, the shared
+    package missing for python3, each first line typed whole. The entry files hold the clause
+    exactly four times, once per entry text (C1, C14, C15) and once as the clause handed to the
+    version check of the shared package (C16, C17), and "Markdown writes" nowhere"""
     root = prepared()
     args = ["--scan", str(root)]
     problems: list[str] = []

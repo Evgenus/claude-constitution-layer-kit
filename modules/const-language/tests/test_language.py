@@ -310,7 +310,10 @@ def test_t3() -> None:
 @item(4, "L4 typed whole with the plain word, in any case; an exception; a pair of the repository's")
 def test_t4() -> None:
     """L4 typed whole with the plain word, in any case; an exception keeps the phrase; a pair of the
-    repository's own; the pair's plain word arrives from the rule, not from the document."""
+    repository's own; the pair's plain word arrives from the rule, not from the document; a plain
+    word of 103 characters with a backslash is cut in the headline and whole in the fix, escaped;
+    a path of over 80 characters with a line break is whole and escaped in the headline and the
+    count line."""
     found = messages.l4_simpler(DOC, 3, "prior to", "before")
     odd, _ = (
         gate_on(  # the plain word holds a backslash and 103 characters: the headline points, the fix is typed
@@ -461,7 +464,8 @@ def test_t7() -> None:
     it and a thematic break below does not stand in for it; a whole file in CRLF is blanked; a
     form feed before `---` makes no closer, since a line ends at a line break and nowhere else; an
     envelope ended by lone carriage returns is deleted, not turned to spaces, so the prose after
-    it on the same line is read, never taken for an indented code block."""
+    it on the same line is read, never taken for an indented code block; an envelope nested past the
+    parser's depth is blanked without a crash."""
     with_title = "---\nid: c\ntitle: Do it prior to noon\nstatus: active\n---\n\n# T\n\nShort.\n"
     unterminated = "---\nid: c\n\nDo it prior to noon.\n"
     # the closer's trailing space, a thematic break further down: the first section is prose
@@ -486,8 +490,10 @@ def test_t7() -> None:
 @item(8, "after the write the file on disk is judged; a missing file skips; a Stop event is C12")
 def test_t8() -> None:
     """The event the plugin wires: after the write the file on disk is judged, a missing file is the
-    shared skip, a covered file is green; before the write the content is judged; a Stop event is
-    this module's C12, typed by hand."""
+    shared skip, a covered file is green; before the write the content is judged; a tool event of
+    another name is this module's C12, typed by hand, and again with a name of 95 characters
+    holding a line break, cut at 80 with the cut said, then escaped; a Stop payload is the shared
+    skip."""
     root = prepared(files={DOC: SIMPLER_RED, "docs/notes/ok.md": PLAIN})
     red = after_write(root, DOC)
     green = after_write(root, "docs/notes/ok.md")
@@ -542,7 +548,18 @@ def broken(result: Result, failure: object) -> None:
 
 @item(10, "this module's C5 lines typed by hand, each exit 1")
 def test_t10() -> None:
-    """This module's C5 lines typed by hand, each exit 1 with the count line after it."""
+    """This module's C5 lines typed by hand, each exit 1 with the count line after it: a key that is
+    no dial, `territories` empty, a pattern git would misread with its line break shown escaped, a
+    ceiling below zero, not a number or not finite, a limit of zero or not whole, `levels` not a
+    mapping, a level that is none of the three, every rule off, `forbidden` not a list or holding
+    an empty phrase, `exceptions` holding a number, `simpler` not a mapping or holding an empty
+    word, an exception no list holds. Then the departures: `departures` not a list, an entry not a
+    mapping, an unknown field, `paths` empty, a pattern git would misread in `paths`, `allow`
+    empty, an unknown rule key, an empty reason, a reason of two lines or broken by a carriage
+    return. A reason with a line break at its end is taken, trimmed. Last, each value echoed (a
+    key, a level, a departure field, a rule key, a pattern, an exception) is cut at 80 with the
+    cut said and a line break escaped; two unknown rules under `levels`, written out of order,
+    name the first in sorted order."""
     pairs: list[tuple[dict[str, object], str]] = [
         (
             own(tone="plain"),
@@ -760,7 +777,11 @@ def test_t11() -> None:
     scan — the five runs side by side, so the item costs the budget plus a second or so; under a hook
     whose declared budget is lower than a wait's cap, the same slow run and a probe that answers after 4 s
     are cut at what the deadline has left, and the line is the deadline's, C12.14, naming the wait and
-    the budget — and every fake was asked what the gate says."""
+    the budget — and every fake was asked what the gate says. The seven slow runs go side by side
+    and the item holds the lower time bounds only, no upper bound. Each fake logs what it was
+    asked, and the old one was asked its version and nothing else. Vale's first line of 93
+    characters holding a backslash is shown whole and escaped in each of the three C12 texts that
+    carry it."""
     none = H.scratch_dir()
     for tool in ("python3", "git", "sh", "dirname"):
         source = os.path.realpath(sys.executable) if tool == "python3" else command_path(tool)
@@ -953,7 +974,8 @@ def test_t11() -> None:
 def test_t12() -> None:
     """The cap: sixty findings in one document show the first that fit in 8,000 characters after a
     write, the count line saying how many, the verdict staying under the platform's cap; the same
-    with a finding of another length; the scan lists all sixty."""
+    with a finding of another length; the scan lists all sixty; the count line of a path of over 80
+    characters with a line break shows the path whole and escaped."""
 
     def fit_of(render: Callable[[int], str]) -> int:
         fit, size = 0, 0
@@ -1004,7 +1026,14 @@ def test_t12() -> None:
 def test_t13() -> None:
     """Territories: the scan counts examined against scanned; a negated pattern drops a file; a
     README at the top is covered by the default; the tail carries the dials' numbers; a covered
-    document with an upper-case ending or a name starting with a dash is read as Markdown."""
+    document with an upper-case ending or a name starting with a dash is read as Markdown: `NOTES.MD`
+    under `*` is found by the scan at its own path and counted, its twin with the phrase only in
+    code is green, `docs/Guide.Md` is found by the hook, and `-dash.md` is found by the default scan
+    and by the hook, not taken for an option. The skip for a path of over 80 characters with a line
+    break is whole and escaped; a stale departure's pattern of 110 characters with a backslash is
+    cut at 80 with the cut said, then escaped. A scan of more than `CHUNK` documents, the most one
+    run of Vale takes in `vale.py`, finds each of two phrases at its own document and line, one in
+    each run, plain documents sorting before both."""
     files = {DOC: SIMPLER_RED, "README.md": PLAIN, "docs/other/x.md": SIMPLER_RED}
     default = scan(files)
     narrowed = scan(files, own(territories=["docs/**/*.md", "!docs/other/**"]))
