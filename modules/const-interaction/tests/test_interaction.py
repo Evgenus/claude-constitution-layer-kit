@@ -2312,7 +2312,9 @@ def test_effect_switch_off() -> None:
     "W2: after an ask the same command again is applied, another route to the same target is bypassed by B3",
 )
 def test_effect_after_ask() -> None:
-    """Each session holds an ask of the shell gate, as the platform records it. The ask refused at the prompt,
+    """Each session holds an ask of the shell gate, as the platform records it: the ask is recorded as a
+    `hook_success` attachment or as a refusal in the tool result alike, and a second ask is no moment. The ask
+    refused at the prompt,
     then the same command again: applied. Refused, then `find build -delete`, which the gate did not ask for:
     bypassed by B3, as is a refused `git push --force origin main`, a refusal recorded as a hook error, then
     `git push -f origin main`. No moment: a human turn first; an ask the user accepted, whose next command
