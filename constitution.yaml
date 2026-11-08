@@ -710,7 +710,7 @@ const-language:                       # the prose of covered documents: a grade 
 const-doc-budgets:                    # a character ceiling per group of documents, measured after the fact (MODULE.md §7)
   severity: block                     # values: block | warn — block: a finding reaches the model as a block after the write; warn: as context
   log_dir: local/gate-logs
-  ceilings:                           # the founding entries set 2026-09-29 by the report --scan --since 2026-09-14, a later entry on the day its own comment names, over its own `window`; each by the rule: the window's longest plus 10 %, rounded up to 1,000; at warning until 30 days of data; every Markdown file git lists stands under one ceiling (decision dec-0052-doc-budgets-module-rulings)
+  ceilings:                           # the founding entries set 2026-09-29 by the report --scan --since 2026-09-14, a later entry on the day its own comment names, over its own `window`; each by the rule: the window's longest plus 10 %, rounded up to 1,000; at warning until 30 days of data; an entry at error re-set 2026-11-08 by the report --scan --since 2026-10-09, its window those 30 days, a group moving to error in the change that brings it under its number (rollout plan item 9.9); every Markdown file git lists stands under one ceiling (decision dec-0052-doc-budgets-module-rulings)
     - name: records   # the accepted records among them frozen: wording edits only (plc-0004 rule 14)
       paths: *decisions
       max: 34000
@@ -721,10 +721,10 @@ const-doc-budgets:                    # a character ceiling per group of documen
     - name: comparisons   # the frozen ones among them take wording edits only (plc-0005 rule 7)
       paths: *research
       max: 79000
-      level: warning
+      level: error
       window:
-        from: 2026-09-14
-        to: 2026-09-29
+        from: 2026-10-09
+        to: 2026-11-08
     - name: policies
       paths: *policies
       max: 22000
@@ -741,11 +741,11 @@ const-doc-budgets:                    # a character ceiling per group of documen
         to: 2026-09-29
     - name: kernel
       paths: *kernel
-      max: 14000
-      level: warning
+      max: 16000
+      level: error
       window:
-        from: 2026-09-14
-        to: 2026-09-29
+        from: 2026-10-09
+        to: 2026-11-08
     - name: install-guide   # set 2026-10-01 on the guide's first day: its length then, 12,862 characters, plus 10 %, rounded up to 1,000
       paths: *install_guide
       max: 15000
@@ -756,17 +756,17 @@ const-doc-budgets:                    # a character ceiling per group of documen
     - name: intent
       paths: *intent
       max: 8000
-      level: warning
+      level: error
       window:
-        from: 2026-09-14
-        to: 2026-09-29
+        from: 2026-10-09
+        to: 2026-11-08
     - name: requirements
       paths: *requirements
       max: 46000
-      level: warning
+      level: error
       window:
-        from: 2026-09-14
-        to: 2026-09-29
+        from: 2026-10-09
+        to: 2026-11-08
     - name: rollout-plan
       paths: *rollout
       max: 48000
@@ -795,10 +795,10 @@ const-doc-budgets:                    # a character ceiling per group of documen
     - name: style-guide
       paths: *style
       max: 11000
-      level: warning
+      level: error
       window:
-        from: 2026-09-14
-        to: 2026-09-29
+        from: 2026-10-09
+        to: 2026-11-08
     - name: guide   # loaded into every session
       paths:
         - "/CLAUDE.md"
@@ -810,59 +810,60 @@ const-doc-budgets:                    # a character ceiling per group of documen
     - name: readme
       paths:
         - "/README.md"
-      max: 11000
-      level: warning
+      max: 9000
+      level: error
       window:
-        from: 2026-09-14
-        to: 2026-09-29
+        from: 2026-10-09
+        to: 2026-11-08
     - name: module-skills   # every file of a module's skills, SKILL.md and the files beside it
       paths:
         - "modules/*/plugin/skills/**/*.md"
       max: 11000
-      level: warning
+      level: error
       window:
-        from: 2026-09-14
-        to: 2026-09-29
+        from: 2026-10-09
+        to: 2026-11-08
     - name: install-notes
       paths:
         - "modules/*/plugin/INSTALL.md"
-      max: 9000
-      level: warning
+        - "/scripts/layered-fixture/plugin/INSTALL.md"   # the install note the fixture gate's failure lines name, the same role
+      max: 10000
+      level: error
       window:
-        from: 2026-09-14
-        to: 2026-09-29
-    - name: module-readmes   # set 2026-10-09 on the pages' second day, their sections elaborated: the longest then, 6,510 characters, plus 10 %, rounded up to 1,000
+        from: 2026-10-09
+        to: 2026-11-08
+    - name: module-readmes   # first set 2026-10-09 on the pages' second day, at 8,000
       paths:
         - "modules/*/README.md"
-      max: 8000
-      level: warning
+      max: 9000
+      level: error
       window:
-        from: 2026-10-08
-        to: 2026-10-09
+        from: 2026-10-09
+        to: 2026-11-08
     - name: kit-agents
       paths:
         - "/.claude/agents/*.md"
-      max: 4000
-      level: warning
+      max: 5000
+      level: error
       window:
-        from: 2026-09-14
-        to: 2026-09-29
+        from: 2026-10-09
+        to: 2026-11-08
     - name: kit-skills
       paths:
         - "/.claude/skills/**/*.md"
       max: 14000
-      level: warning
+      level: error
       window:
-        from: 2026-09-14
-        to: 2026-09-29
+        from: 2026-10-09
+        to: 2026-11-08
     - name: templates
       paths:
         - "/templates/**"
       max: 4000
-      level: warning
+      level: error
       window:
-        from: 2026-09-14
-        to: 2026-09-29
+        from: 2026-10-09
+        to: 2026-11-08
     - name: module-template
       paths:
         - "/module-template/**"
