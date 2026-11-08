@@ -2,7 +2,7 @@
 id: dec-0115-tokens-per-commit-counted-by-ccusage
 type: task-record
 title: 'Tokens per commit: a new module has ccusage count each commit window of one session, read from a folder that holds that session alone'
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
@@ -73,7 +73,7 @@ The session recommended A, the only option that passes the boundary tests and ke
 
 <a id="r9"></a>**R9.** The count ships as a new module of the kit, whose rows are a new aspect of the requirements matrix. No existing module carries any part of it.
 
-<a id="r10"></a>**R10.** The module is built by the routine of "Developing a module" in [CLAUDE.md](../../CLAUDE.md), its research round first. Its own rulings record, written after that round, answers what this record leaves open: where the counts are kept, which route the commit log takes, how the work of a session's parallel agents is split between its commits, and what a session from before its start log gets.
+<a id="r10"></a>**R10.** The module is built by the routine of "Developing a module" in [CLAUDE.md](../../CLAUDE.md), its research round first. Its own rulings record, written after that round, answers what this record leaves open: where the counts are kept, which route the commit log takes, how the work of a session's parallel agents is split between its commits, what a session from before its start log gets, and when the count runs, so that it is made before Claude Code deletes the transcript.
 
 <a id="r11"></a>**R11.** The aspect states this failure class: a session's start and the session behind each commit are lost for good when no hook records them as they happen.
 
@@ -92,6 +92,34 @@ The session recommended A, the kit's own word for its unit of work. The decider 
 
 <a id="r12"></a>**R12.** The new plugin is named `const-change-cost`, and its aspect is A15, "Change cost", of the requirements matrix.
 
+## 4. The module's failure class
+
+Every module's heading in the requirements matrix states its class, and [template §2](../../module-template/MODULE.md#t2) says what the class brings: an accumulating module belongs in every project's day-one install set, a self-limiting one waits for its friction signal, and a module may be split into an accumulating slice and a self-limiting rest. The count's evidence expires too. Claude Code deletes the transcripts of command-line sessions after `cleanupPeriodDays`, 30 days by default, without a message, as [its settings reference](https://code.claude.com/docs/en/settings-reference.md) says. It keeps the transcripts of desktop app sessions at any age unless `desktopSessionCleanupPeriodDays` is set.
+
+- **A. Accumulating, the whole module.** It belongs in every project's day-one install set, and its logs and its count run from the first session.
+  - **Pros:** no session is ever missed; every count is made while its transcript still exists.
+  - **Cons:** every new project needs Node and ccusage on its first day, even one that never reads a count.
+- **B. Accumulating logs, a self-limiting count.** The start log and the commit log are installed on the first day and need no Node; the count needs ccusage only when it runs.
+  - **Pros:** the first day costs two small hooks; the part that can never be made later is always there; ccusage is needed only when a project wants its counts.
+  - **Cons:** a count made more than 30 days late finds a command-line session's transcript gone, unless the module keeps its own copies; one module with two classes is more to explain.
+- **C. Self-limiting, the whole module.** It enters when a project first asks what its changes cost.
+  - **Pros:** nothing is installed until someone wants it; the simplest heading.
+  - **Cons:** every session before the install is lost for good, the loss R11 names.
+
+The session recommended B, which keeps the first day cheap and never loses what cannot be made later. The decider chose A in chat on 2026-11-08 and gave no other reason. The session keeps one cost in view: every new project now needs Node and npm on its first day.
+
+<a id="r13"></a>**R13.** `const-change-cost` is accumulating as a whole. It belongs in every project's day-one install set, and its logs and its count run from the project's first session that commits.
+
+## Applied
+
+The change that holds this record adds aspect A15, rows [A15.1](../requirements.md#a15-1) to [A15.6](../requirements.md#a15-6), and the specification of `const-change-cost` to the requirements matrix: adding a row is a `process` ruling under [rule 2 of plc-0007-requirements](../policies/plc-0007-requirements.md#r2), and this record's yes covers it. The module itself is built by [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
+
 ## Carry list
 
-1. R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
+1. R1, R2 — [row A15.2 of the requirements matrix](../requirements.md#a15-2).
+2. R3, R4 — [row A15.3 of the requirements matrix](../requirements.md#a15-3).
+3. R5, R6 — [row A15.4 of the requirements matrix](../requirements.md#a15-4).
+4. R7 — [row A15.5 of the requirements matrix](../requirements.md#a15-5).
+5. R8 — [row A15.2 of the requirements matrix](../requirements.md#a15-2) for the pin's place, and [row A15.6](../requirements.md#a15-6) for the known count.
+6. R9, R11, R12, R13 — [the module's specification in the requirements matrix](../requirements.md#const-change-cost), its heading and its invariant, and [aspect A15](../requirements.md#a15).
+7. R10 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
