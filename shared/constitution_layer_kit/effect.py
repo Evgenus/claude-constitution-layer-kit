@@ -200,9 +200,10 @@ def _report(argv: Sequence[str], output: Output, rules: Callable[[], Sequence[Ru
     version, model = (
         judge.ready() if flags.reader and any(r.judge is Judge.READER for r in loaded) else ("", "")
     )
-    unread = sum(session.unread for session in history.sessions)
-    output.out(messages.u1_headline(len(loaded), len(history.sessions), flags.since, unread))
-    if not history.sessions:
+    held = _in_window(history)
+    unread = sum(session.unread for session in held)
+    output.out(messages.u1_headline(len(loaded), len(held), flags.since, unread))
+    if not held:
         output.out(messages.u1_no_session())
     for record in disagreements(history):
         output.out(messages.u3_disagree(record.path, record.session, record.at))
@@ -214,6 +215,14 @@ def _report(argv: Sequence[str], output: Output, rules: Callable[[], Sequence[Ru
     if version:
         output.out(messages.u4_reader(model or "the default model", version))
     return 0
+
+
+def _in_window(history: History) -> list[Session]:
+    """The sessions with an event on the window's first day or later: those the headline counts. Every session
+    read stays in the history, since a rule's own code may look at what came before the window."""
+    if not history.since:
+        return list(history.sessions)
+    return [s for s in history.sessions if any(getattr(e, "at", "") >= history.since for e in s.events)]
 
 
 def _refuse_two_keys(rules: Sequence[Rule]) -> None:

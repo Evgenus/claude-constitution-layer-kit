@@ -38,6 +38,14 @@ RUN mkdir -p /usr/local/lib/kit-evalbox \
  && printf '#!/bin/sh\nexec /bin/bash --norc "$@"\n' > /usr/local/lib/kit-evalbox/bash \
  && chmod 755 /usr/local/lib/kit-evalbox/bash
 ENV CLAUDE_CODE_SHELL=/usr/local/lib/kit-evalbox/bash
+# The image's own python3 imports the mount at /shared too, by a .pth file in its site-packages that names
+# that folder and holds no code. A case's Bash call runs under Claude Code's sandbox with a PATH the sandbox
+# builds, and once in a run of 2026-11-07 the python3 it started was the image's own and not the runner's
+# environment's, so the call printed C15; with the file, whichever python3 a call starts imports the change's
+# shared code. Where nothing is mounted at /shared the folder is absent and the file names nothing.
+RUN site=$(python3 -c 'import sysconfig; print(sysconfig.get_path("purelib"))') \
+ && mkdir -p "$site" \
+ && printf '/shared\n' > "$site/kit-shared.pth"
 USER node
 WORKDIR /home/node
 RUN git config --global user.name "Eval" && git config --global user.email "eval@example.invalid"

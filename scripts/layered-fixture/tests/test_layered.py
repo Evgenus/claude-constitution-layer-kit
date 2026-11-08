@@ -8,6 +8,7 @@ holds for a gate whose dials file is not the constitution's.
 
 from __future__ import annotations
 
+import datetime
 import json
 import shlex
 import subprocess
@@ -1067,6 +1068,31 @@ def test_effect_help() -> None:
     )
     assert shared_entry.code == 0 and not shared_entry.stderr, shared_entry
     assert shared_entry.stdout == "usage: python3 -m constitution_layer_kit.effect " + usage + flags
+
+
+@item(30, "--since names the day from its first second: a commit made earlier that day is in the window")
+def test_since_whole_day() -> None:
+    """A change of the gate's dials, committed a moment before the run, on the run's own day. Git reads a bare
+    date as that day at the run's clock time, which would leave the commit out; W5 counts it."""
+    consumer = H.fresh_consumer()
+    consumer.write_dials(own(severity="block"))
+    consumer.commit()
+    today = datetime.date.today().isoformat()
+    found = effect_lines(consumer.root, {}, no_plugins(), "--since", today)
+    assert "  W5 (pattern): 1 moment(s): 1 applied, 0 bypassed, 0 missed" in found, found
+
+
+@item(31, "with --since, the headline counts only the sessions with an event in the window")
+def test_since_sessions() -> None:
+    """Two sessions of the project, one wholly before the window and one in it: the headline says one."""
+    root = H.fresh_consumer().root
+    before = [tr_turn("s31a", root, "2026-11-01T10:00:00.000Z", "old")]
+    within = [tr_turn("s31b", root, "2026-11-03T10:00:00.000Z", "new")]
+    found = effect_lines(root, {"s31a": before, "s31b": within}, no_plugins(), "--since", "2026-11-02")
+    head = found[0]
+    assert head.startswith("EFFECT: know-check: ") and head.endswith(
+        " rule(s) over 1 session(s) since 2026-11-02, 0 transcript line(s) unread"
+    ), head
 
 
 SUBJECT = Subject(

@@ -48,7 +48,9 @@ asks docker for the image. For each module, in turn:
      and the environment's `bin`, and hides /tmp, /var/tmp, /dev/shm and /run/shm, so an environment in
      any of them loses its pyvenv.cfg and its .pth file there, and the python3 a case runs through Bash, which
      PYTHONPATH does not reach, starts as the image's own and prints C15 (found 2026-10-23 in the run of
-     2026-10-22: hooks and this check are not sandboxed and saw nothing). The runner therefore reads each
+     2026-10-22: hooks and this check are not sandboxed and saw nothing). The image's own python3 also
+     imports /shared, by a .pth file the Dockerfile writes into its site-packages, since once, on 2026-11-07,
+     a sandboxed call started the image's python3 and not the environment's. The runner therefore reads each
      case's copied traces after the case and, when one holds the start of C15, C16 or C17 of shared/GATE.md
      section 3 (`PACKAGE_FAILURE`), reports one BROKEN line naming the case, the trace, the line found and
      the fix, and counts the attempt as failed, as a partial result is: a command of the case did not see the
