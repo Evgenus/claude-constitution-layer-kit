@@ -2,7 +2,7 @@
 id: dec-0115-tokens-per-commit-counted-by-ccusage
 type: task-record
 title: 'Tokens per commit: a new module has ccusage count each commit window of one session, read from a folder that holds that session alone'
-status: inactive
+status: active
 stakes: process
 decider: Eugene Chernyshov
 ---
@@ -73,10 +73,25 @@ The session recommended A, the only option that passes the boundary tests and ke
 
 <a id="r9"></a>**R9.** The count ships as a new module of the kit, whose rows are a new aspect of the requirements matrix. No existing module carries any part of it.
 
-<a id="r10"></a>**R10.** The module is built by the routine of "Developing a module" in [CLAUDE.md](../../CLAUDE.md), its research round first. Its own rulings record, written after that round, answers what this record leaves open: the module's name, where the counts are kept, which route the commit log takes, how the work of a session's parallel agents is split between its commits, and what a session from before its start log gets.
+<a id="r10"></a>**R10.** The module is built by the routine of "Developing a module" in [CLAUDE.md](../../CLAUDE.md), its research round first. Its own rulings record, written after that round, answers what this record leaves open: where the counts are kept, which route the commit log takes, how the work of a session's parallel agents is split between its commits, and what a session from before its start log gets.
 
 <a id="r11"></a>**R11.** The aspect states this failure class: a session's start and the session behind each commit are lost for good when no hook records them as they happen.
 
+## 3. The module's name
+
+The module's folder and its research comparison are named after it, so its name comes before the research round, as steps 1 and 2 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md) order them. The kit names a module `const-` and its aspect.
+
+- **A. `const-change-cost`, the aspect "Change cost".** The name of the kit's own unit of work.
+  - **Pros:** "change" is the word the kit uses for the unit module [`const-task-close`](../requirements.md#const-task-close) closes; the cost of a pull request is the sum of its changes.
+  - **Cons:** a change can span several commits, while the module counts per commit.
+- **B. `const-commit-cost`, the aspect "Commit cost".** The name of the unit the module counts.
+  - **Pros:** it names exactly what is counted.
+  - **Cons:** it names git's unit, not the kit's.
+
+The session recommended A, the kit's own word for its unit of work. The decider chose A in chat on 2026-11-08.
+
+<a id="r12"></a>**R12.** The new plugin is named `const-change-cost`, and its aspect is A15, "Change cost", of the requirements matrix.
+
 ## Carry list
 
-1. R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
+1. R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
