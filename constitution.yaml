@@ -732,13 +732,16 @@ const-doc-budgets:                    # a character ceiling per group of documen
       window:
         from: 2026-09-14
         to: 2026-09-29
+    # module-documents, 2026-11-08: set from the seven documents shortened as far as their rulings allow (the decider's
+    # picks D5 to D11 of 2026-11-08 in chat): the longest after the cut, modules/const-referencing/MODULE.md at 81,583
+    # characters, plus 10 %, rounded up to 1,000. Not the window's longest, 89,175 on 2026-10-12, before an earlier cut.
     - name: module-documents
       paths: *module_documents
-      max: 66000
-      level: warning
+      max: 90000
+      level: error
       window:
-        from: 2026-09-14
-        to: 2026-09-29
+        from: 2026-10-09
+        to: 2026-11-08
     - name: kernel
       paths: *kernel
       max: 16000
@@ -746,13 +749,15 @@ const-doc-budgets:                    # a character ceiling per group of documen
       window:
         from: 2026-10-09
         to: 2026-11-08
-    - name: install-guide   # set 2026-10-01 on the guide's first day: its length then, 12,862 characters, plus 10 %, rounded up to 1,000
+    # install-guide, first set 2026-10-01 at 15,000 from one day of data; 2026-11-08: set from the guide shortened as far
+    # as its rulings allow (the decider's pick D4 of 2026-11-08 in chat), 25,543 characters, plus 10 %, rounded up to 1,000.
+    - name: install-guide
       paths: *install_guide
-      max: 15000
-      level: warning
+      max: 29000
+      level: error
       window:
-        from: 2026-10-01
-        to: 2026-10-01
+        from: 2026-10-09
+        to: 2026-11-08
     - name: intent
       paths: *intent
       max: 8000
