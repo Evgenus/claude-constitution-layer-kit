@@ -110,6 +110,24 @@ The session recommended B, which keeps the first day cheap and never loses what 
 
 <a id="r13"></a>**R13.** `const-change-cost` is accumulating as a whole. It belongs in every project's day-one install set, and its logs and its count run from the project's first session that commits.
 
+## 5. A compaction's tokens
+
+The decider asked for a count that holds all the work of a session. [res-0015-const-change-cost](../research/res-0015-const-change-cost.md) found, in its experiment E18, that a compaction writes a `compact_boundary` record and a summary into the transcript, and no record with a token count. The platform's own total for that session rose by $0.027 of $0.20. A count read from transcripts misses that work.
+
+- **A. Name the gap.** The count holds every reply the transcript records, and the report names each compaction in a commit's window as not counted.
+  - **Pros:** one source, ccusage alone, as R1 rules; the gap shows on every commit it touches; in E18 it was about 13 in 100 of a small session.
+  - **Cons:** the count falls short of all the session's work by every compaction, and a long session compacts many times.
+- **B. Add the platform's telemetry for what transcripts miss.** The module turns on the OpenTelemetry export and adds the requests whose `query_source` is `compact` to the window.
+  - **Pros:** compactions are counted, measured by the platform itself.
+  - **Cons:** an exporter in every project from its first session; a second source that can disagree with ccusage; the comparison read this path and did not run it.
+- **C. Read the platform's running total.** The transcript's `cost-state` record holds the session's total, so a compaction is the jump of that total across the `compact_boundary`.
+  - **Pros:** no exporter; the platform's own numbers, compactions included.
+  - **Cons:** a record the platform does not document, seen in one experiment; it reverses R1, since the module would read token counts from a transcript; in E18 the record priced cache reads at twice the price page.
+
+The session recommended A: it keeps one counter, and the shortfall is shown, not hidden. B can come later as a dial when a project needs compactions counted. The decider chose A in chat on 2026-11-09.
+
+<a id="r14"></a>**R14.** A compaction's tokens are not counted. The count holds every reply the session's transcripts record, and the report names each compaction, by its `compact_boundary` record, in the window of the commit it falls in.
+
 ## Applied
 
 The change that holds this record adds aspect A15, rows [A15.1](../requirements.md#a15-1) to [A15.6](../requirements.md#a15-6), and the specification of `const-change-cost` to the requirements matrix: adding a row is a `process` ruling under [rule 2 of plc-0007-requirements](../policies/plc-0007-requirements.md#r2), and this record's yes covers it. The module itself is built by [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
@@ -123,3 +141,4 @@ The change that holds this record adds aspect A15, rows [A15.1](../requirements.
 5. R8 — [row A15.2 of the requirements matrix](../requirements.md#a15-2) for the pin's place, and [row A15.6](../requirements.md#a15-6) for the known count.
 6. R9, R11, R12, R13 — [the module's specification in the requirements matrix](../requirements.md#const-change-cost), its heading and its invariant, and [aspect A15](../requirements.md#a15).
 7. R10 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
+8. R14 — [row A15.1 of the requirements matrix](../requirements.md#a15-1).
