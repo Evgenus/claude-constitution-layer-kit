@@ -767,13 +767,17 @@ const-doc-budgets:                    # a character ceiling per group of documen
       window:
         from: 2026-10-09
         to: 2026-11-08
+    # rollout-plan, 2026-11-08: kept at 48,000 and moved to error once the plan's done items were trimmed to the form of
+    # rule 5 of plc-0008-rollout-plan, which took the plan from about 50,700 to about 40,900 characters (the decider's
+    # pick D16 of 2026-11-08 in chat). The number is not the window's longest plus 10 %: the window's longest is the size
+    # before the trim, 54,151, which would give 60,000; the window is widened to 30 days so the level may be error.
     - name: rollout-plan
       paths: *rollout
       max: 48000
-      level: warning
+      level: error
       window:
-        from: 2026-09-14
-        to: 2026-09-29
+        from: 2026-10-09
+        to: 2026-11-08
     # shared-code, 2026-10-12: raised from 49,000 to 75,000 after the shortening of the page to 74,048 characters,
     # the shortened size rounded up to the next thousand, which leaves 952 characters of room (piece B10 of the G14 brief of the
     # hardcode audit; the decider's pick Q5 (B10) A of 2026-10-12, "shorten what is reasonable. raise the ceiling
