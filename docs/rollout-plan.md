@@ -27,12 +27,12 @@ status: active
 | [s6](#s6) | Decision record #1 | B | ✅ | 1 | 0 | 0 | 100% |
 | [s7](#s7) | Commit each step with honest messages | B | ✅ | 1 | 0 | 0 | 100% |
 | [s8](#s8) | [`const-locations`](requirements.md#const-locations) and [`const-task-close`](requirements.md#const-task-close) | C | ✅ | 2 | 0 | 0 | 100% |
-| [s9](#s9) | The other remaining modules, and the kit work logged beside them | C | 🔄 | 25 | 11 | 4 | 69% |
+| [s9](#s9) | The other remaining modules, and the kit work logged beside them | C | 🔄 | 25 | 12 | 4 | 67% |
 | [s10](#s10) | Publish: the remote, the marketplace and CI, then `0.1.0` | D | 🔄 | 9 | 4 | 0 | 69% |
 | [s10a](#s10a) | The first release of the shared package | D | ✅ | 1 | 0 | 0 | 100% |
 | [s10b](#s10b) | The release 2.0.0 of the shared package | D | ✅ | 1 | 0 | 0 | 100% |
 | [s11](#s11) | Switch the project from path load to marketplace install | D | ⏳ | 0 | 1 | 0 | 0% |
-| all | the whole plan | all | 🔄 | 57 | 16 | 8 | 78% |
+| all | the whole plan | all | 🔄 | 57 | 17 | 8 | 77% |
 
 <a id="phase-a"></a>
 ## Phase A — Kit as consumer zero: the document-shaped accumulating modules (~1 week)
@@ -125,6 +125,7 @@ status: active
    - <a id="s9-33a"></a>**9.33a** ✅ Done 2026-11-07, record [dec-0114-module-effect-report-design](decisions/dec-0114-module-effect-report-design.md): the shared part of the effect report. The runner, the transcript reader, the reader judge and the shared entry stand in [kit-shared-gate-code](../shared/GATE.md#g1), with their messages U1 to U6 and their items S192 to S203; the log's fields `path` and `transcript` in gate-script rule 12 of [the module template](../module-template/MODULE.md#t6); the section a module fills in [template §13](../module-template/MODULE.md#t13); the admission in [rule 2 of plc-0009-shared-code](policies/plc-0009-shared-code.md#r2); and the rows in [aspect A14](requirements.md#a14). Shared release 2.1.0.
    - <a id="s9-33b"></a>**9.33b** ✅ Done 2026-11-07, record [dec-0114-module-effect-report-design](decisions/dec-0114-module-effect-report-design.md), every way for every module, the decider's pick in chat that day: each of the eleven modules ships its effect code and `scripts/effect-report.sh`, declared `advisory`, and lists its rules in its section "Effect", [template §13](../module-template/MODULE.md#t13), each module document saying there which ways it leaves out and why; the helpers each way shares stand in [kit-shared-gate-code §2](../shared/GATE.md#g2). The grant of [`const-locations`](requirements.md#const-locations) stamps its log records as the shared pipeline does.
    - <a id="s9-33c"></a>**9.33c** ✅ Done 2026-11-07: the first report on the knowledge kit, every module's pattern rules and, on the decider's go-ahead, its reader rules. It found three defects of the shared reader, fixed in release 2.2.0 of [kit-shared-gate-code](../shared/GATE.md#g1): a run whose command the platform records as `command hook <n>` was nobody's, a write that failed or that another hook refused counted for B1, and the entries had no `--help`.
+   - <a id="s9-34"></a>**9.34** ⏳ Asked by the decider on 2026-10-27, record [dec-0115-tokens-per-commit-counted-by-ccusage](decisions/dec-0115-tokens-per-commit-counted-by-ccusage.md): the tokens a session spent on each of its commits, counted by a pinned ccusage over a folder that holds that session alone, cut at the session's start and at its commits. The kit logs each session's start and each commit as they happen, counts each finished commit window once, and states the rules of the record in the current-state text its questions name.
 
    A project that cannot run hooks carries a copy of the rules text of [`const-interaction`](requirements.md#const-interaction) in its `CLAUDE.md`, labeled manual and version-drifting — the fallback that module's install note names.
 
