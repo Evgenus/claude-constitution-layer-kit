@@ -1,13 +1,13 @@
 ---
 id: dec-0115-tokens-per-commit-counted-by-ccusage
 type: task-record
-title: 'Tokens per commit: ccusage counts each commit window of one session, read from a folder that holds that session alone'
-status: active
+title: 'Tokens per commit: a new module has ccusage count each commit window of one session, read from a folder that holds that session alone'
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
 
-# Tokens per commit: ccusage counts each commit window of one session, read from a folder that holds that session alone
+# Tokens per commit: a new module has ccusage count each commit window of one session, read from a folder that holds that session alone
 
 ## Context
 
@@ -18,7 +18,7 @@ Claude Code writes one transcript per session, a file of JSON lines in the `proj
 - **Copies across sessions.** A forked or resumed session copies the earlier session's records into its own transcript, with the same message id, request id and time; most copies take the new session's id. On 2026-10-28, 3,699 of the 18,607 replies in the kit's transcripts stood in two sessions or more, and no field said which session made them.
 - **Partial records.** A subagent's reply can be written twice, first with a partial output count. In one session 94 replies were, and a count that kept the first record of each lost 73,172 tokens.
 
-ccusage is a widely used open-source tool, under the MIT license, that reads these transcripts and reports tokens and cost by day, week, month and session. Its command `ccusage claude session --id <id> --json` lists every reply of one session with its time and its four counts. It offers no library: its npm package ships a command alone, and its Rust crates are not published. The session puts the other questions of this design in chat, one per message, and each adds a section here.
+ccusage is a widely used open-source tool, under the MIT license, that reads these transcripts and reports tokens and cost by day, week, month and session. Its command `ccusage claude session --id <id> --json` lists every reply of one session with its time and its four counts. It offers no library: its npm package ships a command alone, and its Rust crates are not published. The session put the questions of this record in chat on 2026-11-08, one per message.
 
 ## 1. What counts the tokens, and how other sessions are kept out
 
@@ -39,7 +39,7 @@ The session recommended A on 2026-10-28, since B fails the decider's rule. Once 
 
 The decider chose to build on ccusage, in chat on 2026-11-08, since a tool this widely used is likely to be kept up to date. The session then proposed C and ran it that day, and the decider asked for this record built on it.
 
-<a id="r1"></a>**R1.** The tokens of a commit are counted by ccusage, at the version the kit pins, through `ccusage claude session --id <session> --json --offline`. The kit's own code reads no token count from a transcript. It reads only a record's time, its session id and its ids, to cut and to copy.
+<a id="r1"></a>**R1.** The tokens of a commit are counted by ccusage, at the version the kit pins, through `ccusage claude session --id <session> --json --offline`. The module's own code reads no token count from a transcript. It reads only a record's time, its session id and its ids, to cut and to copy.
 
 <a id="r2"></a>**R2.** ccusage reads a throwaway folder, named to it by `CLAUDE_CONFIG_DIR`, that holds only copies of one session's files: its own transcript, and every transcript under the folder named after it, its subagents and its workflow agents included. The copies are plain files, since ccusage's walk of a folder skips symbolic links.
 
@@ -49,12 +49,34 @@ The decider chose to build on ccusage, in chat on 2026-11-08, since a tool this 
 
 <a id="r5"></a>**R5.** A commit is counted once its window is complete, that is once the session's transcript holds a record dated after the commit or the session has ended, since the platform writes the transcript later than the conversation. A count is written once and is not made again.
 
-<a id="r6"></a>**R6.** For each commit the kit keeps the four counts — input, output, cache write and cache read — with the total and the cost ccusage computes, the session's id and the ccusage version. The cost of each reply in ccusage's output is not used: it reads a field that the current transcripts do not have, and stands at 0.
+<a id="r6"></a>**R6.** For each commit the module keeps the four counts — input, output, cache write and cache read — with the total and the cost ccusage computes, the session's id and the ccusage version. The cost of each reply in ccusage's output is not used: it reads a field that the current transcripts do not have, and stands at 0.
 
-<a id="r7"></a>**R7.** Two logs are written when things happen. A `SessionStart` hook writes the session's id, its start time and the start's source, which Claude Code gives the hook. A git `post-commit` hook writes the commit's SHA, its time and the session id from the variable `CLAUDE_CODE_SESSION_ID`, which Claude Code sets for the shell commands a session runs and does not document. A commit with no session id is logged with none and gets no count, and the report names it.
+<a id="r7"></a>**R7.** Two logs are written when things happen. A `SessionStart` hook writes the session's id, its start time and the start's source, which Claude Code gives the hook. A commit log writes each commit's SHA, its time and the session that made it, by the route R10 leaves to the module's rulings. A commit with no session is logged with none and gets no count, and the report names it.
 
-<a id="r8"></a>**R8.** The pinned version of ccusage stands in `scripts/ccusage.version`, beside the pin of Claude Code. Before the pin moves, a small transcript with a known count is counted by the new version, and the pin moves only when it gives that count.
+<a id="r8"></a>**R8.** The module pins the version of ccusage it runs, in a file of its plugin. Before the pin moves, a small transcript with a known count is counted by the new version, and the pin moves only when it gives that count.
+
+## 2. Where the count lives
+
+The count must ship to every project that uses the kit, not serve the kit alone, the decider said in chat on 2026-11-08. A plugin can hold every part of it. Its `SessionStart` hook receives the session's id and the start's source, and its tool hooks fire inside subagents too, with the agent's id. ccusage needs Node and npm in the project, as module [`const-referencing`](../requirements.md#const-referencing) needs lychee and module [`const-language`](../requirements.md#const-language) needs Vale. A plugin cannot install a git hook, so the commit log of R7 takes one of two routes. Git's hooks set in its configuration run beside a project's own hooks and need one step per clone. A check after each tool call lists the commits made during it and needs no step, but two sessions that commit in one checkout at one moment would both claim the commit.
+
+- **A. A new module with an aspect of its own.** A plugin built through the kit's module routine, its rows a new aspect of the requirements matrix.
+  - **Pros:** it passes the three boundary tests of the matrix; a project chooses to install it; its need for Node and ccusage touches no other module; it reads only its own dials.
+  - **Cons:** the whole module routine, from the research round to both reviews; the aspect must state a failure class, since the [intent page](../../INTENT.md#i5) keeps out a module for a failure nobody has hit, and a count measures more than it governs.
+- **B. New rows in module [`const-task-close`](../requirements.md#const-task-close).** The module whose object is the change gains the count, the start log and the commit log.
+  - **Pros:** its object is already the change and its commits; one install fewer; it already ships the hooks the count needs.
+  - **Cons:** it fails the one-invariant test, its invariant being documents kept in step with the code; every project that installs its gate would need Node and ccusage, or meet a configuration failure; every change to the count would bump that module and make its eval receipt stale.
+- **C. Inside the effect report.** The shared runner of [aspect A14](../requirements.md#a14) also counts tokens per commit, by a record that reverses [A14.1](../requirements.md#a14-1), which keeps cost out of a module's effect.
+  - **Pros:** it already reads transcripts, blocks nothing and takes a transcript folder and a start date.
+  - **Cons:** the effect report counts each module's own rules, and a token count is no module's rule; the shared package, which every module installs, would need Node.
+
+The session recommended A, the only option that passes the boundary tests and keeps ccusage away from a project that wants only the existing gates. The decider chose A in chat on 2026-11-08.
+
+<a id="r9"></a>**R9.** The count ships as a new module of the kit, whose rows are a new aspect of the requirements matrix. No existing module carries any part of it.
+
+<a id="r10"></a>**R10.** The module is built by the routine of "Developing a module" in [CLAUDE.md](../../CLAUDE.md), its research round first. Its own rulings record, written after that round, answers what this record leaves open: the module's name, where the counts are kept, which route the commit log takes, how the work of a session's parallel agents is split between its commits, and what a session from before its start log gets.
+
+<a id="r11"></a>**R11.** The aspect states this failure class: a session's start and the session behind each commit are lost for good when no hook records them as they happen.
 
 ## Carry list
 
-1. R1, R2, R3, R4, R5, R6, R7, R8 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
+1. R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
