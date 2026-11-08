@@ -2563,7 +2563,33 @@ def test_a_link_checker_that_hangs() -> None:
     The three runs go side by side, the longest about 21 s, and the budget cases follow one after the
     other: the item costs about 30 s. Each fake is started once before the runs (`path_with`), since the
     first start of a file just written has taken seconds on a loaded machine, and the hook run's deadline
-    stands still (`git_patch`, `unclocked`): the start of a slow machine shortens no wait."""
+    stands still (`git_patch`, `unclocked`): the start of a slow machine shortens no wait.
+
+    The cases, from the second validation of the module:
+
+    - A version probe that does not answer in 5 s is X3 `no answer in 5 s`.
+    - A checker that answers `--version` and then runs 21 s is waited for by the scan, which is green,
+      while the check after a write gives up at its budget with its own X3 line.
+    - The one budget is held beside them (`the_budget_is_one`, its checks on a patched clock).
+    - A deadline passed in a read or in a masking stops the check there, with the third X3 line, no
+      later document masked, lychee probed, not run.
+    - Before a write, a deadline passed in a read stops the check there with the fourth X3 line, no
+      later document read, lychee neither probed nor run; reads within the budget leave it green with
+      no lychee on PATH.
+    - The run is given what the reads and the masking left, and 0.01 s when they leave 0.005 s. A run
+      cut with 0.5 s left names the whole 20 s. A 25 s probe leaves the run what the reads and
+      masking left.
+    - A missing or too-old lychee is X1 or X2 before any read, however slow the reads.
+    - With no lychee and a covered file nobody can read, the check after a write says X1 and the scan
+      says C12.10; the same tree with the file readable says X1 in the scan too.
+    - A 25 s file list or territory matching leaves the check its 20 s.
+    - Under the hook's deadline: a hook that declares 12 s gives the run its 12 s, the deadline's clock
+      standing still, and the check before a write a budget of what the 12 s leave, never the cap of
+      20 s. A wait cut short ends in the shared C12.14, built from the shared message with the seconds
+      and the wait's name typed: a run, `lychee finished the link check`; the reads after a write, the
+      same; the reads before one, `the covered documents were read`; and, for a hook that declares 2 s
+      and a `lychee` that answers `--version` after 4 s, the probe, `lychee reported its version`.
+    - The scan, on a clock far past 20 s, is unchanged: one probe, its run with no timeout."""
     sleep = shutil.which("sleep") or "/bin/sleep"  # the fake's PATH holds no sleep
     slow_version = f'case "$1" in --version) {sleep} 30; echo "lychee 0.24.2";; *) exit 0;; esac\n'
     # answers --version at once; any other call is 1 s past the hook's 20 s, then an empty report
@@ -2998,7 +3024,14 @@ def w7_lines() -> list[str]:
 def test_effect_rules() -> None:
     """One hand-made history for each rule; the line of the rule is typed by hand. W1 reads the module's own
     territories; W2 its dials, loosened and tightened; W3 and W4 a red and what follows it; W5 a write that
-    adds a link, W6 a chat text that names a file, W7 the scan on each commit of main."""
+    adds a link, W6 a chat text that names a file, W7 the scan on each commit of main.
+
+    The histories: W1, a write examined, one not, a shell redirect, a path outside the territories and
+    a file that is no Markdown. W2, seven changes of the dials, and the plugin enabled and disabled. W3,
+    a fix and a `sed -i`. W4, the skill loaded and not. W5, a write that adds a link, one that does not,
+    one that keeps a link and an address. W6, a path linked, bare, in a code span, in a fence and in an
+    address. W7, a clean commit, a red one and the fix. Each rule was seen red under one mutation of its
+    own code."""
     count = "  {key} (pattern): {n} moment(s): {a} applied, {b} bypassed, {m} missed{by}"
     wanted = {
         "W1": count.format(key="W1", n=3, a=1, b=2, m=0, by=" — B1 2"),
