@@ -65,7 +65,7 @@ In the commit before the one that creates this record, which holds only this fil
 
 ## Carry list
 
-1. R1 — [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r8), rule 8, and the handles paragraph of [template §10](../../module-template/slot-guidance.md#s4).
+1. R1 — [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r8), rule 8, and the handles paragraph of [template §10](../../module-template/MODULE.md#t10).
 2. R2 — [plc-0001-root-policy](../policies/plc-0001-root-policy.md#r4), rule 4, and the title line of [templates/policy.md](../../templates/policy.md).
 3. R3 — [plc-0001-root-policy](../policies/plc-0001-root-policy.md#r8), rule 8, rule 3 of [templates/policy.md](../../templates/policy.md), and the Enforcement rules that name a split — [plc-0002-kernel](../policies/plc-0002-kernel.md#r8) rule 8, [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r6) rule 6, [plc-0005-research](../policies/plc-0005-research.md#r10) rule 10, [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r12) rule 12, [plc-0009-shared-code](../policies/plc-0009-shared-code.md#r9) rule 9.
 4. R4 — [plc-0007-requirements](../policies/plc-0007-requirements.md#r1), rule 1, [rule 7](../policies/plc-0007-requirements.md#r7), and rows [A4.2](../requirements.md#a4-2) and [A13.7](../requirements.md#a13-7) of [constitution-requirements](../requirements.md); the two headings' change is history.

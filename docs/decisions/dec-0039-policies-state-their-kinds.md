@@ -111,7 +111,7 @@ A `product` record, which the kernel gives neither a yes nor a review, is comple
 
 <a id="r24"></a>**R24.** One prefix per kind of handle in a document, never reused for another kind: the message keys as `messages.py` names them; `E<n>` for the enforcement rows; the acceptance items numbered from 1 for the module's own and from 101 for the shared, bare or under `T<n>` and `S<n>`; the live, review and kit-check items continuing the module's own numbering or under `L<n>`, `V<n>` where `L` is the message prefix; a key of another document written qualified. Three enforcement tables gained their `E` column, two sibling lists their numbers, and the live and review items of `const-locations` became `V1` to `V4` in this change; the first audit found the draft's stricter prefixes broken by four of the six documents and the rule was widened to what they keep.
 
-<a id="r25"></a>**R25.** The shared texts enter by link to [kit-shared-gate-code](../../shared/GATE.md), its sections 3 to 5; the module's own messages are written out word for word.
+<a id="r25"></a>**R25.** The shared texts enter by link to [kit-shared-messages](../../shared/MESSAGES.md#g3), its sections 3 to 5; the module's own messages are written out word for word.
 
 <a id="r26"></a>**R26.** A live proof carries its date, environment and platform version; a deferred one is labelled `live, deferred` and links the plan's step; a platform fact carries its date and what breaks. Kit-live counts are such evidence, and links to kit documents are the description's own: the kit is no project, and the portability grep holds the installed components.
 
@@ -169,7 +169,7 @@ A `product` record, which the kernel gives neither a yes nor a review, is comple
 20. R21 — [plc-0005-research](../policies/plc-0005-research.md#r10), rule 10.
 21. R22 — [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r5), rule 5; the three titles given their clause is history.
 22. R23 — [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r6), rules 6 and 7.
-23. R24 — [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r8), rule 8, and the handles paragraph of [template §10](../../module-template/slot-guidance.md#s4); the columns, numbers and renamed items of the day, and the audit's finding that widened the rule, are history.
+23. R24 — [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r8), rule 8, and the handles paragraph of [template §10](../../module-template/MODULE.md#t10); the columns, numbers and renamed items of the day, and the audit's finding that widened the rule, are history.
 24. R25 — [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r9), rule 9.
 25. R26 — [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r10), rule 10, and rule 3.
 26. R27 — [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r11), rule 11; the two removals are history.
