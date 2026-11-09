@@ -33,6 +33,21 @@ The session recommended B, the only option that loses no commit. The decider cho
 
 <a id="r2"></a>**R2.** The module ships a command that writes the two keys into the clone's `.git/config`, and removes them when asked; it writes nothing else there. While either key is missing, the module's `SessionStart` hook names the missing keys and that command in its output at each session start. No hook of the module writes the keys.
 
+## 2. How the module runs ccusage
+
+The npm package of ccusage is a Node launcher and one native binary per platform. In the comparison's experiment E1 the native binary counted correctly with no Node on the `PATH`. Node and npm are needed anyway to install the pinned package, since Claude Code runs npm from the person's `PATH` when it copies a plugin, and [R13](dec-0115-tokens-per-commit-counted-by-ccusage.md#r13) already makes Node a need of the first day.
+
+- **A. Through the launcher.** The module runs `ccusage` from the pinned package's `.bin` folder, as ccusage documents.
+  - **Pros:** ccusage's own entry point; it picks the right binary for the platform; it survives a change in the package's layout.
+  - **Cons:** Node must be present at every count, not only at the install.
+- **B. The native binary directly.** The module finds the platform's binary inside the pinned package and runs it.
+  - **Pros:** no Node at the count; one process fewer.
+  - **Cons:** the binary's place inside `node_modules` is ccusage's own layout, not a promise, so a release can move it; the module must choose among six platform packages itself.
+
+The session recommended A: Node is present wherever the package can be installed, so B saves nothing and leans on a layout ccusage never promised. The decider chose A in chat on 2026-11-09.
+
+<a id="r3"></a>**R3.** The module runs ccusage through the launcher of its pinned package, from that package's `.bin` folder, and never calls a platform binary by its path.
+
 ## Carry list
 
-1. R1, R2 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
+1. R1, R2, R3 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
