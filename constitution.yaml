@@ -738,7 +738,7 @@ const-doc-budgets:                    # a character ceiling per group of documen
         from: 2026-10-09
         to: 2026-11-08
     # policies, 2026-11-09: set from the documents as decision dec-0115-long-documents-split-and-carry-entries-follow-moved-text
-    # leaves them (plc-0004-decision-records at 27,442 after its rewording, the audit's restorations and the sentence of R9 on a partial move, plus 10 %, rounded up to 1,000), and moved to error (its R10); not the window's longest, which is the size before that change.
+    # leaves them (plc-0004-decision-records at 27,422 after its rewording, the audit's restorations and the sentence of R9 on a partial move, plus 10 %, rounded up to 1,000), and moved to error (its R10); not the window's longest, which is the size before that change.
     - name: policies
       paths: *policies
       max: 31000
