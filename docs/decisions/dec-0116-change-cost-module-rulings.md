@@ -132,6 +132,24 @@ The session recommended A, native first for every project installed from the mar
 
 <a id="r8"></a>**R8.** A `package.json` and its `package-lock.json` at the plugin root pin ccusage to an exact version. Where Claude Code copies the plugin, its own install of that lockfile is the module's install. Where the plugin loads in place, the module's `SessionStart` hook installs the same lockfile into `${CLAUDE_PLUGIN_DATA}` when the copy there differs.
 
+## 8. A model with no price
+
+In the comparison's experiment E8, a reply under a model name missing from ccusage's price table kept its tokens and added no cost, and the `--id` output of [R1](dec-0115-tokens-per-commit-counted-by-ccusage.md#r1) said nothing, not even on standard error. The same folder read without `--id` marked that model `missingPricing: true`. A model newer than the pinned ccusage would so make every commit look cheaper than it was, with no sign.
+
+- **A. Name the unpriced model.** The count also reads the same one-session folder without `--id`; where a commit's window holds a reply whose model ccusage marks `missingPricing`, the kept line says so, and the report names that commit's cost as a lower bound, with the model.
+  - **Pros:** the tokens stay exact, and a cost that is too low is never shown as whole; ccusage still does all the pricing.
+  - **Cons:** a second run of ccusage per count, about 0.1 seconds in E10; one more field in the kept line.
+- **B. Keep ccusage's cost as it comes.** The cost is what ccusage computes, with no mark.
+  - **Pros:** the simplest count; one run.
+  - **Cons:** after a model's release the costs fall short without a sign until the pin moves, the kind of hidden gap [R14](dec-0115-tokens-per-commit-counted-by-ccusage.md#r14) refused for compactions.
+- **C. Keep the tokens only.** The count keeps the four token counts and no cost.
+  - **Pros:** no price can be wrong.
+  - **Cons:** it drops the cost that [A15.1](../requirements.md#a15-1) asks for; a reader must price the tokens by hand.
+
+The session recommended A: ccusage stays the only pricer, and a short cost is shown as short, as R14 does for compactions. The decider chose A in chat on 2026-11-09.
+
+<a id="r9"></a>**R9.** Each count also runs ccusage's session command without `--id` over the same one-session folder, to learn which of the window's models it marks `missingPricing`. The kept line names those models, and the report shows that commit's cost as a lower bound, with the models named. The tokens are counted as R1 of [dec-0115-tokens-per-commit-counted-by-ccusage](dec-0115-tokens-per-commit-counted-by-ccusage.md#r1) says.
+
 ## Carry list
 
-1. R1, R2, R3, R4, R5, R6, R7, R8 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
+1. R1, R2, R3, R4, R5, R6, R7, R8, R9 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
