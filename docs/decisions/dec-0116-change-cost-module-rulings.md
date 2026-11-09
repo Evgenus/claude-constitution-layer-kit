@@ -1,13 +1,13 @@
 ---
 id: dec-0116-change-cost-module-rulings
 type: task-record
-title: Rulings of the const-change-cost authoring — a command writes the commit log into git, ccusage runs through its launcher, the counts stay in the clone after each turn, and no dials
+title: Rulings of the const-change-cost authoring — commit log by a command, ccusage by its launcher, counts kept in the clone and shared by trailer, pull request and notes, no dials
 status: active
 stakes: process
 decider: Eugene Chernyshov
 ---
 
-# Rulings of the const-change-cost authoring — a command writes the commit log into git, ccusage runs through its launcher, the counts stay in the clone after each turn, and no dials
+# Rulings of the const-change-cost authoring — commit log by a command, ccusage by its launcher, counts kept in the clone and shared by trailer, pull request and notes, no dials
 
 ## Context
 
@@ -64,7 +64,7 @@ A count exists only after its commit's window closes, as [R5](dec-0115-tokens-pe
 
 The session recommended A: the comparison's recommendation, private costs, and no requirement yet asks for sharing; an export can come later by a new record. The decider chose A in chat on 2026-11-09.
 
-<a id="r4"></a>**R4.** The counts are kept in one file of JSON lines in the clone's git common directory, beside the start log and the commit log, one line per counted commit. The module writes no git note, no trailer and no file in the working tree.
+<a id="r4"></a>**R4.** The counts are kept in one file of JSON lines in the clone's git common directory, beside the start log and the commit log, one line per counted commit. The module writes no file in the working tree, and writes a git note or a trailer only as R12 to R15 say.
 
 ## 4. When the count runs
 
@@ -183,8 +183,39 @@ The session recommended A. The decider chose A in chat on 2026-11-09 and asked t
 - **The one value a project may hold for itself: its prices.** R1 of [dec-0115-tokens-per-commit-counted-by-ccusage](dec-0115-tokens-per-commit-counted-by-ccusage.md#r1) passes `--config` naming an empty file, so a project's own ccusage configuration cannot change the count. ccusage's configuration takes `pricingOverrides`, a price per model for each kind of token (its schema at 20.0.48). A project that pays other than the list price, through a cloud provider or a discount, would want them. No project has asked.
 - **Behaviours a project might want switched, later.** The start hook's warning of R2, the count after each turn of R5, and counts shared beyond the clone of R4, each refused here or in an earlier section, or never asked for.
 
-<a id="r11"></a>**R11.** The module has no dials. Every cost it keeps and reports is the list price of ccusage's table at the pinned version, and the report says so. The module document lists the candidates of this section as deferred, each with the signal that would earn it: prices of a project's own, when a project that pays other than the list price asks for its costs; silencing the warning, when a project reports it as noise where commits are left out on purpose; the count after each turn switched off, when a project reports it as slow; counts shared beyond the clone, when a team asks to see each other's.
+<a id="r11"></a>**R11.** The module has no dials. Every cost it keeps and reports is the list price of ccusage's table at the pinned version, and the report says so. The module document lists the candidates of this section as deferred, each with the signal that would earn it: prices of a project's own, when a project that pays other than the list price asks for its costs; silencing the warning, when a project reports it as noise where commits are left out on purpose; the count after each turn switched off, when a project reports it as slow. Sharing the counts beyond the clone, a fourth candidate when this section was written, was decided the same day in section 11.
+
+## 11. Sharing the counts beyond the clone
+
+Under R4 the counts stayed in the clone that made the commits, lost with it and seen by no one else. The decider asked in chat on 2026-11-09 whether they can reach the repository and the remote. Whatever is shared publishes costs, since the kit's repository is public, and each clone shares only its own counts.
+
+- **A. A trailer on the merge commit.** `cost-report.sh` prints a trailer for a branch, such as `Change-Cost: 21,673,425 tokens, $15.08 list, 4 commits`, which the person or session puts into the merge message.
+  - **Pros:** it lands in git history on the remote, written once, with no SHA rewritten; every clone gets it with an ordinary fetch; it fits the kit's merge flow, whose merge commits already carry trailers.
+  - **Cons:** a branch's total only; it depends on someone adding it, so a merge made on the forge's page without it carries nothing.
+- **B. Git notes, one per commit.** A command writes each counted commit's line as a note under `refs/notes/change-cost`, and a person pushes that ref by name.
+  - **Pros:** each commit's own count, read with `git log --notes=change-cost`; it can be run for old commits while the local file holds them.
+  - **Cons:** notes are pushed and fetched only by naming the ref; a rebase drops them unless `notes.rewriteRef` is set; in a project that squashes its merges, the notes sit on commits that never land.
+- **C. Both A and B.**
+  - **Pros:** the branch's total in the history reviewers read, and each commit's count for anyone who fetches the notes.
+  - **Cons:** two exports to build and test, and two more moments to teach.
+- **D. The pull request's description.** `cost-report.sh` writes the branch's total there through the forge's command line.
+  - **Pros:** seen on the forge's page, where reviewers look.
+  - **Cons:** not in git, which is why the kit never keeps a record only there; it ties the module to the forges whose command line it knows, against the portability of [law 2 of CLAUDE.md](../../CLAUDE.md#law-2).
+
+The session recommended C. The decider chose A, B and D together in chat on 2026-11-09, and added that the file of counts, a log of history, is never committed. In the next message the decider asked to see the counts in depth, the cached tokens, input and output among them, wherever they are shown. The session keeps D's cost in view: the description lives outside git, so the trailer and the notes stay the record, and where the module knows no forge's command line it prints the description's text for a person to paste.
+
+<a id="r12"></a>**R12.** The counts leave the clone only in the three ways of R13 to R15, each started by a person and never by a hook, each made from the file of counts. The module never pushes; a person pushes the notes ref by naming it.
+
+<a id="r13"></a>**R13.** `cost-report.sh --trailer <range>` prints a `Change-Cost:` trailer with the range's total — its tokens, its list cost and its count of commits — for the message of the merge commit that lands the range.
+
+<a id="r14"></a>**R14.** `cost-report.sh --pr <range>` writes a block with each counted commit of the range and their total into the pull request's description, through the forge's command line where the module knows it, and prints the block elsewhere.
+
+<a id="r15"></a>**R15.** `cost-report.sh --notes <range>` writes each counted commit's line as a git note under `refs/notes/change-cost`.
+
+<a id="r16"></a>**R16.** The file of counts and the two logs are never committed or pushed. They stay in the clone's git common directory as the history every export is made from.
+
+<a id="r17"></a>**R17.** The report and every export show the counts in depth, for each commit and for a range's total: input, output, cache write and cache read each on its own, their total, the cost at list price, the number of replies, the tokens of each model, and the compactions and unpriced models by name. The trailer of R13 holds the range's four counts beside its total. The cost is never split by kind of token, since ccusage computes it for the window as a whole.
 
 ## Carry list
 
-1. R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
+1. R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12, R13, R14, R15, R16, R17 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
