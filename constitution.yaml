@@ -68,6 +68,10 @@ plc-0011-install-guide:               # the kind of one document, the kit's inst
   territory: &install_guide   # anchored: a ceiling of the length gate below holds exactly this territory; the leading slash keeps the modules' own INSTALL.md out
     - "/INSTALL.md"
 
+plc-0012-guide-pages:                 # the pages CLAUDE.md links, each read at its moment (decision dec-0115-long-documents-split-and-carry-entries-follow-moved-text)
+  territory: &guide_pages   # anchored: a ceiling of the length gate below holds exactly this territory
+    - "docs/guide/**"
+
 # --- module namespaces (kernel §6): a module reads only its own -------------------
 # Two dials are every gate's, read by the shared code (shared/GATE.md):
 #   severity  values: block | warn — block: a finding blocks in the way the gate's module chose —
@@ -263,6 +267,8 @@ const-task-close:                     # task close as one act: a change that tou
         - "/pyproject.toml"
       docs:
         - "CLAUDE.md"
+        - "docs/guide/gate-list-and-ci.md"
+        - "docs/guide/developing-a-module.md"
     - name: kernel-schemas
       code:
         - "docs/constitution/schemas/**"
@@ -816,6 +822,13 @@ const-doc-budgets:                    # a character ceiling per group of documen
       window:
         from: 2026-09-14
         to: 2026-09-29
+    - name: guide-pages   # set 2026-11-09 on the pages' first day: the longest then plus 10 %, rounded up to 1,000; at warning until 30 days of data
+      paths: *guide_pages
+      max: 20000
+      level: warning
+      window:
+        from: 2026-11-09
+        to: 2026-11-09
     - name: readme
       paths:
         - "/README.md"

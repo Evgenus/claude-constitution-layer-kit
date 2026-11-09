@@ -54,7 +54,7 @@ status: active
 <a id="phase-b"></a>
 ## Phase B — Bootstrap the consumer project (~1 hour)
 
-5. <a id="s5"></a>**Bootstrap the consumer project.** This is each module's consumer-live proof, the second stage of [CLAUDE.md](../CLAUDE.md) step 5.
+5. <a id="s5"></a>**Bootstrap the consumer project.** This is each module's consumer-live proof, the second stage of [step 5 of the module-development page](guide/developing-a-module.md#s5).
    - <a id="s5-1"></a>**5.1** ✅ The project bootstrapped by [section 2 of the install guide](../INSTALL.md#s2), on its own branch. Done 2026-10-23, a routine change: the second run merged the bootstrap's branch in the project, and its merge names the decider's yes; the runs are told in [dec-0101-bootstrap-on-a-branch-with-two-questions](decisions/dec-0101-bootstrap-on-a-branch-with-two-questions.md) and [dec-0102-bootstrap-recommends-and-copies-the-kernel-first](decisions/dec-0102-bootstrap-recommends-and-copies-the-kernel-first.md).
    - <a id="s5-2"></a>**5.2** ✅ The scan of each module run against the project, with the live items that the module documents defer to this step, such as [`const-meta-types`](../modules/const-meta-types/MODULE.md#t10) T54. Done 2026-11-02, a routine change, as R1 and R2 of [dec-0109-mature-project-proofs-after-the-switch](decisions/dec-0109-mature-project-proofs-after-the-switch.md#r1) split the work; the project's merge of that day names the decider's yes.
 
