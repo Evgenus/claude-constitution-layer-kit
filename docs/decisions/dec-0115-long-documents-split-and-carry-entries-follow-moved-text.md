@@ -2,7 +2,7 @@
 id: dec-0115-long-documents-split-and-carry-entries-follow-moved-text
 type: task-record
 title: Three long documents split along their seams, and a record's citation follows text moved to another document
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
@@ -140,7 +140,7 @@ The session recommended A. The decider chose A in chat on 2026-11-08.
 
 ## 7. The ceilings these sections bring under
 
-<a id="r10"></a>**R10.** The ceilings `guide`, `shared-code`, `module-template`, `policies` and `records` each move to error in this change, each set by the dial's rule from the documents as this change leaves them, over the window 2026-10-09 to 2026-11-08. The guide pages stand under a ceiling of their own, `guide-pages`, set by the same rule, at warning until 30 days of data stand behind it.
+<a id="r10"></a>**R10.** The ceilings `guide`, `shared-code` and `policies` each move to error in this change, each set by the dial's rule from the documents as this change leaves them, over the window 2026-10-09 to 2026-11-08. The ceilings `module-template` and `records` keep the numbers the picks of sections 3 and 5 kept, 23,000 and 34,000, and move to error over the same window. The guide pages stand under a ceiling of their own, `guide-pages`, set by the same rule, at warning until 30 days of data stand behind it.
 
 ## Carry list
 

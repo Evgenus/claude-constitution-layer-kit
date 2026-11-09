@@ -721,13 +721,15 @@ const-doc-budgets:                    # a character ceiling per group of documen
   severity: block                     # values: block | warn — block: a finding reaches the model as a block after the write; warn: as context
   log_dir: local/gate-logs
   ceilings:                           # the founding entries set 2026-09-29 by the report --scan --since 2026-09-14, a later entry on the day its own comment names, over its own `window`; each by the rule: the window's longest plus 10 %, rounded up to 1,000; at warning until 30 days of data; an entry at error re-set 2026-11-08 by the report --scan --since 2026-10-09, its window those 30 days, a group moving to error in the change that brings it under its number (rollout plan item 9.9); every Markdown file git lists stands under one ceiling (decision dec-0052-doc-budgets-module-rulings)
+    # records, 2026-11-09: kept at 34,000, the number the decider's pick D13 of 2026-11-08 kept, and moved to error; the two
+    # frozen records over it stand under departures below (decision dec-0115-long-documents-split-and-carry-entries-follow-moved-text, R8 and R10).
     - name: records   # the accepted records among them frozen: wording edits only (plc-0004 rule 14)
       paths: *decisions
       max: 34000
-      level: warning
+      level: error
       window:
-        from: 2026-09-14
-        to: 2026-09-29
+        from: 2026-10-09
+        to: 2026-11-08
     - name: comparisons   # the frozen ones among them take wording edits only (plc-0005 rule 7)
       paths: *research
       max: 79000
@@ -735,13 +737,15 @@ const-doc-budgets:                    # a character ceiling per group of documen
       window:
         from: 2026-10-09
         to: 2026-11-08
+    # policies, 2026-11-09: set by the rule from the documents as decision dec-0115-long-documents-split-and-carry-entries-follow-moved-text
+    # leaves them (plc-0004-decision-records at 27,116 after its rewording, plus 10 %), and moved to error (its R10).
     - name: policies
       paths: *policies
-      max: 22000
-      level: warning
+      max: 30000
+      level: error
       window:
-        from: 2026-09-14
-        to: 2026-09-29
+        from: 2026-10-09
+        to: 2026-11-08
     # module-documents, 2026-11-08: set from the seven documents shortened as far as their rulings allow (the decider's
     # picks D5 to D11 of 2026-11-08 in chat): the longest after the cut, modules/const-referencing/MODULE.md at 81,583
     # characters, plus 10 %, rounded up to 1,000. Not the window's longest, 89,175 on 2026-10-12, before an earlier cut.
@@ -804,13 +808,15 @@ const-doc-budgets:                    # a character ceiling per group of documen
     # message text, anchor and handle. The number is not the window's longest plus 10 %: the window's longest is the
     # size before the shortening, 84,515, which would give about 93,000, so the number is the shortened size with
     # room; the window runs to the day of the measure; the level stays warning.
+    # shared-code, 2026-11-09: set by the rule from the documents as decision dec-0115-long-documents-split-and-carry-entries-follow-moved-text
+    # leaves them (shared/GATE.md at 71,265 after its tables moved, the longest of its three pages, plus 10 %), and moved to error (its R10).
     - name: shared-code
       paths: *shared_code
-      max: 75000
-      level: warning
+      max: 79000
+      level: error
       window:
-        from: 2026-09-14
-        to: 2026-10-12
+        from: 2026-10-09
+        to: 2026-11-08
     - name: style-guide
       paths: *style
       max: 11000
@@ -818,17 +824,19 @@ const-doc-budgets:                    # a character ceiling per group of documen
       window:
         from: 2026-10-09
         to: 2026-11-08
+    # guide, 2026-11-09: set by the rule from the documents as decision dec-0115-long-documents-split-and-carry-entries-follow-moved-text
+    # leaves them (CLAUDE.md at 20,118 characters after its split, plus 10 %, rounded up to 1,000), and moved to error (its R10).
     - name: guide   # loaded into every session
       paths:
         - "/CLAUDE.md"
-      max: 24000
-      level: warning
+      max: 23000
+      level: error
       window:
-        from: 2026-09-14
-        to: 2026-09-29
-    - name: guide-pages   # set 2026-11-09 on the pages' first day: the longest then plus 10 %, rounded up to 1,000; at warning until 30 days of data
+        from: 2026-10-09
+        to: 2026-11-08
+    - name: guide-pages   # set 2026-11-09 on the pages' first day: docs/guide/developing-a-module.md at 16,242 characters plus 10 %, rounded up to 1,000; at warning until 30 days of data
       paths: *guide_pages
-      max: 20000
+      max: 18000
       level: warning
       window:
         from: 2026-11-09
@@ -890,15 +898,23 @@ const-doc-budgets:                    # a character ceiling per group of documen
       window:
         from: 2026-10-09
         to: 2026-11-08
+    # module-template, 2026-11-09: kept at 23,000, the number the decider's pick D3 of 2026-11-08 kept, and moved to error
+    # once module-template/MODULE.md stood at 22,033 (decision dec-0115-long-documents-split-and-carry-entries-follow-moved-text, R10).
     - name: module-template
       paths:
         - "/module-template/**"
       max: 23000
-      level: warning
+      level: error
       window:
-        from: 2026-09-14
-        to: 2026-09-29
-  departures: []                      # none declared yet: dec-0093-module-evals-with-local-receipts, a frozen record, stands over the records ceiling, a work item at step 9 of docs/rollout-plan.md
+        from: 2026-10-09
+        to: 2026-11-08
+  departures:                         # documents that must stand over a ceiling, each with its reason (the set-ceilings skill, section 4)
+    - paths:
+        - "/docs/decisions/dec-0093-module-evals-with-local-receipts.md"
+        - "/docs/decisions/dec-0099-shared-code-installed-as-a-pip-package.md"
+      allow:
+        - records
+      reason: accepted records, frozen by rule 14 of plc-0004-decision-records, which no wording edit it lists brings under 34,000 (decision dec-0115-long-documents-split-and-carry-entries-follow-moved-text, R8)
 
 const-locations:                      # creates documents; blocks nothing, so no severity (MODULE.md §7)
   log_dir: local/gate-logs
