@@ -738,10 +738,10 @@ const-doc-budgets:                    # a character ceiling per group of documen
         from: 2026-10-09
         to: 2026-11-08
     # policies, 2026-11-09: set from the documents as decision dec-0115-long-documents-split-and-carry-entries-follow-moved-text
-    # leaves them (plc-0004-decision-records at 27,116 after its rewording, plus 10 %), and moved to error (its R10); not the window's longest, which is the size before that change.
+    # leaves them (plc-0004-decision-records at 27,325 after its rewording, the audit's restorations and the sentence of R9 on a partial move, plus 10 %, rounded up to 1,000), and moved to error (its R10); not the window's longest, which is the size before that change.
     - name: policies
       paths: *policies
-      max: 30000
+      max: 31000
       level: error
       window:
         from: 2026-10-09
@@ -809,7 +809,7 @@ const-doc-budgets:                    # a character ceiling per group of documen
     # size before the shortening, 84,515, which would give about 93,000, so the number is the shortened size with
     # room; the window runs to the day of the measure; the level stayed warning until 2026-11-09 (below).
     # shared-code, 2026-11-09: set from the documents as decision dec-0115-long-documents-split-and-carry-entries-follow-moved-text
-    # leaves them (shared/GATE.md at 71,265 after its tables moved, the longest of its three pages, plus 10 %), and moved to error (its R10); not the window's longest, which is the size before that change.
+    # leaves them (shared/GATE.md at 71,265 after its tables moved, the longest of its three pages, plus 10 %, rounded up to 1,000), and moved to error (its R10); not the window's longest, which is the size before that change.
     - name: shared-code
       paths: *shared_code
       max: 79000

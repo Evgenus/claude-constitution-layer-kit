@@ -136,7 +136,7 @@ Sections 1 to 3 move text that records name as the home of their rulings: 41 rec
 
 The session recommended A. The decider chose A in chat on 2026-11-08.
 
-<a id="r9"></a>**R9.** Where a change moves the text of a place into another document, a record's link to that place takes, in the same change, the document and the anchor the text moved to, and only the link's target changes, with the link's text where it is the id of the document the text left, which takes the id of the document the text moved to: the record's other words keep the old name as history, as after a moved file. The commit names it a migration and names the move. [Rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) lists it among the migrations a record may take, which widens the closed list of those migrations that R4 of [dec-0082-handle-migration-in-records](dec-0082-handle-migration-in-records.md#r4) and R12 of [dec-0039-policies-state-their-kinds](dec-0039-policies-state-their-kinds.md#r12) set.
+<a id="r9"></a>**R9.** Where a change moves the text of a place into another document, a record's link to that place takes, in the same change, the document and the anchor the text moved to, and only the link's target changes, with the link's text where it is the id of the document the text left, which takes the id of the document the text moved to: the record's other words keep the old name as history, as after a moved file. A link that names several places, or a place whose text moved only in part, takes the place where the first text it names now stands. The commit names it a migration and names the move. [Rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) lists it among the migrations a record may take, which widens the closed list of those migrations that R4 of [dec-0082-handle-migration-in-records](dec-0082-handle-migration-in-records.md#r4) set.
 
 ## 7. The ceilings these sections bring under
 
@@ -152,5 +152,5 @@ The session recommended A. The decider chose A in chat on 2026-11-08.
 6. R6 — [the module template](../../module-template/MODULE.md), its slots; [the slot-guidance page](../../module-template/slot-guidance.md), its opening; the cut of this change itself is history.
 7. R7 — history only: the rewording of this change.
 8. R8 — [rule 6 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r6); [the dials file](../../constitution.yaml), `const-doc-budgets.departures`.
-9. R9 — [rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14); that it widens the list of R4 of dec-0082 and R12 of dec-0039 is history.
+9. R9 — [rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14); that it widens the list of R4 of dec-0082 is history.
 10. R10 — [the dials file](../../constitution.yaml), `const-doc-budgets.ceilings`.

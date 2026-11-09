@@ -65,12 +65,12 @@ The change that adds this record applies every item that binds: the script, the 
 
 ## Carry list
 
-1. R1, R5 — [the workflow](../../.github/workflows/gates.yml); the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md).
+1. R1, R5 — [the workflow](../../.github/workflows/gates.yml); the rule "Work starts on a branch" in [CLAUDE.md](../guide/gate-list-and-ci.md).
 2. R2, R4 — [the list script](../../scripts/gate-list.sh); [the workflow](../../.github/workflows/gates.yml); the rule "Work starts on a branch" in [CLAUDE.md](../guide/gate-list-and-ci.md).
 3. R3 — [the workflow](../../.github/workflows/gates.yml); the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md), the ruleset's sentence.
 4. R6 — [the gate-list check](../../scripts/check-gate-lists.py); the rule "Work starts on a branch" in [CLAUDE.md](../guide/gate-list-and-ci.md); the narrowing of dec-0056's R2 is history.
-5. R7 — the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md).
+5. R7 — the rule "Work starts on a branch" in [CLAUDE.md](../guide/gate-list-and-ci.md).
 6. R8 — [CLAUDE.md](../../CLAUDE.md), the reading-list item on `constitution.yaml`, the rule "References are clickable; handles are scoped" and step 5 of "Developing a module"; [requirement A5.6](../requirements.md#a5-6); [the intent page](../../INTENT.md); the header comment of [constitution.yaml](../../constitution.yaml).
 7. R9 — pending: [rollout step 10](../rollout-plan.md#s10).
 8. R10 — history only: the items are stated where their own records carry them, and CI now runs them.
-9. R11 — history only: the local runs end, as R7 states in the rule "Work starts on a branch" of [CLAUDE.md](../../CLAUDE.md).
+9. R11 — history only: the local runs end, as R7 states in the rule "Work starts on a branch" of [CLAUDE.md](../guide/gate-list-and-ci.md).
