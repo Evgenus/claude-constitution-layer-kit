@@ -34,7 +34,7 @@ A skill applies at one of two moments: before a write, as the styling, language,
   - **Cons:** it costs B's characters; a red still teaches its fix without naming the skill, the case with 125 blocks and no load.
 - **D. A pointer line for the consumer's `CLAUDE.md`:** each module's one allowed install pointer, copied by hand.
   - **Pros:** no code; the guide's line for `new-document` shows that such a line works.
-  - **Cons:** manual, and it drifts with each version; [template §6](../../module-template/slot-guidance.md#s10) ships always-on rules by hook, never this way; it grows the kit's own guide.
+  - **Cons:** manual, and it drifts with each version; [template §6](../../module-template/MODULE.md#t6) ships always-on rules by hook, never this way; it grows the kit's own guide.
 
 The session recommended B: A alone leaves the skills with no gate moment out, and C alone leaves out the moment with the most evidence. The decider chose B in chat on 2026-10-10.
 

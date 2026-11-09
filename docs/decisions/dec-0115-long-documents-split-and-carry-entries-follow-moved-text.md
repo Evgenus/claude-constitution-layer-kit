@@ -13,7 +13,7 @@ decider: Eugene Chernyshov
 
 On 2026-11-08 the scan of module [`const-doc-budgets`](../requirements.md#const-doc-budgets) found 17 documents over their character ceilings, at warning, about 192,000 characters over in all. The ceilings had 30 days of data behind them, so they could move to error. The decider asked to decide each document on its own, one question per message. The picks that are routine changes landed in two pull requests of that day: twelve ceilings re-set by the dial's rule and moved to error, the rollout plan's done items trimmed, and the install guide and seven module documents shortened as far as their rulings allow. This record holds the picks that change a policy, add a document kind or change what the kit's checks read: sections 1 to 6. Section 7 holds the ceilings they bring under, and section 8 a question the audit of this change raised.
 
-Three of the documents are long because they hold text that only some readers need at some moments. The session guide, `CLAUDE.md`, loads in every session. The page of the shared code, `shared/GATE.md`, holds two long tables. The module template holds the rules for a module's Python code beside the slots a module document fills. Moving such text into a page of its own meets a constraint the decider did not have at the first picks: 67 of the kit's 114 records name one of the moved places in their carry lists, and those records are frozen. Section 6 rules how they follow.
+Three of the documents are long because they hold text that only some readers need at some moments. The session guide, `CLAUDE.md`, loads in every session. The page of the shared code, `shared/GATE.md`, holds two long tables. The module template holds the rules for a module's Python code beside the slots a module document fills. Moving such text into a page of its own meets a constraint the decider did not have at the first picks: 67 of the kit's 114 records name one of the moved places in their carry lists, and those records are frozen. Sections 6 and 8 rule how they follow.
 
 ## 1. The session guide
 
@@ -52,7 +52,7 @@ The session recommended A, since this file costs every session and the two block
   - **Pros:** no work.
   - **Cons:** the page stays at 125,000.
 
-The session recommended A. The decider chose A in chat on 2026-11-08.
+The session recommended A, since the tables are a seam the page already has and B cannot reach the number without cutting rulings. The decider chose A in chat on 2026-11-08.
 
 <a id="r3"></a>**R3.** The table of shared messages of [§3 of kit-shared-gate-code](../../shared/GATE.md#g3), with the paragraphs that lead it, moves to [the page of shared messages](../../shared/MESSAGES.md), and the table of shared acceptance items of [its §5](../../shared/GATE.md#g5), with its lead, to [the page of shared items](../../shared/ITEMS.md). The two sections keep their headings and anchors, each with one line that links its page.
 
@@ -75,7 +75,7 @@ The session recommended A. The decider chose A in chat on 2026-11-08.
   - **Pros:** one file.
   - **Cons:** half the file must go, nearly all of it rulings.
 
-The session recommended A. The decider chose B in chat on 2026-11-08.
+The session recommended A, since the code rules are a clean seam and a cut of the slot guidance puts rulings at risk. The decider chose B in chat on 2026-11-08.
 
 <a id="r5"></a>**R5.** The sixteen gate-script rules move whole from [§6 of the module template](../../module-template/MODULE.md#t6) to [the page of gate-script rules](../../module-template/gate-script-rules.md), each keeping its number. That section keeps one line that links the page and says that every Python script a module ships follows all sixteen.
 
@@ -95,7 +95,7 @@ The session recommended A. The decider chose B in chat on 2026-11-08.
   - **Pros:** the other policies keep a tight number.
   - **Cons:** a departure is for a document that must stand, and a policy can be rewritten.
 
-The session recommended A. The decider chose A in chat on 2026-11-08.
+The session recommended A, since it follows the rule of the other picks of the day and B gives room to policies that do not need it. The decider chose A in chat on 2026-11-08.
 
 <a id="r7"></a>**R7.** The policy's wording is shortened as far as every rule allows: no rule is dropped or changed in what it binds, and what repeats the kernel, a module document or the template gives way to a link to that home.
 
@@ -113,7 +113,7 @@ The session recommended A. The decider chose A in chat on 2026-11-08.
   - **Pros:** the least work.
   - **Cons:** it skips the step rule 6 asks for first.
 
-The session recommended A for each. The decider chose A for each in chat on 2026-11-08.
+The session recommended A for each, since it is the policy's own procedure and keeps the ceiling tight for every new record. The decider chose A for each in chat on 2026-11-08.
 
 <a id="r8"></a>**R8.** Each of the two records takes the wording edits of [rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) that are due in it, in this change, which has the carry audit those edits need. A record those edits do not bring under 34,000 is declared under `departures` of `const-doc-budgets` in `constitution.yaml`, by its path, allowed the ceiling `records`, with its reason.
 
@@ -134,9 +134,9 @@ Sections 1 to 3 move text that records name as the home of their rulings: 41 rec
   - **Pros:** no record edited.
   - **Cons:** it reverses the picks of sections 1 to 3.
 
-The session recommended A. The decider chose A in chat on 2026-11-08.
+The session recommended A, since it keeps every home true, in one step, by the form the kernel already allows for a moved file. The decider chose A in chat on 2026-11-08.
 
-<a id="r9"></a>**R9.** Where a change moves the text of a place into another document, a record's link to that place takes, in the same change, the document and the anchor the text moved to, and only the link's target changes, with the link's text where it is the id of the document the text left, which takes the id of the document the text moved to: the record's other words keep the old name as history, as after a moved file. The commit names it a migration and names the move. [Rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) lists it among the migrations a record may take, which widens the closed list of those migrations that R4 of [dec-0082-handle-migration-in-records](dec-0082-handle-migration-in-records.md#r4) set.
+<a id="r9"></a>**R9.** Where a change moves the whole text of a place into another document, a record's link to that place takes, in the same change, the document and the anchor the text moved to, and only the link's target changes, with the link's text where it is the id of the document the text left, which takes the id of the document the text moved to: the record's other words keep the old name as history, as after a moved file. The commit names it a migration and names the move. [Rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) lists it among the migrations a record may take, which widens the closed list of those migrations that R4 of [dec-0082-handle-migration-in-records](dec-0082-handle-migration-in-records.md#r4) set.
 
 ## 7. The ceilings these sections bring under
 
@@ -156,9 +156,9 @@ R9 says where a link goes when the text of the place it names moved whole. It sa
   - **Pros:** no link placed by the earlier rounds moves again.
   - **Cons:** four wordings had each been read two ways.
 
-The session recommended A. The decider chose A in chat on 2026-11-09.
+The session recommended A, since it turns each link into one yes or no question a reader can check. The decider chose A in chat on 2026-11-09.
 
-<a id="r11"></a>**R11.** A link that names several places, or one place whose text moved only in part, keeps its target while any text it cites still stands there; when none does, it takes the place where the first text it cites now stands. [Rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) states it beside the moved-place migration.
+<a id="r11"></a>**R11.** A link that names several places, or one place whose text moved only in part, keeps its target while any text it cites still stands there; when none does, it takes the place where the first text it cites now stands. In a carry list, the text a link cites is the text that states a ruling of its entry; a heading, or a line that only links where the text moved, is no such text. [Rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) states it beside the moved-place migration.
 
 ## Carry list
 
