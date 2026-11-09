@@ -59,6 +59,8 @@ plc-0008-rollout-plan:
 plc-0009-shared-code:
   territory: &shared_code   # anchored: a ceiling of the length gate below holds exactly this territory
     - "shared/GATE.md"
+    - "shared/MESSAGES.md"
+    - "shared/ITEMS.md"
 
 plc-0010-style-guide:                 # the kind of one document, like the intent page (decision dec-0044-styling-module-rulings)
   territory: &style   # anchored: the styling module's guides dial names exactly this territory
@@ -162,6 +164,8 @@ const-task-close:                     # task close as one act: a change that tou
         - "shared/constitution_layer_kit/**"
       docs:
         - "shared/GATE.md"
+        - "shared/MESSAGES.md"
+        - "shared/ITEMS.md"
     - name: const-meta-types
       code:
         - "modules/const-meta-types/plugin/scripts/**"
