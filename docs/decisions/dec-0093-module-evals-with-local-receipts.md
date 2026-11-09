@@ -359,7 +359,7 @@ A, by the decider in chat on 2026-10-18.
 
 ## Carry list
 
-1. R1 — the eval case row of [template §6](../../module-template/slot-guidance.md#s7); [CLAUDE.md](../guide/developing-a-module.md#s4), step 4 of "Developing a module"; [the kit's ignore file](../../.gitignore).
+1. R1 — the eval case row of [template §6](../../module-template/MODULE.md#t6); [CLAUDE.md](../guide/developing-a-module.md#s4), step 4 of "Developing a module"; [the kit's ignore file](../../.gitignore).
 2. R2 — the eval case row of [template §6](../../module-template/slot-guidance.md#s7); [CLAUDE.md](../guide/developing-a-module.md#s4), step 4 of "Developing a module".
 3. R3 — [`scripts/run-evals.py`](../../scripts/run-evals.py), its docstring; the eval case row of [template §6](../../module-template/slot-guidance.md#s7); [CLAUDE.md](../guide/gate-list-and-ci.md), the bullet "The gate list and CI".
 4. R4 — [`scripts/kit_evals.py`](../../scripts/kit_evals.py), its docstring of `eval_model`; [`scripts/run-evals.py`](../../scripts/run-evals.py), its docstring.

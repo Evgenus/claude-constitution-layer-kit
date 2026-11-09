@@ -79,12 +79,12 @@ The session recommended A. <a id="r3"></a>**R3.** A, chosen by the decider in ch
 
 ## Applied
 
-The change adds the two scripts, the lines of the gate list and of the routine in `pyproject.toml`, amends the row of [requirement A12.1](../requirements.md#a12-1), names both in steps 5 and "Work starts on a branch" of [CLAUDE.md](../../CLAUDE.md), and marks the two checks done in step 10 of the rollout plan. In module [`const-referencing`](../requirements.md#const-referencing) the comment and regex of the lint's one-machine pattern are respelled so the module names no such path itself; the regex matches what it matched. The record is born `inactive`.
+The change adds the two scripts, the lines of the gate list and of the routine in `pyproject.toml`, amends the row of [requirement A12.1](../requirements.md#a12-1), names both in steps 5 and "Work starts on a branch" of [CLAUDE.md](../guide/developing-a-module.md#s5), and marks the two checks done in step 10 of the rollout plan. In module [`const-referencing`](../requirements.md#const-referencing) the comment and regex of the lint's one-machine pattern are respelled so the module names no such path itself; the regex matches what it matched. The record is born `inactive`.
 
 ## Carry list
 
 1. R1 — [requirement A12.1](../requirements.md#a12-1), its enforcement cell; [the script](../../scripts/check-portability.py), its docstring; step 5 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s5).
-2. R2 — [the script](../../scripts/check-gate-lists.py), its docstring; the bullet "Work starts on a branch" of [CLAUDE.md](../../CLAUDE.md); [template §9](../../module-template/slot-guidance.md#s6), the form of a declared scan.
+2. R2 — [the script](../../scripts/check-gate-lists.py), its docstring; the bullet "Work starts on a branch" of [CLAUDE.md](../guide/gate-list-and-ci.md); [template §9](../../module-template/slot-guidance.md#s6), the form of a declared scan.
 3. R3 — both scripts; the routine list of [pyproject.toml](../../pyproject.toml); [CLAUDE.md](../../CLAUDE.md), the two places above.
 4. R4 — pending: [step 10 of the rollout plan](../rollout-plan.md#s10), the CI wiring.
 5. R5 — history only: the act of narrowing; the narrowed rule itself is R1's, carried in the row of [requirement A12.1](../requirements.md#a12-1).

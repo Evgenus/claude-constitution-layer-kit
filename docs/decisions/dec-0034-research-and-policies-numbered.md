@@ -65,7 +65,7 @@ In the commits of the work `catalogs-research-policies`: the thirteen moves and 
 
 ## Carry list
 
-1. R1 — rule 6 of [plc-0005-research](../policies/plc-0005-research.md#r6); [the dials file](../../constitution.yaml); step 2 of [CLAUDE.md](../../CLAUDE.md) for the research path's form and its reading list for the superseded comparison kept beside the current one.
+1. R1 — rule 6 of [plc-0005-research](../policies/plc-0005-research.md#r6); [the dials file](../../constitution.yaml); step 2 of [CLAUDE.md](../guide/developing-a-module.md#s2) for the research path's form and its reading list for the superseded comparison kept beside the current one.
 2. R2 — rule 6 of [plc-0001-root-policy](../policies/plc-0001-root-policy.md#r6) and, for the `res-` names, rule 6 of [plc-0005-research](../policies/plc-0005-research.md#r6); [the dials file](../../constitution.yaml).
 3. R3 — history only: the allocation and the one-time change of ids on the day.
 4. R4 — history only: what was moved and rewritten on the day.

@@ -51,7 +51,7 @@ The session recommended A. <a id="r1"></a>**R1.** B, chosen by the decider in ch
 
 The session recommended B. <a id="r7"></a>**R7.** B, chosen by the decider in chat on 2026-09-30: CI takes the runs before the merge and on `main` after it, and no local run of the gate list is required. The `gate-list-runner` agent runs its gate group locally, and its extra group on request, when a red is wanted before a push.
 
-<a id="r8"></a>**R8.** The texts that said a check runs by hand "until the kit's CI runs it" now say CI runs it: the dials-file style check, the references scan, the module-links check and the portability grep of step 5 in [CLAUDE.md](../../CLAUDE.md), the dials-file style check in the header comment of `constitution.yaml` too, the reference-forms cell of [requirement A5.6](../requirements.md#a5-6), and the project-reference grep among the [aspect A12](../requirements.md#a12) gates of [the intent page](../../INTENT.md).
+<a id="r8"></a>**R8.** The texts that said a check runs by hand "until the kit's CI runs it" now say CI runs it: the dials-file style check, the references scan, the module-links check and the portability grep of step 5 in [CLAUDE.md](../guide/developing-a-module.md#s5), the dials-file style check in the header comment of `constitution.yaml` too, the reference-forms cell of [requirement A5.6](../requirements.md#a5-6), and the project-reference grep among the [aspect A12](../requirements.md#a12) gates of [the intent page](../../INTENT.md).
 
 <a id="r9"></a>**R9.** Not wired by this record, and left to rollout step 10: the bare-repo install and the kernel-plus-one-module run of [aspect A12](../requirements.md#a12), and the validation of the kit's `constitution.yaml` against the kernel's dials schema by a real validator.
 
@@ -66,9 +66,9 @@ The change that adds this record applies every item that binds: the script, the 
 ## Carry list
 
 1. R1, R5 — [the workflow](../../.github/workflows/gates.yml); the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md).
-2. R2, R4 — [the list script](../../scripts/gate-list.sh); [the workflow](../../.github/workflows/gates.yml); the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md).
+2. R2, R4 — [the list script](../../scripts/gate-list.sh); [the workflow](../../.github/workflows/gates.yml); the rule "Work starts on a branch" in [CLAUDE.md](../guide/gate-list-and-ci.md).
 3. R3 — [the workflow](../../.github/workflows/gates.yml); the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md), the ruleset's sentence.
-4. R6 — [the gate-list check](../../scripts/check-gate-lists.py); the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md); the narrowing of dec-0056's R2 is history.
+4. R6 — [the gate-list check](../../scripts/check-gate-lists.py); the rule "Work starts on a branch" in [CLAUDE.md](../guide/gate-list-and-ci.md); the narrowing of dec-0056's R2 is history.
 5. R7 — the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md).
 6. R8 — [CLAUDE.md](../../CLAUDE.md), the reading-list item on `constitution.yaml`, the rule "References are clickable; handles are scoped" and step 5 of "Developing a module"; [requirement A5.6](../requirements.md#a5-6); [the intent page](../../INTENT.md); the header comment of [constitution.yaml](../../constitution.yaml).
 7. R9 — pending: [rollout step 10](../rollout-plan.md#s10).

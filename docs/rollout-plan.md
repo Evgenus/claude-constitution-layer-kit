@@ -27,12 +27,12 @@ status: active
 | [s6](#s6) | Decision record #1 | B | ✅ | 1 | 0 | 0 | 100% |
 | [s7](#s7) | Commit each step with honest messages | B | ✅ | 1 | 0 | 0 | 100% |
 | [s8](#s8) | [`const-locations`](requirements.md#const-locations) and [`const-task-close`](requirements.md#const-task-close) | C | ✅ | 2 | 0 | 0 | 100% |
-| [s9](#s9) | The other remaining modules, and the kit work logged beside them | C | 🔄 | 36 | 4 | 4 | 90% |
+| [s9](#s9) | The other remaining modules, and the kit work logged beside them | C | 🔄 | 36 | 5 | 4 | 87% |
 | [s10](#s10) | Publish: the remote, the marketplace and CI, then `0.1.0` | D | 🔄 | 9 | 4 | 0 | 69% |
 | [s10a](#s10a) | The first release of the shared package | D | ✅ | 1 | 0 | 0 | 100% |
 | [s10b](#s10b) | The release 2.0.0 of the shared package | D | ✅ | 1 | 0 | 0 | 100% |
 | [s11](#s11) | Switch the project from path load to marketplace install | D | ⏳ | 0 | 1 | 0 | 0% |
-| all | the whole plan | all | 🔄 | 68 | 9 | 8 | 88% |
+| all | the whole plan | all | 🔄 | 68 | 10 | 8 | 87% |
 
 <a id="phase-a"></a>
 ## Phase A — Kit as consumer zero: the document-shaped accumulating modules (~1 week)
@@ -92,7 +92,8 @@ status: active
    - <a id="s9-8"></a>**9.8** ✅ [`const-doc-budgets`](requirements.md#const-doc-budgets) — done 2026-09-29 in the kit, ahead of this slot and of its friction signal by the decider's choice, record [dec-0052-doc-budgets-module-rulings](decisions/dec-0052-doc-budgets-module-rulings.md), the yes given. Its consumer-live proof is step 5.
    - <a id="s9-9"></a>**9.9** ✅ The kit's ceilings warn until 30 days of data stand behind them; setting them to error is a work item of its own. Done 2026-11-08, a routine change, for the twelve ceilings whose groups stood under their numbers: each re-set by the rule from the report over 2026-10-09 to 2026-11-08, and moved to error, in the dials of [`const-doc-budgets`](requirements.md#const-doc-budgets).
    - <a id="s9-9a"></a>**9.9a** ✅ The last five ceilings at warning, `records`, `policies`, `shared-code`, `guide` and `module-template`. Done 2026-11-09, record [dec-0115-long-documents-split-and-carry-entries-follow-moved-text](decisions/dec-0115-long-documents-split-and-carry-entries-follow-moved-text.md), the yes given: each moved to error once its group stood under it.
-   - <a id="s9-10"></a>**9.10** ✅ The choice of how to bring [kit-shared-items](../shared/ITEMS.md#g5) under the `shared-code` ceiling of [`const-doc-budgets`](requirements.md#const-doc-budgets). Done 2026-10-12, R9 of [dec-0086-three-id-exceptions-partial-surveys-and-three-kit-holds](decisions/dec-0086-three-id-exceptions-partial-surveys-and-three-kit-holds.md#r9): shorten, then raise.
+   - <a id="s9-9b"></a>**9.9b** ⏳ The `guide-pages` ceiling of [`const-doc-budgets`](requirements.md#const-doc-budgets), set at warning on 2026-11-09, moves to error once 30 days of data stand behind it, not before 2026-12-09, its window re-set from the report on the day.
+   - <a id="s9-10"></a>**9.10** ✅ The choice of how to bring [kit-shared-gate-code](../shared/GATE.md#g1) under the `shared-code` ceiling of [`const-doc-budgets`](requirements.md#const-doc-budgets). Done 2026-10-12, R9 of [dec-0086-three-id-exceptions-partial-surveys-and-three-kit-holds](decisions/dec-0086-three-id-exceptions-partial-surveys-and-three-kit-holds.md#r9): shorten, then raise.
    - <a id="s9-11"></a>**9.11** ✅ The history report of [`const-doc-budgets`](requirements.md#const-doc-budgets) follows a symbolic link inside the tree, as the scan does — done 2026-10-10, a routine change of its own, as [dec-0065-shared-envelope-reader-and-markdown-line-endings](decisions/dec-0065-shared-envelope-reader-and-markdown-line-endings.md) priced it; see [that module's document](../modules/const-doc-budgets/MODULE.md#t9).
    - <a id="s9-12"></a>**9.12** ✅ The shortening of [the module document of `const-interaction`](../modules/const-interaction/MODULE.md). Done 2026-10-12, a routine change in the group of [dec-0086-three-id-exceptions-partial-surveys-and-three-kit-holds](decisions/dec-0086-three-id-exceptions-partial-surveys-and-three-kit-holds.md).
    - <a id="s9-13"></a>**9.13** ✅ The documents over their ceilings at warning on 2026-10-10 and 2026-10-12. Done by items 9.13a and 9.14e, and on 2026-11-09 by record [dec-0115-long-documents-split-and-carry-entries-follow-moved-text](decisions/dec-0115-long-documents-split-and-carry-entries-follow-moved-text.md), the yes given: the session guide split, the module template's rules and slot guidance moved to pages of their own, plc-0004 reworded.

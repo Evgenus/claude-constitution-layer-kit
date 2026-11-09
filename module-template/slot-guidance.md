@@ -7,7 +7,7 @@ status: active
 
 # The slot guidance of the module template
 
-Each text below stands word for word as it stood in [the module template](MODULE.md), in the section its heading names. The slot of the template links to it. Like the template, this page stands in no policy's territory, and a module's document does not copy it.
+Each text below stands word for word as it stood in [the module template](MODULE.md), in the section its heading names, so "this document" and "here" in a text mean the module's document, as they did in the template. The slot of the template links to it. Like the template, this page stands in no policy's territory, and a module's document does not copy it.
 
 <a id="s1"></a>
 ## The plugin skeleton
