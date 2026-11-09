@@ -202,19 +202,19 @@ Under R4 the counts stayed in the clone that made the commits, lost with it and 
   - **Pros:** seen on the forge's page, where reviewers look.
   - **Cons:** not in git, which is why the kit never keeps a record only there; it ties the module to the forges whose command line it knows, against the portability of [law 2 of CLAUDE.md](../../CLAUDE.md#law-2).
 
-The session recommended C. The decider chose A, B and D together in chat on 2026-11-09, and added that the file of counts, a log of history, is never committed. In the next message the decider asked to see the counts in depth, the cached tokens, input and output among them, wherever they are shown. The session keeps D's cost in view: the description lives outside git, so the trailer and the notes stay the record, and where the module knows no forge's command line it prints the description's text for a person to paste.
+The session recommended C. The decider chose A, B and D together in chat on 2026-11-09, and added that the file of counts, a log of history, is never committed. In the next message the decider asked to see the counts in depth, the cached tokens, input and output among them, wherever they are shown, and then asked for the same figures for each commit in the pull request and in the merge commit. The session keeps D's cost in view: the description lives outside git, so the trailer and the notes stay the record, and where the module knows no forge's command line it prints the description's text for a person to paste.
 
 <a id="r12"></a>**R12.** The counts leave the clone only in the three ways of R13 to R15, each started by a person and never by a hook, each made from the file of counts. The module never pushes; a person pushes the notes ref by naming it.
 
-<a id="r13"></a>**R13.** `cost-report.sh --trailer <range>` prints a `Change-Cost:` trailer with the range's total — its tokens, its list cost and its count of commits — for the message of the merge commit that lands the range.
+<a id="r13"></a>**R13.** `cost-report.sh --trailer <range>` prints, for the message of the merge commit that lands the range, one `Change-Cost-Commit:` trailer for each counted commit of the range, in the order of the commits, and one `Change-Cost:` trailer with the range's total, each with the figures of R17.
 
-<a id="r14"></a>**R14.** `cost-report.sh --pr <range>` writes a block with each counted commit of the range and their total into the pull request's description, through the forge's command line where the module knows it, and prints the block elsewhere.
+<a id="r14"></a>**R14.** `cost-report.sh --pr <range>` writes a block with each counted commit of the range and their total, each with the figures of R17, into the pull request's description, through the forge's command line where the module knows it, and prints the block elsewhere.
 
 <a id="r15"></a>**R15.** `cost-report.sh --notes <range>` writes each counted commit's line as a git note under `refs/notes/change-cost`.
 
 <a id="r16"></a>**R16.** The file of counts and the two logs are never committed or pushed. They stay in the clone's git common directory as the history every export is made from.
 
-<a id="r17"></a>**R17.** The report and every export show the counts in depth, for each commit and for a range's total: input, output, cache write and cache read each on its own, their total, the cost at list price, the number of replies, the tokens of each model, and the compactions and unpriced models by name. The trailer of R13 holds the range's four counts beside its total. The cost is never split by kind of token, since ccusage computes it for the window as a whole.
+<a id="r17"></a>**R17.** The report and every export show the counts in depth, for each commit and for a range's total: input, output, cache write and cache read each on its own, their total, the cost at list price, the number of replies, the tokens of each model, and the compactions and unpriced models by name. The merge commit's trailers of R13, the pull request's block of R14 and the notes of R15 hold the same figures for each commit as the report. The cost is never split by kind of token, since ccusage computes it for the window as a whole.
 
 ## Carry list
 
