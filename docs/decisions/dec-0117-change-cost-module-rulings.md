@@ -2,7 +2,7 @@
 id: dec-0117-change-cost-module-rulings
 type: task-record
 title: Rulings of the const-change-cost authoring — commit log by a command, ccusage by its launcher, counts kept in the clone and shared by trailer, pull request and notes, no dials
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
@@ -218,4 +218,11 @@ The session recommended C. The decider chose A, B and D together in chat on 2026
 
 ## Carry list
 
-1. R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12, R13, R14, R15, R16, R17 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
+1. R1, R2 — [section 3 of the module's document](../../modules/const-change-cost/MODULE.md#t3), the reading of the logs' row, and [section 5](../../modules/const-change-cost/MODULE.md#t5), rule J-a.
+2. R3, R8, R9 — [section 3 of the module's document](../../modules/const-change-cost/MODULE.md#t3), the reading of the counter's row, and [section 6](../../modules/const-change-cost/MODULE.md#t6), the configuration row.
+3. R4, R10, R16 — [section 6 of the module's document](../../modules/const-change-cost/MODULE.md#t6), the rows of the scripts and of the package.
+4. R5 — [section 3 of the module's document](../../modules/const-change-cost/MODULE.md#t3), the reading of the count's row.
+5. R6, R7 — [section 3 of the module's document](../../modules/const-change-cost/MODULE.md#t3), the reading of the row of ownership and windows.
+6. R11 — [section 7 of the module's document](../../modules/const-change-cost/MODULE.md#t7), and [section 12](../../modules/const-change-cost/MODULE.md#t12), items 1 to 3.
+7. R12, R13, R14, R15 — [section 5 of the module's document](../../modules/const-change-cost/MODULE.md#t5), rules J-b and J-c, and [section 6](../../modules/const-change-cost/MODULE.md#t6), the rows of the skill and the scripts.
+8. R17 — [section 3 of the module's document](../../modules/const-change-cost/MODULE.md#t3), the reading of the row of the count's reach.

@@ -47,7 +47,7 @@ The decider chose to build on ccusage, in chat on 2026-11-08, since a tool this 
 
 <a id="r4"></a>**R4.** A commit of a session gets that session's replies dated after its previous commit and up to this commit. All the records of one reply, one message id and one request id, go into the window of its first record, so a reply that spans a commit is counted once.
 
-<a id="r5"></a>**R5.** A commit is counted once its window is complete, that is once the session's transcript holds a record dated after the commit or the session has ended, since the platform writes the transcript later than the conversation. A count is written once and is not made again.
+<a id="r5"></a>**R5.** A commit is counted once its window is complete, that is once the session's transcripts hold a record dated after the commit, since the platform writes the transcript later than the conversation; the tool result of the call that made the commit is such a record. A count is written once and is not made again.
 
 <a id="r6"></a>**R6.** For each commit the module keeps the four counts — input, output, cache write and cache read — with the total and the cost ccusage computes, the session's id and the ccusage version. The cost of each reply in ccusage's output is not used: it reads a field that the current transcripts do not have, and stands at 0.
 
@@ -139,6 +139,7 @@ The change that holds this record adds aspect A15, rows [A15.1](../requirements.
 3. R5, R6 — [row A15.4 of the requirements matrix](../requirements.md#a15-4).
 4. R7 — [row A15.5 of the requirements matrix](../requirements.md#a15-5).
 5. R8 — [row A15.2 of the requirements matrix](../requirements.md#a15-2) for the pin's place, and [row A15.6](../requirements.md#a15-6) for the known count.
-6. R9, R11, R12, R13 — [the module's specification in the requirements matrix](../requirements.md#const-change-cost), its heading and its invariant, and [aspect A15](../requirements.md#a15).
+6. R9, R11, R13 — [section 2 of the module's document](../../modules/const-change-cost/MODULE.md#t2), its failure class, its entry trigger and that no other module carries any part, and [aspect A15](../requirements.md#a15).
 7. R10 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
-8. R14 — [row A15.1 of the requirements matrix](../requirements.md#a15-1).
+8. R12 — [the module's specification in the requirements matrix](../requirements.md#const-change-cost), its heading, and [aspect A15](../requirements.md#a15).
+9. R14 — [row A15.1 of the requirements matrix](../requirements.md#a15-1).
