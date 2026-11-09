@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-On 2026-11-08 the scan of module [`const-doc-budgets`](../requirements.md#const-doc-budgets) found 17 documents over their character ceilings, at warning, about 192,000 characters over in all. The ceilings had 30 days of data behind them, so they could move to error. The decider asked to decide each document on its own, one question per message. The picks that are routine changes landed in two pull requests of that day: twelve ceilings re-set by the dial's rule and moved to error, the rollout plan's done items trimmed, and the install guide and seven module documents shortened as far as their rulings allow. This record holds the picks that change a policy, add a document kind or change what the kit's checks read: sections 1 to 6. Section 7 holds the ceilings they bring under.
+On 2026-11-08 the scan of module [`const-doc-budgets`](../requirements.md#const-doc-budgets) found 17 documents over their character ceilings, at warning, about 192,000 characters over in all. The ceilings had 30 days of data behind them, so they could move to error. The decider asked to decide each document on its own, one question per message. The picks that are routine changes landed in two pull requests of that day: twelve ceilings re-set by the dial's rule and moved to error, the rollout plan's done items trimmed, and the install guide and seven module documents shortened as far as their rulings allow. This record holds the picks that change a policy, add a document kind or change what the kit's checks read: sections 1 to 6. Section 7 holds the ceilings they bring under, and section 8 a question the audit of this change raised.
 
 Three of the documents are long because they hold text that only some readers need at some moments. The session guide, `CLAUDE.md`, loads in every session. The page of the shared code, `shared/GATE.md`, holds two long tables. The module template holds the rules for a module's Python code beside the slots a module document fills. Moving such text into a page of its own meets a constraint the decider did not have at the first picks: 67 of the kit's 114 records name one of the moved places in their carry lists, and those records are frozen. Section 6 rules how they follow.
 
@@ -136,11 +136,29 @@ Sections 1 to 3 move text that records name as the home of their rulings: 41 rec
 
 The session recommended A. The decider chose A in chat on 2026-11-08.
 
-<a id="r9"></a>**R9.** Where a change moves the text of a place into another document, a record's link to that place takes, in the same change, the document and the anchor the text moved to, and only the link's target changes, with the link's text where it is the id of the document the text left, which takes the id of the document the text moved to: the record's other words keep the old name as history, as after a moved file. A link that names several places, or one place whose text moved only in part, takes the place where the first text it cites now stands: in a carry list, the first text of the place it names first that states a ruling of its entry. The commit names it a migration and names the move. [Rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) lists it among the migrations a record may take, which widens the closed list of those migrations that R4 of [dec-0082-handle-migration-in-records](dec-0082-handle-migration-in-records.md#r4) set.
+<a id="r9"></a>**R9.** Where a change moves the text of a place into another document, a record's link to that place takes, in the same change, the document and the anchor the text moved to, and only the link's target changes, with the link's text where it is the id of the document the text left, which takes the id of the document the text moved to: the record's other words keep the old name as history, as after a moved file. The commit names it a migration and names the move. [Rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) lists it among the migrations a record may take, which widens the closed list of those migrations that R4 of [dec-0082-handle-migration-in-records](dec-0082-handle-migration-in-records.md#r4) set.
 
 ## 7. The ceilings these sections bring under
 
 <a id="r10"></a>**R10.** The ceilings `guide`, `shared-code` and `policies` each move to error in this change, over the window 2026-10-09 to 2026-11-08, each set to the longest of its documents as this change leaves them plus 10 %, rounded up to 1,000: not the window's longest, which is the size before this change. The ceilings `module-template` and `records` keep the numbers the picks of sections 3 and 5 kept, 23,000 and 34,000, and move to error over the same window. The guide pages stand under a ceiling of their own, `guide-pages`, set by the same rule, at warning until 30 days of data stand behind it.
+
+## 8. A link to text that moved only in part
+
+R9 says where a link goes when the text of the place it names moved whole. It said nothing of a link that names several places, or of one place whose text moved only in part. The audit of this change found such links placed two ways, and four wordings of a rule for them, written into R9 and rule 14 before acceptance, each read two ways by the next confirming reader. The decider was asked on 2026-11-09.
+
+- **A. Keep the old target while any of the cited text still stands there.** A link moves only when nothing it cites is left at its old place, and then takes the place where the first text it cites now stands.
+  - **Pros:** one yes or no question per link, which a reader checks without reading what a ruling's first part is; it matches the rule for a moved file, and it edits the fewest frozen records.
+  - **Cons:** some links lead to a place that states only part of their ruling, so a reader takes a second step through that place's link.
+- **B. Take the place that states most of what the link cites, a judgment the audit's readers hold.**
+  - **Pros:** each link leads where most of its text is.
+  - **Cons:** "most" is still a reading, so the readers may keep disagreeing.
+- **C. Keep tuning the wording of the time.**
+  - **Pros:** no link placed by the earlier rounds moves again.
+  - **Cons:** four wordings had each been read two ways.
+
+The session recommended A. The decider chose A in chat on 2026-11-09.
+
+<a id="r11"></a>**R11.** A link that names several places, or one place whose text moved only in part, keeps its target while any text it cites still stands there; when none does, it takes the place where the first text it cites now stands. [Rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) states it beside the moved-place migration.
 
 ## Carry list
 
@@ -154,3 +172,4 @@ The session recommended A. The decider chose A in chat on 2026-11-08.
 8. R8 — [rule 6 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r6); [the dials file](../../constitution.yaml), `const-doc-budgets.departures`.
 9. R9 — [rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14); that it widens the list of R4 of dec-0082 is history.
 10. R10 — [the dials file](../../constitution.yaml), `const-doc-budgets.ceilings`.
+11. R11 — [rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14).
