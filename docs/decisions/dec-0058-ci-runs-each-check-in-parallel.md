@@ -51,7 +51,7 @@ The session recommended A. <a id="r1"></a>**R1.** B, chosen by the decider in ch
 
 The session recommended B. <a id="r7"></a>**R7.** B, chosen by the decider in chat on 2026-09-30: CI takes the runs before the merge and on `main` after it, and no local run of the gate list is required. The `gate-list-runner` agent runs its gate group locally, and its extra group on request, when a red is wanted before a push.
 
-<a id="r8"></a>**R8.** The texts that said a check runs by hand "until the kit's CI runs it" now say CI runs it: the dials-file style check, the references scan, the module-links check and the portability grep of step 5 in [CLAUDE.md](../guide/developing-a-module.md#s5), the dials-file style check in the header comment of `constitution.yaml` too, the reference-forms cell of [requirement A5.6](../requirements.md#a5-6), and the project-reference grep among the [aspect A12](../requirements.md#a12) gates of [the intent page](../../INTENT.md).
+<a id="r8"></a>**R8.** The texts that said a check runs by hand "until the kit's CI runs it" now say CI runs it: the dials-file style check, the references scan, the module-links check and the portability grep of step 5 in [CLAUDE.md](../../CLAUDE.md), the dials-file style check in the header comment of `constitution.yaml` too, the reference-forms cell of [requirement A5.6](../requirements.md#a5-6), and the project-reference grep among the [aspect A12](../requirements.md#a12) gates of [the intent page](../../INTENT.md).
 
 <a id="r9"></a>**R9.** Not wired by this record, and left to rollout step 10: the bare-repo install and the kernel-plus-one-module run of [aspect A12](../requirements.md#a12), and the validation of the kit's `constitution.yaml` against the kernel's dials schema by a real validator.
 
