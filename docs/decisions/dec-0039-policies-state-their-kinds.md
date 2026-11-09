@@ -111,7 +111,7 @@ A `product` record, which the kernel gives neither a yes nor a review, is comple
 
 <a id="r24"></a>**R24.** One prefix per kind of handle in a document, never reused for another kind: the message keys as `messages.py` names them; `E<n>` for the enforcement rows; the acceptance items numbered from 1 for the module's own and from 101 for the shared, bare or under `T<n>` and `S<n>`; the live, review and kit-check items continuing the module's own numbering or under `L<n>`, `V<n>` where `L` is the message prefix; a key of another document written qualified. Three enforcement tables gained their `E` column, two sibling lists their numbers, and the live and review items of `const-locations` became `V1` to `V4` in this change; the first audit found the draft's stricter prefixes broken by four of the six documents and the rule was widened to what they keep.
 
-<a id="r25"></a>**R25.** The shared texts enter by link to [kit-shared-messages](../../shared/MESSAGES.md#g3), its sections 3 to 5; the module's own messages are written out word for word.
+<a id="r25"></a>**R25.** The shared texts enter by link to [kit-shared-gate-code](../../shared/GATE.md), its sections 3 to 5; the module's own messages are written out word for word.
 
 <a id="r26"></a>**R26.** A live proof carries its date, environment and platform version; a deferred one is labelled `live, deferred` and links the plan's step; a platform fact carries its date and what breaks. Kit-live counts are such evidence, and links to kit documents are the description's own: the kit is no project, and the portability grep holds the installed components.
 

@@ -185,5 +185,5 @@ The change revised the template, its skeleton files, the deferred paragraph of t
 17. R20, R21 — [the module template](../../module-template/slot-guidance.md#s3), section 10, its paragraph on rows.
 18. R22 — [the module template](../../module-template/MODULE.md#t6), its platform facts; [rule 10 of plc-0006-module-documents](../policies/plc-0006-module-documents.md#r10).
 19. R23 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the deferred parts; [the module template](../../module-template/MODULE.md#t12), section 12.
-20. R24 — [the module template](../../module-template/slot-guidance.md#s4), section 10, its paragraph on handles; [the module template](../../module-template/slot-guidance.md#s10), its install-note row and its cost sub-slot.
+20. R24 — [the module template](../../module-template/slot-guidance.md#s4), section 10, its paragraph on handles; [the module template](../../module-template/MODULE.md#t6), its install-note row and its cost sub-slot.
 21. R25 — [the module template](../../module-template/MODULE.md#t8), section 8; [rule 8 of plc-0006-module-documents](../policies/plc-0006-module-documents.md#r8). The restoring of the modules' numbers is history.
