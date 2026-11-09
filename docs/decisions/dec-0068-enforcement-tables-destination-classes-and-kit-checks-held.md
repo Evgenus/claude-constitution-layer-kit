@@ -150,10 +150,10 @@ The commits of this branch apply every item. The commits before the one that add
 ## Carry list
 
 1. R1 — history only: how this change was recorded and landed.
-2. R2 — [the module template](../../module-template/MODULE.md#t9), section 9, its sentences on the form of a declared scan; [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI", on what `scripts/check-gate-lists.py` holds; [the reader](../../scripts/kit_module_doc.py), its docstring of `enforcement`; [check-gate-lists](../../scripts/check-gate-lists.py), its docstring; [rule 12 of plc-0006-module-documents](../policies/plc-0006-module-documents.md#r12), what holds the table's form. The amendment in part of R2 of dec-0056-portability-grep-and-gate-lists is history.
+2. R2 — [the module template](../../module-template/slot-guidance.md#s6), section 9, its sentences on the form of a declared scan; [CLAUDE.md](../guide/gate-list-and-ci.md), the bullet "The gate list and CI", on what `scripts/check-gate-lists.py` holds; [the reader](../../scripts/kit_module_doc.py), its docstring of `enforcement`; [check-gate-lists](../../scripts/check-gate-lists.py), its docstring; [rule 12 of plc-0006-module-documents](../policies/plc-0006-module-documents.md#r12), what holds the table's form. The amendment in part of R2 of dec-0056-portability-grep-and-gate-lists is history.
 3. R3 — [`const-interaction`](../../modules/const-interaction/MODULE.md#t9), its row E2 of section 9; [`const-doc-budgets`](../../modules/const-doc-budgets/MODULE.md#t9), its row E3 of section 9.
 4. R4 — [check-aspects](../../scripts/check-aspects.py), its docstring, its red list and its modes; [rule 9 of plc-0007-requirements](../policies/plc-0007-requirements.md#r9), its exceptions to review. The red added beside R7 of dec-0054-acceptance-items-name-their-rows is history.
-5. R5 — [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI"; [check-gate-lists](../../scripts/check-gate-lists.py), its docstring.
+5. R5 — [CLAUDE.md](../guide/gate-list-and-ci.md), the bullet "The gate list and CI"; [check-gate-lists](../../scripts/check-gate-lists.py), its docstring.
 6. R6 — [GATE.md §2](../../shared/GATE.md#g2), item 7; [check-shared-links](../../scripts/check-shared-links.py), its docstring.
 7. R7 — [check-aspects](../../scripts/check-aspects.py), its docstring; [rule 9 of plc-0007-requirements](../policies/plc-0007-requirements.md#r9), for the matrix's lines and anchors.
 8. R8 — [rule 7 of plc-0007-requirements](../policies/plc-0007-requirements.md#r7), its clause on a destination class.

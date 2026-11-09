@@ -15,7 +15,7 @@ kit's own reading of it is rule 2 of [plc-0004-decision-records](../../../docs/p
 ## When
 
 1. At the end of a module's development, as the second pass of the fresh-context validation — step 6
-   of "Developing a module" in [CLAUDE.md](../../../CLAUDE.md).
+   of [the module-development page](../../../docs/guide/developing-a-module.md#s6).
 2. Before the yes on any decision record written outside a module's development; for a `product`
    record, which has no yes, on the commit that holds it.
 3. In full — every record — on any change to the kernel, and once before publication.

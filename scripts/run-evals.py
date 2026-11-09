@@ -51,22 +51,21 @@ asks docker for the image. For each module, in turn:
      2026-10-22: hooks and this check are not sandboxed and saw nothing). The image's own python3 also
      imports /shared, by a .pth file the Dockerfile writes into its site-packages, since once, on 2026-11-07,
      a sandboxed call started the image's python3 and not the environment's. The runner therefore reads each
-     case's copied traces after the case and, when one holds the start of C15, C16 or C17 of shared/GATE.md
-     section 3 (`PACKAGE_FAILURE`), reports one BROKEN line naming the case, the trace, the line found and
-     the fix, and counts the attempt as failed, as a partial result is: a command of the case did not see the
-     change's shared code, so the receipt would not hold what it says (R18). A match that still holds a
-     placeholder, `%s`, `%d` or `{`, is the message's template in a source file the model read (found
+     case's copied traces after the case and, when one holds the start of C15, C16 or C17 of
+     shared/MESSAGES.md (`PACKAGE_FAILURE`), reports one BROKEN line naming the case, the trace, the line
+     found and the fix, and counts the attempt as failed, as a partial result is: a command of the case did
+     not see the change's shared code, so the receipt would not hold what it says (R18). A match that still
+     holds a placeholder, `%s`, `%d` or `{`, is the message's template in a source file the model read (found
      2026-11-07 in a run of const-locations' case new-kind, which read new-document.py), and no finding. The
-     image is unchanged for this: its Debian python3 makes the environment with no package of its own, and
-     a virtual environment's `.pth` entries come before the system's folders on `sys.path`. Then it runs
-     `claude plugin eval` on the copy, `--case
-     <name>`, with `--model` from scripts/eval-model, `--runs 3 --threshold 1 --ablation none`,
-     `--trust-plugin --no-publish --scaffold`, and `--allow-tools` granting those of Bash, Write and Edit
-     that the case lists in its `allowed_tools` — a skill or command case lists Read, Glob, Grep, Write,
-     Edit, Skill and Bash, the tools a session at its moment would have, and a start-rule case only what
-     its rule needs; its JSON result and report are kept in local/evals/<module>/, with each run's trace,
-     which `--keep-temp` leaves in the container, copied out as <case>-trace<n>.jsonl, so that a failing run
-     can be read. The runs count against the subscription's plan, never against usage;
+     image is unchanged for this: its Debian python3 makes the environment with no package of its own, and a
+     virtual environment's `.pth` entries come before the system's folders on `sys.path`. Then it runs `claude
+     plugin eval` on the copy, `--case <name>`, with `--model` from scripts/eval-model, `--runs 3 --threshold
+     1 --ablation none`, `--trust-plugin --no-publish --scaffold`, and `--allow-tools` granting those of Bash,
+     Write and Edit that the case lists in its `allowed_tools` — a skill or command case lists Read, Glob,
+     Grep, Write, Edit, Skill and Bash, the tools a session at its moment would have, and a start-rule case
+     only what its rule needs; its JSON result and report are kept in local/evals/<module>/, with each run's
+     trace, which `--keep-temp` leaves in the container, copied out as <case>-trace<n>.jsonl, so that a
+     failing run can be read. The runs count against the subscription's plan, never against usage;
   4. the cases' `casesTotal` and `casesPassed` summed, and their `overallScore` weighted by cases, become
      one attempt, stamped with the time in UTC. It is appended to the module's entry of
      scripts/eval-receipts.json unless the entry names the run's hash, Claude Code version and model, its
@@ -202,7 +201,7 @@ SHARED_PROBE = (  # run by the environment's python3: the package comes from the
     "sys.exit(0 if constitution_layer_kit.__file__.startswith(sys.argv[1] + '/') else "
     '"constitution_layer_kit comes from " + constitution_layer_kit.__file__ + ", not from " + sys.argv[1])'
 )
-PACKAGE_FAILURE = re.compile(  # the fixed middles of C15, C16 and C17 of shared/GATE.md section 3, which the
+PACKAGE_FAILURE = re.compile(  # the fixed middles of C15, C16 and C17 of shared/MESSAGES.md, which the
     # self-test holds to the shared messages and the entry files
     r"BROKEN: [^\s\"\\]+ (?:needs the Python package constitution-layer-kit |needs constitution-layer-kit "
     r"|was written for constitution-layer-kit ).{0,200}"
@@ -426,7 +425,7 @@ def streamed(
 
 def package_failures(case: str, traces: list[Path]) -> tuple[str, ...]:
     """One line for each of the case's copied `traces` that holds the start of a package failure, C15, C16 or
-    C17 of shared/GATE.md section 3 (`PACKAGE_FAILURE`): the case, the trace, the text found, and the fix.
+    C17 of shared/MESSAGES.md (`PACKAGE_FAILURE`): the case, the trace, the text found, and the fix.
     A command a case ran printed it, so the eval's Bash sandbox did not see the change's shared code. A match
     that still holds a placeholder, `%s`, `%d` or `{`, is the message's template, which the model read in a
     source file, and never a printed line: it is no finding."""

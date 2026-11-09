@@ -65,7 +65,7 @@ PLUGIN_ROOT = SCRIPTS.parent
 MODULE_ROOT = PLUGIN_ROOT.parent
 
 IDENTITY = start.GATE  # declared for the whole session by conftest; the expected messages read it
-# — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
+# — and each is also typed by hand at least once in these fixtures (rule 14 of the gate-script rules)
 H = Harness(SCRIPTS, "check-destructive.sh", "check-destructive.py", start.GATE.namespace)
 LISTS = Harness(SCRIPTS, "check-list-handles.sh", "check-list-handles.py", start.GATE.namespace)
 SESSION = Harness(SCRIPTS, "session-start.sh", "session-start.py", start.GATE.namespace)
@@ -621,8 +621,8 @@ def test_t8() -> None:
 
 @item(9, "the scan explains a command; no command is a visible skip; --command needs --scan")
 def test_t9() -> None:
-    """The scan explains a command: the finding and the tail typed by hand; no command is a
-    visible skip; --command without --scan is a misinvocation."""
+    """The scan explains a command: the finding and the tail typed by hand, exit 2, with the lists
+    the dials give; no command is a visible skip; --command without --scan is a misinvocation."""
     root = prepared()
     red = H.run_gate("", args=["--scan", str(root), "--command", "rm -rf build"])
     tail = "RED: 1 finding(s) — 1 command examined: 1 subcommand(s) against 14 entries"
@@ -1791,7 +1791,15 @@ def session_json(root: Path) -> str:
 @item(30, "session start: rules, verbosity line, zero line, a default dropped or replaced, the pairs")
 def test_t30() -> None:
     """The rules first, whole; then nothing when the default list gates; the zero line when the
-    dial is empty; the project's pairs numbered."""
+    dial is empty; the project's pairs numbered.
+
+    The cases, once held by the acceptance table of the module document: the carrier of the rules,
+    shipped and reading as written, never that a rule is followed (V3). The rules first and whole,
+    the verbosity line after them, nothing more when the default list gates, each line whose size
+    §6 of the module document states typed whole; the zero line typed by hand when the dial is
+    empty; one line for each default dropped or replaced, none for an added entry; the pairs
+    numbered and escaped. In the run that prints the rules and nothing more, every git call
+    carries the git cap of the cost sub-slot of §6."""
     root = prepared()
     # the printer is a hook: each of its git calls has the hook's budget, logged before the call is made
     # with no clock, so that a slow git on a loaded machine cuts none of them
@@ -2035,7 +2043,9 @@ def test_t31() -> None:
 @item(32, "the rules text: under the cap, of the stated size, lettered a–i")
 def test_t32() -> None:
     """The rules text: under the platform's cap, of the size the module document states, every rule
-    lettered, and the hook prints it before python3 is looked for."""
+    lettered, and the hook prints it before python3 is looked for.
+
+    The size is read from the document's sentence "prints the rules text of N characters"."""
     module_doc = (MODULE_ROOT / "MODULE.md").read_text(encoding="utf-8")
     match = re.search(r"prints the rules text of ([0-9,]+) characters", module_doc)
     stated = int(match.group(1).replace(",", "")) if match else -1
@@ -2302,7 +2312,9 @@ def test_effect_switch_off() -> None:
     "W2: after an ask the same command again is applied, another route to the same target is bypassed by B3",
 )
 def test_effect_after_ask() -> None:
-    """Each session holds an ask of the shell gate, as the platform records it. The ask refused at the prompt,
+    """Each session holds an ask of the shell gate, as the platform records it: the ask is recorded as a
+    `hook_success` attachment or as a refusal in the tool result alike, and a second ask is no moment. The ask
+    refused at the prompt,
     then the same command again: applied. Refused, then `find build -delete`, which the gate did not ask for:
     bypassed by B3, as is a refused `git push --force origin main`, a refusal recorded as a hook error, then
     `git push -f origin main`. No moment: a human turn first; an ask the user accepted, whose next command

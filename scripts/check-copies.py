@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """Kit check: every copy of the Python floor names the floor's one minor, the `requires-python` of the
 shared distribution is that floor, each entry's three first lines close with its Identity's clause, its C15
-reads as the page of the shared code gives it, and the release of the shared package it requires is one the
-package serves and its module's install note names.
+reads as the page of the shared messages gives it, and the release of the shared package it requires is one
+the package serves and its module's install note names.
 
 The floor's one source is `FLOOR` in `shared/constitution_layer_kit/preflight.py`, read here by `ast` and
 never imported: a module-level assignment, the last one, plain or annotated, of a tuple of two integer
 literals, `(3, <minor>)`. A tuple of any other shape, a major other than 3, a missing `FLOOR`, and a
 file that is missing or no Python are BROKEN, with the fix. No gate reads the source at run time: each
-entry file keeps its own literal, since it must parse on any Python 3 (template §6, rule 3), and this
-check holds every copy to the source, so that a floor moved in one place and left in another is red in
-CI instead of a traceback where an entry's teaching line should stand (law 6 of CLAUDE.md).
+entry file keeps its own literal, since it must parse on any Python 3 (rule 3 of the
+gate-script rules), and this check holds every copy to the source, so that a floor moved in one
+place and left in another is red in CI instead of a traceback where an entry's teaching line
+should stand (law 6 of CLAUDE.md).
 
 A copy is a mention of the floor in a file `git ls-files` lists, in one of these forms, each matched in
 any line, a fenced block and a code span included (`N` stands for a whole number):
@@ -65,16 +66,16 @@ each, read by `ast`; their first line is the text up to the first line feed. A f
 close with ` — <the Identity's clause>` exactly. An entry is a generator when the second line of `TOO_OLD`
 opens with neither `BROKEN: the check could not run` (C11) nor `BROKEN: the session-start line could not be
 printed` (S1) — a grant's entry, whose closing line says the call was not granted, reads as one: its three
-first lines carry no clause, and its Identity's clause closes C2 alone, whatever it is (template §6, rule 3;
-GATE.md §2, item 6). A disagreement is RED, with the file and line, the text,
+first lines carry no clause, and its Identity's clause closes C2 alone, whatever it is (rule 3 of the
+gate-script rules; GATE.md §2, item 6). A disagreement is RED, with the file and line, the text,
 the clause found, the clause the Identity names and where, why and the fix. BROKEN, with the fix: no entry
 at all, a missing `.sh`, no or two Identities for a gate, a clause that is no string literal, an
 `identity.py` that is missing, unreadable or without its default, which is read on every run, even when
 every Identity names its own clause, a text that is missing or no string constant, a `TOO_OLD` with
 no second line or an empty one, a first line with no ` — fix: ` part, and a file that is not Python.
 
-C15 and what prints it are held whole, not by the clause alone. The page of the shared code,
-`shared/GATE.md`, gives it in its table of shared messages: the row `C15`, the first code span after the
+C15 and what prints it are held whole, not by the clause alone. The page of the shared messages,
+`shared/MESSAGES.md`, gives it in its table of shared messages: the row `C15`, the first code span after the
 key, a text with the placeholders `{module}`, `{required}`, `{major}`, `{guide}` and, at its end, ` —
 {clause}`. An entry's `NO_SHARED_CODE` first line, up to the clause, must be that text with `{module}`
 replaced by the entry's module and the other three each by `%s`, which the entry fills with its `REQUIRES`,
@@ -241,7 +242,7 @@ if failure is not None:
 PREAMBLE_PARTS = ("GUIDE assignment", "import of cli", "version check", "test of its result")
 GUARD = r"(?!\d|\.\d)"  # not followed by a digit nor `.<digit>`: a longer minor, or a measured `3.N.M`
 IDENTITY = "shared/constitution_layer_kit/identity.py"  # the default clause's source
-GATE_PAGE = "shared/GATE.md"  # the page of the shared code: its table of messages holds the row C15
+GATE_PAGE = "shared/MESSAGES.md"  # the page of the shared messages: its table of messages holds the row C15
 PACKAGE_INIT = "shared/constitution_layer_kit/__init__.py"  # the package's `__version__`, its one source
 C15_ROW = re.compile(r"^\| C15 \| `([^`\n]+)`", re.MULTILINE)  # the row's first code span
 CLAUSE_TAIL = " — {clause}"  # how the row's text ends; a generator's entry text ends before it
@@ -586,7 +587,7 @@ def c15_text(root: Path) -> str:
     fix, when the page or the row is missing, the row holds no code span or its text lacks the clause."""
     if not (root / GATE_PAGE).is_file():
         raise Broken(
-            f"{GATE_PAGE} is missing — fix: restore the page of the shared code, whose table holds C15"
+            f"{GATE_PAGE} is missing — fix: restore the page of the shared messages, whose table holds C15"
         )
     page = contents(root, GATE_PAGE)
     row = None if page is None else C15_ROW.search(page)
@@ -742,7 +743,7 @@ def clause_finding(
         why = (
             f"the second line of its TOO_OLD, '{closing}', is neither C11 nor S1, so the entry is a"
             " generator's or a grant's, which lets no write through and checks none: a clause is true of C2"
-            " alone (template §6, rule 3; GATE.md §2, item 6)"
+            " alone (rule 3 of the gate-script rules; GATE.md §2, item 6)"
         )
         fix = "end the line at its fix, with no clause after it"
     else:
@@ -1419,7 +1420,7 @@ def self_test() -> int:
                 " (shared/constitution_layer_kit/preflight.py)"
                 f" — {BASE_MENTIONS} mention(s) in {BASE_FILES} file(s) examined, requires-python of"
                 f" shared/pyproject.toml is >=3.{BASE}, each of {BASE_ENTRIES} entries' C1, C14 and C15"
-                " closes with its Identity's clause, C15 reads as shared/GATE.md gives it, the lines that"
+                " closes with its Identity's clause, C15 reads as shared/MESSAGES.md gives it, the lines that"
                 " print it and C16 and C17 are the kit's, each REQUIRES is at or below the package's version"
                 f" {PACKAGE_VERSION} in its major, and each of {BASE_ENTRIES} install notes gives the command"
                 " at the tag of its module's highest REQUIRES"
@@ -2119,7 +2120,7 @@ def self_test_clause_reports(cases: Cases) -> None:
                 f" '{GENERATOR_CLAUSE}' ({generator_where}), closes C2 alone",
                 f"  why: the second line of its TOO_OLD, '{GENERATOR_CLOSING}', is neither C11 nor S1, so the"
                 " entry is a generator's or a grant's, which lets no write through and checks none: a clause"
-                " is true of C2 alone (template §6, rule 3; GATE.md §2, item 6)",
+                " is true of C2 alone (rule 3 of the gate-script rules; GATE.md §2, item 6)",
                 "  fix: end the line at its fix, with no clause after it",
                 summary,
             ],
@@ -2675,13 +2676,13 @@ def self_test_c15(cases: Cases) -> None:
             and lines
             == [
                 f"RED: {spec.file('no_shared')}:{TEXT_LINES['no_shared']}: C15, NO_SHARED_CODE of {spec.stem}"
-                f" reads '{got}', and the C15 row of shared/GATE.md gives '{wanted}' for this module, %s"
+                f" reads '{got}', and the C15 row of shared/MESSAGES.md gives '{wanted}' for this module, %s"
                 " standing for the required version, its major and the guide",
                 "  why: the row of the shared page is the text every entry prints when python3 cannot import"
                 " the package, so a line worded apart tells the user something the page does not say (law 6"
                 " of CLAUDE.md)",
                 f"  fix: write the first line as '{wanted}' followed by the clause, or change the row of"
-                " shared/GATE.md and every entry together",
+                " shared/MESSAGES.md and every entry together",
                 SUMMARY_BASE,
             ],
             f"{name} is its literal report, exit 2",
@@ -2713,14 +2714,15 @@ def self_test_c15(cases: Cases) -> None:
 def self_test_c15_broken(cases: Cases) -> None:
     """A page the row cannot be read from is the BROKEN line that teaches."""
     no_row = (
-        "shared/GATE.md has no row `| C15 | `<text>` ... |` — fix: restore the row of C15 in the table of"
+        "shared/MESSAGES.md has no row `| C15 | `<text>` ... |` — fix: restore the row of C15 in the table of"
         " shared messages, its text in a code span right after the key"
     )
     broken_pages: list[tuple[str, Build, str]] = [
         (
             "no page",
             lambda r: remove(r, GATE_PAGE),
-            "shared/GATE.md is missing — fix: restore the page of the shared code, whose table holds C15",
+            "shared/MESSAGES.md is missing — fix: restore the page of the shared messages, whose table"
+            " holds C15",
         ),
         (
             "a page without the row",
@@ -2738,8 +2740,8 @@ def self_test_c15_broken(cases: Cases) -> None:
             lambda r: put(
                 r, GATE_PAGE, "| C15 | `" + C15_ROW_TEXT.removesuffix(" — {clause}") + "` (printed) |\n"
             ),
-            "the text of the C15 row of shared/GATE.md does not end in ' — {clause}' — fix: end it so, since"
-            " a generator's entry prints the text without its clause",
+            "the text of the C15 row of shared/MESSAGES.md does not end in ' — {clause}' — fix: end it so,"
+            " since a generator's entry prints the text without its clause",
         ),
         (
             "a row whose clause is written out",
@@ -2750,8 +2752,8 @@ def self_test_c15_broken(cases: Cases) -> None:
                 + C15_ROW_TEXT.replace("{clause}", "until then Markdown writes pass unchecked")
                 + "` |\n",
             ),
-            "the text of the C15 row of shared/GATE.md does not end in ' — {clause}' — fix: end it so, since"
-            " a generator's entry prints the text without its clause",
+            "the text of the C15 row of shared/MESSAGES.md does not end in ' — {clause}' — fix: end it so,"
+            " since a generator's entry prints the text without its clause",
         ),
     ]
     for name, build, said in broken_pages:

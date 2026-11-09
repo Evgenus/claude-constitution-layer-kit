@@ -17,7 +17,7 @@ On 2026-10-08 all 13 uses of `__file__` in the module packages read it as `Path(
 
 ## Options
 
-- **A. A clause in the template, held by review.** Rule 1 of [template §6](../../module-template/MODULE.md#t6) says a package reads its own place only as `Path(__file__).resolve()`, and why.
+- **A. A clause in the template, held by review.** Rule 1 of [template §6](../../module-template/gate-script-rules.md#r1) says a package reads its own place only as `Path(__file__).resolve()`, and why.
   - **Pros:** the rule stands where module authors read; one sentence; the 13 uses already follow it.
   - **Cons:** a new rule, with a record and its audit; review can miss a case; the template grows while over its ceiling.
 - **B. The clause, and a kit check.** As A, and a kit script reads every package a runner imports through a link and turns red on any other use of `__file__`.
@@ -49,6 +49,6 @@ The commit that creates this record applies every item: the clause in rule 1 of 
 
 ## Carry list
 
-1. R1 — [template §6](../../module-template/MODULE.md#t6), rule 1; [the check](../../scripts/check-resolved-paths.py), its docstring.
-2. R2 — [the check](../../scripts/check-resolved-paths.py), its docstring; [the gate list](../../scripts/gate-list.sh), its entry `resolved-paths`; [pyproject.toml](../../pyproject.toml), its list of commands; [template §6](../../module-template/MODULE.md#t6), rule 1.
+1. R1 — [template §6](../../module-template/gate-script-rules.md#r1), rule 1; [the check](../../scripts/check-resolved-paths.py), its docstring.
+2. R2 — [the check](../../scripts/check-resolved-paths.py), its docstring; [the gate list](../../scripts/gate-list.sh), its entry `resolved-paths`; [pyproject.toml](../../pyproject.toml), its list of commands; [template §6](../../module-template/gate-script-rules.md#r1), rule 1.
 3. R3 — [kit_module_doc](../../scripts/kit_module_doc.py), its docstring and `own_packages`; [the gate list](../../scripts/gate-list.sh), the comment of its entry `types-<module>`.

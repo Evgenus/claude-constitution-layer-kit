@@ -16,7 +16,7 @@ On 2026-10-18 the decider asked why every eval run is recorded in `scripts/eval-
 The facts, from the kit's texts that day:
 
 1. R6 of [dec-0093-module-evals-with-local-receipts](dec-0093-module-evals-with-local-receipts.md#r6) has a module's entry name "every attempt made for that hash", failures included, and has a later hash start a new entry. So the file does not grow without bound: a module's entry holds the attempts made since its files, the Claude Code pin or the model last changed.
-2. The kit sees no eval run; a receipt is a run declared. The guide's bullet "The gate list and CI" in [CLAUDE.md](../../CLAUDE.md) keeps the failed attempts beside the passing one, so that a review sees each rerun and does not trust it away.
+2. The kit sees no eval run; a receipt is a run declared. The guide's bullet "The gate list and CI" in [CLAUDE.md](../guide/gate-list-and-ci.md) keeps the failed attempts beside the passing one, so that a review sees each rerun and does not trust it away.
 3. A new passing receipt is owed before the merge of a change that makes a receipt stale (R11 of [dec-0093-module-evals-with-local-receipts](dec-0093-module-evals-with-local-receipts.md#r11)). A rerun of a module whose receipt is current owes nothing. Yet `scripts/run-evals.py` recorded every run, so such a rerun dirtied the tree, and the turn-end hook of module [`const-task-close`](../requirements.md#const-task-close) then asked for a commit. On 2026-10-17, by UTC, an optional run of every module and two single-module runs added passing attempts to current, passing receipts, each with commits of its own.
 
 ## Options
@@ -45,4 +45,4 @@ A, by the decider in chat on 2026-10-18.
 
 ## Carry list
 
-1. R1 — [`scripts/run-evals.py`](../../scripts/run-evals.py), its docstring, `recorded` and the verdict line of `main`; [`scripts/kit_evals.py`](../../scripts/kit_evals.py), its docstring of the receipts file; [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI"; [the justfile](../../justfile), its recipe `evals`. That it narrows R6 and R7 of dec-0093-module-evals-with-local-receipts is history.
+1. R1 — [`scripts/run-evals.py`](../../scripts/run-evals.py), its docstring, `recorded` and the verdict line of `main`; [`scripts/kit_evals.py`](../../scripts/kit_evals.py), its docstring of the receipts file; [CLAUDE.md](../guide/gate-list-and-ci.md), the bullet "The gate list and CI"; [the justfile](../../justfile), its recipe `evals`. That it narrows R6 and R7 of dec-0093-module-evals-with-local-receipts is history.

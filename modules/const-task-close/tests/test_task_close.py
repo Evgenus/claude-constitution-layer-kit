@@ -450,6 +450,8 @@ def test_tool_event_is_not_wired() -> None:
 
 @item(35, "the hook validates the dials too, trunk_remote among them")
 def test_hook_validates_dials() -> None:
+    """The hook validates the dials too: an unknown dial and a bad `trunk_remote` are C5, a good
+    `trunk_remote` passes; the C12 and C5 lines typed by hand."""
     r = repo(own(coverag=[]))
     bad = repo(own(trunk_remote="-x"))
     good = hook(repo(own(trunk_remote="upstream")).root)
@@ -469,6 +471,14 @@ def test_hook_validates_dials() -> None:
     " trunk_remote dial names; an unknown trunk or remote is a configuration failure",
 )
 def test_trunk_dial() -> None:
+    """The trunk as the fresher of a local and a tracked one: the tracked one alone, a stale local
+    one, a local one ahead, the two split, the two equal, and an ancestry git cannot answer (a fake git fails
+    `merge-base --is-ancestor`); and a detached HEAD at either tip, the local one ahead too, or cut from
+    one. The remote the `trunk_remote` dial names: a clone made with `-o upstream`, with the dial and
+    without; a fork whose `origin` is stale and `upstream` fresh, read both ways; a stale local trunk
+    through the dial; a remote named `a/b`; one git does not know; a remote of 90 characters and a trunk of
+    90 characters with a backslash, cut in the pointer and whole in the fetch command; a remote with a
+    backslash, which git refuses as a name. Each C12 text typed by hand."""
     r = repo(with_map(trunk="trunk"))
     git(r.root, "branch", "-M", "trunk")
     branch(r.root)
@@ -799,6 +809,11 @@ def test_since_and_change() -> None:
     " before git is asked",
 )
 def test_unknown_ref() -> None:
+    """An unknown ref, for both flags, git's own line whole. A ref that begins with a dash
+    (`--since=--all`, `--since=-x`, `--change=-1`, `--since -1`, `--change -`) is refused with its reason
+    before git is asked, a fake git that logs its calls showing it never was. The refs git resolves still
+    resolve: a branch, a tag, `HEAD~1`, `HEAD^`, `@{-1}`, a full hash, `--change HEAD`. Each C12 text typed
+    by hand."""
     r = repo(with_map())
     unknown = (
         f"'nope', which git cannot resolve in {r.root}: no such ref — fix: name a commit, branch or tag"
@@ -977,6 +992,13 @@ def signed_gate(root: Path, result: Result, log: Path) -> str:
     " line; a git too old for the trailer options is a configuration failure naming git",
 )
 def test_trailer_among_others() -> None:
+    """The trailer read among `Co-Authored-By`, a repeated key, one note each. A signed commit
+    under `log.showSignature=true`, signed through a fake `gpg.program` that logs its calls, gives its note
+    on one line, `commit <short>`, with nothing of the signature check in the scan's output. A git too old
+    for the trailer options, a fake git that gives the format an option no git knows, is the C12 naming
+    git's version line; where `git version` fails, the failure says so in the version's place; a line over
+    80 characters with backslashes is cut and escaped, each typed by hand; a reason that quotes the
+    placeholder is read as ever."""
     r = repo(
         with_map(
             {"name": "core", "code": ["src/**"], "docs": ["docs/core.md"]},
@@ -1136,6 +1158,8 @@ def test_body_forms() -> None:
     " commit",
 )
 def test_t3_and_t4() -> None:
+    """T3 for a declaration naming no pair, T4 for one without a reason, the same two in a signed
+    commit, the red naming `commit <short>` on one line."""
     r = repo(with_map())
     branch(r.root)
     where = "commit " + commit(
@@ -1250,6 +1274,8 @@ def test_deleted_and_renamed_are_touched() -> None:
     " under today's map",
 )
 def test_missing_document() -> None:
+    """A missing document is X1, a directory at HEAD is X2, a deleted document is neither, and an
+    older change is judged by today's map without X1."""
     r = repo(with_map({"name": "core", "code": ["src/**"], "docs": ["docs/none.md"]}))
     broken(scan(r.root), messages.x1_document_missing("core", "docs/none.md", short(r.root)).render())
     tree = repo(with_map({"name": "core", "code": ["src/**"], "docs": ["docs"]}))  # docs/ holds core.md
@@ -1290,6 +1316,9 @@ def test_missing_document() -> None:
 
 @item(27, "an empty map examines zero pairs and says so")
 def test_empty_map() -> None:
+    """An empty map is zero pairs examined: on a branch, on a repository whose only branch is `master`
+    with no remote, where a map meets the trunk's C12, and with no commit yet; a flag's ref still
+    resolved, an unknown one the C12."""
     r = repo(own())
     branch(r.root)
     commit(r.root, "code", {"src/a.py": "2\n"})
@@ -1364,6 +1393,12 @@ def remote_check_whole_set() -> None:
 
 @item(28, "dial failures: each C5 text, a docs path with a trailing slash among them, exit 1")
 def test_dial_failures() -> None:
+    """One C5 text each, typed by hand, a pair's fix whole: a `docs` path with a trailing slash, one
+    leaving the repository by `..`, a backslash path read by the platform's separator. A `trunk_remote`
+    that is empty, a number, a list, led by a dash, or holding a space, a tab, a line break, DEL or a
+    control character, and one led by a space, a tab or a control character, each through the gate; and, in
+    process through the dial parser, every control code point (U+0000 to U+001F, U+007F, U+0080 to U+009F)
+    first and later, a space and NBSP refused, `!`, `~` and `¡` accepted."""
     cases: list[tuple[dict[str, object], str]] = [
         (
             own(coverage="x"),
@@ -1783,7 +1818,9 @@ def test_broken_head() -> None:
     """A HEAD git cannot read is a configuration failure, never 'nothing landed'; an orphan branch
     in a repository with commits is unborn, and nothing landed on it. Two broken HEADs, each in a
     repository whose ref store the item chose: a zeroed ref file, written by hand, in the files store; a
-    ref to a commit whose object is gone, made through git alone, in the reftable store."""
+    ref to a commit whose object is gone, made through git alone, in the reftable store. Each exits 1 with
+    the range's C12 line. Each half checks the store it runs in, which needs git 2.45 or newer: on an older
+    git the half is red and the runner goes on."""
     r = repo(with_map())
     git(r.root, "checkout", "-q", "--orphan", "fresh")
     green_scan(scan(r.root), rooted(1, "HEAD"))

@@ -22,13 +22,14 @@ findings and the scan reports them all. Four rules are read:
                     the anchor of the range's first ruling, never R3's, which would be green and wrong.
 
   message keys      a module's own message table (its MODULE.md §6, anchor t6) takes a key of the
-                    shared table (shared/GATE.md §3, anchor g3) only to state the module's part of
+                    shared table (shared/MESSAGES.md, anchor g3) only to state the module's part of
                     that message, and only the keys named in the paragraph of anchor g3a. A key's
                     family is its letters and its first number: `C5.a` and `C5.10` are family C5,
                     `C4b` is family C4. Finding: a key of the module's table whose family is a
                     family of the shared table and not one of the paragraph's keys. The check reads
-                    the shared keys from the first column of the §3 table and the allowed ones from
-                    the code spans of the paragraph of g3a, so the document is the one source.
+                    the shared keys from the first column of the table of shared/MESSAGES.md and the
+                    allowed ones from the code spans of the paragraph of g3a, so the
+                    page is the one source.
 
   handle prefixes   one prefix per kind of handle in a module document (rule 8 of
                     plc-0006-module-documents). A prefix is the capital letters before the number
@@ -67,7 +68,7 @@ Not read: the research comparisons (docs/research/), which keep the form they we
 "#" heading of any level, whose links in a record lead to no record; fenced code, indented code, inline code
 spans and HTML comments. The two module rules read only the tables of anchors t6, t9 and t10 of
 each modules/<name>/MODULE.md, the first of them t6 alone, and fail loud (BROKEN, with the fix)
-where a section, the shared document or its anchors g3, g3a and g4 cannot be read.
+where a section, the shared messages page or its anchors g3 and g3a cannot be read.
 Not a ruling: a handle after a word that names another kind of key, "message R4 of …" or "the
 table keys R1 to R4 of …" (rule 10 of plc-0004 writes such a key qualified). Left to review: a
 handle with a suffix letter (`R4b`), a record's citation of its own rulings ("R3",
@@ -124,7 +125,7 @@ FENCE = re.compile(r"^[ \t]*(`{3,}|~{3,})(.*)$")
 HEADING = re.compile(r"^(#{1,6})[ \t]+(.*?)[ \t]*#*[ \t]*$")
 LIST_ITEM = re.compile(r"^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]")
 HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
-SHARED_DOC = "shared/GATE.md"  # the shared messages: the table of anchor g3, its allowed keys at g3a
+SHARED_DOC = "shared/MESSAGES.md"  # the shared messages: the table after anchor g3, its allowed keys at g3a
 MODULE_DOC = re.compile(r"modules/[^/]+/MODULE\.md")
 KEY = r"[A-Z]+\d+[A-Za-z0-9]*(?:\.[A-Za-z0-9]+)*"  # a message key: C11, C5.a, C5.10, C4b
 KEY_FULL = re.compile(KEY)
@@ -167,7 +168,7 @@ class Broken(Exception):
 
 KEY_WHY = (
     "one key names one message in every module, so a reader who meets the key in a log or a document"
-    " finds the same message wherever it stands (paragraph g3a of shared/GATE.md)"
+    " finds the same message wherever it stands (paragraph g3a of shared/MESSAGES.md)"
 )
 
 
@@ -413,44 +414,42 @@ def family(key: str) -> str:
 
 
 def shared_message_keys(root: Path) -> tuple[frozenset[str], frozenset[str]]:
-    """The families of the shared table (the first column of the section of anchor g3 of the shared
-    document) and the families a module's table may take, read from the code spans of the paragraph
-    of anchor g3a. A document that cannot be read this way is Broken, never an empty list."""
+    """The families of the shared table (the first column of the page from anchor g3 of the shared
+    messages page to its end) and the families a module's table may take, read from the code spans of the
+    paragraph of anchor g3a. A document that cannot be read this way is Broken, never an empty list."""
     if not (root / SHARED_DOC).is_file():
         raise Broken(
             f"{SHARED_DOC} is missing, and a module's message table is read against it"
-            " — fix: restore the file; every module document is read against its section 3"
+            " — fix: restore the file; every module document is read against its table of shared messages"
         )
     lines = read(root, SHARED_DOC).splitlines()
     marks: dict[str, int] = {}
-    for name in ("g3", "g3a", "g4"):
+    for name in ("g3", "g3a"):
         found = [n for n, line in enumerate(lines) if line.strip() == f'<a id="{name}"></a>']
         if not found:
             raise Broken(
                 f'{SHARED_DOC} has no anchor <a id="{name}"></a> alone on a line, and the check reads'
-                " the section and the paragraph by it — fix: restore the anchor, in the order g3, g3a, g4"
+                " the table and the paragraph by it — fix: restore the anchor, in the order g3, g3a"
             )
         if len(found) > 1:
             raise Broken(
                 f'{SHARED_DOC} holds the anchor <a id="{name}"></a> {len(found)} times, and the check reads'
-                " it once — fix: keep the anchor once, alone on its line, in the order g3, g3a, g4"
+                " it once — fix: keep the anchor once, alone on its line, in the order g3, g3a"
             )
         marks[name] = found[0]
-    if not marks["g3"] < marks["g3a"] < marks["g4"]:
-        raise Broken(
-            f"{SHARED_DOC} holds the anchors g3, g3a and g4 out of order — fix: put them in that order"
-        )
+    if not marks["g3"] < marks["g3a"]:
+        raise Broken(f"{SHARED_DOC} holds the anchors g3 and g3a out of order — fix: put them in that order")
     shared: set[str] = set()
-    for line in lines[marks["g3"] + 1 : marks["g4"]]:
+    for line in lines[marks["g3"] + 1 :]:
         row = cells(line) if line.strip().startswith("|") and not SEPARATOR.fullmatch(line.strip()) else []
         if row and KEY_FULL.fullmatch(row[0]):
             shared.add(family(row[0]))
     if not shared:
         raise Broken(
-            f"{SHARED_DOC} has no message key in the first column of its section 3 — fix: restore the table"
+            f"{SHARED_DOC} has no message key in the first column of its table — fix: restore the table"
         )
     paragraph: list[str] = []
-    for line in lines[marks["g3a"] + 1 : marks["g4"]]:
+    for line in lines[marks["g3a"] + 1 :]:
         if not line.strip():
             break
         paragraph.append(line)
@@ -464,7 +463,7 @@ def shared_message_keys(root: Path) -> tuple[frozenset[str], frozenset[str]]:
     if unknown:
         raise Broken(
             f"{SHARED_DOC}: the paragraph of g3a names {', '.join(unknown)},"
-            " which the table of section 3 lacks — fix: name only keys of that table"
+            " which the table of messages lacks — fix: name only keys of that table"
         )
     return frozenset(shared), frozenset(allowed)
 
@@ -691,14 +690,13 @@ def report(findings: list[Finding], documents: int) -> int:
 RECORD_PATH = "docs/decisions/dec-0016-yes-on-the-change.md"
 NOTE_PATH = "docs/policies/p.md"
 BAD_NO_ANCHOR = "See R7 of [dec-0016-yes-on-the-change](../decisions/dec-0016-yes-on-the-change.md) here.\n"
-GATE_PATH = "shared/GATE.md"
+GATE_PATH = "shared/MESSAGES.md"
 MODULE_PATH = "modules/const-x/MODULE.md"
-SHARED_LINES = (  # the shared document in miniature: a table, and the paragraph of g3a
-    '<a id="g3"></a>\n## 3. Shared messages\n\nLead.\n\n<a id="g3a"></a>\n'
+SHARED_LINES = (  # the shared messages page in miniature: a table, and the paragraph of g3a
+    '<a id="g3"></a>\nLead.\n\n<a id="g3a"></a>\n'
     "A module takes `G1` and `C5` for its part, as `scripts/check-handle-forms.py` reads it.\n\n"
     "| key | text |\n|---|---|\n| G1 | a |\n| G1.1 | b |\n| N1.1 | c |\n| N1.2 | d |\n"
-    "| C4b | e |\n| C5.1 | f |\n| H2 | g |\n\n"
-    '<a id="g4"></a>\n## 4. Limits\n'
+    "| C4b | e |\n| C5.1 | f |\n| H2 | g |\n"
 )
 BARE_ITEM = "| 1 | fixture | none | a |\n"  # the items table's default row
 RULINGS = "## Rulings\n\n1. **R1.** A rule.\n\n| key | what |\n|---|---|\n"  # the first row is line 7
@@ -1142,39 +1140,39 @@ def cases_keys(tally: Tally) -> None:
         "the shared document missing": (
             None,
             "| X1 | a |\n",
-            "BROKEN: shared/GATE.md is missing, and a module's message table is read against it",
+            "BROKEN: shared/MESSAGES.md is missing, and a module's message table is read against it",
         ),
         "the paragraph of g3a missing": (
             SHARED_LINES.replace('<a id="g3a"></a>\n', ""),
             "| X1 | a |\n",
-            'BROKEN: shared/GATE.md has no anchor <a id="g3a"></a> alone on a line',
+            'BROKEN: shared/MESSAGES.md has no anchor <a id="g3a"></a> alone on a line',
         ),
         "the paragraph of g3a naming no key": (
             SHARED_LINES.replace("`G1` and `C5`", "none"),
             "| X1 | a |\n",
-            "BROKEN: shared/GATE.md: the paragraph after the anchor g3a names no key in a code span",
+            "BROKEN: shared/MESSAGES.md: the paragraph after the anchor g3a names no key in a code span",
         ),
         "the paragraph of g3a naming a key the table lacks": (
             SHARED_LINES.replace("`C5`", "`Q9`"),
             "| X1 | a |\n",
-            "BROKEN: shared/GATE.md: the paragraph of g3a names Q9, which the table of section 3 lacks",
+            "BROKEN: shared/MESSAGES.md: the paragraph of g3a names Q9, which the table of messages lacks",
         ),
         "the anchor g3a twice": (
-            SHARED_LINES.replace('<a id="g4"></a>', '<a id="g3a"></a>\n<a id="g4"></a>'),
+            SHARED_LINES + '<a id="g3a"></a>\n',
             "| X1 | a |\n",
-            'BROKEN: shared/GATE.md holds the anchor <a id="g3a"></a> 2 times',
+            'BROKEN: shared/MESSAGES.md holds the anchor <a id="g3a"></a> 2 times',
         ),
         "the anchors out of order": (
             '<a id="g3a"></a>\nA module takes `G1`.\n\n<a id="g3"></a>\n| key | text |\n|---|---|\n'
-            '| G1 | a |\n\n<a id="g4"></a>\n',
+            "| G1 | a |\n",
             "| X1 | a |\n",
-            "BROKEN: shared/GATE.md holds the anchors g3, g3a and g4 out of order",
+            "BROKEN: shared/MESSAGES.md holds the anchors g3 and g3a out of order",
         ),
         "the table with no key in its first column": (
             '<a id="g3"></a>\nLead.\n\n<a id="g3a"></a>\nA module takes `G1`.\n\n| key | text |\n|---|---|\n'
-            '| first | a |\n\n<a id="g4"></a>\n',
+            "| first | a |\n",
             "| X1 | a |\n",
-            "BROKEN: shared/GATE.md has no message key in the first column of its section 3",
+            "BROKEN: shared/MESSAGES.md has no message key in the first column of its table",
         ),
         "a module document without its anchor t6": (
             SHARED_LINES,
@@ -1728,9 +1726,9 @@ def cases_literal_reports(tally: Tally) -> None:
         and printed.getvalue().splitlines()
         == [
             'RED: modules/const-x/MODULE.md:6: the module\'s message table takes the key "N1", which the'
-            " shared table of shared/GATE.md holds for a message of its own (family N1)",
+            " shared table of shared/MESSAGES.md holds for a message of its own (family N1)",
             "  why: one key names one message in every module, so a reader who meets the key in a log or a"
-            " document finds the same message wherever it stands (paragraph g3a of shared/GATE.md)",
+            " document finds the same message wherever it stands (paragraph g3a of shared/MESSAGES.md)",
             '  fix: rename "N1" to a key whose family (letters and first number) the shared table does not'
             " use, e.g. the next free number of the module's own prefix, in the module's messages.py, in"
             " its tests and in this table together",

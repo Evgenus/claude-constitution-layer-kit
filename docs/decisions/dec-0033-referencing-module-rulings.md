@@ -254,7 +254,7 @@ On the branch `work/const-referencing`, in the commits before this record and th
 20. R25 — limits 8 and 12 of [§9](../../modules/const-referencing/MODULE.md#t9) of the module's document, rows V5 and F9 of the error-message table in its [§6](../../modules/const-referencing/MODULE.md#t6), platform fact 9 there. The counts: history only.
 21. R24 — row E3 of [§9](../../modules/const-referencing/MODULE.md#t9) of the module's document.
 22. R17 — [the install note](../../modules/const-referencing/plugin/INSTALL.md), step 3. That it corrects what was said in chat: history only.
-23. R27 — rule 2 of [plc-0009-shared-code](../policies/plc-0009-shared-code.md#r2); step 4 of [CLAUDE.md](../../CLAUDE.md); the admission paragraph of [kit-shared-gate-code §1](../../shared/GATE.md#g1). That the clause first stood in the document alone: history only.
-24. R18 — the `events` and `pipeline` rows of [kit-shared-gate-code §1](../../shared/GATE.md#g1), item 3 of [its §2](../../shared/GATE.md#g2), rows G1.7 and C12.4 of [its §3](../../shared/GATE.md#g3).
+23. R27 — rule 2 of [plc-0009-shared-code](../policies/plc-0009-shared-code.md#r2); step 4 of [CLAUDE.md](../guide/developing-a-module.md#s4); the admission paragraph of [kit-shared-gate-code §1](../../shared/GATE.md#g1). That the clause first stood in the document alone: history only.
+24. R18 — the `events` and `pipeline` rows of [kit-shared-gate-code §1](../../shared/GATE.md#g1), item 3 of [its §2](../../shared/GATE.md#g2), rows G1.7 and C12.4 of [its §3](../../shared/MESSAGES.md#g3).
 25. R19 — item 1 of [kit-shared-gate-code §2](../../shared/GATE.md#g2).
 26. R20 — item 8 of [kit-shared-gate-code §2](../../shared/GATE.md#g2).

@@ -13,7 +13,7 @@ decider: Eugene Chernyshov
 
 An audit on 2026-10-02 looked for gate logic that modules wrote again instead of sharing. It found copies that had drifted apart, and the drift was where the defects were. A key with a line break in it split a BROKEN line in eight modules, and in hook mode only the first line reaches the user, so the fix half was lost. A long value flooded the screen in five places. The shared message for a pattern git misreads always added `.territory` to the dial's name, so it named a dial that does not exist for any module's own dial. Three modules disagreed on a `reason` that ends in a line break. The hook skipped a file named `.md` that the scan examined. Two modules each kept a copy of the platform's 10,000-character cap with no date. Four session printers cut a path at its first colon, so a repository under `client:acme` was named `client`. A message listed the kernel's keys without `territory_dialect`. Six styling messages spoke as if they stated the project's style guide, when the scan holds the shipped values.
 
-The change that this record rules is on one branch. Every module is a draft at `0.0.x`, so no version is bumped ([dec-0053-drafts-keep-their-versions](dec-0053-drafts-keep-their-versions.md)). [Rule 2 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r2) admits code to the shared source only when it implements a kernel section or a gate-script rule of [template section 6](../../module-template/MODULE.md#t6) and two or more modules need it, and the record argues each admission. Seven questions were put to the decider in chat, one per message, each with lettered options, the pick a letter: five in sections 1 to 5, and two more in sections 7 and 8, put while the carry audit ran. Section 6 holds what the change makes where no choice existed, and R8, whose reach sections 7 and 8 chose.
+The change that this record rules is on one branch. Every module is a draft at `0.0.x`, so no version is bumped ([dec-0053-drafts-keep-their-versions](dec-0053-drafts-keep-their-versions.md)). [Rule 2 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r2) admits code to the shared source only when it implements a kernel section or a gate-script rule of [template section 6](../../module-template/gate-script-rules.md) and two or more modules need it, and the record argues each admission. Seven questions were put to the decider in chat, one per message, each with lettered options, the pick a letter: five in sections 1 to 5, and two more in sections 7 and 8, put while the carry audit ran. Section 6 holds what the change makes where no choice existed, and R8, whose reach sections 7 and 8 chose.
 
 ## 1. Whether the unknown-dial refusal is shared
 
@@ -30,7 +30,7 @@ Every module refuses a key in its own namespace that it does not read. The refus
 
 **Choice.** A, by the decider, in chat on 2026-10-02.
 
-<a id="r1"></a>**R1.** The refusal of a key of a module's namespace that the module does not read is shared code, of class R, admitted under rule 8 of [template section 6](../../module-template/MODULE.md#t6). It is the shared message C5.10, built by `messages.c5_unknown_dial`, and the shared function `dials.refuse_unknown_keys(own, known)`. Every module calls it, and it replaces the per-module forms in all eleven, locations' wording included. It names the first key outside the module's list in sorted order, cut at 80 characters with its backslashes and line breaks escaped. The list it gives is the module's, in the order the module lists it. A nested name a module checks the same way takes the whole name as the key.
+<a id="r1"></a>**R1.** The refusal of a key of a module's namespace that the module does not read is shared code, of class R, admitted under rule 8 of [template section 6](../../module-template/gate-script-rules.md#r8). It is the shared message C5.10, built by `messages.c5_unknown_dial`, and the shared function `dials.refuse_unknown_keys(own, known)`. Every module calls it, and it replaces the per-module forms in all eleven, locations' wording included. It names the first key outside the module's list in sorted order, cut at 80 characters with its backslashes and line breaks escaped. The list it gives is the module's, in the order the module lists it. A nested name a module checks the same way takes the whole name as the key.
 
 ## 2. A `reason` that ends in a line break
 
@@ -109,7 +109,7 @@ The shared-code page, [kit-shared-gate-code](../../shared/GATE.md), grew from ab
 
 ## 6. What the change makes where no choice existed
 
-These items carry no options, save R8, whose reach the decider chose in sections 7 and 8. Each other item follows from the five answers above or from the kit's rules, and each stands open to the decider's override before the yes. The class of each shared part is the one [rule 2 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r2) asks for: K means the code implements a kernel section literally, R a gate-script rule of [template section 6](../../module-template/MODULE.md#t6).
+These items carry no options, save R8, whose reach the decider chose in sections 7 and 8. Each other item follows from the five answers above or from the kit's rules, and each stands open to the decider's override before the yes. The class of each shared part is the one [rule 2 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r2) asks for: K means the code implements a kernel section literally, R a gate-script rule of [template section 6](../../module-template/gate-script-rules.md).
 
 <a id="r8"></a>**R8.** Two functions are shared, of class R, parts of the shared `messages` beside `shown`: `messages.escaped(value)`, new, and `messages.echoed(value)`. `escaped` shows a value's backslashes, line feeds and carriage returns escaped and never cuts it. `echoed` is `escaped(shown(value))`: it cuts a value as `shown` does, then escapes it. Both keep a BROKEN line on one line. All eleven modules need both. A message takes a value from a document, a dial, the envelope, the command line, the hook payload, the environment or a tool only through one of them. `escaped` is for a value the reader must open, copy or type into a fix, or that a later step reads: a repository path, an id or an anchor typed into a fix, the text of a dial that teaches, a tool's one-line diagnosis, a generator's output line. `echoed` is for a value that only points at something the reader can already see: a dial key, a pattern, a phrase, a command word, a match from a document, an event or tool name. A value is left alone only when the code or a check has fixed its shape before the message, when the system's own error text already escapes it, or when it stands inside a command the reader pastes. A pattern that checks an id is applied with `fullmatch`, so that no id ends in a line break.
 
@@ -167,7 +167,7 @@ The commits of this branch apply every item. R1 to R7 and R9 to R18 were applied
 
 ## Carry list
 
-1. R1 — [kit-shared-gate-code](../../shared/GATE.md#g1), the `dials` row of section 1 for the class and the callers; [section 2](../../shared/GATE.md#g2), item 4, for the call; [section 3](../../shared/GATE.md#g3), the row C5.10, for the text.
+1. R1 — [kit-shared-gate-code](../../shared/GATE.md#g1), the `dials` row of section 1 for the class and the callers; [section 2](../../shared/GATE.md#g2), item 4, for the call; [section 3](../../shared/MESSAGES.md#g3), the row C5.10, for the text.
 2. R2 — [`const-language`](../../modules/const-language/MODULE.md#t7), [`const-doc-budgets`](../../modules/const-doc-budgets/MODULE.md#t7) and [`const-styling`](../../modules/const-styling/MODULE.md#t7), each its dial `departures`.
 3. R3 — [kit-shared-gate-code](../../shared/GATE.md#g4), limit 15 of section 4; [section 1](../../shared/GATE.md#g1), the `dials` row.
 4. R4 — [`const-task-close`](../../modules/const-task-close/MODULE.md#t7), its dial `coverage`; [kit-shared-gate-code](../../shared/GATE.md#g4), limit 15 of section 4.
@@ -175,13 +175,13 @@ The commits of this branch apply every item. R1 to R7 and R9 to R18 were applied
 6. R6 — [the dials file](../../constitution.yaml), the ceiling `shared-code` of `const-doc-budgets`.
 7. R7 — pending: [step 9 of the rollout plan](../rollout-plan.md#s9), the decider's choice between a split and a raise; the ceiling itself is R6's.
 8. R8 — [kit-shared-gate-code](../../shared/GATE.md#g1), the `messages` row of section 1; [section 2](../../shared/GATE.md#g2), item 5.
-9. R9 — [kit-shared-gate-code](../../shared/GATE.md#g3), the row C5.7 of section 3; [section 2](../../shared/GATE.md#g2), item 4; [section 1](../../shared/GATE.md#g1), the `dials` row.
+9. R9 — [kit-shared-messages](../../shared/MESSAGES.md#g3), the row C5.7 of section 3; [section 2](../../shared/GATE.md#g2), item 4; [section 1](../../shared/GATE.md#g1), the `dials` row.
 10. R10 — [kit-shared-gate-code](../../shared/GATE.md#g1), the `dials` row of section 1.
 11. R11 — [kit-shared-gate-code](../../shared/GATE.md#g1), the `dials` row of section 1; limit 15 of [section 4](../../shared/GATE.md#g4).
 12. R12 — [kit-shared-gate-code](../../shared/GATE.md#g1), the `repository, territory` row of section 1; limit 7 of [section 4](../../shared/GATE.md#g4).
 13. R13 — [kit-shared-gate-code](../../shared/GATE.md#g1), the `pipeline` row of section 1; limit 14 of [section 4](../../shared/GATE.md#g4).
 14. R14 — [kit-shared-gate-code](../../shared/GATE.md#g1), the `model` row of section 1; [section 2](../../shared/GATE.md#g2), item 3.
-15. R15 — [kit-shared-gate-code](../../shared/GATE.md#g3), the row C4b of section 3.
+15. R15 — [kit-shared-messages](../../shared/MESSAGES.md#g3), the row C4b of section 3.
 16. R16 — [`const-styling`](../../modules/const-styling/MODULE.md#t6), the error messages of section 6.
 17. R17 — [`const-styling`](../../modules/const-styling/MODULE.md#t9), limit 9 of section 9.
 18. R18 — [`const-styling`](../../modules/const-styling/MODULE.md#t12), item 7 of section 12.

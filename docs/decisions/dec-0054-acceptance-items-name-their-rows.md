@@ -57,7 +57,7 @@ The session recommended A. <a id="r3"></a>**R3.** A, chosen by the decider in ch
 
 ## 4. The shared acceptance items
 
-The shared items of [kit-shared-gate-code §5](../../shared/GATE.md#g5) run through one entry point of a module and prove the shared machinery, not the text of a row.
+The shared items of [kit-shared-gate-code §5](../../shared/ITEMS.md#g5) run through one entry point of a module and prove the shared machinery, not the text of a row.
 
 - **A. They carry the rows of the gate they run through.**
   - **Pros:** a gate that fails open does not hold its row, and the row says so.
@@ -168,5 +168,5 @@ The session recommended C. <a id="r13"></a>**R13.** C, chosen by the decider in 
 1. R1 — [rule 1](../policies/plc-0007-requirements.md#r1) and [rule 8 of plc-0007-requirements](../policies/plc-0007-requirements.md#r8); [the gate itself](../../scripts/check-aspects.py), its docstring.
 2. R2, R3, R4, R5, R11 — [template §10](../../module-template/MODULE.md#t10), its paragraph on rows; the acceptance tables of the eleven module documents.
 3. R6, R10, R12, R13 — [the gate itself](../../scripts/check-aspects.py), its docstring.
-4. R7, R9 — [the gate itself](../../scripts/check-aspects.py), its docstring; [template §10](../../module-template/MODULE.md#t10); [rule 12 of plc-0006-module-documents](../policies/plc-0006-module-documents.md#r12); step 5 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md); the routine list of [pyproject.toml](../../pyproject.toml).
+4. R7, R9 — [the gate itself](../../scripts/check-aspects.py), its docstring; [template §10](../../module-template/MODULE.md#t10); [rule 12 of plc-0006-module-documents](../policies/plc-0006-module-documents.md#r12); step 5 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s5); the routine list of [pyproject.toml](../../pyproject.toml).
 5. R8 — pending: [step 10 of the rollout plan](../rollout-plan.md#s10), the CI wiring.

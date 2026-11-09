@@ -64,7 +64,7 @@ PLUGIN_ROOT = SCRIPTS.parent
 MODULE_ROOT = PLUGIN_ROOT.parent
 
 IDENTITY = start.GATE  # declared for the whole session by conftest; the expected messages read it
-# — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
+# — and each is also typed by hand at least once in these fixtures (rule 14 of the gate-script rules)
 H = Harness(SCRIPTS, "check-catalog-item.sh", "check-catalog-item.py", start.GATE.namespace)
 SESSION = Harness(SCRIPTS, "session-start.sh", "session-start.py", start.GATE.namespace)
 
@@ -460,7 +460,8 @@ def test_catalogs_not_a_list() -> None:
 
 @acceptance_item(25, "C5: an entry of the wrong shape, fifteen ways, named by position and field")
 def test_entry_shapes() -> None:
-    """Each malformed entry is named by its position and by what is wrong with it."""
+    """Each malformed entry is named by its position and by what is wrong with it: fifteen shapes,
+    a prefix ending in a line break and a width of 10 among them. Each is exit 1, never 2, never 0."""
     shapes: list[tuple[object, str]] = [
         ("itm", "is not a mapping of prefix, territory and width"),  # typed by hand
         (entry(start=1), messages.entry_unknown_key("start")),
@@ -1211,7 +1212,12 @@ K3_GOLDEN = [
 @acceptance_item(65, "golden lines: the taught texts as literals, not as the functions return them")
 def test_golden_lines() -> None:
     """The texts as literals, typed here by hand: the cases above compare with what the message
-    functions return, so a slip inside a function would pass them all."""
+    functions return, so a slip inside a function would pass them all. They are the headlines and the
+    why lines of K1 to K4, the fixes of K2 (the id to set, the envelope to start) and of K3, the opening
+    of K4's fix, and the opening of every advice text: next, keep, contested, words, full, wide, not
+    read. Seen to fail with the keep text broken, and with one word of the K1 why changed. A path of over
+    80 characters with a line break stands whole and escaped in K1, K3, K4 and the contested fix; a long
+    file name is cut; a YAML error with a backslash stands whole, its backslash doubled."""
     runs = {
         "K1": gate_on(Write(at("first"), item("first")))[0],
         "K2 missing": gate_on(Write(ITEM_A, item(drop=("id",))))[0],
@@ -1295,7 +1301,9 @@ ZERO_LINE = (
 @acceptance_item(74, "session start: nothing when listed; the zero line when the dial is empty or absent")
 def test_session_start_zero_line() -> None:
     """Nothing while a catalog is listed; the zero line typed by hand when the dial is an empty list
-    and when it is absent, of the size the module document states."""
+    and when it is absent, of the size the module document states. While a catalog is listed, every git
+    call of the run carries the 3 s cap of limit 16 of kit-shared-gate-code section 4, read from a spy
+    on `subprocess.run`."""
     # the printer is a hook: each of its git calls has the hook's budget, logged before the call is made
     # with no clock, so that a slow git on a loaded machine cuts none of them
     patch, log = git_patch(SESSION, unclocked=True)

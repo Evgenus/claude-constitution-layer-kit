@@ -53,7 +53,7 @@ The change that adds this record applies every item that binds: the script, the 
 
 ## Carry list
 
-1. R1, R2 — [the install check](../../scripts/check-bare-install.py); [requirement A12.1](../requirements.md#a12-1) and [A12.2](../requirements.md#a12-2); step 5 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md); [the intent page](../../INTENT.md).
+1. R1, R2 — [the install check](../../scripts/check-bare-install.py); [requirement A12.1](../requirements.md#a12-1) and [A12.2](../requirements.md#a12-2); step 5 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s5); [the intent page](../../INTENT.md).
 2. R3 — [the list script](../../scripts/gate-list.sh); [the workflow](../../.github/workflows/gates.yml).
 3. R4 — limit 3 of [kit-shared-gate-code §4](../../shared/GATE.md#g4); the platform-fact items of four module documents, [`const-catalogs`](../../modules/const-catalogs/MODULE.md#t6), [`const-decision-records`](../../modules/const-decision-records/MODULE.md#t6), [`const-meta-types`](../../modules/const-meta-types/MODULE.md#t6) and [`const-locations`](../../modules/const-locations/MODULE.md#t6); the replaced reading is history.
 4. R5 — pending: [rollout step 10](../rollout-plan.md#s10).

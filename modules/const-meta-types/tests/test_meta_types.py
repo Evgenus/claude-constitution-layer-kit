@@ -39,7 +39,7 @@ from meta_types_gate.checks import envelope_errors
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 
 IDENTITY = start.GATE  # declared for the whole session by conftest; the expected messages read it
-# — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
+# — and each is also typed by hand at least once in these fixtures (rule 14 of the gate-script rules)
 H = Harness(SCRIPTS, "check-governed-document.sh", "check-governed-document.py", start.GATE.namespace)
 NAMESPACE = start.GATE.namespace
 

@@ -15,7 +15,7 @@ decider: Eugene Chernyshov
 A handle audit on 2026-10-11 found handles that collide or name nothing, and the pull requests of that day fixed them by hand. Four classes had no check, so the same slips could come back.
 
 - **A citation of a ruling.** [Rule 2 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r2) asks a citation of a ruling from another document to link the ruling's anchor. Its rule 6 left that to review, as R3 of [dec-0081-rulings-carry-anchors](dec-0081-rulings-carry-anchors.md#r3) ruled. Twelve such citations were missed by hand in two rounds.
-- **A module's message keys.** Modules reused keys of the shared message table of [§3 of the shared gate code](../../shared/GATE.md#g3) with a meaning of their own: F10, N1, H1 and S1.
+- **A module's message keys.** Modules reused keys of the shared message table of [§3 of the shared gate code](../../shared/MESSAGES.md#g3) with a meaning of their own: F10, N1, H1 and S1.
 - **One prefix per kind.** [Rule 8 of plc-0006-module-documents](../policies/plc-0006-module-documents.md#r8) asks one prefix per kind of handle in a module document; a message key L1 stood beside a live item L1. Its rule 12 left handles to review.
 - **A record's order and its table keys.** [Rule 10 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r10) asks handles in order, contiguous and unique, tables included, from [dec-0039-policies-state-their-kinds](dec-0039-policies-state-their-kinds.md) on, as R1 of [dec-0082-handle-migration-in-records](dec-0082-handle-migration-in-records.md#r1) set. `scripts/check-carry-lists.py` held only that no bold ruling handle opens two items.
 
@@ -59,7 +59,7 @@ What each check reads and holds followed from the rule it serves; no real choice
 
 ## Applied
 
-The commits before the one that creates this record built the checks: R4's order in `scripts/check-carry-lists.py`, then `scripts/check-handle-forms.py` with R2, R6 and its paragraph in [§3 of the shared gate code](../../shared/GATE.md#g3a), then R7 and R4's table keys, each followed by the fixes of its verifier. The commit that creates this record states R2, R4 and R8 in rule 6 of plc-0004, R6 and R7 in rule 12 of plc-0006, and R2 and R8 in CLAUDE.md. The record is born `inactive`. The rounds of its carry audit corrected the record and the documents in place before the yes, among them: R2 stated in rule 10 of plc-0005 too, R9 added, the fix line of R7 brought to the V clause of rule 8 of plc-0006, and the scope of R2 and R4 stated in rule 6 of plc-0004 as the scripts hold it.
+The commits before the one that creates this record built the checks: R4's order in `scripts/check-carry-lists.py`, then `scripts/check-handle-forms.py` with R2, R6 and its paragraph in [§3 of the shared gate code](../../shared/MESSAGES.md#g3a), then R7 and R4's table keys, each followed by the fixes of its verifier. The commit that creates this record states R2, R4 and R8 in rule 6 of plc-0004, R6 and R7 in rule 12 of plc-0006, and R2 and R8 in CLAUDE.md. The record is born `inactive`. The rounds of its carry audit corrected the record and the documents in place before the yes, among them: R2 stated in rule 10 of plc-0005 too, R9 added, the fix line of R7 brought to the V clause of rule 8 of plc-0006, and the scope of R2 and R4 stated in rule 6 of plc-0004 as the scripts hold it.
 
 ## Carry list
 
@@ -68,7 +68,7 @@ The commits before the one that creates this record built the checks: R4's order
 3. R3 — history only: the reversal of part of an earlier ruling.
 4. R4 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r6), rule 6; [`scripts/check-carry-lists.py`](../../scripts/check-carry-lists.py), `check_order`; [`scripts/check-handle-forms.py`](../../scripts/check-handle-forms.py), `record_table_keys`.
 5. R5 — history only: the narrowing of an earlier ruling.
-6. R6 — [the shared gate code](../../shared/GATE.md#g3a), the paragraph on a module's keys; [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r12), rule 12; [`scripts/check-handle-forms.py`](../../scripts/check-handle-forms.py), `module_message_keys`.
+6. R6 — [the shared gate code](../../shared/MESSAGES.md#g3a), the paragraph on a module's keys; [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r12), rule 12; [`scripts/check-handle-forms.py`](../../scripts/check-handle-forms.py), `module_message_keys`.
 7. R7 — [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r12), rule 12; [`scripts/check-handle-forms.py`](../../scripts/check-handle-forms.py), `module_handle_prefixes`.
 8. R8 — [`scripts/gate-list.sh`](../../scripts/gate-list.sh), the gate group; [CLAUDE.md](../../CLAUDE.md#references), the reference rule.
 9. R9 — history only: the narrowing of two earlier rulings.

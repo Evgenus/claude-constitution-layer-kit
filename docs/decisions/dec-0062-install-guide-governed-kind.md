@@ -140,7 +140,7 @@ The change that adds this record applies every item: the policy and its territor
 3. R3 — [plc-0011-install-guide](../policies/plc-0011-install-guide.md#r7), rules 4 and 7; [the check](../../scripts/check-install-guide.py), its docstring; [the list script](../../scripts/gate-list.sh), the entry `guide`; [the install guide](../../INSTALL.md#s6), its last section, for a check shipped in no module.
 4. R4 — [the check](../../scripts/check-install-guide.py), its docstring; [plc-0011-install-guide](../policies/plc-0011-install-guide.md#r4), rule 4.
 5. R5 — [plc-0011-install-guide](../policies/plc-0011-install-guide.md#r4), rule 4; [the check](../../scripts/check-install-guide.py), its docstring.
-6. R6 — [the list script](../../scripts/gate-list.sh), its header, `job()` and `commands()`; [the workflow](../../.github/workflows/gates.yml), its header and its install steps; the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md). The narrowing of dec-0061's R1 and R5 is history.
+6. R6 — [the list script](../../scripts/gate-list.sh), its header, `job()` and `commands()`; [the workflow](../../.github/workflows/gates.yml), its header and its install steps; the rule "Work starts on a branch" in [CLAUDE.md](../guide/gate-list-and-ci.md). The narrowing of dec-0061's R1 and R5 is history.
 7. R7 — [plc-0011-install-guide](../policies/plc-0011-install-guide.md#r1), rules 1 to 8.
 8. R8 — [plc-0011-install-guide](../policies/plc-0011-install-guide.md#r2), rule 2.
 9. R9 — history only: a routine rewrite of a page in no territory, made by this change.

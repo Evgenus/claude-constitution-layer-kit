@@ -75,7 +75,7 @@ The session recommended B, since the reader is already accepted and B keeps its 
 
 ## 4. What admits the runner to the shared package
 
-[Rule 2 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r2) admits code only when it implements a kernel section literally or a gate-script rule of [template §6](../../module-template/MODULE.md#t6). The runner does neither.
+[Rule 2 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r2) admits code only when it implements a kernel section literally or a gate-script rule of [template §6](../../module-template/gate-script-rules.md). The runner does neither.
 
 - **A. A new template section, and rule 2 widened to admit it.** The template gains a section in which every module lists its rules; rule 2 also admits code that implements a template section every module fills.
   - **Pros:** the duty sits where every other duty of each module sits; the kernel stays as it is; the widening names one kind of section.

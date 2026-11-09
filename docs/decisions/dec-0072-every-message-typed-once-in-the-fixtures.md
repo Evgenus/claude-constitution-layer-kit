@@ -51,6 +51,6 @@ The commits of this branch apply every item: the shared items and one module's c
 
 ## Carry list
 
-1. R1 — [template §6](../../module-template/MODULE.md#t6), rule 14.
-2. R2 — [the listing aid](../../scripts/list-message-literals.py), its docstring; [template §6](../../module-template/MODULE.md#t6), rule 14; [pyproject.toml](../../pyproject.toml), its list of commands.
+1. R1 — [template §6](../../module-template/gate-script-rules.md#r14), rule 14.
+2. R2 — [the listing aid](../../scripts/list-message-literals.py), its docstring; [template §6](../../module-template/gate-script-rules.md#r14), rule 14; [pyproject.toml](../../pyproject.toml), its list of commands.
 3. R3 — history only: the fixtures of the shared code and of each module, as the commits of this change typed them.

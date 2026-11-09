@@ -87,7 +87,7 @@ The session recommended A: it follows the ruling of section 2, a choice made at 
 
 ## 4. Whether a green write reaches the model
 
-A gate that passes a write with nothing to note prints its green line on plain standard output, which the platform writes to its debug log; a run with notes hands the line on as context ([kit-shared-gate-code §3](../../shared/GATE.md#g3), the row of `G2`).
+A gate that passes a write with nothing to note prints its green line on plain standard output, which the platform writes to its debug log; a run with notes hands the line on as context ([kit-shared-gate-code §3](../../shared/MESSAGES.md#g3), the row of `G2`).
 
 - **A. No: keep the silence, and the install guide says what it means,** and names the scans as the way to see every verdict.
   - **Pros:** no context spent on writes that pass cleanly, which are most of them; no change to code, so no new release of the shared package and no new eval runs.
