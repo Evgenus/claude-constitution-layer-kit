@@ -129,7 +129,7 @@ The commits of this branch apply every item. The message of each commit names wh
 
 ## Carry list
 
-1. R1 — [kit-shared-gate-code](../../shared/GATE.md#g3), the row `F10` of section 3, the `identity` row of [its section 1](../../shared/GATE.md#g1) and item 1 of [its section 2](../../shared/GATE.md#g2); [the module template](../../module-template/MODULE.md#t6), the skill row of section 6.
+1. R1 — [kit-shared-messages](../../shared/MESSAGES.md#g3), the row `F10` of section 3, the `identity` row of [its section 1](../../shared/GATE.md#g1) and item 1 of [its section 2](../../shared/GATE.md#g2); [the module template](../../module-template/MODULE.md#t6), the skill row of section 6.
 2. R2 — [the module template](../../module-template/MODULE.md#t6), the skill row and the hook row of section 6; the always-on content of section 6 of [`const-catalogs`](../../modules/const-catalogs/MODULE.md#t6), [`const-language`](../../modules/const-language/MODULE.md#t6), [`const-meta-types`](../../modules/const-meta-types/MODULE.md#t6), [`const-referencing`](../../modules/const-referencing/MODULE.md#t6), [`const-styling`](../../modules/const-styling/MODULE.md#t6) and [`const-task-close`](../../modules/const-task-close/MODULE.md#t6).
 3. R3 — history only: the condition was put to the decider in section 3 and answered there.
 4. R4 — [the module template](../../module-template/MODULE.md#t6), the hook row of section 6; the hook rows of section 6 of the six modules of R2.

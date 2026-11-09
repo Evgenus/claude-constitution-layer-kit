@@ -136,7 +136,7 @@ Sections 1 to 3 move text that records name as the home of their rulings: 41 rec
 
 The session recommended A. The decider chose A in chat on 2026-11-08.
 
-<a id="r9"></a>**R9.** Where a change moves the text of a place into another document, a record's link to that place takes, in the same change, the document and the anchor the text moved to, and only the link's target changes: the link's text and the record's words keep the old name as history, as after a moved file. The commit names it a migration and names the move. [Rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) lists it among the migrations a record may take.
+<a id="r9"></a>**R9.** Where a change moves the text of a place into another document, a record's link to that place takes, in the same change, the document and the anchor the text moved to, and only the link's target changes, with the link's text where it is the id of the document the text left, which takes the id of the document the text moved to: the record's other words keep the old name as history, as after a moved file. The commit names it a migration and names the move. [Rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) lists it among the migrations a record may take.
 
 ## 7. The ceilings these sections bring under
 

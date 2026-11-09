@@ -175,13 +175,13 @@ The commits of this branch apply every item. R1 to R7 and R9 to R18 were applied
 6. R6 — [the dials file](../../constitution.yaml), the ceiling `shared-code` of `const-doc-budgets`.
 7. R7 — pending: [step 9 of the rollout plan](../rollout-plan.md#s9), the decider's choice between a split and a raise; the ceiling itself is R6's.
 8. R8 — [kit-shared-gate-code](../../shared/GATE.md#g1), the `messages` row of section 1; [section 2](../../shared/GATE.md#g2), item 5.
-9. R9 — [kit-shared-gate-code](../../shared/GATE.md#g3), the row C5.7 of section 3; [section 2](../../shared/GATE.md#g2), item 4; [section 1](../../shared/GATE.md#g1), the `dials` row.
+9. R9 — [kit-shared-messages](../../shared/MESSAGES.md#g3), the row C5.7 of section 3; [section 2](../../shared/GATE.md#g2), item 4; [section 1](../../shared/GATE.md#g1), the `dials` row.
 10. R10 — [kit-shared-gate-code](../../shared/GATE.md#g1), the `dials` row of section 1.
 11. R11 — [kit-shared-gate-code](../../shared/GATE.md#g1), the `dials` row of section 1; limit 15 of [section 4](../../shared/GATE.md#g4).
 12. R12 — [kit-shared-gate-code](../../shared/GATE.md#g1), the `repository, territory` row of section 1; limit 7 of [section 4](../../shared/GATE.md#g4).
 13. R13 — [kit-shared-gate-code](../../shared/GATE.md#g1), the `pipeline` row of section 1; limit 14 of [section 4](../../shared/GATE.md#g4).
 14. R14 — [kit-shared-gate-code](../../shared/GATE.md#g1), the `model` row of section 1; [section 2](../../shared/GATE.md#g2), item 3.
-15. R15 — [kit-shared-gate-code](../../shared/GATE.md#g3), the row C4b of section 3.
+15. R15 — [kit-shared-messages](../../shared/MESSAGES.md#g3), the row C4b of section 3.
 16. R16 — [`const-styling`](../../modules/const-styling/MODULE.md#t6), the error messages of section 6.
 17. R17 — [`const-styling`](../../modules/const-styling/MODULE.md#t9), limit 9 of section 9.
 18. R18 — [`const-styling`](../../modules/const-styling/MODULE.md#t12), item 7 of section 12.
