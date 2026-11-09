@@ -1,13 +1,13 @@
 ---
 id: dec-0116-change-cost-module-rulings
 type: task-record
-title: Rulings of the const-change-cost authoring — the start hook warns and a command writes the commit log into the git configuration of each clone
+title: Rulings of the const-change-cost authoring — a command writes the commit log into git, ccusage runs through its launcher, the counts stay in the clone after each turn, and no dials
 status: active
 stakes: process
 decider: Eugene Chernyshov
 ---
 
-# Rulings of the const-change-cost authoring — the start hook warns and a command writes the commit log into the git configuration of each clone
+# Rulings of the const-change-cost authoring — a command writes the commit log into git, ccusage runs through its launcher, the counts stay in the clone after each turn, and no dials
 
 ## Context
 
@@ -165,6 +165,26 @@ The session recommended B, which keeps the kit's own forms, so that a person who
 
 <a id="r10"></a>**R10.** The module's commands, under its plugin's `scripts/` folder, are `setup-commit-log.sh`, which writes the commit log's two keys and takes `--remove` to remove them and `--check` to report whether they stand; `count-costs.sh`, which counts every complete window not yet counted; and `cost-report.sh`, which prints the kept counts.
 
+## 10. Dials
+
+[Law 2 of CLAUDE.md](../../CLAUDE.md#law-2) lets project specifics enter a module only through its dials, and a module must work on an empty repository with its defaults alone. Nothing in rows [A15.1](../requirements.md#a15-1) to [A15.6](../requirements.md#a15-6) asks a project to calibrate anything.
+
+- **A. No dials.** Section 7 of the module document says none, with that reason.
+  - **Pros:** nothing to configure or validate; the test on an empty repository holds at once; the kit grows a dial only when friction earns it.
+  - **Cons:** a project that wants a behaviour changed, such as silencing the start hook's warning, cannot do so without a new record and a new version.
+- **B. One dial to silence the warning.** `warn_missing_keys` under `const-change-cost`, `true` by default; `false` stops the start hook from naming the missing keys.
+  - **Pros:** a clone whose person chose not to log commits stops seeing the same warning in every session.
+  - **Cons:** a silenced warning hides the loss [R11](dec-0115-tokens-per-commit-counted-by-ccusage.md#r11) names; one more key to validate and test, for a friction nobody has reported.
+
+The session recommended A. The decider chose A in chat on 2026-11-09 and asked the session to check every ruling of both records for a value a project may need to set. The session read each:
+
+- **Fixed so that a count means the same in every project.** R2 to R7 and R14 of [dec-0115-tokens-per-commit-counted-by-ccusage](dec-0115-tokens-per-commit-counted-by-ccusage.md#r2), and R1, R3, R6, R7 and R9 here: a folder of one session, the earliest start, the windows, the count once, the kept fields, the two logs, the compaction named, the route, the launcher, the windows over the whole session, the session with no start skipped, the unpriced model named. A dial on any of them would make two projects' counts mean different things.
+- **Owned by the module, not the project.** The pin of R8 of [dec-0115-tokens-per-commit-counted-by-ccusage](dec-0115-tokens-per-commit-counted-by-ccusage.md#r8) and R8 here, which moves only with the known-count test of [A15.6](../requirements.md#a15-6), and the names of R10.
+- **The one value a project may hold for itself: its prices.** R1 of [dec-0115-tokens-per-commit-counted-by-ccusage](dec-0115-tokens-per-commit-counted-by-ccusage.md#r1) passes `--config` naming an empty file, so a project's own ccusage configuration cannot change the count. ccusage's configuration takes `pricingOverrides`, a price per model for each kind of token (its schema at 20.0.48). A project that pays other than the list price, through a cloud provider or a discount, would want them. No project has asked.
+- **Behaviours a project might want switched, later.** The start hook's warning of R2, the count after each turn of R5, and counts shared beyond the clone of R4, each refused here or in an earlier section, or never asked for.
+
+<a id="r11"></a>**R11.** The module has no dials. Every cost it keeps and reports is the list price of ccusage's table at the pinned version, and the report says so. The module document lists the candidates of this section as deferred, each with the signal that would earn it: prices of a project's own, when a project that pays other than the list price asks for its costs; silencing the warning, when a project reports it as noise where commits are left out on purpose; the count after each turn switched off, when a project reports it as slow; counts shared beyond the clone, when a team asks to see each other's.
+
 ## Carry list
 
-1. R1, R2, R3, R4, R5, R6, R7, R8, R9, R10 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
+1. R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
