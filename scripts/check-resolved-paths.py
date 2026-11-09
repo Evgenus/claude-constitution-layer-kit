@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Kit check, never shipped in a module: every package the fixture runner imports through a link
-reads `__file__` only through `Path(__file__).resolve()` (template §6, rule 1; decision
+reads `__file__` only through `Path(__file__).resolve()` (rule 1 of the gate-script rules; decision
 dec-0073-packages-resolve-their-own-file).
 
 A module's runner imports the shared package, whose subpackage `testing` holds the shared test files,

@@ -66,7 +66,7 @@ PLUGIN_ROOT = SCRIPTS.parent
 MODULE_ROOT = PLUGIN_ROOT.parent
 
 IDENTITY = start.GATE  # declared for the whole session by conftest; the expected messages read it
-# — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
+# — and each is also typed by hand at least once in these fixtures (rule 14 of the gate-script rules)
 H = Harness(SCRIPTS, "check-language.sh", "check-language.py", start.GATE.namespace)
 NAMESPACE = start.GATE.namespace
 SKILL = PLUGIN_ROOT / "skills" / "plain-language" / "SKILL.md"

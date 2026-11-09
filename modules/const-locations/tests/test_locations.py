@@ -40,7 +40,7 @@ from locations_gate.model import ActKey
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 
 IDENTITY = start.GENERATOR  # declared for the whole session by conftest; the expected messages read it
-# — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
+# — and each is also typed by hand at least once in these fixtures (rule 14 of the gate-script rules)
 H = Harness(SCRIPTS, "new-document.sh", "new-document.py", start.GENERATOR.namespace)
 NAMESPACE = start.GENERATOR.namespace
 

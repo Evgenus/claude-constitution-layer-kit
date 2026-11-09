@@ -8,9 +8,10 @@ The floor's one source is `FLOOR` in `shared/constitution_layer_kit/preflight.py
 never imported: a module-level assignment, the last one, plain or annotated, of a tuple of two integer
 literals, `(3, <minor>)`. A tuple of any other shape, a major other than 3, a missing `FLOOR`, and a
 file that is missing or no Python are BROKEN, with the fix. No gate reads the source at run time: each
-entry file keeps its own literal, since it must parse on any Python 3 (template §6, rule 3), and this
-check holds every copy to the source, so that a floor moved in one place and left in another is red in
-CI instead of a traceback where an entry's teaching line should stand (law 6 of CLAUDE.md).
+entry file keeps its own literal, since it must parse on any Python 3 (rule 3 of the
+gate-script rules), and this check holds every copy to the source, so that a floor moved in one
+place and left in another is red in CI instead of a traceback where an entry's teaching line
+should stand (law 6 of CLAUDE.md).
 
 A copy is a mention of the floor in a file `git ls-files` lists, in one of these forms, each matched in
 any line, a fenced block and a code span included (`N` stands for a whole number):
@@ -65,8 +66,8 @@ each, read by `ast`; their first line is the text up to the first line feed. A f
 close with ` — <the Identity's clause>` exactly. An entry is a generator when the second line of `TOO_OLD`
 opens with neither `BROKEN: the check could not run` (C11) nor `BROKEN: the session-start line could not be
 printed` (S1) — a grant's entry, whose closing line says the call was not granted, reads as one: its three
-first lines carry no clause, and its Identity's clause closes C2 alone, whatever it is (template §6, rule 3;
-GATE.md §2, item 6). A disagreement is RED, with the file and line, the text,
+first lines carry no clause, and its Identity's clause closes C2 alone, whatever it is (rule 3 of the
+gate-script rules; GATE.md §2, item 6). A disagreement is RED, with the file and line, the text,
 the clause found, the clause the Identity names and where, why and the fix. BROKEN, with the fix: no entry
 at all, a missing `.sh`, no or two Identities for a gate, a clause that is no string literal, an
 `identity.py` that is missing, unreadable or without its default, which is read on every run, even when
@@ -742,7 +743,7 @@ def clause_finding(
         why = (
             f"the second line of its TOO_OLD, '{closing}', is neither C11 nor S1, so the entry is a"
             " generator's or a grant's, which lets no write through and checks none: a clause is true of C2"
-            " alone (template §6, rule 3; GATE.md §2, item 6)"
+            " alone (rule 3 of the gate-script rules; GATE.md §2, item 6)"
         )
         fix = "end the line at its fix, with no clause after it"
     else:
@@ -2119,7 +2120,7 @@ def self_test_clause_reports(cases: Cases) -> None:
                 f" '{GENERATOR_CLAUSE}' ({generator_where}), closes C2 alone",
                 f"  why: the second line of its TOO_OLD, '{GENERATOR_CLOSING}', is neither C11 nor S1, so the"
                 " entry is a generator's or a grant's, which lets no write through and checks none: a clause"
-                " is true of C2 alone (template §6, rule 3; GATE.md §2, item 6)",
+                " is true of C2 alone (rule 3 of the gate-script rules; GATE.md §2, item 6)",
                 "  fix: end the line at its fix, with no clause after it",
                 summary,
             ],
