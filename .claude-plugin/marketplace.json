@@ -11,6 +11,11 @@
       "description": "Numbered kinds: a catalogued document's file name and id are one name, <prefix>-<nnnn>-<slug>; a new item's number must be free, and no two items of a catalog share one. Catalogs are declared in this module's own dial. Plus a skill for taking a number, renumbering after a collision, listing and citing."
     },
     {
+      "name": "const-change-cost",
+      "source": "./modules/const-change-cost/plugin",
+      "description": "Tokens per commit: for every commit a Claude Code session makes, the tokens that session spent on it — input, output, cache write and cache read — with their total and list cost, counted by a pinned ccusage from the session's own transcripts, kept in the clone, and shared by merge trailer, pull request and git notes."
+    },
+    {
       "name": "const-decision-records",
       "source": "./modules/const-decision-records/plugin",
       "description": "Write-time gate on decision records: a document governed by a record policy carries type task-record, stakes (process | product | architecture) and a decider. Plus skills for pricing and recording a decision, and for promoting recurring commit notes."

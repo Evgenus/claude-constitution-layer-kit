@@ -39,7 +39,7 @@
 # run by hand installs from the working folder unless CONSTITUTION_KIT_INSTALL_FROM names a source, as
 # CI's does. The other modes exit 0, or 1 on a misinvocation.
 
-MODULES="const-catalogs const-decision-records const-doc-budgets const-interaction const-language
+MODULES="const-catalogs const-change-cost const-decision-records const-doc-budgets const-interaction const-language
 const-locations const-meta-types const-questions const-referencing const-styling const-task-close"
 GATES="references meta-types catalogs decision-records open-questions style language budgets
 list-handles carry-lists shared-links shared-package yaml-style module-links handle-forms aspects portability gate-lists
