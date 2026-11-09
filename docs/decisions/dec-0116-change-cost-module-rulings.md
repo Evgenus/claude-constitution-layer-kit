@@ -66,6 +66,24 @@ The session recommended A: the comparison's recommendation, private costs, and n
 
 <a id="r4"></a>**R4.** The counts are kept in one file of JSON lines in the clone's git common directory, beside the start log and the commit log, one line per counted commit. The module writes no git note, no trailer and no file in the working tree.
 
+## 4. When the count runs
+
+A commit is counted once its window is complete, and only once, as [R5](dec-0115-tokens-per-commit-counted-by-ccusage.md#r5) says. The comparison found the transcript written late: at a commit's `PostToolUse` it did not yet hold the call's result, at `Stop` it held 31 of its final 34 lines, at `SessionEnd` all of them (E15). A plugin's `SessionEnd` hook has 1.5 seconds and cannot raise them, while an `async` hook runs in the background with no timeout enforced. A run of ccusage took at most 0.10 seconds (E10). Command-line transcripts are swept after 30 days by default.
+
+- **A. After each turn, at each start, and by hand.** An async `Stop` hook counts every complete window of its session not yet counted, the same pass runs at `SessionStart` over every session in the clone's logs, and a command does it on demand.
+  - **Pros:** a window is counted at the turn after its commit, long before any sweep; the start pass catches what a crashed or closed session left; no turn waits.
+  - **Cons:** three ways in to build and test; a count in the background can still run when the next turn starts.
+- **B. By hand only.** A command counts every complete window it finds.
+  - **Pros:** the least machinery; nothing runs unasked.
+  - **Cons:** windows wait until someone remembers, and a command-line transcript can be swept first, against the accumulating class of [R13](dec-0115-tokens-per-commit-counted-by-ccusage.md#r13).
+- **C. At session end, and a pass at start.** A `SessionEnd` hook counts the session's windows, and the start pass catches the rest.
+  - **Pros:** the transcript is complete at `SessionEnd`; one count per session.
+  - **Cons:** 1.5 seconds is too short to copy and count a large session; a desktop session that lives for days rarely ends, so its windows wait for the next start.
+
+The session recommended A, the comparison's recommendation and the only one that counts each window soon without making a turn wait. The decider chose A in chat on 2026-11-09.
+
+<a id="r5"></a>**R5.** The count runs three ways, each counting every complete window not yet counted: an `async` `Stop` hook, over its own session, after each turn; a pass at `SessionStart`, over every session in the clone's logs; and a command a person runs. The module keeps no copy of a window's records.
+
 ## Carry list
 
-1. R1, R2, R3, R4 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
+1. R1, R2, R3, R4, R5 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
