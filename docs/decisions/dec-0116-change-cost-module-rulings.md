@@ -84,6 +84,21 @@ The session recommended A, the comparison's recommendation and the only one that
 
 <a id="r5"></a>**R5.** The count runs three ways, each counting every complete window not yet counted: an `async` `Stop` hook, over its own session, after each turn; a pass at `SessionStart`, over every session in the clone's logs; and a command a person runs. The module keeps no copy of a window's records.
 
+## 5. How the work of parallel agents is split
+
+Each subagent writes its own transcript, whose records carry `agentId` and the parent's session id, and the tool hooks inside a subagent carry `agent_id` (the comparison's E11 and E15). The commit log of R1 knows only the session: `CLAUDE_CODE_SESSION_ID` names the session, not the agent, and no variable names the agent, so a subagent's commit carries the main session's id.
+
+- **A. Time windows over the whole session.** Every reply of the session, of the main thread and of every agent, goes to the session's next commit by time, as [R4](dec-0115-tokens-per-commit-counted-by-ccusage.md#r4) cuts it.
+  - **Pros:** time is the one key every reply carries; it uses the commit log of R1 as it is, with no guess.
+  - **Cons:** if agent X still works while agent Y commits, X's tokens until then go to Y's commit.
+- **B. Windows per agent.** Each agent's replies go to the next commit that agent made, and the main thread's replies, and those of agents that never commit, go by time.
+  - **Pros:** a commit made by one agent does not take in a parallel agent's work.
+  - **Cons:** the commit log cannot tell which agent made a commit, so it would need a `PostToolUse` lister, which in the comparison's E13 claimed another session's commit in a shared checkout; it still falls back on time for the rest.
+
+The session recommended A, the comparison's recommendation: B trades the commit log's certainty for an agent name and still splits most of the work by time, while the session's total is exact either way. The decider chose A in chat on 2026-11-09.
+
+<a id="r6"></a>**R6.** A session's windows run over the whole session: every reply of its main thread, its subagents and its workflow agents goes to the session's next commit by time. No window is cut per agent.
+
 ## Carry list
 
-1. R1, R2, R3, R4, R5 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
+1. R1, R2, R3, R4, R5, R6 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
