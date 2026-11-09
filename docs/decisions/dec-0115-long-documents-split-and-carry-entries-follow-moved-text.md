@@ -158,7 +158,7 @@ R9 says where a link goes when the text of the place it names moved whole. It sa
 
 The session recommended A, since it turns each link into one yes or no question a reader can check. The decider chose A in chat on 2026-11-09.
 
-<a id="r11"></a>**R11.** A link that names several places, or one place whose text moved only in part, keeps its target while any text it cites still stands there; when none does, it takes the place where the first text it cites now stands. A heading, or a line that only links where the text moved, is no text of a place and no text a link cites; in a carry list, the text a link cites is the text that states a ruling of its entry. [Rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) states it beside the moved-place migration.
+<a id="r11"></a>**R11.** A link that names several places, or one place whose text moved only in part, keeps its target while any text it cites still stands there; when none does, it takes the place where the first text it cites now stands. A heading, or a line that only links where the text moved, is no text of a place and no text a link cites, save where a ruling it cites is that heading or line itself; in a carry list, the text a link cites is the text that states a ruling of its entry. [Rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) states it beside the moved-place migration.
 
 ## Carry list
 
