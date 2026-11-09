@@ -41,7 +41,7 @@ A, chosen by the decider in chat on 2026-09-24.
 
 <a id="r3"></a>**R3.** A configuration failure stays two records — its BROKEN line and the closing line — and an unexpected one three, the traceback last, because the guard prints each apart; should that trouble a reader, the remedy is a guard that prints once, never another unit of record.
 
-<a id="r4"></a>**R4.** Pre-publication, every module still at `0.0.1`: no version bump (step 7 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md)).
+<a id="r4"></a>**R4.** Pre-publication, every module still at `0.0.1`: no version bump (step 7 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s7)).
 
 ## Carry list
 

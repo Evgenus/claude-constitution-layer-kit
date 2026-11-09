@@ -53,9 +53,9 @@ The change that adds this record applies every item: the eleven pages, the templ
 
 ## Carry list
 
-1. R1 — [the template's page](../../module-template/README.md), its note and its five sections; [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module".
-2. R2 — [the template's page](../../module-template/README.md), its note; [the template's module document](../../module-template/MODULE.md), its plugin skeleton; [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module".
+1. R1 — [the template's page](../../module-template/README.md), its note and its five sections; [CLAUDE.md](../guide/developing-a-module.md#s4), step 4 of "Developing a module".
+2. R2 — [the template's page](../../module-template/README.md), its note; [the template's module document](../../module-template/MODULE.md), its plugin skeleton; [CLAUDE.md](../guide/developing-a-module.md#s4), step 4 of "Developing a module".
 3. R3 — [the reference bullet of CLAUDE.md](../../CLAUDE.md#references); [the module-links check](../../scripts/check-module-links.py), its docstring.
 4. R4 — [the dials file](../../constitution.yaml), the ceiling `module-readmes` of `const-doc-budgets`.
-5. R5 — [the portability check](../../scripts/check-portability.py), its docstring and its self-test; [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module"; [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r2), rule 2; [the carry-list check](../../scripts/check-carry-lists.py), its docstring and its self-test; [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md), its prompt A.
+5. R5 — [the portability check](../../scripts/check-portability.py), its docstring and its self-test; [CLAUDE.md](../guide/developing-a-module.md#s4), step 4 of "Developing a module"; [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r2), rule 2; [the carry-list check](../../scripts/check-carry-lists.py), its docstring and its self-test; [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md), its prompt A.
 6. R6 — history only: the narrowing of earlier rulings, which stand as written.

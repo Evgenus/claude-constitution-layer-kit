@@ -55,11 +55,11 @@ The decider chose B in chat on 2026-10-13.
 
 ## Applied
 
-The commit before the one that creates this record set the limit and the marks. The commit that creates this record states R1 to R3 in [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module", and the rounds of its carry audit corrected the record and that step in place before the yes, as their commits name: among them, R2's counts with the older mark and its clause on what a reason names, and R3's reason on the `def` line of a new mark. The record is born `inactive`.
+The commit before the one that creates this record set the limit and the marks. The commit that creates this record states R1 to R3 in [CLAUDE.md](../guide/developing-a-module.md#s4), step 4 of "Developing a module", and the rounds of its carry audit corrected the record and that step in place before the yes, as their commits name: among them, R2's counts with the older mark and its clause on what a reason names, and R3's reason on the `def` line of a new mark. The record is born `inactive`.
 
 ## Carry list
 
-1. R1 — [`pyproject.toml`](../../pyproject.toml), `[tool.ruff.lint]` and `[tool.ruff.lint.mccabe]`; [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module".
-2. R2 — [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module"; the marks on the `def` lines of the 22 functions.
-3. R3 — [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module".
+1. R1 — [`pyproject.toml`](../../pyproject.toml), `[tool.ruff.lint]` and `[tool.ruff.lint.mccabe]`; [CLAUDE.md](../guide/developing-a-module.md#s4), step 4 of "Developing a module".
+2. R2 — [CLAUDE.md](../guide/developing-a-module.md#s4), step 4 of "Developing a module"; the marks on the `def` lines of the 22 functions.
+3. R3 — [CLAUDE.md](../guide/developing-a-module.md#s4), step 4 of "Developing a module".
 4. R4 — history only: what a mark does is ruff's, and which functions were marked is the marking commit's fact.

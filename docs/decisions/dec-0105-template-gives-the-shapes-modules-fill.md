@@ -162,7 +162,7 @@ The session recommended A: the kit already has a rule for this, which R12's firs
 
 ## Applied
 
-The change revised the template, its skeleton files, the deferred paragraph of the shared page, rule 10 of plc-0006-module-documents and two steps of "Developing a module" in [CLAUDE.md](../../CLAUDE.md). Each of the eleven modules was then brought to the template in one commit on a branch of its own, by a fresh implementer, and the branches were merged into the change. Item 4.1 of the plan is ticked in the change that lands this record.
+The change revised the template, its skeleton files, the deferred paragraph of the shared page, rule 10 of plc-0006-module-documents and two steps of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md). Each of the eleven modules was then brought to the template in one commit on a branch of its own, by a fresh implementer, and the branches were merged into the change. Item 4.1 of the plan is ticked in the change that lands this record.
 
 ## Carry list
 
@@ -180,8 +180,8 @@ The change revised the template, its skeleton files, the deferred paragraph of t
 12. R15 — [the module template](../../module-template/MODULE.md#t11), section 11.
 13. R16 — [the module template](../../module-template/MODULE.md), its plugin skeleton; [the hooks skeleton](../../module-template/plugin/hooks/hooks.json); [the script skeleton](../../module-template/plugin/scripts/check-example.sh); [the pointer skeleton](../../module-template/plugin/scripts/print-skill-pointer.sh); [the skill skeleton](../../module-template/plugin/skills/example-procedure/SKILL.md).
 14. R17 — [the install note template](../../module-template/plugin/INSTALL.md); [the module template](../../module-template/MODULE.md#t6), its install-note row.
-15. R18 — [the README template](../../module-template/README.md); step 4 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md). The replacement of the dials' naming in R1 of dec-0077 is history.
-16. R19 — step 3 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md); [the module template](../../module-template/MODULE.md#t6), its Research sub-slot.
+15. R18 — [the README template](../../module-template/README.md); step 4 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s4). The replacement of the dials' naming in R1 of dec-0077 is history.
+16. R19 — step 3 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s3); [the module template](../../module-template/MODULE.md#t6), its Research sub-slot.
 17. R20, R21 — [the module template](../../module-template/MODULE.md#t10), section 10, its paragraph on rows.
 18. R22 — [the module template](../../module-template/MODULE.md#t6), its platform facts; [rule 10 of plc-0006-module-documents](../policies/plc-0006-module-documents.md#r10).
 19. R23 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the deferred parts; [the module template](../../module-template/MODULE.md#t12), section 12.

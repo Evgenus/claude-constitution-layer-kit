@@ -71,7 +71,7 @@ The commits of this branch apply every item. The first adds the links and edits 
 
 ## Carry list
 
-1. R1 — [kit-shared-gate-code §2](../../shared/GATE.md#g2), item 7, and its opening paragraph; [template §6](../../module-template/MODULE.md#t6), rule 1, and the `tests/` line of the section "Plugin skeleton" of the [template](../../module-template/MODULE.md); [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module"; each module's `MODULE.md`, the row `tests` of its artifacts table, and its `INSTALL.md`, the sentence on copying the plugin's folder. The widening of item 2 of dec-0025-shared-gate-code-linked is history.
+1. R1 — [kit-shared-gate-code §2](../../shared/GATE.md#g2), item 7, and its opening paragraph; [template §6](../../module-template/MODULE.md#t6), rule 1, and the `tests/` line of the section "Plugin skeleton" of the [template](../../module-template/MODULE.md); [CLAUDE.md](../guide/developing-a-module.md#s4), step 4 of "Developing a module"; each module's `MODULE.md`, the row `tests` of its artifacts table, and its `INSTALL.md`, the sentence on copying the plugin's folder. The widening of item 2 of dec-0025-shared-gate-code-linked is history.
 2. R2 — [kit-shared-gate-code §2](../../shared/GATE.md#g2), item 8; [template §6](../../module-template/MODULE.md#t6), rule 1; [the harness](../../shared/constitution_layer_kit/testing/harness.py), its docstring.
 3. R3 — [check-shared-links](../../scripts/check-shared-links.py), its docstring; [kit-shared-gate-code §2](../../shared/GATE.md#g2), item 7, and row K1 of [§5](../../shared/GATE.md#g5).
 4. R4 — [kit-shared-gate-code §2](../../shared/GATE.md#g2), item 7; [check-shared-links](../../scripts/check-shared-links.py), its docstring.

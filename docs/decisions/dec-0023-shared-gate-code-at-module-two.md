@@ -42,4 +42,4 @@ Recommendation C. Chosen C by the decider in chat on 2026-09-18.
 4. Admission has two classes: code that implements a kernel section literally, and code that implements a gate-script rule of the template. In both, two or more modules must need it.
 5. Delivery by package index stays what it was: for readers outside plugins, if one appears.
 
-Applied in the commit that creates this record: [CLAUDE.md](../../CLAUDE.md) step 4 of "Developing a module" and Phase A step 3 of the rollout plan. The record stays `active` until item 3 is done.
+Applied in the commit that creates this record: [CLAUDE.md](../guide/developing-a-module.md#s4) step 4 of "Developing a module" and Phase A step 3 of the rollout plan. The record stays `active` until item 3 is done.

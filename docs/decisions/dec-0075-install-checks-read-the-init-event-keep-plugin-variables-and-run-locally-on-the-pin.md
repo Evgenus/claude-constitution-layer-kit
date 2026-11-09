@@ -98,5 +98,5 @@ The commits of this branch apply every item. The commits before the one that add
 1. R1 — history only: how this change was recorded and landed.
 2. R2 — [check-install-guide](../../scripts/check-install-guide.py), its docstring.
 3. R3 — [the reader](../../scripts/kit_module_doc.py), its docstring of `claude_env` and its module docstring; [check-bare-install](../../scripts/check-bare-install.py) and [check-install-guide](../../scripts/check-install-guide.py), their docstrings.
-4. R4 — [the setup script](../../scripts/setup-claude.sh), its header; [the gate list](../../scripts/gate-list.sh), its header; [the reader](../../scripts/kit_module_doc.py), its docstring of `put_first`; [CLAUDE.md](../../CLAUDE.md), "The gate list and CI".
+4. R4 — [the setup script](../../scripts/setup-claude.sh), its header; [the gate list](../../scripts/gate-list.sh), its header; [the reader](../../scripts/kit_module_doc.py), its docstring of `put_first`; [CLAUDE.md](../guide/gate-list-and-ci.md), "The gate list and CI".
 5. R5 — [requirement A3.3](../requirements.md#a3-3), its enforcement cell.

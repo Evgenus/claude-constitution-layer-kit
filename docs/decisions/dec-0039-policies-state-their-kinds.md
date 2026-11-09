@@ -83,7 +83,7 @@ A, chosen by the decider in chat on 2026-09-24. Two slots were left open in the 
 
 <a id="r15"></a>**R15.** Every record of the kit so far is `process`.
 
-<a id="r16"></a>**R16.** An `architecture` record's review is the two passes of step 6 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md), every finding fixed or justified:
+<a id="r16"></a>**R16.** An `architecture` record's review is the two passes of step 6 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s6), every finding fixed or justified:
 
 - **a fresh reader** holding the record, the current-state documents it changes and the policy, never the authoring reasoning, then the carry audit;
 - **the review** is complete when the decider says so, in chat or from rollout Phase D in the pull request, the commit that names it carrying the trailers of [rule 5 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r5) as the receipt, so the correction window closes at the review's end as the kernel has it;

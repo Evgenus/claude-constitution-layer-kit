@@ -33,7 +33,7 @@ The template skeleton was bash, the [`const-meta-types`](../requirements.md#cons
   - **Pros:** nothing to rule.
   - **Cons:** three modules, three runtimes, one YAML parsed three ways.
 
-Recommendation B. Chosen B by the decider in chat on 2026-09-18. Applied: [CLAUDE.md](../../CLAUDE.md) step 4 of "Developing a module"; [template §6](../../module-template/MODULE.md#t6) script row.
+Recommendation B. Chosen B by the decider in chat on 2026-09-18. Applied: [CLAUDE.md](../guide/developing-a-module.md#s4) step 4 of "Developing a module"; [template §6](../../module-template/MODULE.md#t6) script row.
 
 ## 2. The meta-types/locations boundary and the shared territory lookup
 

@@ -27,4 +27,4 @@ Not covered by the tool, and left to review: `importlib.import_module` called on
 
 ## Applied
 
-In the commit that creates this record: rule 16 in [template §6](../../module-template/MODULE.md#t6); the count and the list in step 4 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md); `PLC0415` in `pyproject.toml`; the two marked imports; the decisions sections of both module documents; item 2 of [kit-shared-gate-code §2](../../shared/GATE.md#g2). The record is born `inactive`.
+In the commit that creates this record: rule 16 in [template §6](../../module-template/MODULE.md#t6); the count and the list in step 4 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s4); `PLC0415` in `pyproject.toml`; the two marked imports; the decisions sections of both module documents; item 2 of [kit-shared-gate-code §2](../../shared/GATE.md#g2). The record is born `inactive`.
