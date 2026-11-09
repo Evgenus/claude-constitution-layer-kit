@@ -167,7 +167,7 @@ The commits of this branch apply every item. R1 to R7 and R9 to R18 were applied
 
 ## Carry list
 
-1. R1 — [kit-shared-gate-code](../../shared/GATE.md#g1), the `dials` row of section 1 for the class and the callers; [section 2](../../shared/GATE.md#g2), item 4, for the call; [section 3](../../shared/GATE.md#g3), the row C5.10, for the text.
+1. R1 — [kit-shared-gate-code](../../shared/GATE.md#g1), the `dials` row of section 1 for the class and the callers; [section 2](../../shared/GATE.md#g2), item 4, for the call; [section 3](../../shared/MESSAGES.md#g3), the row C5.10, for the text.
 2. R2 — [`const-language`](../../modules/const-language/MODULE.md#t7), [`const-doc-budgets`](../../modules/const-doc-budgets/MODULE.md#t7) and [`const-styling`](../../modules/const-styling/MODULE.md#t7), each its dial `departures`.
 3. R3 — [kit-shared-gate-code](../../shared/GATE.md#g4), limit 15 of section 4; [section 1](../../shared/GATE.md#g1), the `dials` row.
 4. R4 — [`const-task-close`](../../modules/const-task-close/MODULE.md#t7), its dial `coverage`; [kit-shared-gate-code](../../shared/GATE.md#g4), limit 15 of section 4.

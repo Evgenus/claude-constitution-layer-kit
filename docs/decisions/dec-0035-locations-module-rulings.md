@@ -59,7 +59,7 @@ The shared fixture items are written for a gate: they feed a `Write` event, expe
   - **Pros:** smallest.
   - **Cons:** the absence and log items are exactly the ones a module forgets.
 
-<a id="r3"></a>**R3.** A. Chosen by the decider in chat on 2026-09-22. Applied: `Subject.event_driven`, `Subject.closing`, `Subject.act_args` and `Harness.run_gate(cwd=…)` in the shared tests, defaulting to what the four gates pass — their fixtures unchanged and green; the twenty items left out and the thirty run are named in [kit-shared-gate-code §5](../../shared/GATE.md#g5); the rotation item now asks that the new log hold only this run's lines, since a generator's completed run prints more than a gate's one green line.
+<a id="r3"></a>**R3.** A. Chosen by the decider in chat on 2026-09-22. Applied: `Subject.event_driven`, `Subject.closing`, `Subject.act_args` and `Harness.run_gate(cwd=…)` in the shared tests, defaulting to what the four gates pass — their fixtures unchanged and green; the twenty items left out and the thirty run are named in [kit-shared-gate-code §5](../../shared/ITEMS.md#g5); the rotation item now asks that the new log hold only this run's lines, since a generator's completed run prints more than a gate's one green line.
 
 ## 4. Where the module is authored
 
@@ -71,5 +71,5 @@ No options were put: the decider asked to start with [`const-locations`](../requ
 
 1. R1 — the row of [requirement A2.4](../requirements.md#a2-4) in [§3](../../modules/const-locations/MODULE.md#t3) of the module's document, rule L-a of its [§5](../../modules/const-locations/MODULE.md#t5), the two `script` rows and the `skill` row of `new-document` in its [§6](../../modules/const-locations/MODULE.md#t6). That the choice was "as recommended": history only.
 2. R2 — the row `templates` of [§7](../../modules/const-locations/MODULE.md#t7) of the module's document, rule L-e of its [§5](../../modules/const-locations/MODULE.md#t5), rows L5.13 and L5.14 of the error-message table in its [§6](../../modules/const-locations/MODULE.md#t6), and the "Depends on" and enhancements of its [§11](../../modules/const-locations/MODULE.md#t11).
-3. R3 — item 8 of [kit-shared-gate-code §2](../../shared/GATE.md#g2) and the closing paragraph of its [§5](../../shared/GATE.md#g5); the opening paragraph and the shared-items row of [§10](../../modules/const-locations/MODULE.md#t10) of the module's document; [the shared items](../../shared/constitution_layer_kit/testing/items.py) and [the harness](../../shared/constitution_layer_kit/testing/harness.py).
+3. R3 — item 8 of [kit-shared-gate-code §2](../../shared/GATE.md#g2) and the closing paragraph of its [§5](../../shared/ITEMS.md#g5); the opening paragraph and the shared-items row of [§10](../../modules/const-locations/MODULE.md#t10) of the module's document; [the shared items](../../shared/constitution_layer_kit/testing/items.py) and [the harness](../../shared/constitution_layer_kit/testing/harness.py).
 4. R4 — pending: Phase B step 5 of [the rollout plan](../rollout-plan.md), which holds the consumer-live proof until the consumer's bootstrap closes.

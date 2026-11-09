@@ -116,7 +116,7 @@ The audit proposed that each shared item carry its number in the file. The quest
 - **B. A, plus the harness refuses a number a module's own item and a shared item both use.**
   - **Pros:** closes a collision one module is one item away from.
   - **Cons:** a shared-harness change, about half an hour more.
-- **C. A, plus a kit check that the ranges of [GATE.md §5](../../shared/GATE.md#g5) name only numbers the list holds.**
+- **C. A, plus a kit check that the ranges of [GATE.md §5](../../shared/ITEMS.md#g5) name only numbers the list holds.**
   - **Pros:** the shared table can no longer name a gone item.
   - **Cons:** it reads a prose table; check-aspects already holds each module's cell against the numbers its runner prints.
 - **D. Accept renumbering.**
@@ -125,7 +125,7 @@ The audit proposed that each shared item carry its number in the file. The quest
 
 The session recommended B: A holds the rule, and B closes the one collision that is close, for one case. The decider chose C in chat on 2026-10-07.
 
-<a id="r7"></a>**R7.** The shared acceptance items carry their numbers in `shared/tests/shared_items.py`, unique and rising from 101, checked each time the list is built — routine, since rule 4 of plc-0009 already rules it. `scripts/check-aspects.py` holds those numbers, read from the file without running it, and every `S<n>` and range of [GATE.md §5](../../shared/GATE.md#g5) against them; a red beside those R7 of [dec-0054-acceptance-items-name-their-rows](dec-0054-acceptance-items-name-their-rows.md#r7) lists, which stays as it is.
+<a id="r7"></a>**R7.** The shared acceptance items carry their numbers in `shared/tests/shared_items.py`, unique and rising from 101, checked each time the list is built — routine, since rule 4 of plc-0009 already rules it. `scripts/check-aspects.py` holds those numbers, read from the file without running it, and every `S<n>` and range of [GATE.md §5](../../shared/ITEMS.md#g5) against them; a red beside those R7 of [dec-0054-acceptance-items-name-their-rows](dec-0054-acceptance-items-name-their-rows.md#r7) lists, which stays as it is.
 
 ## 7. The kit's words in a module
 
@@ -173,8 +173,8 @@ The commits of this branch apply every item. The commits before the one that add
 2. R2 — [CLAUDE.md](../guide/gate-list-and-ci.md), the bullet "The gate list and CI", on what `scripts/check-gate-lists.py` holds, and step 1 of "Developing a module", the places a new module goes; [check-gate-lists](../../scripts/check-gate-lists.py), its docstring; [the gate list](../../scripts/gate-list.sh), its header. R4 of dec-0043-kit-plugins-through-project-settings stands; that it stands is history.
 3. R3 — [CLAUDE.md](../guide/gate-list-and-ci.md), the bullet "The gate list and CI"; [check-gate-lists](../../scripts/check-gate-lists.py), its docstring.
 4. R4 — [the reader](../../scripts/kit_module_doc.py), its docstring of `module_folders`; the docstrings of the checks that read through it.
-5. R5 — [GATE.md §1](../../shared/GATE.md#g1), the row `preflight`; [GATE.md §5](../../shared/GATE.md#g5), the row of items S111–S116; [template §6](../../module-template/MODULE.md#t6), rule 6; [CLAUDE.md](../guide/developing-a-module.md#s4), step 4 of "Developing a module".
-6. R6 — [CLAUDE.md](../guide/developing-a-module.md#s4), step 4 of "Developing a module"; [GATE.md §3](../../shared/GATE.md#g3), the rows C14 and C15; [check-copies](../../scripts/check-copies.py), its docstring; [the gate list](../../scripts/gate-list.sh), its entry `copies`.
-7. R7 — [GATE.md §5](../../shared/GATE.md#g5), its sentence on the numbers; [check-aspects](../../scripts/check-aspects.py), its docstring; [the shared items](../../shared/constitution_layer_kit/testing/items.py), its docstring. The red added beside R7 of dec-0054-acceptance-items-name-their-rows is history.
+5. R5 — [GATE.md §1](../../shared/GATE.md#g1), the row `preflight`; [GATE.md §5](../../shared/ITEMS.md#g5), the row of items S111–S116; [template §6](../../module-template/MODULE.md#t6), rule 6; [CLAUDE.md](../guide/developing-a-module.md#s4), step 4 of "Developing a module".
+6. R6 — [CLAUDE.md](../guide/developing-a-module.md#s4), step 4 of "Developing a module"; [GATE.md §3](../../shared/MESSAGES.md#g3), the rows C14 and C15; [check-copies](../../scripts/check-copies.py), its docstring; [the gate list](../../scripts/gate-list.sh), its entry `copies`.
+7. R7 — [GATE.md §5](../../shared/ITEMS.md#g5), its sentence on the numbers; [check-aspects](../../scripts/check-aspects.py), its docstring; [the shared items](../../shared/constitution_layer_kit/testing/items.py), its docstring. The red added beside R7 of dec-0054-acceptance-items-name-their-rows is history.
 8. R8 — [requirement A12.1](../requirements.md#a12-1), its enforcement cell; [check-portability](../../scripts/check-portability.py), its docstring; [`const-interaction`](../../modules/const-interaction/MODULE.md#t10), its row T41; [`const-language`](../../modules/const-language/MODULE.md#t10), its row T16; [`const-styling`](../../modules/const-styling/MODULE.md#t10), its row T18. The extension of R1 of dec-0056-portability-grep-and-gate-lists is history.
 9. R9 — [requirement A12.1](../requirements.md#a12-1), its enforcement cell; [check-portability](../../scripts/check-portability.py), its docstring.
