@@ -207,7 +207,7 @@ The commits of this branch apply every item. The commits before the one that add
 5. R5 — [`const-task-close`](../../modules/const-task-close/MODULE.md#t6), the C12 row and the paragraph on error messages of section 6.
 6. R6 — [`const-task-close`](../../modules/const-task-close/MODULE.md#t6), the C12 row of section 6; [its section 9](../../modules/const-task-close/MODULE.md#t9), limit 13.
 7. R7 — [`const-task-close`](../../modules/const-task-close/MODULE.md#t6), the row `C1, C2, C14, C15` and the two entry-file rows of section 6; [its section 9](../../modules/const-task-close/MODULE.md#t9), limit 12; [its section 10](../../modules/const-task-close/MODULE.md#t10), the row of item 40.
-8. R8 — [GATE.md §2](../../shared/GATE.md#g2), items 1 and 6; [GATE.md §3](../../shared/GATE.md#g3), the `C1`, `C2`, `C14` and `C15` rows.
+8. R8 — [GATE.md §2](../../shared/GATE.md#g2), items 1 and 6; [GATE.md §3](../../shared/MESSAGES.md#g3), the `C1`, `C2`, `C14` and `C15` rows.
 9. R9 — [`const-styling`](../../modules/const-styling/MODULE.md#t6), its row `C1, C2, C14, C15` of section 6; [its section 10](../../modules/const-styling/MODULE.md#t10), the row of item 20.
 10. R10 — [`const-task-close`](../../modules/const-task-close/MODULE.md#t6), the row `C1, C2, C14, C15` of section 6.
 11. R11 — [`const-interaction`](../../modules/const-interaction/MODULE.md#t6), its row `C1, C2, C14, C15` of section 6; [its section 10](../../modules/const-interaction/MODULE.md#t10), the row of item 42.

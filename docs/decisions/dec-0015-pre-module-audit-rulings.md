@@ -33,7 +33,7 @@ The template skeleton was bash, the [`const-meta-types`](../requirements.md#cons
   - **Pros:** nothing to rule.
   - **Cons:** three modules, three runtimes, one YAML parsed three ways.
 
-Recommendation B. Chosen B by the decider in chat on 2026-09-18. Applied: [CLAUDE.md](../../CLAUDE.md) step 4 of "Developing a module"; [template §6](../../module-template/MODULE.md#t6) script row.
+Recommendation B. Chosen B by the decider in chat on 2026-09-18. Applied: [CLAUDE.md](../guide/developing-a-module.md#s4) step 4 of "Developing a module"; [template §6](../../module-template/MODULE.md#t6) script row.
 
 ## 2. The meta-types/locations boundary and the shared territory lookup
 
@@ -70,7 +70,7 @@ Rulings: (a) [A2.3](../requirements.md#a2-3) is [`const-meta-types`](../requirem
 
 ## 3. Live proof in a consumer project before a consumer exists
 
-[CLAUDE.md](../../CLAUDE.md) step 5 requires two live proofs before the yes, in this repository and in a consumer project; the consumer is born in Phase B, after the four Phase A modules.
+[CLAUDE.md](../guide/developing-a-module.md#s5) step 5 requires two live proofs before the yes, in this repository and in a consumer project; the consumer is born in Phase B, after the four Phase A modules.
 
 - **A. Two-stage proof, one yes.** The record and the yes follow the kit-live proof; the consumer-live proof is a named step of Phase B, and a finding there is a fix with a version bump.
   - **Pros:** matches the sequence of [dec-0006-accumulating-set-first](dec-0006-accumulating-set-first.md); drafts stay `0.0.x` until Phase D, so the yes accepts a draft; the consumer proof still precedes publication.
@@ -85,7 +85,7 @@ Rulings: (a) [A2.3](../requirements.md#a2-3) is [`const-meta-types`](../requirem
   - **Pros:** both proofs in Phase A.
   - **Cons:** rejected in accumulating-set-first; the bare-repo fixtures are that proof already.
 
-Recommendation A. Chosen A by the decider in chat on 2026-09-18. Applied: [CLAUDE.md](../../CLAUDE.md) step 5; Phase B step 5 of `docs/rollout-plan.md`.
+Recommendation A. Chosen A by the decider in chat on 2026-09-18. Applied: [CLAUDE.md](../guide/developing-a-module.md#s5) step 5; Phase B step 5 of `docs/rollout-plan.md`.
 
 ## 4. Where a module's description lives after it moves into `MODULE.md`
 
@@ -104,7 +104,7 @@ Recommendation A. Chosen A by the decider in chat on 2026-09-18. Applied: [CLAUD
   - **Pros:** the plan stays complete during authoring.
   - **Cons:** two descriptions during the draft period, the drift the kernel calls a defect; the stub question returns at publication.
 
-Recommendation A. Chosen A by the decider in chat on 2026-09-18. Applied: the module-specifications header of `docs/requirements.md`; [CLAUDE.md](../../CLAUDE.md) step 3.
+Recommendation A. Chosen A by the decider in chat on 2026-09-18. Applied: the module-specifications header of `docs/requirements.md`; [CLAUDE.md](../guide/developing-a-module.md#s3) step 3.
 
 ## 5. The rollout plan was ungoverned and mixed
 
@@ -127,7 +127,7 @@ Recommendation C. Chosen C by the decider in chat on 2026-09-18. Applied: the sp
 
 ## 6. What the portability grep looks for
 
-[Requirement A12.1](../requirements.md#a12-1) named a project-reference grep as half of the portability gate without defining a project reference; a list of consumer names cannot be the definition, being project content by [law 2 of CLAUDE.md](../../CLAUDE.md#law-2). The check arrives with CI in Phase D, but [CLAUDE.md](../../CLAUDE.md) step 5 runs it by hand from the first module on.
+[Requirement A12.1](../requirements.md#a12-1) named a project-reference grep as half of the portability gate without defining a project reference; a list of consumer names cannot be the definition, being project content by [law 2 of CLAUDE.md](../../CLAUDE.md#law-2). The check arrives with CI in Phase D, but [CLAUDE.md](../guide/developing-a-module.md#s5) step 5 runs it by hand from the first module on.
 
 - **A. Absolute paths and links only**, as `scripts/check-references.sh` already does for kit documents.
   - **Pros:** zero false positives; implemented.
@@ -142,7 +142,7 @@ Recommendation C. Chosen C by the decider in chat on 2026-09-18. Applied: the sp
   - **Pros:** less noise.
   - **Cons:** the allowlist becomes the exemption marker C refuses.
 
-Recommendation C. Chosen C by the decider in chat on 2026-09-18. Applied: [requirement A12.1](../requirements.md#a12-1); [CLAUDE.md](../../CLAUDE.md) step 5 names the by-hand form.
+Recommendation C. Chosen C by the decider in chat on 2026-09-18. Applied: [requirement A12.1](../requirements.md#a12-1); [CLAUDE.md](../guide/developing-a-module.md#s5) step 5 names the by-hand form.
 
 ## 7. Severity posture of write-time gates
 
@@ -161,7 +161,7 @@ Recommendation C. Chosen C by the decider in chat on 2026-09-18. Applied: [requi
   - **Pros:** one migration switch.
   - **Cons:** a kernel key for a module concern; a switch silencing every gate is the vacuous green the template forbids.
 
-Recommendation A. Chosen A by the decider in chat on 2026-09-18. Applied: [template §7](../../module-template/MODULE.md#t7) and [§9](../../module-template/MODULE.md#t9); the `const-meta-types` specification's dials line.
+Recommendation A. Chosen A by the decider in chat on 2026-09-18. Applied: [template §7](../../module-template/MODULE.md#t7) and [§9](../../module-template/slot-guidance.md#s6); the `const-meta-types` specification's dials line.
 
 ## Close
 

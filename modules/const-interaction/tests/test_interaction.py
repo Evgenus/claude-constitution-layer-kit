@@ -65,7 +65,7 @@ PLUGIN_ROOT = SCRIPTS.parent
 MODULE_ROOT = PLUGIN_ROOT.parent
 
 IDENTITY = start.GATE  # declared for the whole session by conftest; the expected messages read it
-# — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
+# — and each is also typed by hand at least once in these fixtures (rule 14 of the gate-script rules)
 H = Harness(SCRIPTS, "check-destructive.sh", "check-destructive.py", start.GATE.namespace)
 LISTS = Harness(SCRIPTS, "check-list-handles.sh", "check-list-handles.py", start.GATE.namespace)
 SESSION = Harness(SCRIPTS, "session-start.sh", "session-start.py", start.GATE.namespace)

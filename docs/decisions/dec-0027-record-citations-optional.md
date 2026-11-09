@@ -60,5 +60,5 @@ A, by Eugene Chernyshov in chat on 2026-09-20; then, the same day, "lift read-on
 2. Item 2 — [plc-0007-requirements](../policies/plc-0007-requirements.md), rule 2.
 3. Items 3 and 4 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md), rule 7.
 4. Item 5 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md), rule 2.
-5. Item 6 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md), rule 2, and step 6 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md).
+5. Item 6 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md), rule 2, and step 6 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s6).
 6. Item 7 — history only: the rows state their rules; that they were amended under this record is provenance.

@@ -53,12 +53,12 @@ The decider asked for A in chat on 2026-10-13, in the session that measured the 
 
 ## Applied
 
-The commits before the one that creates this record built the script and the CI step. The commit that creates this record states R1 and R2 in [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI", and the work on coverage and mutation score in step 9 of the [rollout plan](../rollout-plan.md#s9). The record is born `inactive`. The rounds of its carry audit corrected it in place before the yes, as their commits name: among them, R2 gained the reason for its condition, the timeout and the error line in the log; R5 was split into R5, stated in the script's docstring, and R6, pending in the plan; and the Context gained its sentence on the rule against machinery for failures no consumer has hit. R1 gained a clause in place too, before the yes, at the decider's request in chat on 2026-10-13: the list of the most complex functions; and R2 its run in the job `gates`, at the decider's request in chat the same day.
+The commits before the one that creates this record built the script and the CI step. The commit that creates this record states R1 and R2 in [CLAUDE.md](../guide/gate-list-and-ci.md), the bullet "The gate list and CI", and the work on coverage and mutation score in step 9 of the [rollout plan](../rollout-plan.md#s9). The record is born `inactive`. The rounds of its carry audit corrected it in place before the yes, as their commits name: among them, R2 gained the reason for its condition, the timeout and the error line in the log; R5 was split into R5, stated in the script's docstring, and R6, pending in the plan; and the Context gained its sentence on the rule against machinery for failures no consumer has hit. R1 gained a clause in place too, before the yes, at the decider's request in chat on 2026-10-13: the list of the most complex functions; and R2 its run in the job `gates`, at the decider's request in chat the same day.
 
 ## Carry list
 
-1. R1 — [`scripts/metrics.py`](../../scripts/metrics.py), its docstring; [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI".
-2. R2 — [the workflow](../../.github/workflows/gates.yml), the job `gates` and its header; [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI".
+1. R1 — [`scripts/metrics.py`](../../scripts/metrics.py), its docstring; [CLAUDE.md](../guide/gate-list-and-ci.md), the bullet "The gate list and CI".
+2. R2 — [the workflow](../../.github/workflows/gates.yml), the job `gates` and its header; [CLAUDE.md](../guide/gate-list-and-ci.md), the bullet "The gate list and CI".
 3. R3 — [`scripts/metrics.py`](../../scripts/metrics.py), its docstring; [the gate list](../../scripts/gate-list.sh), the entries `lint` and `types`.
 4. R4 — [`scripts/metrics.py`](../../scripts/metrics.py), its docstring of `always_on_chars` and `EVENT`.
 5. R5 — [`scripts/metrics.py`](../../scripts/metrics.py), its docstring.

@@ -49,6 +49,6 @@ The commit before the one that creates this record applies R1 and R2, with the s
 
 ## Carry list
 
-1. R1 — [the gate list](../../scripts/gate-list.sh), the `fixtures-*` arm of `commands()` and its header; [CLAUDE.md](../../CLAUDE.md), "The gate list and CI".
+1. R1 — [the gate list](../../scripts/gate-list.sh), the `fixtures-*` arm of `commands()` and its header; [CLAUDE.md](../guide/gate-list-and-ci.md), "The gate list and CI".
 2. R2 — [`scripts/check-aspects.py`](../../scripts/check-aspects.py), `run_runner` and the paragraph of its docstring on the report.
 3. R3 — history only: it names the part of an earlier record's item that R1 replaces.

@@ -96,11 +96,11 @@ The change that creates this record applies R1 to R4, R7 and R8. It adds `LICENS
 
 ## Carry list
 
-1. R1 — step 4 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md); [the license](../../LICENSE).
-2. R2 — [the credit file](../../NOTICE), for the three parts it holds; step 4 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md), for the file's place and for no email address.
-3. R3 — step 4 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md); [the template's manifest](../../module-template/plugin/.claude-plugin/plugin.json).
+1. R1 — step 4 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s4); [the license](../../LICENSE).
+2. R2 — [the credit file](../../NOTICE), for the three parts it holds; step 4 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s4), for the file's place and for no email address.
+3. R3 — step 4 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s4); [the template's manifest](../../module-template/plugin/.claude-plugin/plugin.json).
 4. R4 — [the install guide](../../INSTALL.md#s2), step 5 of its bootstrap; [the guide's check](../../scripts/check-install-guide.py), its docstring at the name `kernel`.
 5. R5 — pending: [step 10 of the rollout plan](../rollout-plan.md#s10), the decision on the author's email.
 6. R6 — history only: the reversal of when the license is decided, a one-time act; the license itself is R1's.
-7. R7 — [the module template](../../module-template/MODULE.md), its section "Plugin skeleton"; [the install guide](../../INSTALL.md#s6), its last section, for a module's folder passed on alone.
-8. R8 — [the module template](../../module-template/MODULE.md), its section "Plugin skeleton".
+7. R7 — [the module template](../../module-template/slot-guidance.md#s1), its section "Plugin skeleton"; [the install guide](../../INSTALL.md#s6), its last section, for a module's folder passed on alone.
+8. R8 — [the module template](../../module-template/slot-guidance.md#s1), its section "Plugin skeleton".

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Kit review aid, never a gate: list each message function whose text no fixture types by hand.
 
-Rule 14 of the template's §6 asks that every message a gate can print stand, in the fixtures that
+Rule 14 of the gate-script rules asks that every message a gate can print stand, in the fixtures that
 run it, at least once as a line typed by hand: an expectation built by the message's own function
 cannot catch a defect in that function's text. This script lists the candidates for the review to
 judge; it decides nothing, and exits 0 whatever it finds.
@@ -25,7 +25,7 @@ hold the text as input), text built at run time, and a branch of a function whos
 typed. So a function it lists may be covered, and one it passes may not be.
 
 A package with no messages.py is listed too, for the review to judge against rule 2 of the
-template's §6, one messages module per package.
+gate-script rules, one messages module per package.
 
 Modes:  no arguments   list for the kit;
         --module <m>   list for one module, the shared messages left out.
@@ -239,7 +239,8 @@ def main(argv: list[str]) -> int:
             for package in own_packages(module / "plugin"):
                 if not (package / "messages.py").is_file():
                     print(
-                        f"{module.name}: {package.name} holds no messages.py — rule 2 of template §6 asks one"
+                        f"{module.name}: {package.name} holds no messages.py"
+                        " — rule 2 of the gate-script rules asks one"
                     )
                     listed += 1
                     continue

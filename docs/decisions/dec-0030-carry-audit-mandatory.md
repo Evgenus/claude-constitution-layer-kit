@@ -65,8 +65,8 @@ C, by Eugene Chernyshov in chat on 2026-09-20, with both proposed defaults accep
 
 ## Carry list
 
-1. R1 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md), rule 2; step 6 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md); the procedure in [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md).
-2. R2 — step 6 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md); steps 2 and 3 and prompt B of [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md); [the script](../../scripts/check-carry-lists.py).
+1. R1 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md), rule 2; step 6 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s6); the procedure in [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md).
+2. R2 — step 6 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s6); steps 2 and 3 and prompt B of [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md); [the script](../../scripts/check-carry-lists.py).
 3. R3 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md), rule 2.
 4. R4, R5, R6 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md), rule 2; [the script](../../scripts/check-carry-lists.py).
 5. R7, R8 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md), rule 5; step 8 of [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md); [the script](../../scripts/check-carry-lists.py).

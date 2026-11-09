@@ -49,7 +49,7 @@ The change that adds this record applies every item that binds: the script and t
 
 ## Carry list
 
-1. R1 — [the install check](../../scripts/check-bare-install.py); [the workflow](../../.github/workflows/gates.yml); [requirement A12.1](../requirements.md#a12-1); step 5 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md).
+1. R1 — [the install check](../../scripts/check-bare-install.py); [the workflow](../../.github/workflows/gates.yml); [requirement A12.1](../requirements.md#a12-1); step 5 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s5).
 2. R2 — [the install check](../../scripts/check-bare-install.py); [requirement A12.1](../requirements.md#a12-1).
 3. R3 — limit 3 of [kit-shared-gate-code §4](../../shared/GATE.md#g4); the narrowing of dec-0059's R1 and R4 is history.
 4. R4 — pending: [rollout step 10](../rollout-plan.md#s10).

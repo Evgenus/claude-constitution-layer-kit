@@ -50,5 +50,5 @@ The creating commit rewrites the opening sentence of the session-conduct block o
 
 1. R1 — the opening sentence of the "Session conduct" block of [CLAUDE.md](../../CLAUDE.md), which states how the kit's sessions load its plugins and under what condition; [.claude/settings.json](../../.claude/settings.json) and [.claude-plugin/marketplace.json](../../.claude-plugin/marketplace.json), the files themselves.
 2. R2 — history only: the reversal of a part of an accepted ruling, ordered by the kernel's precedence clock.
-3. R3 — step 6 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md), which names the runners and the flag they pass.
+3. R3 — step 6 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s6), which names the runners and the flag they pass.
 4. R4 — the opening paragraph of the "Session conduct" block of [CLAUDE.md](../../CLAUDE.md), whose second sentence names the escape and its file; [.gitignore](../../.gitignore), which ignores that file.

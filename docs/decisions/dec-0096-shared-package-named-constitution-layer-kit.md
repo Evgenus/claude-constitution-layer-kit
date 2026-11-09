@@ -68,7 +68,7 @@ The commit before this record's own made the rename: the folder, the 22 links, t
 
 ## Carry list
 
-1. R1 — [kit-shared-gate-code](../../shared/GATE.md), its opening paragraph; [its section 1](../../shared/GATE.md#g1), the deferred line under the table; [its section 2](../../shared/GATE.md#g2), items 6 and 7; [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module".
+1. R1 — [kit-shared-gate-code](../../shared/GATE.md), its opening paragraph; [its section 1](../../shared/GATE.md#g1), the deferred line under the table; [its section 2](../../shared/GATE.md#g2), items 6 and 7; [CLAUDE.md](../guide/developing-a-module.md#s4), step 4 of "Developing a module".
 2. R2 — history only: the path of items 1 and 2 of the Ruling of dec-0025-shared-gate-code-linked renamed, the rest of that ruling unchanged.
 3. R3 — [rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14); [rule 7 of plc-0005-research](../policies/plc-0005-research.md#r7).
 4. R4 — [rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14).

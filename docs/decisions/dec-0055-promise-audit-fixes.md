@@ -70,7 +70,7 @@ F11 needs no edit: module [`const-catalogs`](../requirements.md#const-catalogs) 
 4. R4 — [module `const-referencing`](../../modules/const-referencing/MODULE.md#t3), its reading of the row.
 5. R5 — [the rules text](../../modules/const-interaction/plugin/scripts/rules.txt), rule e; [module `const-interaction`](../../modules/const-interaction/MODULE.md#t6), the size it states.
 6. R6 — [the skill of module `const-styling`](../../modules/const-styling/plugin/skills/style-defaults/SKILL.md); [its install note](../../modules/const-styling/plugin/INSTALL.md).
-7. R7 — the bullet "Work starts on a branch" of [CLAUDE.md](../../CLAUDE.md), whose gate list holds "the scans of the modules"; the gate-list agent of `.claude/agents/` runs it as item 9.
+7. R7 — the bullet "Work starts on a branch" of [CLAUDE.md](../guide/gate-list-and-ci.md), whose gate list holds "the scans of the modules"; the gate-list agent of `.claude/agents/` runs it as item 9.
 8. R8 — pending: [step 10 of the rollout plan](../rollout-plan.md#s10), the CI wiring.
 9. R9 — [requirement A9.4](../requirements.md#a9-4), its text.
 10. R10 — [module `const-interaction`](../../modules/const-interaction/MODULE.md#t6), its research line; [module `const-task-close`](../../modules/const-task-close/MODULE.md#t3), its reading of [requirement A4.2](../requirements.md#a4-2).

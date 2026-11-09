@@ -134,4 +134,4 @@ The commits of this branch apply every item. The code of R1 and R4 to R9 was app
 6. R6 — [`const-language`](../../modules/const-language/MODULE.md#t7), the configuration of the envelope's blanking; [its acceptance section](../../modules/const-language/MODULE.md#t10), item T7.
 7. R7 — [`const-referencing`](../../modules/const-referencing/MODULE.md#t3), the row of [requirement A5.1](../requirements.md#a5-1) in section 3.
 8. R8 — [`const-locations`](../../modules/const-locations/MODULE.md#t5), rule L-d; [its acceptance section](../../modules/const-locations/MODULE.md#t10), item T5; [kit-shared-gate-code](../../shared/GATE.md#g2), item 9 of section 2.
-9. R9 — [kit-shared-gate-code](../../shared/GATE.md#g5), the row S164 of section 5 and the paragraph after the table.
+9. R9 — [kit-shared-items](../../shared/ITEMS.md#g5), the row S164 of section 5 and the paragraph after the table.

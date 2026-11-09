@@ -63,10 +63,10 @@ The change that adds this record applies every item, in the commit before the re
 
 ## Carry list
 
-1. R1 — [the workflow](../../.github/workflows/gates.yml); [the list script](../../scripts/gate-list.sh); the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md); [requirement A12.1](../requirements.md#a12-1). The reversal of dec-0058's R1 and the narrowing of dec-0059's R3 and of dec-0060's R1 are history.
+1. R1 — [the workflow](../../.github/workflows/gates.yml); [the list script](../../scripts/gate-list.sh); the rule "Work starts on a branch" in [CLAUDE.md](../guide/gate-list-and-ci.md); [requirement A12.1](../requirements.md#a12-1). The reversal of dec-0058's R1 and the narrowing of dec-0059's R3 and of dec-0060's R1 are history.
 2. R2 — [the list script](../../scripts/gate-list.sh), its header; [the gate-list check](../../scripts/check-gate-lists.py), its docstring and its fix line. The narrowing of dec-0058's R2 is history.
 3. R3 — [the list script](../../scripts/gate-list.sh), its header and its `--run`.
-4. R4 — [the list script](../../scripts/gate-list.sh), its header and its commands; the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md), the extra group's sentence.
+4. R4 — [the list script](../../scripts/gate-list.sh), its header and its commands; the rule "Work starts on a branch" in [CLAUDE.md](../guide/gate-list-and-ci.md), the extra group's sentence.
 5. R5 — [the workflow](../../.github/workflows/gates.yml), its install steps and their comment.
 6. R6 — [the workflow](../../.github/workflows/gates.yml), its header.
 7. R7 — [the workflow](../../.github/workflows/gates.yml); the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md), the ruleset's sentence.

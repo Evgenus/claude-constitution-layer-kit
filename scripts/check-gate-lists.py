@@ -1302,7 +1302,7 @@ def types_path(root: Path) -> list[Finding]:
 
 def scan_path(module: str, entry: str) -> str:
     """The path the guide's scan block lists for a declared scan: `<module>/plugin/scripts/<stem>.sh`, the
-    POSIX entry point every scan has (template §6, gate-script rule 6), which the guide's loop runs with
+    POSIX entry point every scan has (rule 6 of the gate-script rules), which the guide's loop runs with
     `sh`; the stem is the declared name without `.py`, so `check-x` and `check-x.py` both stand for
     `check-x.sh`."""
     return f"{module}/plugin/scripts/{entry.removesuffix('.py')}.sh"

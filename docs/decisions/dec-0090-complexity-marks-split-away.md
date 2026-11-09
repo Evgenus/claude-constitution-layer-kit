@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-R1 of [dec-0088-ruff-complexity-limit](dec-0088-ruff-complexity-limit.md#r1) holds ruff's C901 at a complexity of 15. R2 of [dec-0088-ruff-complexity-limit](dec-0088-ruff-complexity-limit.md#r2), called the marking ruling from here on, ruled that each function above 15 when the rule came in carries a `# noqa: C901` mark: 22 functions, 3 of module code, 2 of the shared tests and 17 of the kit's scripts. The carry list of dec-0088 homes the marking ruling in step 4 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md), and in the marks themselves.
+R1 of [dec-0088-ruff-complexity-limit](dec-0088-ruff-complexity-limit.md#r1) holds ruff's C901 at a complexity of 15. R2 of [dec-0088-ruff-complexity-limit](dec-0088-ruff-complexity-limit.md#r2), called the marking ruling from here on, ruled that each function above 15 when the rule came in carries a `# noqa: C901` mark: 22 functions, 3 of module code, 2 of the shared tests and 17 of the kit's scripts. The carry list of dec-0088 homes the marking ruling in step 4 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s4), and in the marks themselves.
 
 On 2026-10-13 the change `work/simplify-complexity` split the functions of the modules' gate code above a complexity of 10. Two of them carried a mark, `examine` of const-styling and `act` of const-locations; both fell far below 15, and their marks went with the split. That change read the marking ruling as a fact of the day the rule came in, and it did not say so.
 
@@ -44,10 +44,10 @@ The decider chose A in chat on 2026-10-14.
 
 ## Applied
 
-The commits before the one that creates this record split the 20 functions and removed their marks. The commit that creates this record states R2 and R3 in [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module". The rounds of its carry audit corrected R1 and R3 and that step in place before the yes, as their commits name. The record is born `inactive`.
+The commits before the one that creates this record split the 20 functions and removed their marks. The commit that creates this record states R2 and R3 in [CLAUDE.md](../guide/developing-a-module.md#s4), step 4 of "Developing a module". The rounds of its carry audit corrected R1 and R3 and that step in place before the yes, as their commits name. The record is born `inactive`.
 
 ## Carry list
 
 1. R1 — history only: the reversal of R2 of dec-0088-ruff-complexity-limit, and the splits that removed the marks.
-2. R2 — [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module".
-3. R3 — [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module".
+2. R2 — [CLAUDE.md](../guide/developing-a-module.md#s4), step 4 of "Developing a module".
+3. R3 — [CLAUDE.md](../guide/developing-a-module.md#s4), step 4 of "Developing a module".

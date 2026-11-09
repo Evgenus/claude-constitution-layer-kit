@@ -76,8 +76,8 @@ The hook, its entry files, its fixtures and the two skills changed in the commit
 3. R3 — [the skill new-document](../../modules/const-locations/plugin/skills/new-document/SKILL.md), step 3; [the skill new-kind](../../modules/const-locations/plugin/skills/new-kind/SKILL.md), step 2; [the module document's §6](../../modules/const-locations/MODULE.md#t6), the skill rows.
 4. R4 — [the module's install note](../../modules/const-locations/plugin/INSTALL.md), step 3.
 5. R5 — [law 5 of CLAUDE.md](../../CLAUDE.md#law-5); [the template's §9](../../module-template/MODULE.md#t9) and [its §6](../../module-template/MODULE.md#t6), the hook row.
-6. R6 — [the template's §6](../../module-template/MODULE.md#t6), the hook row.
-7. R7 — [law 7 of CLAUDE.md](../../CLAUDE.md#law-7); [the template's §10](../../module-template/MODULE.md#t10).
-8. R8 — [the template's §6](../../module-template/MODULE.md#t6), gate-script rules 3, 6 and 12, and [its §10](../../module-template/MODULE.md#t10), the examined count; [kit-shared-gate-code §2](../../shared/GATE.md#g2), item 6.
+6. R6 — [the template's §6](../../module-template/slot-guidance.md#s9), the hook row.
+7. R7 — [law 7 of CLAUDE.md](../../CLAUDE.md#law-7); [the template's §10](../../module-template/slot-guidance.md#s2).
+8. R8 — [the template's §6](../../module-template/gate-script-rules.md#r3), gate-script rules 3, 6 and 12, and [its §10](../../module-template/MODULE.md#t10), the examined count; [kit-shared-gate-code §2](../../shared/GATE.md#g2), item 6.
 9. R9 — history only: the experiments that found the cause and compared the options.
 10. R10 — history only: the narrowing of an earlier default, which binds nothing once R1 is carried.

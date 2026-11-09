@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-Gate-script rule 12 of [template §6](../../module-template/MODULE.md#t6) says what the output log holds and where it goes ([dec-0020-gate-script-rules](dec-0020-gate-script-rules.md)); it did not say how. The first implementation, in [`const-meta-types`](../requirements.md#const-meta-types), was a hand-written class that printed a line and appended a line, with its own rotation and, after a validation finding, its own buffering. The decider asked on 2026-09-18 why the standard library's `logging` had not been used. There was no reason: the session had not weighed it.
+Gate-script rule 12 of [template §6](../../module-template/gate-script-rules.md#r12) says what the output log holds and where it goes ([dec-0020-gate-script-rules](dec-0020-gate-script-rules.md)); it did not say how. The first implementation, in [`const-meta-types`](../requirements.md#const-meta-types), was a hand-written class that printed a line and appended a line, with its own rotation and, after a validation finding, its own buffering. The decider asked on 2026-09-18 why the standard library's `logging` had not been used. There was no reason: the session had not weighed it.
 
 ## Options
 
@@ -26,4 +26,4 @@ Recommendation B. Chosen B by the decider in chat on 2026-09-18 ("both": the swa
 
 ## Ruling
 
-Rule 12 names the mechanism and its three cautions. Applied in the commit that creates this record: [template §6](../../module-template/MODULE.md#t6) rule 12, and the `output` module of `const-meta-types`.
+Rule 12 names the mechanism and its three cautions. Applied in the commit that creates this record: [template §6](../../module-template/gate-script-rules.md#r12) rule 12, and the `output` module of `const-meta-types`.

@@ -102,13 +102,13 @@ A, by the decider in chat on 2026-10-13, over the session's recommendation; the 
 
 ## Applied
 
-The commits before the one that creates this record built the report as a weekly workflow of its own, the answer to the second question as first recommended. The commit that rewrites this record moves it into the workflow `gates`, as the decider chose. It adds the coverage mode, removes the workflow `coverage.yml`, and states R3, R4 and R6 in [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI". It states R2 in step 9 of the [rollout plan](../rollout-plan.md#s9). It also states R4's change to R5 of [dec-0087-module-metrics-report](dec-0087-module-metrics-report.md#r5) in the docstring of `scripts/metrics.py`, where that ruling is carried.
+The commits before the one that creates this record built the report as a weekly workflow of its own, the answer to the second question as first recommended. The commit that rewrites this record moves it into the workflow `gates`, as the decider chose. It adds the coverage mode, removes the workflow `coverage.yml`, and states R3, R4 and R6 in [CLAUDE.md](../guide/gate-list-and-ci.md), the bullet "The gate list and CI". It states R2 in step 9 of the [rollout plan](../rollout-plan.md#s9). It also states R4's change to R5 of [dec-0087-module-metrics-report](dec-0087-module-metrics-report.md#r5) in the docstring of `scripts/metrics.py`, where that ruling is carried.
 
 ## Carry list
 
 1. R1 — [`scripts/kit_coverage.py`](../../scripts/kit_coverage.py), its docstring; [`scripts/module-coverage.py`](../../scripts/module-coverage.py), its docstring.
 2. R2 — pending: [the rollout plan](../rollout-plan.md#s9), step 9, the mutation score of each module.
-3. R3 — [`scripts/kit_coverage.py`](../../scripts/kit_coverage.py), its docstring; [`scripts/check-aspects.py`](../../scripts/check-aspects.py), its docstring; [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI".
-4. R4 — [the workflow](../../.github/workflows/gates.yml), its header and the steps of the module jobs and of the job `gates`; [`scripts/metrics.py`](../../scripts/metrics.py), its docstring; [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI".
+3. R3 — [`scripts/kit_coverage.py`](../../scripts/kit_coverage.py), its docstring; [`scripts/check-aspects.py`](../../scripts/check-aspects.py), its docstring; [CLAUDE.md](../guide/gate-list-and-ci.md), the bullet "The gate list and CI".
+4. R4 — [the workflow](../../.github/workflows/gates.yml), its header and the steps of the module jobs and of the job `gates`; [`scripts/metrics.py`](../../scripts/metrics.py), its docstring; [CLAUDE.md](../guide/gate-list-and-ci.md), the bullet "The gate list and CI".
 5. R5 — [`scripts/module-coverage.py`](../../scripts/module-coverage.py), its docstring.
-6. R6 — [`scripts/check-aspects.py`](../../scripts/check-aspects.py), its docstring of `--self-test`; [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI".
+6. R6 — [`scripts/check-aspects.py`](../../scripts/check-aspects.py), its docstring of `--self-test`; [CLAUDE.md](../guide/gate-list-and-ci.md), the bullet "The gate list and CI".

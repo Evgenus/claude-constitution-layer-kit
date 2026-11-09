@@ -34,8 +34,8 @@ The gate, a plain run, reads the documents and runs nothing. It is red on:
     `@item(<n>, …)` markers of `shared/constitution_layer_kit/testing/items.py`
     standing unique and rising from 101 (an item's number is never reissued, rule 4 of
     plc-0009-shared-code), and every `S<n>` handle and
-    range `S<n>–S<m>` (a hyphen too) in section 5 of `shared/GATE.md`, its table and its prose, anchor
-    `g5` to the next `g<n>` anchor or the end of the file, that names a number the shared tests do not
+    range `S<n>–S<m>` (a hyphen too) in `shared/ITEMS.md`, its table and its prose, anchor
+    `g5` to the end of the page, that names a number the shared tests do not
     hold, a range whose end is not above its start included. Every run holds them, `--run --module`
     too, and the counts line says how many shared items were read.
 
@@ -52,7 +52,7 @@ check could not run (BROKEN, exit 1), with the fix, on
   - `shared/constitution_layer_kit/testing/items.py`, read by `ast` and never by
     import, when it cannot be parsed, holds no top-level test marked `@item(<n>, …)`, or has such a
     marker that opens with no int literal (a string, a float, a boolean, a negative number, a keyword);
-    and `shared/GATE.md` without its anchor `g5` alone on a line, or with it twice;
+    and `shared/ITEMS.md` without its anchor `g5` alone on a line, or with it twice;
   - a module folder with no MODULE.md, or no modules/ at all (the folders are those of
     `kit_module_doc.module_folders`, the kit's one listing: sorted by name, a folder whose name opens
     with a dot or an underscore and a plain file no module, a name without `const-` one), and a module
@@ -271,16 +271,14 @@ WHY_CLASSES = (
     " plc-0007-requirements), and a destination outside it takes its row out of every check that reads it"
 )
 
-# The shared acceptance items (shared/GATE.md section 5): the pinned numbers of their tests' markers,
-# read by `ast`, and the handles of the section's table, from its anchor to the next `g<n>` anchor or the
-# file's end.
+# The shared acceptance items (shared/ITEMS.md): the pinned numbers of their tests' markers,
+# read by `ast`, and the handles of the page's table, from its anchor to the page's end.
 # the shared items as pytest tests, `@item(<n>, …)` each
 SHARED_TESTS = "shared/constitution_layer_kit/testing/items.py"
 SHARED_MARKER = "item"
-SHARED_GATE = "shared/GATE.md"
+SHARED_GATE = "shared/ITEMS.md"
 SHARED_FIRST = 101
 SHARED_ANCHOR = '<a id="g5"></a>'
-GATE_ANCHOR = re.compile(r'^<a id="g\d+"></a>$')
 # `S<n>` or a range `S<n>–S<m>` (an en dash, or a hyphen), not part of a longer word or a dotted name
 SHARED_HANDLE = re.compile(r"(?<![A-Za-z0-9_.])S(\d+)(?:[–-]S?(\d+))?(?![A-Za-z0-9_])")
 SHARED_SHOWN = 5  # the numbers a finding names before it counts the rest
@@ -290,7 +288,7 @@ WHY_SHARED_NUMBERS = (
     " number keep naming the same item"
 )
 WHY_SHARED_TABLE = (
-    "the table of shared/GATE.md section 5 is where the kit says what each shared item proves, so every"
+    "the table of shared/ITEMS.md is where the kit says what each shared item proves, so every"
     " number it names must be an item the shared tests hold"
 )
 
@@ -503,9 +501,8 @@ def shared_numbers(root: Path) -> list[tuple[int, int]]:
 
 
 def gate_section(root: Path) -> list[tuple[int, str]]:
-    """The lines (1-based number in the file, text) of GATE.md's section 5: after the line that is
-    its anchor alone to the next anchor `g<n>` alone on a line, or to the end of the file. BROKEN
-    when the anchor stands nowhere or twice."""
+    """The lines (1-based number in the file, text) of the page of shared items: after the line that is
+    its anchor alone on a line to the end of the page. BROKEN when the anchor stands nowhere or twice."""
     lines = read(root, SHARED_GATE).splitlines()
     at = [number for number, line in enumerate(lines, start=1) if line.strip() == SHARED_ANCHOR]
     if len(at) != 1:
@@ -514,23 +511,15 @@ def gate_section(root: Path) -> list[tuple[int, str]]:
             f" {'nowhere on a line of its own' if not at else 'twice'}"
             " — why: the check reads the table of the shared items from that anchor to the next one, and"
             f" a section it cannot find is a table it cannot hold — fix: keep {SHARED_ANCHOR} alone on the"
-            " line above the heading of section 5"
+            " line above the lead of the table"
         )
-    end = next(
-        (
-            number
-            for number in range(at[0] + 1, len(lines) + 1)
-            if GATE_ANCHOR.match(lines[number - 1].strip())
-        ),
-        len(lines) + 1,
-    )
-    return [(number, lines[number - 1]) for number in range(at[0] + 1, end)]
+    return [(number, lines[number - 1]) for number in range(at[0] + 1, len(lines) + 1)]
 
 
 def check_shared(root: Path) -> tuple[list[Finding], int]:
     """The findings of the shared acceptance items and how many items were read. Both files are read
     first, so a file that cannot be read is BROKEN whatever else is red. RED: a number that does not
-    rise above the one before it, the first number if not 101, and in section 5 of GATE.md, its table
+    rise above the one before it, the first number if not 101, and in shared/ITEMS.md, its table
     and its prose, every handle or range that names a number the shared tests do not hold, and every
     range whose end is not above its start."""
     entries = shared_numbers(root)
@@ -1543,7 +1532,7 @@ WHY_NUMBERS_TYPED = (
     " keep naming the same item"
 )
 WHY_TABLE_TYPED = (
-    "the table of shared/GATE.md section 5 is where the kit says what each shared item proves, so every"
+    "the table of shared/ITEMS.md is where the kit says what each shared item proves, so every"
     " number it names must be an item the shared tests hold"
 )
 FIX_FOLLOWS_TYPED = (
@@ -1577,7 +1566,7 @@ N64 = entries(*range(101, 165))
 
 
 def shared_green(tally: Tally) -> None:
-    """The cases where the numbers and the table of GATE.md section 5 read green."""
+    """The cases where the numbers and the table of ITEMS.md read green."""
     n64 = N64
     green: dict[str, tuple[list[str], str, int]] = {  # case: the entries, the GATE.md text, items read
         "101 to 164 in the file's order": (n64, gate_text(["S101–S164"]), 64),
@@ -1597,22 +1586,7 @@ def shared_green(tally: Tally) -> None:
             2,
         ),
         "a handle in another section, before the anchor": (entries(101), gate_text(["S101"]), 1),
-        "a handle after the next anchor": (
-            entries(101),
-            gate_text(["S101"], '<a id="g6"></a>\n## 6. Later\n\nS170 and S101–S190.\n'),
-            1,
-        ),
         "a handle on the last line, held": (entries(101, 102), gate_text(["S101"], "S102"), 2),
-        "the next anchor indented by spaces, a handle after it not read": (
-            entries(101),
-            gate_text(["S101"], '   <a id="g6"></a>\nS170\n'),
-            1,
-        ),
-        "the next anchor after a tab and before spaces, a handle after it not read": (
-            entries(101),
-            gate_text(["S101"], '\t<a id="g6"></a>  \nS170\n'),
-            1,
-        ),
     }
     for name, (tests, doc, items_read) in green.items():
         with tempfile.TemporaryDirectory() as tmp:
@@ -1753,9 +1727,14 @@ def shared_red_data() -> dict[str, tuple[list[str], str, list[tuple[str, str]]]]
             gate_text(["S101–S164"], "S170"),
             [("the handle S170 names an item the shared tests do not hold", "S170")],
         ),
-        "a handle in the section's last line before the next anchor": (
+        "a handle after another anchor, read to the end of the page": (
             n64,
-            gate_text(["S101–S164"], "S170\n" + '<a id="g6"></a>\nS101\n'),
+            gate_text(["S101–S164"], '<a id="g6"></a>\n## 6. Later\n\nS170 and S101.\n'),
+            [("the handle S170 names an item the shared tests do not hold", "S170")],
+        ),
+        "a handle after an indented anchor, read to the end of the page": (
+            n64,
+            gate_text(["S101–S164"], '   <a id="g6"></a>\nS170\n'),
             [("the handle S170 names an item the shared tests do not hold", "S170")],
         ),
         "the anchor g5 indented by spaces and followed by spaces, its handles read": (
@@ -2023,7 +2002,7 @@ def shared_literal_data() -> dict[str, tuple[str, str, list[str]]]:
             shared_source(n64),
             gate_text(["S101–S165"]),
             [
-                "RED: shared/GATE.md:14: the range S101–S165 names S165, which the shared tests do not hold",
+                "RED: shared/ITEMS.md:14: the range S101–S165 names S165, which the shared tests do not hold",
                 f"  why: {WHY_TABLE_TYPED}",
                 "  fix: change the range to numbers shared/constitution_layer_kit/testing/items.py"
                 " holds, or give the item that number in its marker",
@@ -2035,7 +2014,7 @@ def shared_literal_data() -> dict[str, tuple[str, str, list[str]]]:
             shared_source(n64),
             gate_text(["S101–S164", "S170"]),
             [
-                "RED: shared/GATE.md:15: the handle S170 names an item the shared tests do not hold",
+                "RED: shared/ITEMS.md:15: the handle S170 names an item the shared tests do not hold",
                 f"  why: {WHY_TABLE_TYPED}",
                 "  fix: change the handle to numbers shared/constitution_layer_kit/testing/items.py"
                 " holds, or give the item that number in its marker",
@@ -2047,7 +2026,7 @@ def shared_literal_data() -> dict[str, tuple[str, str, list[str]]]:
             shared_source(n64),
             gate_text(["S110–S101"]),
             [
-                "RED: shared/GATE.md:14: the range S110–S101 ends at or below its start",
+                "RED: shared/ITEMS.md:14: the range S110–S101 ends at or below its start",
                 f"  why: {WHY_TABLE_TYPED}",
                 "  fix: write one handle for one item, or a range with its lower number first, `S<n>–S<m>`",
                 "RED: 1 finding(s) — 3 row(s) of the matrix, 1 module document(s), 5 acceptance item(s)"
@@ -2099,7 +2078,7 @@ def shared_counts(tally: Tally) -> None:
 def self_test_shared() -> tuple[int, int]:
     """The shared acceptance items, over their whole set of cases, each on a throwaway tree: the numbers
     of the markers green and red (a swap, a duplicate, a start above 101, the numbers reversed, two swaps
-    apart, the last two of 64), the table of GATE.md section 5 green and red (a range, a handle, a hyphen
+    apart, the last two of 64), the table of ITEMS.md green and red (a range, a handle, a hyphen
     range, a range that ends at its start, more missing numbers than are named, a section read to the
     end of the file, another section not read), a file or a form it cannot read as a BROKEN line in the
     plain run and in the run of one module, and the report as literal lines. Returns (failed, total)."""
