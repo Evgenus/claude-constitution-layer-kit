@@ -68,7 +68,7 @@ D, chosen by the decider in chat on 2026-10-14, over the recommendation, with th
 
 <a id="r7"></a>**R7.** The shared test files a module links in its `tests/` are `harness.py`, `consumer.py`, `acceptance.py` and `test_shared_items.py`; this replaces the list of item 2 of [dec-0025-shared-gate-code-linked](dec-0025-shared-gate-code-linked.md), whose principle stands.
 
-<a id="r8"></a>**R8.** The checks a test calls assert: `check_case`, `expect` and `broken_first_line` in `acceptance.py`. Every message typed by hand once in a module's fixtures stays typed by hand once in its tests (rule 14 of [template §6](../../module-template/MODULE.md#t6)).
+<a id="r8"></a>**R8.** The checks a test calls assert: `check_case`, `expect` and `broken_first_line` in `acceptance.py`. Every message typed by hand once in a module's fixtures stays typed by hand once in its tests (rule 14 of [template §6](../../module-template/gate-script-rules.md#r14)).
 
 <a id="r9"></a>**R9.** The kit's gate list and CI run a module's tests only through `scripts/check-aspects.py --run --module`, as R1 of [dec-0080-fixtures-run-through-check-aspects](dec-0080-fixtures-run-through-check-aspects.md#r1) rules for each module's fixtures entry, which runs them whole and so selects none. `scripts/check-gate-lists.py` holds what their lines can show: no code line names pytest save in an exact pin `pytest==<version>`, passes `--item` or names `PYTEST_ADDOPTS`, and no pytest configuration file at the kit root, in `modules/`, in a module's folder or in its `tests/` sets `addopts`.
 
@@ -86,14 +86,14 @@ Applied on the branch `work/pytest-fixtures`, the eleven modules one commit each
 
 ## Carry list
 
-1. R1 — item 8 of [kit-shared-gate-code §2](../../shared/GATE.md#g2), and [its §5](../../shared/ITEMS.md#g5); rule 14 of [template §6](../../module-template/MODULE.md#t6). That the numbers and titles are those the items held before is history.
+1. R1 — item 8 of [kit-shared-gate-code §2](../../shared/GATE.md#g2), and [its §5](../../shared/ITEMS.md#g5); rule 14 of [template §6](../../module-template/gate-script-rules.md#r14). That the numbers and titles are those the items held before is history.
 2. R2 — item 8 of [kit-shared-gate-code §2](../../shared/GATE.md#g2); [the shared wiring](../../shared/constitution_layer_kit/testing/acceptance.py), its docstring.
 3. R3 — [the shared wiring](../../shared/constitution_layer_kit/testing/acceptance.py), `collected`; rows H5 and H6 of [kit-shared-gate-code §3](../../shared/MESSAGES.md#g3). The replacement of R2 of dec-0078's closing line and exit 1 is history.
 4. R4 — [`scripts/check-aspects.py`](../../scripts/check-aspects.py), its docstring and `run_runner`; [CLAUDE.md](../guide/gate-list-and-ci.md), "The gate list and CI". That R1 and R2 of dec-0080 stand, and the replacement of parts of R6 of dec-0054, are history; the handles of an item that R6 keeps stand in that docstring.
 5. R5 — [the shared items](../../shared/constitution_layer_kit/testing/items.py), their docstring.
 6. R6 — [`scripts/check-aspects.py`](../../scripts/check-aspects.py), `shared_numbers` and its docstring; [the shared wiring](../../shared/constitution_layer_kit/testing/acceptance.py), `collected`. The replacement of the file and the check R7 of dec-0069 names is history.
 7. R7 — item 7 of [kit-shared-gate-code §2](../../shared/GATE.md#g2); [`scripts/check-shared-links.py`](../../scripts/check-shared-links.py), `FLOOR`. The replacement of the list of item 2 of dec-0025 is history.
-8. R8 — rule 14 of [template §6](../../module-template/MODULE.md#t6); [the shared wiring](../../shared/constitution_layer_kit/testing/acceptance.py), its docstring.
+8. R8 — rule 14 of [template §6](../../module-template/gate-script-rules.md#r14); [the shared wiring](../../shared/constitution_layer_kit/testing/acceptance.py), its docstring.
 9. R9 — [`scripts/check-gate-lists.py`](../../scripts/check-gate-lists.py), its docstring.
 10. R10 — [`scripts/kit_coverage.py`](../../scripts/kit_coverage.py), its docstring; [`scripts/check-aspects.py`](../../scripts/check-aspects.py), its docstring; [the workflow](../../.github/workflows/gates.yml), the module jobs' environment.
 11. R11 — [the workflow](../../.github/workflows/gates.yml), the tools line; [the install guide](../../INSTALL.md), the prerequisites, step 4 of [its §3](../../INSTALL.md#s3) and step 8 of [its §2](../../INSTALL.md#s2); each module's `INSTALL.md`, the verify step.

@@ -102,5 +102,5 @@ The change that creates this record applies R1 to R4, R7 and R8. It adds `LICENS
 4. R4 — [the install guide](../../INSTALL.md#s2), step 5 of its bootstrap; [the guide's check](../../scripts/check-install-guide.py), its docstring at the name `kernel`.
 5. R5 — pending: [step 10 of the rollout plan](../rollout-plan.md#s10), the decision on the author's email.
 6. R6 — history only: the reversal of when the license is decided, a one-time act; the license itself is R1's.
-7. R7 — [the module template](../../module-template/MODULE.md), its section "Plugin skeleton"; [the install guide](../../INSTALL.md#s6), its last section, for a module's folder passed on alone.
-8. R8 — [the module template](../../module-template/MODULE.md), its section "Plugin skeleton".
+7. R7 — [the module template](../../module-template/slot-guidance.md#s1), its section "Plugin skeleton"; [the install guide](../../INSTALL.md#s6), its last section, for a module's folder passed on alone.
+8. R8 — [the module template](../../module-template/slot-guidance.md#s1), its section "Plugin skeleton".

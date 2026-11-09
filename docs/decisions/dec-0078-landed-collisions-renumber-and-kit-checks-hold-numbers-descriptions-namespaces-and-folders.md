@@ -132,7 +132,7 @@ The commits of this branch apply every item. The commits before the one that add
 ## Carry list
 
 1. R1 — history only: how this change was recorded and landed.
-2. R2 — [kit-shared-items](../../shared/ITEMS.md#g5), the sentence of section 5 on the shared items' numbers, and [item 8 of its section 2](../../shared/GATE.md#g2); [the shared harness](../../shared/constitution_layer_kit/testing/harness.py), the docstring of `run_all`; [its section 3](../../shared/MESSAGES.md#g3), the rows of the runner's lines; [the module template](../../module-template/MODULE.md#t6), rule 14.
+2. R2 — [kit-shared-items](../../shared/ITEMS.md#g5), the sentence of section 5 on the shared items' numbers, and [item 8 of its section 2](../../shared/GATE.md#g2); [the shared harness](../../shared/constitution_layer_kit/testing/harness.py), the docstring of `run_all`; [its section 3](../../shared/MESSAGES.md#g3), the rows of the runner's lines; [the module template](../../module-template/gate-script-rules.md#r14), rule 14.
 3. R3 — [CLAUDE.md](../guide/gate-list-and-ci.md), the bullet "The gate list and CI"; [check-gate-lists](../../scripts/check-gate-lists.py), its docstring.
 4. R4 — [CLAUDE.md](../guide/gate-list-and-ci.md), the bullet "The gate list and CI"; [check-gate-lists](../../scripts/check-gate-lists.py), its docstring.
 5. R5 — [CLAUDE.md](../guide/gate-list-and-ci.md), the bullet "The gate list and CI"; [check-gate-lists](../../scripts/check-gate-lists.py), its docstring; [pyproject.toml](../../pyproject.toml), its comment on the type check.

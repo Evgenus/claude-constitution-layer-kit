@@ -84,7 +84,7 @@ The change adds the two scripts, the lines of the gate list and of the routine i
 ## Carry list
 
 1. R1 — [requirement A12.1](../requirements.md#a12-1), its enforcement cell; [the script](../../scripts/check-portability.py), its docstring; step 5 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s5).
-2. R2 — [the script](../../scripts/check-gate-lists.py), its docstring; the bullet "Work starts on a branch" of [CLAUDE.md](../../CLAUDE.md); [template §9](../../module-template/MODULE.md#t9), the form of a declared scan.
+2. R2 — [the script](../../scripts/check-gate-lists.py), its docstring; the bullet "Work starts on a branch" of [CLAUDE.md](../../CLAUDE.md); [template §9](../../module-template/slot-guidance.md#s6), the form of a declared scan.
 3. R3 — both scripts; the routine list of [pyproject.toml](../../pyproject.toml); [CLAUDE.md](../../CLAUDE.md), the two places above.
 4. R4 — pending: [step 10 of the rollout plan](../rollout-plan.md#s10), the CI wiring.
 5. R5 — history only: the act of narrowing; the narrowed rule itself is R1's, carried in the row of [requirement A12.1](../requirements.md#a12-1).

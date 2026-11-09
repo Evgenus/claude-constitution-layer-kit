@@ -39,7 +39,7 @@ B, chosen by the decider in chat on 2026-09-18.
 2. [Template §6](../../module-template/MODULE.md#t6) gains a **research inputs** slot: every mechanism names the comparison it rests on, or a comparison is written first, in the same shape. It also gains the portability rule for installed components:
    - **a skill, hook, script, command, agent, error text, or install note** references nothing in the kit repository, because consumers install the module without the kit;
    - **reasoning** lives in the module document and its records.
-3. [Template §9](../../module-template/MODULE.md#t9) gains the exit-code contract:
+3. [Template §9](../../module-template/slot-guidance.md#s12) gains the exit-code contract:
    - **a check** distinguishes a finding (the repository is wrong) from a configuration failure (the checker is broken, a pinned tool is missing) by exit code and message;
    - **a missing tool** is loud, never a silent pass.
 4. [Template §10](../../module-template/MODULE.md#t10) gains the examined-count rule:

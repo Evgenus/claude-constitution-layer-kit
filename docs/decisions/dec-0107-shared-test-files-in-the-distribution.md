@@ -87,7 +87,7 @@ The record was born `active`: its rulings were applied in the commits of the bra
 ## Carry list
 
 1. R1 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the row of `testing`, the paragraph of the delivery and that of the deferred parts; [testing](../../shared/constitution_layer_kit/testing/__init__.py), its docstring; [the distribution](../../shared/pyproject.toml), `optional-dependencies`.
-2. R2 — [kit-shared-gate-code §2](../../shared/GATE.md#g2), item 7, and [§5](../../shared/ITEMS.md#g5), K1; [CLAUDE.md](../guide/developing-a-module.md#s4), step 4 of "Developing a module"; [rule 14 of template §6](../../module-template/MODULE.md#t6). What it replaces and narrows is history.
+2. R2 — [kit-shared-gate-code §2](../../shared/GATE.md#g2), item 7, and [§5](../../shared/ITEMS.md#g5), K1; [CLAUDE.md](../guide/developing-a-module.md#s4), step 4 of "Developing a module"; [rule 14 of template §6](../../module-template/gate-script-rules.md#r14). What it replaces and narrows is history.
 3. R3 — [kit-shared-gate-code §1](../../shared/GATE.md#g1), the row of `testing`, and [§2](../../shared/GATE.md#g2), item 8.
 4. R4 — [kit-shared-gate-code §2](../../shared/GATE.md#g2), item 8, and [§5](../../shared/ITEMS.md#g5), K2; [CLAUDE.md](../guide/gate-list-and-ci.md), the gate list and CI.
 5. R5 — [rule 11 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r11).

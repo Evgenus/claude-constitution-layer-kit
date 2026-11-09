@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-[dec-0020-gate-script-rules](dec-0020-gate-script-rules.md) fixed fifteen rules for the Python scripts a module ships, stated in [template §6](../../module-template/MODULE.md#t6). Reviewing the code after the shared gate code was extracted ([dec-0025-shared-gate-code-linked](dec-0025-shared-gate-code-linked.md)), the decider added one more, in chat on 2026-09-20: avoid runtime imports in functions and methods unless they are explicitly necessary. No real choice existed; this record states the ruling and the reasoning, with no manufactured options.
+[dec-0020-gate-script-rules](dec-0020-gate-script-rules.md) fixed fifteen rules for the Python scripts a module ships, stated in [template §6](../../module-template/gate-script-rules.md). Reviewing the code after the shared gate code was extracted ([dec-0025-shared-gate-code-linked](dec-0025-shared-gate-code-linked.md)), the decider added one more, in chat on 2026-09-20: avoid runtime imports in functions and methods unless they are explicitly necessary. No real choice existed; this record states the ruling and the reasoning, with no manufactured options.
 
 ## Ruling
 
@@ -27,4 +27,4 @@ Not covered by the tool, and left to review: `importlib.import_module` called on
 
 ## Applied
 
-In the commit that creates this record: rule 16 in [template §6](../../module-template/MODULE.md#t6); the count and the list in step 4 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s4); `PLC0415` in `pyproject.toml`; the two marked imports; the decisions sections of both module documents; item 2 of [kit-shared-gate-code §2](../../shared/GATE.md#g2). The record is born `inactive`.
+In the commit that creates this record: rule 16 in [template §6](../../module-template/gate-script-rules.md#r16); the count and the list in step 4 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s4); `PLC0415` in `pyproject.toml`; the two marked imports; the decisions sections of both module documents; item 2 of [kit-shared-gate-code §2](../../shared/GATE.md#g2). The record is born `inactive`.

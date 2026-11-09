@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-Rule 12 of [template §6](../../module-template/MODULE.md#t6) said that every line a gate prints is appended to the output log as one JSON line, and the shared `output` split each printed text on its newlines to do so. The decider observed on 2026-09-24 that the log therefore behaved like `print`: one message was scattered over several records, though the log is JSON Lines and its lines are related. Three texts are printed with several lines at once: a block verdict, which joins the notes, every finding and the count into one stderr text; a finding printed by a scan, its headline and fix on separate lines; and the traceback that follows an unexpected failure, one record per frame line. JSON escapes a newline inside a string, so the split bought nothing a reader of JSON Lines needs.
+Rule 12 of [template §6](../../module-template/gate-script-rules.md#r12) said that every line a gate prints is appended to the output log as one JSON line, and the shared `output` split each printed text on its newlines to do so. The decider observed on 2026-09-24 that the log therefore behaved like `print`: one message was scattered over several records, though the log is JSON Lines and its lines are related. Three texts are printed with several lines at once: a block verdict, which joins the notes, every finding and the count into one stderr text; a finding printed by a scan, its headline and fix on separate lines; and the traceback that follows an unexpected failure, one record per frame line. JSON escapes a newline inside a string, so the split bought nothing a reader of JSON Lines needs.
 
 ## Options
 
@@ -45,7 +45,7 @@ A, chosen by the decider in chat on 2026-09-24.
 
 ## Carry list
 
-1. R1 — rule 12 of [template §6](../../module-template/MODULE.md); the docstring and `_emit` of [the shared output](../../shared/constitution_layer_kit/output.py); the `output` row and the S132–S136 row of [kit-shared-gate-code](../../shared/GATE.md).
+1. R1 — rule 12 of [template §6](../../module-template/gate-script-rules.md#r12); the docstring and `_emit` of [the shared output](../../shared/constitution_layer_kit/output.py); the `output` row and the S132–S136 row of [kit-shared-gate-code](../../shared/GATE.md).
 2. R2 — the S132–S136 row of [kit-shared-gate-code](../../shared/GATE.md) and the item itself in [the shared items](../../shared/constitution_layer_kit/testing/items.py).
 3. R3 — limit 10 of [kit-shared-gate-code](../../shared/GATE.md).
 4. R4 — history only.
