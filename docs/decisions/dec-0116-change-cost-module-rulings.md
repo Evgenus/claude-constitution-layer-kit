@@ -114,6 +114,24 @@ The session recommended A, the comparison's recommendation: B breaks the rule th
 
 <a id="r7"></a>**R7.** A commit whose session has no start in the start log gets no count, and the report names it with that reason. The module never makes up a start from other sessions' transcripts.
 
+## 7. How a project gets the pinned ccusage
+
+When a plugin root holds a `package.json` with a lockfile, Claude Code installs the dependencies itself into each version folder it copies. It needs exact versions, `https` downloads and no overrides, runs no install scripts, stops after 60 seconds, and cannot be turned off; ccusage's lockfile meets those limits (the comparison's a17 and E1). For a plugin loaded in place from a marketplace on a local path, as the kit loads its own modules, it installs nothing. The plugin pages give a `SessionStart` hook that runs `npm install` into `${CLAUDE_PLUGIN_DATA}`, a folder kept across updates, as an example (a18). The survey read both installs, ran neither, and made no install from a marketplace.
+
+- **A. Both installs, from one lockfile.** A `package.json` and its `package-lock.json` at the plugin root pin ccusage: Claude Code installs it where it copies the plugin, and a `SessionStart` hook installs the same lockfile into `${CLAUDE_PLUGIN_DATA}` where the plugin loads in place.
+  - **Pros:** a project that installs the module from the marketplace gets the platform's own install, with nothing of the module's to fail; the kit's load in place is covered too; one pin serves both.
+  - **Cons:** two paths to build and test; the survey did not run the platform's install; a first session in place needs the network.
+- **B. The start hook's install only.** No `package.json` at the root, and a `SessionStart` hook installs into `${CLAUDE_PLUGIN_DATA}` everywhere.
+  - **Pros:** one path to build and test, the same for every project.
+  - **Cons:** it does by hand what the platform does itself, against the native-first principle of the [intent page](../../INTENT.md#p1); each person's first session needs the network and runs npm.
+- **C. `npx` with the exact version at each count.**
+  - **Pros:** the least code; no install step.
+  - **Cons:** the first count needs the network, and again whenever npm's cache is cleared; no lockfile checks the platform binary's integrity.
+
+The session recommended A, native first for every project installed from the marketplace while the kit's own load in place stays covered, with the module's fixtures to prove the install the survey did not run. The decider chose A in chat on 2026-11-09.
+
+<a id="r8"></a>**R8.** A `package.json` and its `package-lock.json` at the plugin root pin ccusage to an exact version. Where Claude Code copies the plugin, its own install of that lockfile is the module's install. Where the plugin loads in place, the module's `SessionStart` hook installs the same lockfile into `${CLAUDE_PLUGIN_DATA}` when the copy there differs.
+
 ## Carry list
 
-1. R1, R2, R3, R4, R5, R6, R7 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
+1. R1, R2, R3, R4, R5, R6, R7, R8 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
