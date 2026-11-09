@@ -1,5 +1,5 @@
 ---
-id: dec-0116-change-cost-module-rulings
+id: dec-0117-change-cost-module-rulings
 type: task-record
 title: Rulings of the const-change-cost authoring — commit log by a command, ccusage by its launcher, counts kept in the clone and shared by trailer, pull request and notes, no dials
 status: active
@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-Record [dec-0115-tokens-per-commit-counted-by-ccusage](dec-0115-tokens-per-commit-counted-by-ccusage.md) rules what the module counts and how, and its [R10](dec-0115-tokens-per-commit-counted-by-ccusage.md#r10) leaves the rest to this record, after the module's research round. That round is [res-0015-const-change-cost](../research/res-0015-const-change-cost.md). It confirmed rows [A15.1](../requirements.md#a15-1) to [A15.6](../requirements.md#a15-6) of the requirements matrix and left some choices to the decider. The session puts them in chat from 2026-11-09, one per message, and each adds a section here.
+Record [dec-0116-tokens-per-commit-counted-by-ccusage](dec-0116-tokens-per-commit-counted-by-ccusage.md) rules what the module counts and how, and its [R10](dec-0116-tokens-per-commit-counted-by-ccusage.md#r10) leaves the rest to this record, after the module's research round. That round is [res-0015-const-change-cost](../research/res-0015-const-change-cost.md). It confirmed rows [A15.1](../requirements.md#a15-1) to [A15.6](../requirements.md#a15-6) of the requirements matrix and left some choices to the decider. The session puts them in chat from 2026-11-09, one per message, and each adds a section here.
 
 ## 1. How the commit log reaches each clone
 
@@ -19,9 +19,9 @@ The comparison recommends git's `post-commit` and `post-merge` hooks set in git'
 
 - **A. A step per clone.** The module ships a command, and its install note says to run it once in each clone, as the kit runs `sh scripts/setup-clone.sh`.
   - **Pros:** nothing changes a project's git configuration unless a person runs the command; easy to undo.
-  - **Cons:** a clone that skips the step logs no commits, which are lost for good, the loss R11 of [dec-0115-tokens-per-commit-counted-by-ccusage](dec-0115-tokens-per-commit-counted-by-ccusage.md#r11) names; every contributor's clone must remember it.
+  - **Cons:** a clone that skips the step logs no commits, which are lost for good, the loss R11 of [dec-0116-tokens-per-commit-counted-by-ccusage](dec-0116-tokens-per-commit-counted-by-ccusage.md#r11) names; every contributor's clone must remember it.
 - **B. The start hook writes the keys itself.** At each session start the module's `SessionStart` hook writes the two keys into the clone's own `.git/config` when they are missing, says so in its output, and names the command that removes them.
-  - **Pros:** no step for anyone; every clone logs from its first session, as the day-one install of [R13](dec-0115-tokens-per-commit-counted-by-ccusage.md#r13) asks; the write is announced, not hidden.
+  - **Pros:** no step for anyone; every clone logs from its first session, as the day-one install of [R13](dec-0116-tokens-per-commit-counted-by-ccusage.md#r13) asks; the write is announced, not hidden.
   - **Cons:** a plugin changes the project's git configuration without a person typing it; after an uninstall the keys stay until removed and keep appending to the log.
 - **C. The start hook warns, a command writes.** At each session start the hook names the missing keys and the one command that writes them; it writes nothing itself.
   - **Pros:** only a person changes git's configuration, and no clone goes unnoticed, since the warning comes at the first session.
@@ -35,7 +35,7 @@ The session recommended B, the only option that loses no commit. The decider cho
 
 ## 2. How the module runs ccusage
 
-The npm package of ccusage is a Node launcher and one native binary per platform. In the comparison's experiment E1 the native binary counted correctly with no Node on the `PATH`. Node and npm are needed anyway to install the pinned package, since Claude Code runs npm from the person's `PATH` when it copies a plugin, and [R13](dec-0115-tokens-per-commit-counted-by-ccusage.md#r13) already makes Node a need of the first day.
+The npm package of ccusage is a Node launcher and one native binary per platform. In the comparison's experiment E1 the native binary counted correctly with no Node on the `PATH`. Node and npm are needed anyway to install the pinned package, since Claude Code runs npm from the person's `PATH` when it copies a plugin, and [R13](dec-0116-tokens-per-commit-counted-by-ccusage.md#r13) already makes Node a need of the first day.
 
 - **A. Through the launcher.** The module runs `ccusage` from the pinned package's `.bin` folder, as ccusage documents.
   - **Pros:** ccusage's own entry point; it picks the right binary for the platform; it survives a change in the package's layout.
@@ -50,7 +50,7 @@ The session recommended A: Node is present wherever the package can be installed
 
 ## 3. Where the counts are kept
 
-A count exists only after its commit's window closes, as [R5](dec-0115-tokens-per-commit-counted-by-ccusage.md#r5) says, so no commit can carry its own count. In the comparison's experiment E14, git notes were seen from a linked worktree; a plain push sent no notes, and a rebase lost them unless `notes.rewriteRef` named their ref. A squash or rebase merge on a forge makes new commits that no count names, though a report per pull request can still sum the branch's own commits. A commit trailer changes the commit's SHA, and a file in the tree would ride a later commit that must be counted too.
+A count exists only after its commit's window closes, as [R5](dec-0116-tokens-per-commit-counted-by-ccusage.md#r5) says, so no commit can carry its own count. In the comparison's experiment E14, git notes were seen from a linked worktree; a plain push sent no notes, and a rebase lost them unless `notes.rewriteRef` named their ref. A squash or rebase merge on a forge makes new commits that no count names, though a report per pull request can still sum the branch's own commits. A commit trailer changes the commit's SHA, and a file in the tree would ride a later commit that must be counted too.
 
 - **A. A local file in the clone's git common directory.** One JSON line per counted commit, beside the start log and the commit log.
   - **Pros:** shared by every worktree of the clone; never published; no ref that a person must remember not to push; kept when the module is uninstalled.
@@ -68,14 +68,14 @@ The session recommended A: the comparison's recommendation, private costs, and n
 
 ## 4. When the count runs
 
-A commit is counted once its window is complete, and only once, as [R5](dec-0115-tokens-per-commit-counted-by-ccusage.md#r5) says. The comparison found the transcript written late: at a commit's `PostToolUse` it did not yet hold the call's result, at `Stop` it held 31 of its final 34 lines, at `SessionEnd` all of them (E15). A plugin's `SessionEnd` hook has 1.5 seconds and cannot raise them, while an `async` hook runs in the background with no timeout enforced. A run of ccusage took at most 0.10 seconds (E10). Command-line transcripts are swept after 30 days by default.
+A commit is counted once its window is complete, and only once, as [R5](dec-0116-tokens-per-commit-counted-by-ccusage.md#r5) says. The comparison found the transcript written late: at a commit's `PostToolUse` it did not yet hold the call's result, at `Stop` it held 31 of its final 34 lines, at `SessionEnd` all of them (E15). A plugin's `SessionEnd` hook has 1.5 seconds and cannot raise them, while an `async` hook runs in the background with no timeout enforced. A run of ccusage took at most 0.10 seconds (E10). Command-line transcripts are swept after 30 days by default.
 
 - **A. After each turn, at each start, and by hand.** An async `Stop` hook counts every complete window of its session not yet counted, the same pass runs at `SessionStart` over every session in the clone's logs, and a command does it on demand.
   - **Pros:** a window is counted at the turn after its commit, long before any sweep; the start pass catches what a crashed or closed session left; no turn waits.
   - **Cons:** three ways in to build and test; a count in the background can still run when the next turn starts.
 - **B. By hand only.** A command counts every complete window it finds.
   - **Pros:** the least machinery; nothing runs unasked.
-  - **Cons:** windows wait until someone remembers, and a command-line transcript can be swept first, against the accumulating class of [R13](dec-0115-tokens-per-commit-counted-by-ccusage.md#r13).
+  - **Cons:** windows wait until someone remembers, and a command-line transcript can be swept first, against the accumulating class of [R13](dec-0116-tokens-per-commit-counted-by-ccusage.md#r13).
 - **C. At session end, and a pass at start.** A `SessionEnd` hook counts the session's windows, and the start pass catches the rest.
   - **Pros:** the transcript is complete at `SessionEnd`; one count per session.
   - **Cons:** 1.5 seconds is too short to copy and count a large session; a desktop session that lives for days rarely ends, so its windows wait for the next start.
@@ -88,7 +88,7 @@ The session recommended A, the comparison's recommendation and the only one that
 
 Each subagent writes its own transcript, whose records carry `agentId` and the parent's session id, and the tool hooks inside a subagent carry `agent_id` (the comparison's E11 and E15). The commit log of R1 knows only the session: `CLAUDE_CODE_SESSION_ID` names the session, not the agent, and no variable names the agent, so a subagent's commit carries the main session's id.
 
-- **A. Time windows over the whole session.** Every reply of the session, of the main thread and of every agent, goes to the session's next commit by time, as [R4](dec-0115-tokens-per-commit-counted-by-ccusage.md#r4) cuts it.
+- **A. Time windows over the whole session.** Every reply of the session, of the main thread and of every agent, goes to the session's next commit by time, as [R4](dec-0116-tokens-per-commit-counted-by-ccusage.md#r4) cuts it.
   - **Pros:** time is the one key every reply carries; it uses the commit log of R1 as it is, with no guess.
   - **Cons:** if agent X still works while agent Y commits, X's tokens until then go to Y's commit.
 - **B. Windows per agent.** Each agent's replies go to the next commit that agent made, and the main thread's replies, and those of agents that never commit, go by time.
@@ -101,10 +101,10 @@ The session recommended A, the comparison's recommendation: B trades the commit 
 
 ## 6. A session from before the start log
 
-A commit can name a session whose `SessionStart` hook never ran in this clone, since the session started before the plugin was enabled or in another folder (the comparison's section 8). With no logged start, [R3](dec-0115-tokens-per-commit-counted-by-ccusage.md#r3) cannot cut away the history a fork copied in.
+A commit can name a session whose `SessionStart` hook never ran in this clone, since the session started before the plugin was enabled or in another folder (the comparison's section 8). With no logged start, [R3](dec-0116-tokens-per-commit-counted-by-ccusage.md#r3) cannot cut away the history a fork copied in.
 
 - **A. Skip and name.** Such a commit gets no count, and the report names it with its reason, as it names a commit with no session.
-  - **Pros:** it never claims work the session did not do; nothing is read beyond the session's own files; the case is narrow, since [R13](dec-0115-tokens-per-commit-counted-by-ccusage.md#r13) installs the module from a project's first session.
+  - **Pros:** it never claims work the session did not do; nothing is read beyond the session's own files; the case is narrow, since [R13](dec-0116-tokens-per-commit-counted-by-ccusage.md#r13) installs the module from a project's first session.
   - **Cons:** a project that enables the module after weeks of sessions gets no count for the commits of the sessions already running.
 - **B. A stand-in start.** The start becomes the earliest record of the session's transcript that stands in no other session's transcript.
   - **Pros:** those commits are counted too; on the comparison's live fork the stand-in fell 20 milliseconds after the logged start and gave the same count (E19).
@@ -134,21 +134,21 @@ The session recommended A, native first for every project installed from the mar
 
 ## 8. A model with no price
 
-In the comparison's experiment E8, a reply under a model name missing from ccusage's price table kept its tokens and added no cost, and the `--id` output of [R1](dec-0115-tokens-per-commit-counted-by-ccusage.md#r1) said nothing, not even on standard error. The same folder read without `--id` marked that model `missingPricing: true`. A model newer than the pinned ccusage would so make every commit look cheaper than it was, with no sign.
+In the comparison's experiment E8, a reply under a model name missing from ccusage's price table kept its tokens and added no cost, and the `--id` output of [R1](dec-0116-tokens-per-commit-counted-by-ccusage.md#r1) said nothing, not even on standard error. The same folder read without `--id` marked that model `missingPricing: true`. A model newer than the pinned ccusage would so make every commit look cheaper than it was, with no sign.
 
 - **A. Name the unpriced model.** The count also reads the same one-session folder without `--id`; where a commit's window holds a reply whose model ccusage marks `missingPricing`, the kept line says so, and the report names that commit's cost as a lower bound, with the model.
   - **Pros:** the tokens stay exact, and a cost that is too low is never shown as whole; ccusage still does all the pricing.
   - **Cons:** a second run of ccusage per count, about 0.1 seconds in E10; one more field in the kept line.
 - **B. Keep ccusage's cost as it comes.** The cost is what ccusage computes, with no mark.
   - **Pros:** the simplest count; one run.
-  - **Cons:** after a model's release the costs fall short without a sign until the pin moves, the kind of hidden gap [R14](dec-0115-tokens-per-commit-counted-by-ccusage.md#r14) refused for compactions.
+  - **Cons:** after a model's release the costs fall short without a sign until the pin moves, the kind of hidden gap [R14](dec-0116-tokens-per-commit-counted-by-ccusage.md#r14) refused for compactions.
 - **C. Keep the tokens only.** The count keeps the four token counts and no cost.
   - **Pros:** no price can be wrong.
   - **Cons:** it drops the cost that [A15.1](../requirements.md#a15-1) asks for; a reader must price the tokens by hand.
 
 The session recommended A: ccusage stays the only pricer, and a short cost is shown as short, as R14 does for compactions. The decider chose A in chat on 2026-11-09.
 
-<a id="r9"></a>**R9.** Each count also runs ccusage's session command without `--id` over the same one-session folder, to learn which of the window's models it marks `missingPricing`. The kept line names those models, and the report shows that commit's cost as a lower bound, with the models named. The tokens are counted as R1 of [dec-0115-tokens-per-commit-counted-by-ccusage](dec-0115-tokens-per-commit-counted-by-ccusage.md#r1) says.
+<a id="r9"></a>**R9.** Each count also runs ccusage's session command without `--id` over the same one-session folder, to learn which of the window's models it marks `missingPricing`. The kept line names those models, and the report shows that commit's cost as a lower bound, with the models named. The tokens are counted as R1 of [dec-0116-tokens-per-commit-counted-by-ccusage](dec-0116-tokens-per-commit-counted-by-ccusage.md#r1) says.
 
 ## 9. The names of the commands
 
@@ -174,13 +174,13 @@ The session recommended B, which keeps the kit's own forms, so that a person who
   - **Cons:** a project that wants a behaviour changed, such as silencing the start hook's warning, cannot do so without a new record and a new version.
 - **B. One dial to silence the warning.** `warn_missing_keys` under `const-change-cost`, `true` by default; `false` stops the start hook from naming the missing keys.
   - **Pros:** a clone whose person chose not to log commits stops seeing the same warning in every session.
-  - **Cons:** a silenced warning hides the loss [R11](dec-0115-tokens-per-commit-counted-by-ccusage.md#r11) names; one more key to validate and test, for a friction nobody has reported.
+  - **Cons:** a silenced warning hides the loss [R11](dec-0116-tokens-per-commit-counted-by-ccusage.md#r11) names; one more key to validate and test, for a friction nobody has reported.
 
 The session recommended A. The decider chose A in chat on 2026-11-09 and asked the session to check every ruling of both records for a value a project may need to set. The session read each:
 
-- **Fixed so that a count means the same in every project.** R2 to R7 and R14 of [dec-0115-tokens-per-commit-counted-by-ccusage](dec-0115-tokens-per-commit-counted-by-ccusage.md#r2), and R1, R3, R6, R7 and R9 here: a folder of one session, the earliest start, the windows, the count once, the kept fields, the two logs, the compaction named, the route, the launcher, the windows over the whole session, the session with no start skipped, the unpriced model named. A dial on any of them would make two projects' counts mean different things.
-- **Owned by the module, not the project.** The pin of R8 of [dec-0115-tokens-per-commit-counted-by-ccusage](dec-0115-tokens-per-commit-counted-by-ccusage.md#r8) and R8 here, which moves only with the known-count test of [A15.6](../requirements.md#a15-6), and the names of R10.
-- **The one value a project may hold for itself: its prices.** R1 of [dec-0115-tokens-per-commit-counted-by-ccusage](dec-0115-tokens-per-commit-counted-by-ccusage.md#r1) passes `--config` naming an empty file, so a project's own ccusage configuration cannot change the count. ccusage's configuration takes `pricingOverrides`, a price per model for each kind of token (its schema at 20.0.48). A project that pays other than the list price, through a cloud provider or a discount, would want them. No project has asked.
+- **Fixed so that a count means the same in every project.** R2 to R7 and R14 of [dec-0116-tokens-per-commit-counted-by-ccusage](dec-0116-tokens-per-commit-counted-by-ccusage.md#r2), and R1, R3, R6, R7 and R9 here: a folder of one session, the earliest start, the windows, the count once, the kept fields, the two logs, the compaction named, the route, the launcher, the windows over the whole session, the session with no start skipped, the unpriced model named. A dial on any of them would make two projects' counts mean different things.
+- **Owned by the module, not the project.** The pin of R8 of [dec-0116-tokens-per-commit-counted-by-ccusage](dec-0116-tokens-per-commit-counted-by-ccusage.md#r8) and R8 here, which moves only with the known-count test of [A15.6](../requirements.md#a15-6), and the names of R10.
+- **The one value a project may hold for itself: its prices.** R1 of [dec-0116-tokens-per-commit-counted-by-ccusage](dec-0116-tokens-per-commit-counted-by-ccusage.md#r1) passes `--config` naming an empty file, so a project's own ccusage configuration cannot change the count. ccusage's configuration takes `pricingOverrides`, a price per model for each kind of token (its schema at 20.0.48). A project that pays other than the list price, through a cloud provider or a discount, would want them. No project has asked.
 - **Behaviours a project might want switched, later.** The start hook's warning of R2, the count after each turn of R5, and counts shared beyond the clone of R4, each refused here or in an earlier section, or never asked for.
 
 <a id="r11"></a>**R11.** The module has no dials. Every cost it keeps and reports is the list price of ccusage's table at the pinned version, and the report says so. The module document lists the candidates of this section as deferred, each with the signal that would earn it: prices of a project's own, when a project that pays other than the list price asks for its costs; silencing the warning, when a project reports it as noise where commits are left out on purpose; the count after each turn switched off, when a project reports it as slow. Sharing the counts beyond the clone, a fourth candidate when this section was written, was decided the same day in section 11.

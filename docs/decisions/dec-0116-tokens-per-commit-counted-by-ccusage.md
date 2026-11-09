@@ -1,5 +1,5 @@
 ---
-id: dec-0115-tokens-per-commit-counted-by-ccusage
+id: dec-0116-tokens-per-commit-counted-by-ccusage
 type: task-record
 title: 'Tokens per commit: a new module has ccusage count each commit window of one session, read from a folder that holds that session alone'
 status: inactive
@@ -73,13 +73,13 @@ The session recommended A, the only option that passes the boundary tests and ke
 
 <a id="r9"></a>**R9.** The count ships as a new module of the kit, whose rows are a new aspect of the requirements matrix. No existing module carries any part of it.
 
-<a id="r10"></a>**R10.** The module is built by the routine of "Developing a module" in [CLAUDE.md](../../CLAUDE.md), its research round first. Its own rulings record, written after that round, answers what this record leaves open: where the counts are kept, which route the commit log takes, how the work of a session's parallel agents is split between its commits, what a session from before its start log gets, and when the count runs, so that it is made before Claude Code deletes the transcript.
+<a id="r10"></a>**R10.** The module is built by the routine of [the module-development page](../guide/developing-a-module.md), its research round first. Its own rulings record, written after that round, answers what this record leaves open: where the counts are kept, which route the commit log takes, how the work of a session's parallel agents is split between its commits, what a session from before its start log gets, and when the count runs, so that it is made before Claude Code deletes the transcript.
 
 <a id="r11"></a>**R11.** The aspect states this failure class: a session's start and the session behind each commit are lost for good when no hook records them as they happen.
 
 ## 3. The module's name
 
-The module's folder and its research comparison are named after it, so its name comes before the research round, as steps 1 and 2 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md) order them. The kit names a module `const-` and its aspect.
+The module's folder and its research comparison are named after it, so its name comes before the research round, as [steps 1](../guide/developing-a-module.md#s1) and [2](../guide/developing-a-module.md#s2) of the module-development page order them. The kit names a module `const-` and its aspect.
 
 - **A. `const-change-cost`, the aspect "Change cost".** The name of the kit's own unit of work.
   - **Pros:** "change" is the word the kit uses for the unit module [`const-task-close`](../requirements.md#const-task-close) closes; the cost of a pull request is the sum of its changes.
