@@ -150,6 +150,21 @@ The session recommended A: ccusage stays the only pricer, and a short cost is sh
 
 <a id="r9"></a>**R9.** Each count also runs ccusage's session command without `--id` over the same one-session folder, to learn which of the window's models it marks `missingPricing`. The kept line names those models, and the report shows that commit's cost as a lower bound, with the models named. The tokens are counted as R1 of [dec-0115-tokens-per-commit-counted-by-ccusage](dec-0115-tokens-per-commit-counted-by-ccusage.md#r1) says.
 
+## 9. The names of the commands
+
+People type these names, so the decider fixes them. The module has three acts a person runs: writing and removing the commit log's keys (R2), counting by hand (R5), and printing the report, per commit or summed over a range such as a pull request's commits, with each skipped commit, compaction and unpriced model named. The kit's modules ship one script per act under their plugin's `scripts/` folder, such as `new-document.sh` and `move-document.sh`; the kit's own `setup-clone.sh` takes `--check`; and every module's report is `effect-report.sh`.
+
+- **A. One entry with subcommands.** `change-cost.sh` with `setup`, `remove`, `count` and `report`.
+  - **Pros:** one name to learn, one help text, one form for a hook to allow.
+  - **Cons:** unlike every other module of the kit, which ships one script per act.
+- **B. One script per act, in the kit's forms.** `setup-commit-log.sh` with `--remove` and `--check`, after the kit's `setup-clone.sh`; `count-costs.sh`; and `cost-report.sh`, after `effect-report.sh`.
+  - **Pros:** each name says its act; it matches the forms the kit's modules and tooling already use.
+  - **Cons:** three names to learn.
+
+The session recommended B, which keeps the kit's own forms, so that a person who knows one module can guess another's commands. The decider chose B in chat on 2026-11-09.
+
+<a id="r10"></a>**R10.** The module's commands, under its plugin's `scripts/` folder, are `setup-commit-log.sh`, which writes the commit log's two keys and takes `--remove` to remove them and `--check` to report whether they stand; `count-costs.sh`, which counts every complete window not yet counted; and `cost-report.sh`, which prints the kept counts.
+
 ## Carry list
 
-1. R1, R2, R3, R4, R5, R6, R7, R8, R9 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
+1. R1, R2, R3, R4, R5, R6, R7, R8, R9, R10 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
