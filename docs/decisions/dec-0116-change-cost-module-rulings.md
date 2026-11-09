@@ -99,6 +99,21 @@ The session recommended A, the comparison's recommendation: B trades the commit 
 
 <a id="r6"></a>**R6.** A session's windows run over the whole session: every reply of its main thread, its subagents and its workflow agents goes to the session's next commit by time. No window is cut per agent.
 
+## 6. A session from before the start log
+
+A commit can name a session whose `SessionStart` hook never ran in this clone, since the session started before the plugin was enabled or in another folder (the comparison's section 8). With no logged start, [R3](dec-0115-tokens-per-commit-counted-by-ccusage.md#r3) cannot cut away the history a fork copied in.
+
+- **A. Skip and name.** Such a commit gets no count, and the report names it with its reason, as it names a commit with no session.
+  - **Pros:** it never claims work the session did not do; nothing is read beyond the session's own files; the case is narrow, since [R13](dec-0115-tokens-per-commit-counted-by-ccusage.md#r13) installs the module from a project's first session.
+  - **Cons:** a project that enables the module after weeks of sessions gets no count for the commits of the sessions already running.
+- **B. A stand-in start.** The start becomes the earliest record of the session's transcript that stands in no other session's transcript.
+  - **Pros:** those commits are counted too; on the comparison's live fork the stand-in fell 20 milliseconds after the logged start and gave the same count (E19).
+  - **Cons:** once the parent's transcript is swept, after 30 days by default, the fork's copies stand in no other transcript and look like its own, so it claims the parent's work; it reads every other transcript of the project, so a session's count depends on other sessions again, which the earlier record rules out.
+
+The session recommended A, the comparison's recommendation: B breaks the rule that no other session changes a session's count, and fails without a sound once the sweep has run. The decider chose A in chat on 2026-11-09.
+
+<a id="r7"></a>**R7.** A commit whose session has no start in the start log gets no count, and the report names it with that reason. The module never makes up a start from other sessions' transcripts.
+
 ## Carry list
 
-1. R1, R2, R3, R4, R5, R6 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
+1. R1, R2, R3, R4, R5, R6, R7 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
