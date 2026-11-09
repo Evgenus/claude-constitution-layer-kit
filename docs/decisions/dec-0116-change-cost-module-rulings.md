@@ -48,6 +48,24 @@ The session recommended A: Node is present wherever the package can be installed
 
 <a id="r3"></a>**R3.** The module runs ccusage through the launcher of its pinned package, from that package's `.bin` folder, and never calls a platform binary by its path.
 
+## 3. Where the counts are kept
+
+A count exists only after its commit's window closes, as [R5](dec-0115-tokens-per-commit-counted-by-ccusage.md#r5) says, so no commit can carry its own count. In the comparison's experiment E14, git notes were seen from a linked worktree; a plain push sent no notes, and a rebase lost them unless `notes.rewriteRef` named their ref. A squash or rebase merge on a forge makes new commits that no count names, though a report per pull request can still sum the branch's own commits. A commit trailer changes the commit's SHA, and a file in the tree would ride a later commit that must be counted too.
+
+- **A. A local file in the clone's git common directory.** One JSON line per counted commit, beside the start log and the commit log.
+  - **Pros:** shared by every worktree of the clone; never published; no ref that a person must remember not to push; kept when the module is uninstalled.
+  - **Cons:** lost with the clone; other clones and other people never see it.
+- **B. Git notes on each commit, under a ref of the module's own.**
+  - **Pros:** git's own place for facts about a commit; `git log` can show them; a team can share them by pushing the ref.
+  - **Cons:** a rebase loses them unless `notes.rewriteRef` is set in every clone; pushing the ref publishes every count and cost, and the kit's repository is public; a forge's squash merge leaves them on commits that never land.
+- **C. Both: the local file by default, and git notes as an export.** The counts are kept as in A, and a command writes them as notes only when a person runs it.
+  - **Pros:** A's safety by default, and a way to share when someone chooses to.
+  - **Cons:** a second output to build and test; the exported notes still carry B's rebase and publishing limits.
+
+The session recommended A: the comparison's recommendation, private costs, and no requirement yet asks for sharing; an export can come later by a new record. The decider chose A in chat on 2026-11-09.
+
+<a id="r4"></a>**R4.** The counts are kept in one file of JSON lines in the clone's git common directory, beside the start log and the commit log, one line per counted commit. The module writes no git note, no trailer and no file in the working tree.
+
 ## Carry list
 
-1. R1, R2, R3 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
+1. R1, R2, R3, R4 — pending: [item 9.34 of the rollout plan](../rollout-plan.md#s9-34).
