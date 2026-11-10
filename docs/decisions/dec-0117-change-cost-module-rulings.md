@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-Record [dec-0116-tokens-per-commit-counted-by-ccusage](dec-0116-tokens-per-commit-counted-by-ccusage.md) rules what the module counts and how, and its [R10](dec-0116-tokens-per-commit-counted-by-ccusage.md#r10) leaves the rest to this record, after the module's research round. That round is [res-0015-const-change-cost](../research/res-0015-const-change-cost.md). It confirmed rows [A15.1](../requirements.md#a15-1) to [A15.6](../requirements.md#a15-6) of the requirements matrix and left some choices to the decider. The session puts them in chat from 2026-11-09, one per message, and each adds a section here.
+Record [dec-0116-tokens-per-commit-counted-by-ccusage](dec-0116-tokens-per-commit-counted-by-ccusage.md) rules what the module counts and how, and its R10 of [dec-0116-tokens-per-commit-counted-by-ccusage](dec-0116-tokens-per-commit-counted-by-ccusage.md#r10) leaves the rest to this record, after the module's research round. That round is [res-0015-const-change-cost](../research/res-0015-const-change-cost.md). It confirmed rows [A15.1](../requirements.md#a15-1) to [A15.6](../requirements.md#a15-6) of the requirements matrix and left some choices to the decider. The session puts them in chat from 2026-11-09, one per message, and each adds a section here.
 
 ## 1. How the commit log reaches each clone
 
@@ -21,7 +21,7 @@ The comparison recommends git's `post-commit` and `post-merge` hooks set in git'
   - **Pros:** nothing changes a project's git configuration unless a person runs the command; easy to undo.
   - **Cons:** a clone that skips the step logs no commits, which are lost for good, the loss R11 of [dec-0116-tokens-per-commit-counted-by-ccusage](dec-0116-tokens-per-commit-counted-by-ccusage.md#r11) names; every contributor's clone must remember it.
 - **B. The start hook writes the keys itself.** At each session start the module's `SessionStart` hook writes the two keys into the clone's own `.git/config` when they are missing, says so in its output, and names the command that removes them.
-  - **Pros:** no step for anyone; every clone logs from its first session, as the day-one install of [R13](dec-0116-tokens-per-commit-counted-by-ccusage.md#r13) asks; the write is announced, not hidden.
+  - **Pros:** no step for anyone; every clone logs from its first session, as the day-one install of R13 of [dec-0116-tokens-per-commit-counted-by-ccusage](dec-0116-tokens-per-commit-counted-by-ccusage.md#r13) asks; the write is announced, not hidden.
   - **Cons:** a plugin changes the project's git configuration without a person typing it; after an uninstall the keys stay until removed and keep appending to the log.
 - **C. The start hook warns, a command writes.** At each session start the hook names the missing keys and the one command that writes them; it writes nothing itself.
   - **Pros:** only a person changes git's configuration, and no clone goes unnoticed, since the warning comes at the first session.
@@ -35,7 +35,7 @@ The session recommended B, the only option that loses no commit. The decider cho
 
 ## 2. How the module runs ccusage
 
-The npm package of ccusage is a Node launcher and one native binary per platform. In the comparison's experiment E1 the native binary counted correctly with no Node on the `PATH`. Node and npm are needed anyway to install the pinned package, since Claude Code runs npm from the person's `PATH` when it copies a plugin that holds a `package.json` at its root (section 7 keeps the pin in a subfolder, so the module runs npm itself), and [R13](dec-0116-tokens-per-commit-counted-by-ccusage.md#r13) already makes Node a need of the first day.
+The npm package of ccusage is a Node launcher and one native binary per platform. In the comparison's experiment E1 the native binary counted correctly with no Node on the `PATH`. Node and npm are needed anyway to install the pinned package, since Claude Code runs npm from the person's `PATH` when it copies a plugin that holds a `package.json` at its root (section 7 keeps the pin in a subfolder, so the module runs npm itself), and R13 of [dec-0116-tokens-per-commit-counted-by-ccusage](dec-0116-tokens-per-commit-counted-by-ccusage.md#r13) already makes Node a need of the first day.
 
 - **A. Through the launcher.** The module runs `ccusage` from the pinned package's `.bin` folder, as ccusage documents.
   - **Pros:** ccusage's own entry point; it picks the right binary for the platform; it survives a change in the package's layout.
@@ -50,7 +50,7 @@ The session recommended A: Node is present wherever the package can be installed
 
 ## 3. Where the counts are kept
 
-A count exists only after its commit's window closes, as [R5](dec-0116-tokens-per-commit-counted-by-ccusage.md#r5) says, so no commit can carry its own count. In the comparison's experiment E14, git notes were seen from a linked worktree; a plain push sent no notes, and a rebase lost them unless `notes.rewriteRef` named their ref. A squash or rebase merge on a forge makes new commits that no count names, though a report per pull request can still sum the branch's own commits. A commit trailer changes the commit's SHA, and a file in the tree would ride a later commit that must be counted too.
+A count exists only after its commit's window closes, as R5 of [dec-0116-tokens-per-commit-counted-by-ccusage](dec-0116-tokens-per-commit-counted-by-ccusage.md#r5) says, so no commit can carry its own count. In the comparison's experiment E14, git notes were seen from a linked worktree; a plain push sent no notes, and a rebase lost them unless `notes.rewriteRef` named their ref. A squash or rebase merge on a forge makes new commits that no count names, though a report per pull request can still sum the branch's own commits. A commit trailer changes the commit's SHA, and a file in the tree would ride a later commit that must be counted too.
 
 - **A. A local file in the clone's git common directory.** One JSON line per counted commit, beside the start log and the commit log.
   - **Pros:** shared by every worktree of the clone; never published; no ref that a person must remember not to push; kept when the module is uninstalled.
@@ -68,14 +68,14 @@ The session recommended A: the comparison's recommendation, private costs, and n
 
 ## 4. When the count runs
 
-A commit is counted once its window is complete, and only once, as [R5](dec-0116-tokens-per-commit-counted-by-ccusage.md#r5) says. The comparison found the transcript written late: at a commit's `PostToolUse` it did not yet hold the call's result, at `Stop` it held 31 of its final 34 lines, at `SessionEnd` all of them (E15). A plugin's `SessionEnd` hook has 1.5 seconds and cannot raise them, while an `async` hook runs in the background with no timeout enforced. A run of ccusage took at most 0.10 seconds (E10). Command-line transcripts are swept after 30 days by default.
+A commit is counted once its window is complete, and only once, as R5 of [dec-0116-tokens-per-commit-counted-by-ccusage](dec-0116-tokens-per-commit-counted-by-ccusage.md#r5) says. The comparison found the transcript written late: at a commit's `PostToolUse` it did not yet hold the call's result, at `Stop` it held 31 of its final 34 lines, at `SessionEnd` all of them (E15). A plugin's `SessionEnd` hook has 1.5 seconds and cannot raise them, while an `async` hook runs in the background with no timeout enforced. A run of ccusage took at most 0.10 seconds (E10). Command-line transcripts are swept after 30 days by default.
 
 - **A. After each turn, at each start, and by hand.** An async `Stop` hook counts every complete window of its session not yet counted, the same pass runs at `SessionStart` over every session in the clone's logs, and a command does it on demand.
   - **Pros:** a window is counted at the turn after its commit, long before any sweep; the start pass catches what a crashed or closed session left; no turn waits.
   - **Cons:** three ways in to build and test; a count in the background can still run when the next turn starts.
 - **B. By hand only.** A command counts every complete window it finds.
   - **Pros:** the least machinery; nothing runs unasked.
-  - **Cons:** windows wait until someone remembers, and a command-line transcript can be swept first, against the accumulating class of [R13](dec-0116-tokens-per-commit-counted-by-ccusage.md#r13).
+  - **Cons:** windows wait until someone remembers, and a command-line transcript can be swept first, against the accumulating class of R13 of [dec-0116-tokens-per-commit-counted-by-ccusage](dec-0116-tokens-per-commit-counted-by-ccusage.md#r13).
 - **C. At session end, and a pass at start.** A `SessionEnd` hook counts the session's windows, and the start pass catches the rest.
   - **Pros:** the transcript is complete at `SessionEnd`; one count per session.
   - **Cons:** 1.5 seconds is too short to copy and count a large session; a desktop session that lives for days rarely ends, so its windows wait for the next start.
@@ -88,7 +88,7 @@ The session recommended A, the comparison's recommendation and the only one that
 
 Each subagent writes its own transcript, whose records carry `agentId` and the parent's session id, and the tool hooks inside a subagent carry `agent_id` (the comparison's E11 and E15). The commit log of R1 knows only the session: `CLAUDE_CODE_SESSION_ID` names the session, not the agent, and no variable names the agent, so a subagent's commit carries the main session's id.
 
-- **A. Time windows over the whole session.** Every reply of the session, of the main thread and of every agent, goes to the session's next commit by time, as [R4](dec-0116-tokens-per-commit-counted-by-ccusage.md#r4) cuts it.
+- **A. Time windows over the whole session.** Every reply of the session, of the main thread and of every agent, goes to the session's next commit by time, as R4 of [dec-0116-tokens-per-commit-counted-by-ccusage](dec-0116-tokens-per-commit-counted-by-ccusage.md#r4) cuts it.
   - **Pros:** time is the one key every reply carries; it uses the commit log of R1 as it is, with no guess.
   - **Cons:** if agent X still works while agent Y commits, X's tokens until then go to Y's commit.
 - **B. Windows per agent.** Each agent's replies go to the next commit that agent made, and the main thread's replies, and those of agents that never commit, go by time.
@@ -101,10 +101,10 @@ The session recommended A, the comparison's recommendation: B trades the commit 
 
 ## 6. A session from before the start log
 
-A commit can name a session whose `SessionStart` hook never ran in this clone, since the session started before the plugin was enabled or in another folder (the comparison's section 8). With no logged start, [R3](dec-0116-tokens-per-commit-counted-by-ccusage.md#r3) cannot cut away the history a fork copied in.
+A commit can name a session whose `SessionStart` hook never ran in this clone, since the session started before the plugin was enabled or in another folder (the comparison's section 8). With no logged start, R3 of [dec-0116-tokens-per-commit-counted-by-ccusage](dec-0116-tokens-per-commit-counted-by-ccusage.md#r3) cannot cut away the history a fork copied in.
 
 - **A. Skip and name.** Such a commit gets no count, and the report names it with its reason, as it names a commit with no session.
-  - **Pros:** it never claims work the session did not do; nothing is read beyond the session's own files; the case is narrow, since [R13](dec-0116-tokens-per-commit-counted-by-ccusage.md#r13) installs the module from a project's first session.
+  - **Pros:** it never claims work the session did not do; nothing is read beyond the session's own files; the case is narrow, since R13 of [dec-0116-tokens-per-commit-counted-by-ccusage](dec-0116-tokens-per-commit-counted-by-ccusage.md#r13) installs the module from a project's first session.
   - **Cons:** a project that enables the module after weeks of sessions gets no count for the commits of the sessions already running.
 - **B. A stand-in start.** The start becomes the earliest record of the session's transcript that stands in no other session's transcript.
   - **Pros:** those commits are counted too; on the comparison's live fork the stand-in fell 20 milliseconds after the logged start and gave the same count (E19).
@@ -116,38 +116,36 @@ The session recommended A, the comparison's recommendation: B breaks the rule th
 
 ## 7. How a project gets the pinned ccusage
 
-When a plugin root holds a `package.json` with a lockfile, Claude Code installs the dependencies itself into each version folder it copies. It needs exact versions, `https` downloads and no overrides, runs no install scripts, stops after 60 seconds, and cannot be turned off; ccusage's lockfile meets those limits (the comparison's a17 and E1). For a plugin loaded in place from a marketplace on a local path, as the kit loads its own modules, it installs nothing. The plugin pages give a `SessionStart` hook that runs `npm install` into `${CLAUDE_PLUGIN_DATA}`, a folder kept across updates, as an example (a18). The survey read both installs, ran neither, and made no install from a marketplace.
-
+When a plugin root holds a `package.json` with a lockfile, Claude Code installs the dependencies itself into each version folder it copies. It needs exact versions, `https` downloads and no overrides, runs no install scripts, stops after 60 seconds, and cannot be turned off; ccusage's lockfile meets those limits (the comparison's a17 and E1). For a plugin loaded in place from a local marketplace, as the kit loads its own modules, it installs nothing. The plugin pages give a `SessionStart` hook that runs `npm install` into `${CLAUDE_PLUGIN_DATA}`, a folder kept across updates, as an example (a18).
 - **A. Both installs, from one lockfile.** A `package.json` and its `package-lock.json` at the plugin root pin ccusage: Claude Code installs it where it copies the plugin, and a `SessionStart` hook installs the same lockfile into `${CLAUDE_PLUGIN_DATA}` where the plugin loads in place.
   - **Pros:** a project that installs the module from the marketplace gets the platform's own install, with nothing of the module's to fail; the kit's load in place is covered too; one pin serves both.
-  - **Cons:** two paths to build and test; the survey did not run the platform's install; a first session in place needs the network.
+  - **Cons:** two paths to build and test; a first session in place needs the network.
 - **B. The start hook's install only.** No `package.json` at the root, and a `SessionStart` hook installs into `${CLAUDE_PLUGIN_DATA}` everywhere.
   - **Pros:** one path to build and test, the same for every project.
   - **Cons:** it does by hand what the platform does itself, against the native-first principle of the [intent page](../../INTENT.md#p1); each person's first session needs the network and runs npm.
 - **C. `npx` with the exact version at each count.**
   - **Pros:** the least code; no install step.
   - **Cons:** the first count needs the network, and again whenever npm's cache is cleared; no lockfile checks the platform binary's integrity.
-
 - **D. The files in a subfolder, the count's install only.** A `package.json` and its `package-lock.json` stand in the plugin's folder `ccusage/`. The platform finds none at the root and installs nothing; the count installs the lockfile into `${CLAUDE_PLUGIN_DATA}` at its first complete window.
   - **Pros:** the kit's bare-install check stays green; one install path, the same for every project; ccusage stands in one place, and so there is one place to look.
   - **Cons:** it does by hand what the platform does itself, against the native-first principle of the [intent page](../../INTENT.md#p1); each person's first count needs the network and npm.
 
-The decider first picked A in chat on 2026-11-09, native first for every project installed from the marketplace, with the kit's own load in place covered. The kit's bare-install check, run on the pinned Claude Code 2.1.282, then reported "the installed copy holds a link its source lacks: `node_modules/.bin/ccusage`" for the plugin with its two files at the root. That link is the platform's own install, and the check holds [requirement A12.1](../requirements.md#a12-1), that a module installs and runs on a bare repository with its own files alone. A probe on a scratch copy with the files in a subfolder reported no link finding. Keeping A would mean teaching two kit checks an exception for one module's folder, and keeping two install paths.
+The session first recommended A, native first for every project installed from the marketplace with the kit's own load in place covered, and the decider picked A in chat on 2026-11-09. The kit's bare-install check, run on the pinned Claude Code 2.1.282, then reported "the installed copy holds a link its source lacks: `node_modules/.bin/ccusage`" for the plugin with its two files at the root. That link is the platform's own install, and the check holds [requirement A12.1](../requirements.md#a12-1), that a module installs and runs on a bare repository with its own files alone. A probe on a scratch copy with the files in a subfolder reported no link finding. Keeping A would mean teaching two kit checks an exception for one module's folder, and keeping two install paths.
 
-The session recommends D: a green check on that rule is worth more than the platform's install here, because the count runs in the data folder in any case. The decider was asked again in chat, with this option put as "B", and chose D on 2026-11-10, before this record's yes. That reverses the first half of the first pick, the platform's install of a copied plugin, and keeps the second, the module's own install into `${CLAUDE_PLUGIN_DATA}`.
+The session recommended D: a green check on that rule is worth more than the platform's install here, because the count runs in the data folder in any case. The decider, asked again in chat with this option put as "B", chose D on 2026-11-10, before this record's yes. That reverses the first half of the first pick, the platform's install of a copied plugin, and keeps the second, the module's own install into `${CLAUDE_PLUGIN_DATA}`.
 
 <a id="r8"></a>**R8.** A `package.json` and its `package-lock.json` pin ccusage to an exact version and stand in the plugin's folder `ccusage/`, never at the plugin root, so that no platform install acts on them. The count installs that lockfile into `${CLAUDE_PLUGIN_DATA}` at its first complete window to count, whichever pass meets it, and installs it again when the copy there differs, its `node_modules` is gone or another version stands. ccusage is looked for in the data folder only.
 
 ## 8. A model with no price
 
-In the comparison's experiment E8, a reply under a model name missing from ccusage's price table kept its tokens and added no cost, and the `--id` output of [R1](dec-0116-tokens-per-commit-counted-by-ccusage.md#r1) said nothing, not even on standard error. The same folder read without `--id` marked that model `missingPricing: true`. A model newer than the pinned ccusage would so make every commit look cheaper than it was, with no sign.
+In the comparison's experiment E8, a reply under a model name missing from ccusage's price table kept its tokens and added no cost, and the `--id` output of R1 of [dec-0116-tokens-per-commit-counted-by-ccusage](dec-0116-tokens-per-commit-counted-by-ccusage.md#r1) said nothing, not even on standard error. The same folder read without `--id` marked that model `missingPricing: true`. A model newer than the pinned ccusage would so make every commit look cheaper than it was, with no sign.
 
 - **A. Name the unpriced model.** The count also reads the same one-session folder without `--id`; where a commit's window holds a reply whose model ccusage marks `missingPricing`, the kept line says so, and the report names that commit's cost as a lower bound, with the model.
   - **Pros:** the tokens stay exact, and a cost that is too low is never shown as whole; ccusage still does all the pricing.
   - **Cons:** a second run of ccusage per count, about 0.1 seconds in E10; one more field in the kept line.
 - **B. Keep ccusage's cost as it comes.** The cost is what ccusage computes, with no mark.
   - **Pros:** the simplest count; one run.
-  - **Cons:** after a model's release the costs fall short without a sign until the pin moves, the kind of hidden gap [R14](dec-0116-tokens-per-commit-counted-by-ccusage.md#r14) refused for compactions.
+  - **Cons:** after a model's release the costs fall short without a sign until the pin moves, the kind of hidden gap R14 of [dec-0116-tokens-per-commit-counted-by-ccusage](dec-0116-tokens-per-commit-counted-by-ccusage.md#r14) refused for compactions.
 - **C. Keep the tokens only.** The count keeps the four token counts and no cost.
   - **Pros:** no price can be wrong.
   - **Cons:** it drops the cost that [A15.1](../requirements.md#a15-1) asks for; a reader must price the tokens by hand.
@@ -180,7 +178,7 @@ The session recommended B, which keeps the kit's own forms, so that a person who
   - **Cons:** a project that wants a behaviour changed, such as silencing the start hook's warning, cannot do so without a new record and a new version.
 - **B. One dial to silence the warning.** `warn_missing_keys` under `const-change-cost`, `true` by default; `false` stops the start hook from naming the missing keys.
   - **Pros:** a clone whose person chose not to log commits stops seeing the same warning in every session.
-  - **Cons:** a silenced warning hides the loss [R11](dec-0116-tokens-per-commit-counted-by-ccusage.md#r11) names; one more key to validate and test, for a friction nobody has reported.
+  - **Cons:** a silenced warning hides the loss R11 of [dec-0116-tokens-per-commit-counted-by-ccusage](dec-0116-tokens-per-commit-counted-by-ccusage.md#r11) names; one more key to validate and test, for a friction nobody has reported.
 
 The session recommended A. The decider chose A in chat on 2026-11-09 and asked the session to check every ruling of both records for a value a project may need to set. The session read each:
 
