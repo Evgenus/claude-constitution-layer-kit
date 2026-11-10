@@ -27,12 +27,12 @@ status: active
 | [s6](#s6) | Decision record #1 | B | ✅ | 1 | 0 | 0 | 100% |
 | [s7](#s7) | Commit each step with honest messages | B | ✅ | 1 | 0 | 0 | 100% |
 | [s8](#s8) | [`const-locations`](requirements.md#const-locations) and [`const-task-close`](requirements.md#const-task-close) | C | ✅ | 2 | 0 | 0 | 100% |
-| [s9](#s9) | The other remaining modules, and the kit work logged beside them | C | 🔄 | 36 | 5 | 4 | 87% |
+| [s9](#s9) | The other remaining modules, and the kit work logged beside them | C | 🔄 | 36 | 6 | 4 | 85% |
 | [s10](#s10) | Publish: the remote, the marketplace and CI, then `0.1.0` | D | 🔄 | 9 | 4 | 0 | 69% |
 | [s10a](#s10a) | The first release of the shared package | D | ✅ | 1 | 0 | 0 | 100% |
 | [s10b](#s10b) | The release 2.0.0 of the shared package | D | ✅ | 1 | 0 | 0 | 100% |
 | [s11](#s11) | Switch the project from path load to marketplace install | D | ⏳ | 0 | 1 | 0 | 0% |
-| all | the whole plan | all | 🔄 | 68 | 10 | 8 | 87% |
+| all | the whole plan | all | 🔄 | 68 | 11 | 8 | 86% |
 
 <a id="phase-a"></a>
 ## Phase A — Kit as consumer zero: the document-shaped accumulating modules (~1 week)
@@ -130,6 +130,7 @@ status: active
    - <a id="s9-33a"></a>**9.33a** ✅ Done 2026-11-07, record [dec-0114-module-effect-report-design](decisions/dec-0114-module-effect-report-design.md), the yes given: the shared part of the effect report, in [kit-shared-gate-code](../shared/GATE.md#g1).
    - <a id="s9-33b"></a>**9.33b** ✅ Done 2026-11-07, record [dec-0114-module-effect-report-design](decisions/dec-0114-module-effect-report-design.md), the yes given: each module ships its effect report, as [template §13](../module-template/MODULE.md#t13) states.
    - <a id="s9-33c"></a>**9.33c** ✅ Done 2026-11-07, a routine change: the first report on the knowledge kit, with three defects of the shared reader fixed in [kit-shared-gate-code](../shared/GATE.md#g1).
+   - <a id="s9-34"></a>**9.34** ⏳ Found on 2026-11-09 by the carry audit of [dec-0115-long-documents-split-and-carry-entries-follow-moved-text](decisions/dec-0115-long-documents-split-and-carry-entries-follow-moved-text.md), older than that change, each a change of its own. [The bare-install check](../scripts/check-bare-install.py) names the platform facts of limit 3 of [section 4 of kit-shared-gate-code](../shared/GATE.md#g4) in its docstring and in two fix texts, but that limit no longer holds them since 2026-10-22, so the fix points at nothing ([law 6 of CLAUDE.md](../CLAUDE.md#law-6)). The carry list of [dec-0078-landed-collisions-renumber-and-kit-checks-hold-numbers-descriptions-namespaces-and-folders](decisions/dec-0078-landed-collisions-renumber-and-kit-checks-hold-numbers-descriptions-namespaces-and-folders.md) names the docstring of `run_all`, which the shared harness no longer has; the record is frozen, so the item asks only whether the docstring that holds the ruling now should be named in a current-state text. [Rule 7 of plc-0006-module-documents](policies/plc-0006-module-documents.md#r7) gives the template's anchors as `t1` to `t12`, while the template has `t13`. Prerequisite 3 of [the install guide](../INSTALL.md) installs shared release 2.0.0, while every module's install note names 2.1.0 and its entry files require it. The create command of [`const-locations`](requirements.md#const-locations), run for a kind with no template and no `--type`, prints only that the document could not be created, with no reason and no fix. The check of [`const-language`](requirements.md#const-language) after a write is red at every edit while a page stays over its grade, so a long page cannot be brought down one edit at a time without a red in between.
 
    A project that cannot run hooks carries a copy of the rules text of [`const-interaction`](requirements.md#const-interaction) in its `CLAUDE.md`, labeled manual and version-drifting — the fallback that module's install note names.
 
