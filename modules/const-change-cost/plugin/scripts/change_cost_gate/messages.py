@@ -11,12 +11,16 @@ tool's first line is cut at 80 characters and escaped.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from constitution_layer_kit import identity
 from constitution_layer_kit.messages import echoed, escaped
 from constitution_layer_kit.model import Broken
 
 from .model import (
     CCUSAGE_SECONDS,
+    HOOK_COMMIT,
+    HOOK_MERGE,
     LOCK_SECONDS,
     NPM_SECONDS,
     PIN,
@@ -31,9 +35,16 @@ def _ns() -> str:
     return identity.current().namespace
 
 
+SETUP_GATE = "setup-commit-log"
+
+
 def _until() -> str:
-    clause = identity.current().until_installed
-    return f" — {clause}" if clause else ""
+    """The closing clause of a failure's fix: the entry's own, and none for the setup, a generator whose
+    clause closes the shared C2 alone."""
+    current = identity.current()
+    if current.gate == SETUP_GATE:
+        return ""
+    return f" — {current.until_installed}" if current.until_installed else ""
 
 
 def _fail(key: Key, what: str, fix: str) -> Broken:
@@ -195,10 +206,72 @@ def j6_9_no_folder(session: str, error: str) -> Broken:
 
 
 COUNT_USAGE = "count-costs.sh [--all | --session]"
+SETUP_USAGE = "setup-commit-log.sh [--remove | --check]"
+START_USAGE = "session-start.sh with no argument and one SessionStart event on its standard input"
 
 
-def j6_11_misinvocation(detail: str) -> Broken:
-    return _fail(Key.J6_11, f"misinvocation: {echoed(detail)}", f"run it as {COUNT_USAGE}")
+def j6_10_old_git(version: str) -> Broken:
+    return _fail(
+        Key.J6_10,
+        f"{_ns()} needs git 2.54 or newer, which runs hooks set in its configuration, and found"
+        f" {echoed(version)}",
+        "install a newer git (https://git-scm.com/downloads), then run setup-commit-log.sh again",
+    )
+
+
+def j6_11_misinvocation(detail: str, usage: str) -> Broken:
+    return _fail(Key.J6_11, f"misinvocation: {echoed(detail)}", f"run it as {usage}")
+
+
+def j6_15_no_write(key: str, config: str, detail: str) -> Broken:
+    return _fail(
+        Key.J6_15,
+        f"git could not write {escaped(key)} into {escaped(config)}: {echoed(detail)}",
+        "repair what git names, such as the file's rights, then run setup-commit-log.sh --check",
+    )
+
+
+# ---------------------------------------------------------------- the start hook and the setup
+
+
+def detail_event_field(name: str) -> str:
+    return f"a SessionStart event must carry a string {name}"
+
+
+def j1_start_line(keys: Sequence[str], root: str) -> str:
+    return (
+        f"{_ns()} (advisory): this clone logs no commit, so none of its commits is counted — git's"
+        f" configuration lacks {' and '.join(keys)}. Load the skill {_ns()}:share-costs, tell the person,"
+        f' and run sh "{escaped(root)}/scripts/setup-commit-log.sh" only when they ask.'
+    )
+
+
+def j2_not_logged() -> str:
+    return f"BROKEN: {_ns()} could not log this session's start — its commits will get no count"
+
+
+def j8_setup_broken() -> str:
+    return "BROKEN: the setup could not run — setup-commit-log.sh --check shows what stands"
+
+
+def j17_set(config: str) -> str:
+    return (
+        f"SET: {HOOK_COMMIT} on post-commit and {HOOK_MERGE} on post-merge written into {escaped(config)}"
+        " — every commit of this clone is logged from now on"
+    )
+
+
+def j18_removed(config: str, folder: str) -> str:
+    return (
+        f"REMOVED: {HOOK_COMMIT} and {HOOK_MERGE} removed from {escaped(config)} — the logs and the counts"
+        f" stay in {escaped(folder)}"
+    )
+
+
+def j19_check(missing: Sequence[str]) -> str:
+    if not missing:
+        return "CHECK: both hooks of the commit log stand in git's configuration"
+    return f"CHECK: git's configuration lacks {' and '.join(missing)} — setup-commit-log.sh writes them"
 
 
 # ---------------------------------------------------------------- a commit that has no kept line (J11)

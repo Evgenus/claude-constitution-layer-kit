@@ -22,9 +22,9 @@ from pathlib import Path
 from constitution_layer_kit import identity
 from constitution_layer_kit.errors import ConfigurationFailure
 from constitution_layer_kit.output import Output
-from constitution_layer_kit.repository import git
 
 from . import counter as counters
+from . import git as gitpart
 from . import logs, messages, model, windows
 from .model import (
     CommitLine,
@@ -60,14 +60,6 @@ class Scope:
     """Which sessions a pass counts: one, or every session in the logs."""
 
     session: str | None
-
-
-def common_directory(directory: Path) -> Path:
-    """Git's common directory, the same from the main checkout and from every linked worktree."""
-    done = git(["rev-parse", "--git-common-dir"], directory)
-    if done.returncode != 0:
-        raise ConfigurationFailure(messages.j6_7_no_repository(str(directory)))
-    return Path(os.path.realpath(directory / done.stdout.decode("utf-8", "replace").strip()))
 
 
 def commits_of(commits: Sequence[CommitLine]) -> dict[str, list[CommitLine]]:
@@ -196,7 +188,7 @@ def count_all(output: Output, scope: Scope, folder: Path, counter: counters.Ccus
 
 def run(output: Output, scope: Scope, directory: Path) -> int:
     """One pass over the clone's logs; exit 0, the closing line saying what it did."""
-    folder = logs.folder_of(common_directory(directory))
+    folder = logs.folder_of(gitpart.common_directory(directory))
     data = os.environ.get("CLAUDE_PLUGIN_DATA")
     with logs.locked(folder, model.LOCK_SECONDS) as held:
         if held:

@@ -43,6 +43,8 @@ FIXTURE = Path(__file__).resolve().parent / "fixture" / "projects" / "p"
 IDENTITY = start.COUNT  # declared for the whole session by conftest; the expected messages read it
 NS = IDENTITY.namespace
 H = Harness(SCRIPTS, "count-costs.sh", "count-costs.py", NS)
+HS = Harness(SCRIPTS, "session-start.sh", "session-start.py", NS)  # the start hook
+HU = Harness(SCRIPTS, "setup-commit-log.sh", "setup-commit-log.py", NS)  # the setup a person runs
 
 S1 = "11111111-1111-4111-8111-111111111111"
 S2 = "22222222-2222-4222-8222-222222222222"
@@ -53,6 +55,12 @@ OPUS = "claude-opus-4-5-20251101"
 BASE = datetime(2026, 11, 1, 10, 0, 0, tzinfo=UTC)
 CLAUSE = "until then no commit is counted"
 CLOSING = "BROKEN: the count could not run — no commit was counted"
+START_CLAUSE = "until then no session's start is logged, and its commits get no count"
+START_CLOSING = "BROKEN: const-change-cost could not log this session's start — its commits will get no count"
+SETUP_C2_CLAUSE = "until then no hook of the commit log is written"
+SETUP_CLOSING = "BROKEN: the setup could not run — setup-commit-log.sh --check shows what stands"
+HOOK_COMMIT = "hook.const-change-cost-commit"
+HOOK_MERGE = "hook.const-change-cost-merge"
 NPM_HINT = (
     "install Node.js, which brings npm (https://nodejs.org/en/download), and run: npm ci --ignore-scripts"
 )
@@ -891,9 +899,105 @@ def test_exit_codes(tmp_path: Path, clone: Clone) -> None:
         CLOSING,
     ]
     assert clone.kept() == []
+    exit_codes_of_start_and_setup(tmp_path, clone)
 
 
-@item(25, "the count's install-failure lines, C1, C2, C14 and C15, close with its own clause, then J4")
+def exit_codes_of_start_and_setup(tmp_path: Path, clone: Clone) -> None:
+    """The start hook's and the setup's parts of the exit-code split: 0 with their lines, 1 with the line
+    first on stderr and their own closing line, never 2; J6.7, J6.11 and J6.15 typed by hand."""
+    logged_before = len(log_lines(clone, "starts.jsonl"))
+    fix_input = (
+        "as a hook this script reads one tool event, a JSON object, on stdin; to check a repository by hand"
+        " run it with --scan [<dir>]"
+    )
+    for stdin, detail in (
+        ("{", "it is not JSON: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)"),
+        ("[]", "it is JSON, but the top level is not an object"),
+        (
+            '{"session_id": "x", "transcript_path": "/t", "cwd": "/"}',
+            "a SessionStart event must carry a string source",
+        ),
+    ):
+        bad = start_hook(clone, stdin)
+        assert bad.code == 1 and bad.stdout == "", stdin
+        assert bad.stderr.splitlines() == [
+            f"BROKEN: hook input cannot be used ({detail}) — fix: {fix_input}",
+            START_CLOSING,
+        ], stdin
+    misuse = HS.run_gate(payload(S1, clone.root), args=["x"], env=clone.environment(), cwd=clone.root)
+    assert misuse.code == 1 and misuse.stdout == ""
+    assert misuse.stderr.splitlines() == [
+        "BROKEN: misinvocation: unexpected argument x — fix: run it as session-start.sh with no argument and"
+        f" one SessionStart event on its standard input — {START_CLAUSE}",
+        START_CLOSING,
+    ]
+    assert len(log_lines(clone, "starts.jsonl")) == logged_before, "a start that cannot be read logs nothing"
+    outside = tmp_path / "outside-setup"
+    outside.mkdir()
+    nowhere = clone.count(harness=HU, cwd=outside, env={"GIT_CEILING_DIRECTORIES": str(tmp_path)})
+    assert nowhere.code == 1 and nowhere.stdout == ""
+    assert nowhere.stderr.splitlines() == [
+        f"BROKEN: {outside} is not inside a git repository — fix: run it inside the clone whose commits it"
+        " counts",
+        SETUP_CLOSING,
+    ]
+    for args, detail in (
+        (("--bogus",), "unrecognized arguments: --bogus"),
+        (("--remove", "--check"), "argument --check: not allowed with argument --remove"),
+        (("x",), "unrecognized arguments: x"),
+    ):
+        wrong = setup_run(clone, *args)
+        assert wrong.code == 1 and wrong.stdout == "", args
+        assert wrong.stderr.splitlines() == [
+            f"BROKEN: misinvocation: {detail} — fix: run it as setup-commit-log.sh [--remove | --check]",
+            SETUP_CLOSING,
+        ], args
+    git_dir = clone.root / ".git"
+    git_dir.chmod(0o555)  # git cannot lock the configuration file
+    try:
+        locked = setup_run(clone)
+    finally:
+        git_dir.chmod(0o755)
+    assert locked.code == 1 and locked.stdout == ""
+    first, closing_line = locked.stderr.splitlines()
+    assert closing_line == SETUP_CLOSING
+    assert first.startswith(
+        f"BROKEN: git could not write {HOOK_COMMIT}.command into {git_dir}/config: error: could not lock"
+    )
+    assert first.endswith(
+        " — fix: repair what git names, such as the file's rights, then run setup-commit-log.sh --check"
+    )
+    assert HOOK_COMMIT not in git_in(clone.root, "config", "--local", "--list", session=None)
+
+
+@dataclass(frozen=True)
+class Entry:
+    """One entry of the module under test: its harness, the arguments and input of a plain run, the clause it
+    closes its failures with (none for a generator's) and its closing line."""
+
+    harness: Harness
+    script: str
+    args: tuple[str, ...]
+    stdin: str
+    clause: str
+    closing: str
+    c2_clause: str  # the identity's clause, which closes the shared C2 alone for a generator
+
+    def tail(self) -> str:
+        return f" — {self.clause}" if self.clause else ""
+
+
+def entries(clone: Clone) -> list[Entry]:
+    return [
+        Entry(H, "count-costs.py", ("--all",), "", CLAUSE, CLOSING, CLAUSE),
+        Entry(HS, "session-start.py", (), payload(S1, clone.root), START_CLAUSE, START_CLOSING, START_CLAUSE),
+        Entry(HU, "setup-commit-log.py", (), "", "", SETUP_CLOSING, SETUP_C2_CLAUSE),
+    ]
+
+
+@item(
+    25, "each entry's install-failure lines, C1, C2, C14 and C15, close with its own clause, then its J line"
+)
 def test_install_failures(tmp_path: Path, clone: Clone) -> None:
     clone.start(S1, 0)
     tools = tmp_path / "tools"  # a PATH holding only sh, dirname and git: no python3
@@ -902,50 +1006,402 @@ def test_install_failures(tmp_path: Path, clone: Clone) -> None:
         found = shutil.which(tool)
         assert found, tool
         os.symlink(found, tools / tool)
-    no_python = clone.count("--all", env={"PATH": str(tools)})
-    assert no_python.code == 1
-    assert no_python.stderr.splitlines() == [
-        "BROKEN: const-change-cost needs python3 — fix: install Python 3.12 or newer"
-        f" (https://www.python.org/downloads/) — {CLAUSE}",
-        CLOSING,
-    ]
     shadow = tmp_path / "shadow"  # PyYAML hidden: the shared C2, its clause this entry's
     shadow.mkdir()
     (shadow / "yaml.py").write_text("raise ImportError('simulated absence')\n", encoding="utf-8")
-    no_yaml = clone.count("--all", env={"PYTHONPATH": str(shadow)})
-    assert no_yaml.code == 1
-    assert no_yaml.stderr.splitlines() == [
-        "BROKEN: const-change-cost needs PyYAML — fix: run: python3 -m pip install -r"
-        f" '{PLUGIN}/requirements.txt'"
-        f" — {CLAUSE}",
-        CLOSING,
-    ]
-    entry = SCRIPTS / "count-costs.py"  # the entry file run as an interpreter of 3.11 would run it
     lowered = (
         "import sys; sys.version_info = (3, 11, 0); path = sys.argv[1]; "
         "exec(compile(open(path).read(), path, 'exec'), {'__name__': '__main__', '__file__': path})"
     )
-    old = H.run_gate("", command=[sys.executable, "-c", lowered, str(entry)], env=clone.environment())
-    assert old.code == 1
-    assert old.stderr.splitlines() == [
-        "BROKEN: const-change-cost needs Python 3.12 or newer, found 3.11 — fix: install a current Python 3"
-        f" (https://www.python.org/downloads/) and put it first on PATH — {CLAUSE}",
-        CLOSING,
-    ]
-    no_package = H.run_gate(  # the harness's shared folder left out, and no site-packages
-        "",
-        args=["--all"],
-        env={**clone.environment(), "PYTHONPATH": ""},
-        command=[sys.executable, "-S", str(entry)],
-        shared=False,
+    for entry in entries(clone):
+        env = clone.environment()
+        no_python = entry.harness.run_gate(
+            entry.stdin, args=list(entry.args), env={**env, "PATH": str(tools)}, cwd=clone.root
+        )
+        assert no_python.code == 1, entry.script
+        assert no_python.stderr.splitlines() == [
+            "BROKEN: const-change-cost needs python3 — fix: install Python 3.12 or newer"
+            f" (https://www.python.org/downloads/){entry.tail()}",
+            entry.closing,
+        ], entry.script
+        no_yaml = entry.harness.run_gate(
+            entry.stdin, args=list(entry.args), env={**env, "PYTHONPATH": str(shadow)}, cwd=clone.root
+        )
+        assert no_yaml.code == 1, entry.script
+        assert no_yaml.stderr.splitlines() == [
+            "BROKEN: const-change-cost needs PyYAML — fix: run: python3 -m pip install -r"
+            f" '{PLUGIN}/requirements.txt' — {entry.c2_clause}",
+            entry.closing,
+        ], entry.script
+        path = SCRIPTS / entry.script  # the entry file run as an interpreter of 3.11 would run it
+        old = entry.harness.run_gate(
+            entry.stdin, command=[sys.executable, "-c", lowered, str(path)], env=env, cwd=clone.root
+        )
+        assert old.code == 1, entry.script
+        assert old.stderr.splitlines() == [
+            "BROKEN: const-change-cost needs Python 3.12 or newer, found 3.11 — fix: install a current"
+            f" Python 3 (https://www.python.org/downloads/) and put it first on PATH{entry.tail()}",
+            entry.closing,
+        ], entry.script
+        no_package = entry.harness.run_gate(  # the harness's shared folder left out, and no site-packages
+            entry.stdin,
+            args=list(entry.args),
+            env={**env, "PYTHONPATH": ""},
+            command=[sys.executable, "-S", str(path)],
+            shared=False,
+            cwd=clone.root,
+        )
+        assert no_package.code == 1, entry.script
+        assert no_package.stderr.splitlines() == [
+            "BROKEN: const-change-cost needs the Python package constitution-layer-kit 2.0.0 or a later 2.x"
+            " release,"
+            f" and python3 cannot import it — fix: install it for python3 as {PLUGIN}/INSTALL.md says"
+            f"{entry.tail()}",
+            entry.closing,
+        ], entry.script
+
+
+# ------------------------------------------------------------------ T1 to T4, T24: start hook, setup
+
+AUTHOR = {
+    "GIT_AUTHOR_NAME": "t",
+    "GIT_AUTHOR_EMAIL": "t@example.invalid",
+    "GIT_COMMITTER_NAME": "t",
+    "GIT_COMMITTER_EMAIL": "t@example.invalid",
+}
+J1_HEAD = (
+    "const-change-cost (advisory): this clone logs no commit, so none of its commits is counted — git's"
+    " configuration lacks "
+)
+J1_TAIL = (
+    ". Load the skill const-change-cost:share-costs, tell the person, and run sh"
+    ' "{root}/scripts/setup-commit-log.sh" only when they ask.'
+)
+
+
+def payload(session: str, cwd: Path, source: str = "startup", transcript: str = "/t/s.jsonl") -> str:
+    """A real SessionStart event, as Claude Code writes it to a hook's standard input."""
+    return json.dumps(
+        {
+            "session_id": session,
+            "transcript_path": transcript,
+            "cwd": str(cwd),
+            "hook_event_name": "SessionStart",
+            "source": source,
+        }
     )
-    assert no_package.code == 1
-    assert no_package.stderr.splitlines() == [
-        "BROKEN: const-change-cost needs the Python package constitution-layer-kit 2.0.0 or a later 2.x"
-        " release,"
-        f" and python3 cannot import it — fix: install it for python3 as {PLUGIN}/INSTALL.md says — {CLAUSE}",
-        CLOSING,
+
+
+def git_in(cwd: Path, *args: str, session: str | None = S1, check: bool = True) -> str:
+    """The real git, in `cwd`, as a session would run it: the variable of the session named, or unset."""
+    env = {key: value for key, value in os.environ.items() if key != "CLAUDE_CODE_SESSION_ID"}
+    env.update({**GIT_ENV, **AUTHOR})
+    if session is not None:
+        env["CLAUDE_CODE_SESSION_ID"] = session
+    done = subprocess.run(["git", *args], cwd=cwd, env=env, capture_output=True, text=True, check=False)
+    if check:
+        assert done.returncode == 0, f"git {' '.join(args)}: {done.stderr.strip()}"
+    return done.stdout.strip()
+
+
+def start_hook(clone: Clone, stdin: str, cwd: Path | None = None) -> Result:
+    return HS.run_gate(stdin, env=clone.environment(), cwd=cwd or clone.root)
+
+
+def setup_run(clone: Clone, *args: str, cwd: Path | None = None) -> Result:
+    return clone.count(*args, harness=HU, cwd=cwd)
+
+
+def local_config(root: Path) -> list[str]:
+    return git_in(root, "config", "--local", "--list", session=None).splitlines()
+
+
+def set_hook(root: Path, key: str, event: str) -> None:
+    git_in(root, "config", "--local", f"{key}.command", "true", session=None)
+    git_in(root, "config", "--local", f"{key}.event", event, session=None)
+
+
+def log_lines(clone: Clone, name: str) -> list[dict[str, object]]:
+    path = clone.folder / name
+    return [json.loads(raw) for raw in path.read_text(encoding="utf-8").splitlines()] if path.exists() else []
+
+
+@item(1, "the start record: one compact JSON line in the common directory, from the checkout and a worktree")
+def test_start_record(tmp_path: Path, clone: Clone) -> None:
+    git_in(clone.root, "commit", "--allow-empty", "-q", "-m", "a")
+    worktree = tmp_path / "wt"
+    git_in(clone.root, "worktree", "add", "-q", str(worktree), "-b", "other")
+    before = int(datetime.now(UTC).timestamp() * 1000)
+    main = start_hook(clone, payload(S1, clone.root, "startup", "/t/one.jsonl"))
+    linked = start_hook(clone, payload(S2, worktree, "resume", "/t/two.jsonl"), cwd=worktree)
+    after = int(datetime.now(UTC).timestamp() * 1000)
+    for done in (main, linked):
+        assert (done.code, done.stdout.count("\n")) == (0, 1), done.stderr  # the start line J1 alone
+    raw = (clone.folder / "starts.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(raw) == 2
+    for text, session, source, transcript in (
+        (raw[0], S1, "startup", "/t/one.jsonl"),
+        (raw[1], S2, "resume", "/t/two.jsonl"),
+    ):
+        record = json.loads(text)
+        assert list(record) == ["session", "ms", "source", "transcript_path"]
+        assert (record["session"], record["source"], record["transcript_path"]) == (
+            session,
+            source,
+            transcript,
+        )
+        assert isinstance(record["ms"], int) and before <= record["ms"] <= after
+        assert text == json.dumps(record, separators=(",", ":"))  # compact
+    assert not (worktree / ".git").is_dir() and not (worktree / "const-change-cost").exists()
+
+
+@item(2, "J1 with both hooks and with one missing; nothing printed when both stand or outside a repository")
+def test_start_line(tmp_path: Path, clone: Clone) -> None:
+    root = str(PLUGIN)
+    both = start_hook(clone, payload(S1, clone.root))
+    assert both.code == 0 and both.stderr == ""
+    assert both.stdout.splitlines() == [
+        J1_HEAD + f"{HOOK_COMMIT} and {HOOK_MERGE}" + J1_TAIL.format(root=root)
     ]
+    set_hook(clone.root, HOOK_COMMIT, "post-commit")
+    only_merge_missing = start_hook(clone, payload(S1, clone.root))
+    assert only_merge_missing.stdout.splitlines() == [J1_HEAD + HOOK_MERGE + J1_TAIL.format(root=root)]
+    git_in(clone.root, "config", "--local", "--remove-section", HOOK_COMMIT, session=None)
+    set_hook(clone.root, HOOK_MERGE, "post-merge")
+    only_commit_missing = start_hook(clone, payload(S1, clone.root))
+    assert only_commit_missing.stdout.splitlines() == [J1_HEAD + HOOK_COMMIT + J1_TAIL.format(root=root)]
+    set_hook(clone.root, HOOK_COMMIT, "post-merge")  # a hook on the wrong event is no hook of the log
+    wrong_event = start_hook(clone, payload(S1, clone.root))
+    assert wrong_event.stdout.splitlines() == [J1_HEAD + HOOK_COMMIT + J1_TAIL.format(root=root)]
+    set_hook(clone.root, HOOK_COMMIT, "post-commit")
+    git_in(clone.root, "config", "--local", "--unset-all", f"{HOOK_COMMIT}.event", session=None)
+    git_in(clone.root, "config", "--local", "--add", f"{HOOK_COMMIT}.event", "post-merge", session=None)
+    git_in(clone.root, "config", "--local", "--add", f"{HOOK_COMMIT}.event", "post-commit", session=None)
+    standing = start_hook(clone, payload(S1, clone.root))  # both stand, one on two events
+    assert (standing.code, standing.stdout, standing.stderr) == (0, "", "")
+    assert len(log_lines(clone, "starts.jsonl")) == 5  # every start is logged, the line or not
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    env = {"GIT_CEILING_DIRECTORIES": str(tmp_path)}
+    nowhere = HS.run_gate(payload(S1, outside), env=clone.environment(env), cwd=outside)
+    assert (nowhere.code, nowhere.stdout, nowhere.stderr) == (0, "", "")
+    assert list(outside.iterdir()) == []
+    assert len(log_lines(clone, "starts.jsonl")) == 5
+
+
+@item(
+    3, "the setup: J17 with both hooks and nothing else written; J19 both ways; J18 keeping the logs; old git"
+)
+def test_setup(tmp_path: Path, clone: Clone) -> None:
+    config = clone.root / ".git" / "config"
+    before = local_config(clone.root)
+    checked = setup_run(clone, "--check")
+    assert (checked.code, checked.stdout.splitlines(), checked.stderr) == (
+        0,
+        [
+            f"CHECK: git's configuration lacks {HOOK_COMMIT} and {HOOK_MERGE}"
+            " — setup-commit-log.sh writes them"
+        ],
+        "",
+    )
+    done = setup_run(clone)
+    assert (done.code, done.stderr) == (0, "")
+    assert done.stdout.splitlines() == [
+        f"SET: {HOOK_COMMIT} on post-commit and {HOOK_MERGE} on post-merge written into {config}"
+        " — every commit of this clone is logged from now on"
+    ]
+    after = local_config(clone.root)
+    added = [line for line in after if line not in before]
+    assert sorted(line.split("=", 1)[0] for line in added) == [
+        f"{HOOK_COMMIT}.command",
+        f"{HOOK_COMMIT}.event",
+        f"{HOOK_MERGE}.command",
+        f"{HOOK_MERGE}.event",
+    ]
+    assert [line for line in before if line not in after] == [], "nothing that stood was changed"
+    assert f"{HOOK_COMMIT}.event=post-commit" in after and f"{HOOK_MERGE}.event=post-merge" in after
+    for key in (HOOK_COMMIT, HOOK_MERGE):
+        value = git_in(clone.root, "config", "--local", "--get", f"{key}.command", session=None)
+        assert value.startswith("python3 -c '") and value.endswith("'") and "\n" not in value
+    again = setup_run(clone)  # a second run writes the same, and adds nothing
+    assert again.code == 0 and sorted(local_config(clone.root)) == sorted(after)
+    both = setup_run(clone, "--check")
+    assert (both.code, both.stdout.splitlines()) == (
+        0,
+        ["CHECK: both hooks of the commit log stand in git's configuration"],
+    )
+    git_in(clone.root, "config", "--local", "--remove-section", HOOK_MERGE, session=None)
+    one = setup_run(clone, "--check")
+    assert (one.code, one.stdout.splitlines()) == (
+        0,
+        [f"CHECK: git's configuration lacks {HOOK_MERGE} — setup-commit-log.sh writes them"],
+    )
+    setup_run(clone)
+    clone.start(S1, 0)  # a log the removal must keep
+    clone.commit("a" * 40, 1, S1)
+    removed = setup_run(clone, "--remove")
+    assert (removed.code, removed.stderr) == (0, "")
+    assert removed.stdout.splitlines() == [
+        f"REMOVED: {HOOK_COMMIT} and {HOOK_MERGE} removed from {config} — the logs and the counts stay in"
+        f" {clone.folder}"
+    ]
+    assert local_config(clone.root) == before
+    assert len(log_lines(clone, "starts.jsonl")) == 1 and len(log_lines(clone, "commits.jsonl")) == 1
+    assert setup_run(clone, "--remove").code == 0  # nothing to remove is done
+    # a git older than 2.54 is refused, and nothing is written
+    real = shutil.which("git")
+    assert real
+    fake = tmp_path / "fakegit"
+    fake.mkdir()
+    fake_program(
+        fake / "git",
+        f'[ "$1" = "--version" ] && {{ echo "git version 2.53.1"; exit 0; }}\nexec {real} "$@"\n',
+    )
+    old = clone.count(harness=HU, env={"PATH": f"{fake}{os.pathsep}{os.environ['PATH']}"})
+    assert old.code == 1 and old.stdout == ""
+    assert old.stderr.splitlines() == [
+        "BROKEN: const-change-cost needs git 2.54 or newer, which runs hooks set in its configuration, and"
+        " found 2.53.1 — fix: install a newer git (https://git-scm.com/downloads), then run"
+        " setup-commit-log.sh again",
+        SETUP_CLOSING,
+    ]
+    assert local_config(clone.root) == before
+
+
+@item(
+    4,
+    "the commit log by a real git: commit, amend, cherry-pick, rebase, a merge's commit and merge --no-ff"
+    " once each; a fast-forward not; no variable an empty session; a worktree into the same file",
+)
+def test_commit_log(tmp_path: Path, clone: Clone) -> None:
+    root = clone.root
+    assert setup_run(clone).code == 0
+    seen = {"count": 0}
+
+    def logged(label: str, *, wanted: int, session: str = S1, event: str = "commit") -> None:
+        lines = log_lines(clone, "commits.jsonl")
+        assert len(lines) == seen["count"] + wanted, f"{label}: {lines[seen['count'] :]}"
+        for line in lines[seen["count"] :]:
+            assert list(line) == ["sha", "ms", "session", "event"], label
+            assert line["session"] == session and line["event"] == event, f"{label}: {line}"
+            assert line["sha"] == git_in(root, "rev-parse", "HEAD", session=None), label
+        seen["count"] = len(lines)
+
+    started = int(datetime.now(UTC).timestamp() * 1000)
+    git_in(root, "branch", "-M", "main", check=False)
+    git_in(root, "commit", "--allow-empty", "-q", "-m", "a")
+    logged("commit", wanted=1)
+    git_in(root, "commit", "--amend", "--allow-empty", "-q", "-m", "a2")
+    logged("amend", wanted=1)
+    git_in(root, "checkout", "-q", "-b", "side")
+    (root / "f").write_text("x\n", encoding="utf-8")
+    git_in(root, "add", "f")
+    git_in(root, "commit", "-q", "-m", "b")
+    logged("a commit on a branch", wanted=1)
+    git_in(root, "checkout", "-q", "main")
+    git_in(root, "commit", "--allow-empty", "-q", "-m", "m1")
+    logged("a commit on main", wanted=1)
+    git_in(root, "cherry-pick", "side")
+    logged("cherry-pick", wanted=1)
+    git_in(root, "checkout", "-q", "-b", "replay", "side")
+    (root / "h").write_text("y\n", encoding="utf-8")
+    git_in(root, "add", "h")
+    git_in(root, "commit", "-q", "-m", "replayed")
+    logged("a commit to replay", wanted=1)
+    git_in(root, "rebase", "-q", "main")
+    logged("rebase", wanted=1)
+    git_in(root, "checkout", "-q", "main")
+    # a merge that stops on a conflict and is concluded by a commit
+    for branch, text in (("one", "1\n"), ("two", "2\n")):
+        git_in(root, "checkout", "-q", "-b", branch, "main")
+        (root / "g").write_text(text, encoding="utf-8")
+        git_in(root, "add", "g")
+        git_in(root, "commit", "-q", "-m", branch)
+        logged(f"commit {branch}", wanted=1)
+    git_in(root, "merge", "one", check=False)  # stops on the conflict, makes no commit
+    assert git_in(root, "ls-files", "--unmerged", session=None) != ""
+    logged("a merge that stops on a conflict", wanted=0)
+    (root / "g").write_text("both\n", encoding="utf-8")
+    git_in(root, "add", "g")
+    git_in(root, "commit", "-q", "--no-edit")
+    logged("the commit that concludes a merge", wanted=1)
+    git_in(root, "checkout", "-q", "main")
+    git_in(root, "checkout", "-q", "-b", "n1")
+    git_in(root, "commit", "--allow-empty", "-q", "-m", "n1")
+    logged("a commit to merge", wanted=1)
+    git_in(root, "checkout", "-q", "main")
+    git_in(root, "commit", "--allow-empty", "-q", "-m", "m2")
+    logged("a commit on main again", wanted=1)
+    git_in(root, "merge", "--no-ff", "-q", "-m", "merged", "n1")
+    logged("merge --no-ff", wanted=1, event="merge")
+    # a fast-forward fires post-merge and makes no commit
+    git_in(root, "checkout", "-q", "-b", "ahead")
+    git_in(root, "commit", "--allow-empty", "-q", "-m", "ahead")
+    logged("a commit before a fast-forward", wanted=1)
+    git_in(root, "checkout", "-q", "main")
+    git_in(root, "merge", "--ff-only", "-q", "ahead")
+    logged("merge --ff-only", wanted=0)
+    upstream = tmp_path / "upstream"
+    git_in(tmp_path, "clone", "-q", str(root), str(upstream))
+    git_in(upstream, "commit", "--allow-empty", "-q", "-m", "upstream", session=None)
+    git_in(root, "pull", "-q", "--ff-only", str(upstream), "main")
+    logged("pull --ff-only", wanted=0)
+    # no variable: the commit is logged, with an empty session
+    git_in(root, "commit", "--allow-empty", "-q", "-m", "by hand", session=None)
+    logged("no variable", wanted=1, session="")
+    # a linked worktree logs into the clone's own file
+    worktree = tmp_path / "wt"
+    git_in(root, "worktree", "add", "-q", str(worktree), "-b", "wtb")
+    git_in(worktree, "commit", "--allow-empty", "-q", "-m", "in the worktree", session=S2)
+    lines = log_lines(clone, "commits.jsonl")
+    assert len(lines) == seen["count"] + 1
+    assert lines[-1]["session"] == S2 and lines[-1]["sha"] == git_in(worktree, "rev-parse", "HEAD")
+    assert not (worktree / ".git").is_dir() and not (worktree / "const-change-cost").exists()
+    stamps = [int(str(line["ms"])) for line in lines]
+    assert stamps == sorted(stamps) and started <= stamps[0] <= stamps[-1] <= int(
+        datetime.now(UTC).timestamp() * 1000
+    )
+
+
+@item(
+    24,
+    "the hooks file: three handlers in exec form, integer timeouts, async on two, no matcher, no other event",
+)
+def test_hooks_file() -> None:
+    text = (PLUGIN / "hooks" / "hooks.json").read_text(encoding="utf-8")
+    hooks = json.loads(text)
+    start_handler = {
+        "type": "command",
+        "command": "sh",
+        "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/session-start.sh"],
+        "timeout": 30,
+    }
+    count_all = {
+        "type": "command",
+        "command": "sh",
+        "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/count-costs.sh", "--all"],
+        "async": True,
+        "timeout": 600,
+    }
+    count_session = {
+        "type": "command",
+        "command": "sh",
+        "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/count-costs.sh", "--session"],
+        "async": True,
+        "timeout": 600,
+    }
+    assert hooks == {
+        "hooks": {
+            "SessionStart": [{"hooks": [start_handler, count_all]}],
+            "Stop": [{"hooks": [count_session]}],
+        }
+    }
+    handlers = [h for groups in hooks["hooks"].values() for group in groups for h in group["hooks"]]
+    assert len(handlers) == 3 and "matcher" not in text
+    for handler in handlers:
+        assert type(handler["timeout"]) is int and handler["command"] == "sh"
+        assert (PLUGIN / handler["args"][0].replace("${CLAUDE_PLUGIN_ROOT}/", "")).is_file()
+    assert [h for h in handlers if h.get("async")] == [count_all, count_session]
 
 
 @item(

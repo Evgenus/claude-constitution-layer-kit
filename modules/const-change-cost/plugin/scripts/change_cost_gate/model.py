@@ -23,6 +23,9 @@ COMPACTION = "compact_boundary"  # the type, or the subtype, of the record a com
 LOCK_SECONDS = 120.0  # how long a count waits for the lock on the file of counts
 CCUSAGE_SECONDS = 60.0  # how long one ccusage run may take
 NPM_SECONDS = 120.0  # how long `npm ci` may take
+GIT_MINIMUM = (2, 54)  # the first git that runs hooks set in its configuration, hook.<name>.command
+HOOK_COMMIT = "hook.const-change-cost-commit"  # the key of the hook on post-commit, as MODULE.md names it
+HOOK_MERGE = "hook.const-change-cost-merge"  # the key of the hook on post-merge
 SHA_SHOWN = 12  # how many characters of a commit's SHA a line shows
 
 # a reply, as ccusage keys it: its message id and its request id
@@ -41,7 +44,9 @@ class Key(StrEnum):
     J6_7 = "J6.7"  # not inside a git repository
     J6_8 = "J6.8"  # --session without CLAUDE_CODE_SESSION_ID
     J6_9 = "J6.9"  # the throwaway folder could not be made
+    J6_10 = "J6.10"  # git older than the setup needs
     J6_11 = "J6.11"  # misinvocation
+    J6_15 = "J6.15"  # git could not write a key into its configuration
 
 
 @dataclass(frozen=True, slots=True)
