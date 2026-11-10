@@ -1,0 +1,29 @@
+"""The pytest wiring of const-change-cost's fixtures: the shared hooks and the scope every test runs in."""
+
+from collections.abc import Iterator
+
+import pytest
+from change_cost_gate import start
+from constitution_layer_kit import identity
+from constitution_layer_kit.testing import acceptance
+
+# The test file builds its expected messages as it is imported, by the functions the module uses, so it is
+# imported inside a scope of the module's identity. The fixture below opens the scope that the tests run in.
+with identity.declared(start.COUNT):
+    import test_change_cost
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    acceptance.configure(config)
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    acceptance.collected(items)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def gate_declared() -> Iterator[None]:
+    """The one scope of the module's identity, no mode, that every test of the session runs in; an item that
+    needs another declaration opens its own inside it, and one that needs none runs in a fresh context."""
+    with identity.declared(test_change_cost.IDENTITY):
+        yield
