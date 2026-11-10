@@ -1,6 +1,6 @@
 """What the module asks of git: the common directory, git's version and the two hooks of the commit log in
 git's configuration. Every call goes through the shared `git` function, so that a hook gives each its clock.
-The range and the notes are the report's, in a part of their own."""
+The range and the notes are the report's too."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from constitution_layer_kit.errors import ConfigurationFailure
 from constitution_layer_kit.repository import git
 
 from . import messages
-from .model import GIT_MINIMUM, HOOK_COMMIT, HOOK_MERGE
+from .model import GIT_MINIMUM, HOOK_COMMIT, HOOK_MERGE, NOTES_REF
 
 # the hook keys with the git event each runs on, in the order the messages name them
 HOOKS: tuple[tuple[str, str], ...] = ((HOOK_COMMIT, "post-commit"), (HOOK_MERGE, "post-merge"))
@@ -106,3 +106,25 @@ def remove_section(directory: Path, common: Path, section: str) -> None:
         raise ConfigurationFailure(
             messages.j6_15_no_write(section, str(config_file(common)), detail[0] if detail else "no message")
         )
+
+
+def range_commits(directory: Path, root: Path, range_text: str) -> list[str]:
+    """The SHAs of the commits of `range_text`, oldest first, parents before children; J6.12 where git cannot
+    read the range. The range follows `--end-of-options`, so that no range is taken for an option."""
+    done = git(["rev-list", "--reverse", "--topo-order", "--end-of-options", range_text, "--"], directory)
+    if done.returncode != 0:
+        raise ConfigurationFailure(messages.j6_12_bad_range(range_text, str(root), first_line(done.stderr)))
+    return done.stdout.decode("utf-8", "replace").split()
+
+
+def first_line(stderr: bytes) -> str:
+    lines = stderr.decode("utf-8", "replace").strip().splitlines()
+    return lines[0] if lines else "no message"
+
+
+def write_note(directory: Path, sha: str, text: str) -> None:
+    """Writes `text` as the note on `sha` under the module's notes ref, replacing an earlier one; J6.14 where
+    git cannot. It writes the local ref alone: nothing is pushed."""
+    done = git(["notes", "--ref", NOTES_REF, "add", "--force", "--message", text, sha], directory)
+    if done.returncode != 0:
+        raise ConfigurationFailure(messages.j6_14_no_note(sha, first_line(done.stderr)))

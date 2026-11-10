@@ -45,6 +45,7 @@ NS = IDENTITY.namespace
 H = Harness(SCRIPTS, "count-costs.sh", "count-costs.py", NS)
 HS = Harness(SCRIPTS, "session-start.sh", "session-start.py", NS)  # the start hook
 HU = Harness(SCRIPTS, "setup-commit-log.sh", "setup-commit-log.py", NS)  # the setup a person runs
+HR = Harness(SCRIPTS, "cost-report.sh", "cost-report.py", NS)  # the report a person runs
 
 S1 = "11111111-1111-4111-8111-111111111111"
 S2 = "22222222-2222-4222-8222-222222222222"
@@ -59,6 +60,8 @@ START_CLAUSE = "until then no session's start is logged, and its commits get no 
 START_CLOSING = "BROKEN: const-change-cost could not log this session's start — its commits will get no count"
 SETUP_C2_CLAUSE = "until then no hook of the commit log is written"
 SETUP_CLOSING = "BROKEN: the setup could not run — setup-commit-log.sh --check shows what stands"
+REPORT_C2_CLAUSE = "until then no report or export is made"
+REPORT_CLOSING = "BROKEN: the report could not run — nothing was shown or written"
 HOOK_COMMIT = "hook.const-change-cost-commit"
 HOOK_MERGE = "hook.const-change-cost-merge"
 NPM_HINT = (
@@ -900,6 +903,7 @@ def test_exit_codes(tmp_path: Path, clone: Clone) -> None:
     ]
     assert clone.kept() == []
     exit_codes_of_start_and_setup(tmp_path, clone)
+    exit_codes_of_report(tmp_path / "report-codes")
 
 
 def exit_codes_of_start_and_setup(tmp_path: Path, clone: Clone) -> None:
@@ -970,6 +974,58 @@ def exit_codes_of_start_and_setup(tmp_path: Path, clone: Clone) -> None:
     assert HOOK_COMMIT not in git_in(clone.root, "config", "--local", "--list", session=None)
 
 
+def exit_codes_of_report(parent: Path) -> None:
+    """The report's part of the exit-code split: 0 with its head line, 1 with the line first on stderr and the
+    report's closing line, never 2; J6.7, J6.11, J6.12 and J6.14 typed by hand."""
+    clone, shas = report_rig(parent / "rig")
+    assert run_report(clone).code == 0
+    outside = parent / "outside"
+    outside.mkdir()
+    for args in ((), ("base..HEAD",), ("--trailer", "base..HEAD")):
+        nowhere = clone.count(*args, harness=HR, cwd=outside, env={"GIT_CEILING_DIRECTORIES": str(parent)})
+        assert nowhere.code == 1 and nowhere.stdout == "", args
+        assert nowhere.stderr.splitlines() == [
+            f"BROKEN: {outside} is not inside a git repository — fix: run it inside the clone whose commits"
+            " it counts",
+            REPORT_CLOSING,
+        ], args
+    usage = "cost-report.sh [<range>] | --trailer <range> | --pr <range> | --notes <range>"
+    for args, detail in (
+        (("--bogus",), "unrecognized arguments: --bogus"),
+        (("--trailer",), "argument --trailer: expected one argument"),
+        (("--trailer", "a..b", "--pr", "c..d"), "argument --pr: not allowed with argument --trailer"),
+        (("a..b", "c..d"), "unrecognized arguments: c..d"),
+        (("--pr", "a..b", "c"), "unexpected argument c"),
+    ):
+        misuse = run_report(clone, *args)
+        assert misuse.code == 1 and misuse.stdout == "", args
+        assert misuse.stderr.splitlines() == [
+            f"BROKEN: misinvocation: {detail} — fix: run it as {usage}",
+            REPORT_CLOSING,
+        ], args
+    for flag in ("", "--trailer", "--pr", "--notes"):
+        args = (flag, "nowhere..HEAD") if flag else ("nowhere..HEAD",)
+        unreadable = run_report(clone, *args)
+        assert unreadable.code == 1 and unreadable.stdout == "", args
+        first, closing_line = unreadable.stderr.splitlines()
+        assert closing_line == REPORT_CLOSING
+        assert first.startswith(f"BROKEN: git cannot read the range nowhere..HEAD in {clone.root}: fatal: ")
+        assert first.endswith(
+            " — fix: name commits this clone has, such as main..HEAD; a shallow clone may need git fetch"
+            " --unshallow"
+        )
+    (clone.root / ".git" / "refs" / "notes").write_text("a file where git wants a folder\n", encoding="utf-8")
+    refused = run_report(clone, "--notes", "base..HEAD", env=AUTHOR)
+    assert refused.code == 1 and refused.stdout == ""
+    first, closing_line = refused.stderr.splitlines()
+    assert closing_line == REPORT_CLOSING
+    assert first.startswith(f"BROKEN: git could not write the note on {short(shas, 'counted')}: ")
+    assert first.endswith(
+        " — fix: repair what git names, then run cost-report.sh --notes again; the notes already written"
+        " stand"
+    )
+
+
 @dataclass(frozen=True)
 class Entry:
     """One entry of the module under test: its harness, the arguments and input of a plain run, the clause it
@@ -992,6 +1048,7 @@ def entries(clone: Clone) -> list[Entry]:
         Entry(H, "count-costs.py", ("--all",), "", CLAUSE, CLOSING, CLAUSE),
         Entry(HS, "session-start.py", (), payload(S1, clone.root), START_CLAUSE, START_CLOSING, START_CLAUSE),
         Entry(HU, "setup-commit-log.py", (), "", "", SETUP_CLOSING, SETUP_C2_CLAUSE),
+        Entry(HR, "cost-report.py", (), "", "", REPORT_CLOSING, REPORT_C2_CLAUSE),
     ]
 
 
@@ -1453,6 +1510,343 @@ def test_no_start_is_made_up(clone: Clone) -> None:
         S3, commits, [line for line in starts if line.session == S3], set(), None, clone.folder, tally
     )
     assert tally.not_counted == [NotCounted("a" * 40, Reason.NO_START, S3)]
+
+
+# ------------------------------------------------------------------ T15 to T18: the report and its exports
+
+NOT_COUNTED = {
+    "nolog": "no line in the commit log: made before setup-commit-log.sh ran, by a tool that runs no git"
+    " hook, or on a forge",
+    "nosession": "the commit log names no session: made outside Claude Code",
+    "nostart": f"session {S3} has no start in the start log: it started before the plugin was enabled, or in"
+    " another folder",
+    "notranscript": f"no transcript of session {S4} stands at {{gone}}: swept by Claude Code's cleanup, or"
+    " never kept",
+    "waiting": f"its window is not complete: no record of session {S1} is dated after the commit yet; a later"
+    " pass counts it",
+}
+F1 = (
+    "input 1,000, output 200, cache write 300, cache read 4,500, total 6,000 tokens; $0.01 at list price;"
+    f" 3 replies; models: {SONNET} 5,000, {OPUS} 1,000; compactions: 0; unpriced: none"
+)
+F3 = (
+    "input 123,456, output 2,000, cache write 0, cache read 0, total 125,456 tokens; at least $0.40 at list"
+    " price; 2 replies; models: claude-imaginary-9 125,456; compactions: 1; unpriced: claude-imaginary-9"
+)
+FT = (
+    "input 124,456, output 2,200, cache write 300, cache read 4,500, total 131,456 tokens; at least $0.42 at"
+    f" list price; 5 replies; models: claude-imaginary-9 125,456, {SONNET} 5,000, {OPUS} 1,000;"
+    " compactions: 1; unpriced: claude-imaginary-9"
+)
+LIST_PRICE = "tokens counted by ccusage 20.0.48, cost at its list price"
+
+
+def kept_line(sha: str, session: str, figures: Mapping[str, object]) -> dict[str, object]:
+    return {"sha": sha, "session": session, **figures, "ccusage": PIN, "counted_ms": at(20)}
+
+
+COUNTS_OF_ONE: dict[str, object] = {
+    "input": 1000,
+    "output": 200,
+    "cache_write": 300,
+    "cache_read": 4500,
+    "total": 6000,
+    "cost": 0.012213,
+    "replies": 3,
+    "models": {SONNET: 5000, OPUS: 1000},
+    "compactions": 0,
+    "unpriced": [],
+}
+COUNTS_OF_THREE: dict[str, object] = {
+    "input": 123456,
+    "output": 2000,
+    "cache_write": 0,
+    "cache_read": 0,
+    "total": 125456,
+    "cost": 0.404,
+    "replies": 2,
+    "models": {"claude-imaginary-9": 125456},
+    "compactions": 1,
+    "unpriced": ["claude-imaginary-9"],
+}
+
+
+def report_rig(parent: Path) -> tuple[Clone, dict[str, str]]:
+    """A clone of eight real commits: a base, two counted by hand-written kept lines, and one for each reason
+    a commit has none. The report reads the file of counts, so nothing is counted here and no ccusage runs."""
+    clone = bare_clone(parent)
+    shas: dict[str, str] = {}
+    for name in ("base", "counted", "nolog", "unpriced", "nosession", "nostart", "notranscript", "waiting"):
+        git_in(clone.root, "commit", "--allow-empty", "-m", name, session=None)
+        shas[name] = git_in(clone.root, "rev-parse", "HEAD", session=None)
+    git_in(clone.root, "tag", "base", shas["base"], session=None)
+    clone.start(S1, 0)
+    clone.start(S4, 0, path=clone.projects / "gone.jsonl")
+    for name, session in (
+        ("counted", S1),
+        ("unpriced", S1),
+        ("nosession", ""),
+        ("nostart", S3),
+        ("notranscript", S4),
+        ("waiting", S1),
+    ):
+        clone.commit(shas[name], 13, session)
+    clone.append_line("counts.jsonl", kept_line(shas["counted"], S1, COUNTS_OF_ONE))
+    clone.append_line("counts.jsonl", kept_line(shas["unpriced"], S1, COUNTS_OF_THREE))
+    return clone, shas
+
+
+def short(shas: Mapping[str, str], name: str) -> str:
+    return shas[name][:12]
+
+
+def reason_lines(clone: Clone, shas: Mapping[str, str], names: Sequence[str]) -> list[str]:
+    gone = str(clone.projects / "gone.jsonl")
+    return [
+        f"{short(shas, name)}: not counted — {NOT_COUNTED[name].replace('{gone}', gone)}" for name in names
+    ]
+
+
+UNCOUNTED = ("nolog", "nosession", "nostart", "notranscript", "waiting")
+
+
+def run_report(
+    clone: Clone, *args: str, path: Path | None = None, env: Mapping[str, str] | None = None
+) -> Result:
+    extra = {"PATH": str(path)} if path is not None else {}
+    return clone.count(*args, harness=HR, env={**extra, **(env or {})})
+
+
+@item(15, "the report with no range and with one: J9, J10 and J12, the list price named")
+def test_report(tmp_path: Path) -> None:
+    clone, shas = report_rig(tmp_path)
+    one, three = short(shas, "counted"), short(shas, "unpriced")
+    everything = run_report(clone)
+    assert everything.code == 0 and everything.stderr == "", everything.stderr
+    assert everything.stdout.splitlines() == [
+        f"CHANGE-COST: 2 commit(s) counted in this clone — {LIST_PRICE}",
+        f"{one}: {F1}",
+        f"{three}: {F3}",
+    ]
+    ranged = run_report(clone, "base..HEAD")
+    assert ranged.code == 0 and ranged.stderr == "", ranged.stderr
+    assert ranged.stdout.splitlines() == [
+        f"CHANGE-COST: 7 commit(s) of base..HEAD, 2 counted, 5 not counted — {LIST_PRICE}",
+        f"{one}: {F1}",
+        *reason_lines(clone, shas, ["nolog"]),
+        f"{three}: {F3}",
+        *reason_lines(clone, shas, UNCOUNTED[1:]),
+        f"total, 2 counted commit(s): {FT}",
+    ]
+    only = run_report(clone, f"{shas['base']}..{shas['counted']}")
+    assert only.stdout.splitlines() == [
+        f"CHANGE-COST: 1 commit(s) of {shas['base']}..{shas['counted']}, 1 counted, 0 not counted —"
+        f" {LIST_PRICE}",
+        f"{one}: {F1}",
+        f"total, 1 counted commit(s): "
+        "input 1,000, output 200, cache write 300, cache read 4,500, total 6,000 tokens; $0.01 at list price;"
+        f" 3 replies; models: {SONNET} 5,000, {OPUS} 1,000; compactions: 0; unpriced: none",
+    ]
+    nothing = run_report(clone, f"{shas['counted']}..{shas['counted']}")
+    assert nothing.stdout.splitlines() == [
+        f"CHANGE-COST: 0 commit(s) of {shas['counted']}..{shas['counted']}, 0 counted, 0 not counted —"
+        f" {LIST_PRICE}",
+        "total, 0 counted commit(s): input 0, output 0, cache write 0, cache read 0, total 0 tokens; $0.00 at"
+        " list price; 0 replies; models: none; compactions: 0; unpriced: none",
+    ]
+    with (clone.folder / "counts.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write("{\n")
+    unreadable = run_report(clone)
+    assert unreadable.code == 0 and unreadable.stdout == everything.stdout
+    assert unreadable.stderr.splitlines() == [
+        f"note: a log line cannot be read and is left out: {clone.folder}/counts.jsonl line 3: it is not JSON"
+    ]
+
+
+def trailer_lines(shas: Mapping[str, str]) -> list[str]:
+    return [
+        f"Change-Cost-Commit: {short(shas, 'counted')} {F1}",
+        f"Change-Cost-Commit: {short(shas, 'unpriced')} {F3}",
+        f"Change-Cost: 2 of 7 commit(s) counted; {FT}",
+    ]
+
+
+@item(16, "--trailer: J13 in the range's order with the total; git interpret-trailers reads every line")
+def test_trailer(tmp_path: Path) -> None:
+    clone, shas = report_rig(tmp_path)
+    done = run_report(clone, "--trailer", "base..HEAD")
+    assert done.code == 0 and done.stderr == "", done.stderr
+    assert done.stdout.splitlines() == trailer_lines(shas)
+    parsed = subprocess.run(
+        ["git", "interpret-trailers", "--parse"],
+        input=f"Merge branch 'work'\n\n{done.stdout}",
+        cwd=clone.root,
+        capture_output=True,
+        text=True,
+        check=True,
+        env={**os.environ, **GIT_ENV},
+    )
+    assert parsed.stdout.splitlines() == trailer_lines(shas)
+    half = run_report(clone, "--trailer", f"{shas['base']}..{shas['nolog']}")
+    assert half.stdout.splitlines() == [
+        f"Change-Cost-Commit: {short(shas, 'counted')} {F1}",
+        "Change-Cost: 1 of 2 commit(s) counted; "
+        "input 1,000, output 200, cache write 300, cache read 4,500, total 6,000 tokens; $0.01 at list price;"
+        f" 3 replies; models: {SONNET} 5,000, {OPUS} 1,000; compactions: 0; unpriced: none",
+    ]
+
+
+FAKE_GH = (
+    'echo "$*" >> "$GH_LOG"\n'
+    'case "$1 $2" in\n'
+    '  "pr view")\n'
+    '    if [ -n "$GH_NO_PR" ]; then echo "no pull requests found for branch" >&2; exit 1; fi\n'
+    '    /bin/cat "$GH_VIEW" ;;\n'
+    '  "pr edit")\n'
+    '    /bin/cat > "$GH_BODY"\n'
+    '    if [ -n "$GH_FAIL" ]; then echo "$GH_FAIL" >&2; exit 1; fi ;;\n'
+    "esac\n"
+)
+
+
+def tool_folder(parent: Path, gh: str | None = None) -> Path:
+    """A PATH of `sh`, `dirname`, `git` and `python3`, and a fake `gh` when the test gives one."""
+    folder = parent / "bin"
+    folder.mkdir(parents=True)
+    for tool in ("sh", "dirname", "git"):
+        found = shutil.which(tool)
+        assert found, tool
+        os.symlink(found, folder / tool)
+    os.symlink(os.path.realpath(sys.executable), folder / "python3")
+    if gh is not None:
+        fake_program(folder / "gh", gh)
+    return folder
+
+
+def block_of_the_rig(clone: Clone, shas: Mapping[str, str], upto: str | None = None) -> list[str]:
+    one, three = short(shas, "counted"), short(shas, "unpriced")
+    if upto == "nolog":
+        return [
+            "<!-- const-change-cost -->",
+            f"**Change cost** — {LIST_PRICE}",
+            "",
+            "| commit | input | output | cache write | cache read | total | cost | replies | models |"
+            " compactions | unpriced |",
+            "|---|---|---|---|---|---|---|---|---|---|---|",
+            f"| `{one}` | 1,000 | 200 | 300 | 4,500 | 6,000 | $0.01 | 3 | {SONNET} 5,000, {OPUS} 1,000 | 0 |"
+            " none |",
+            f"| total, 1 of 2 | 1,000 | 200 | 300 | 4,500 | 6,000 | $0.01 | 3 | {SONNET} 5,000, {OPUS}"
+            " 1,000 | 0 | none |",
+            "",
+            *(f"- {line}" for line in reason_lines(clone, shas, ["nolog"])),
+            "<!-- /const-change-cost -->",
+        ]
+    return [
+        "<!-- const-change-cost -->",
+        f"**Change cost** — {LIST_PRICE}",
+        "",
+        "| commit | input | output | cache write | cache read | total | cost | replies | models |"
+        " compactions | unpriced |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
+        f"| `{one}` | 1,000 | 200 | 300 | 4,500 | 6,000 | $0.01 | 3 | {SONNET} 5,000, {OPUS} 1,000 | 0 |"
+        " none |",
+        f"| `{three}` | 123,456 | 2,000 | 0 | 0 | 125,456 | at least $0.40 | 2 | claude-imaginary-9"
+        " 125,456 | 1 | claude-imaginary-9 |",
+        f"| total, 2 of 7 | 124,456 | 2,200 | 300 | 4,500 | 131,456 | at least $0.42 | 5 | claude-imaginary-9"
+        f" 125,456, {SONNET} 5,000, {OPUS} 1,000 | 1 | claude-imaginary-9 |",
+        "",
+        *(f"- {line}" for line in reason_lines(clone, shas, UNCOUNTED)),
+        "<!-- /const-change-cost -->",
+    ]
+
+
+@item(
+    17,
+    "--pr: no gh prints the block and J15.2; a fake gh gets it between its markers, J15.1, a rerun replaces"
+    " it; a failing gh is J6.13",
+)
+def test_pr(tmp_path: Path) -> None:
+    clone, shas = report_rig(tmp_path / "rig")
+    block = block_of_the_rig(clone, shas)
+    j15_2 = "note: gh found no pull request of this branch — the block above is printed for a person to paste"
+    # no gh on PATH: the block is printed, nothing is changed
+    without = run_report(clone, "--pr", "base..HEAD", path=tool_folder(tmp_path / "none"))
+    assert without.code == 0 and without.stderr == "", without.stderr
+    assert without.stdout.splitlines() == [*block, j15_2]
+    # a gh that finds no pull request: asked once, nothing written
+    log, body, view = tmp_path / "gh.log", tmp_path / "body.txt", tmp_path / "view.json"
+    env = {"GH_LOG": str(log), "GH_BODY": str(body), "GH_VIEW": str(view)}
+    view.write_text(json.dumps({"number": 7, "body": "Description.\n"}), encoding="utf-8")
+    tools = tool_folder(tmp_path / "fake", FAKE_GH)
+    absent = run_report(clone, "--pr", "base..HEAD", path=tools, env={**env, "GH_NO_PR": "1"})
+    assert absent.code == 0 and absent.stdout.splitlines() == [*block, j15_2], absent.stderr
+    assert log.read_text(encoding="utf-8").splitlines() == ["pr view --json number,body"]
+    assert not body.exists()
+    # a gh that finds the pull request: the block is added after the description
+    log.unlink()
+    written = run_report(clone, "--pr", "base..HEAD", path=tools, env=env)
+    assert written.code == 0 and written.stderr == "", written.stderr
+    assert written.stdout.splitlines() == [
+        "PR: the block was written into the description of pull request #7 through gh"
+    ]
+    assert log.read_text(encoding="utf-8").splitlines() == [
+        "pr view --json number,body",
+        "pr edit 7 --body-file -",
+    ]
+    first = "Description.\n\n" + "\n".join(block) + "\n"
+    assert body.read_text(encoding="utf-8") == first
+    # a rerun replaces the block between its markers and keeps the rest of the description
+    view.write_text(json.dumps({"number": 7, "body": first + "\nFooter.\n"}), encoding="utf-8")
+    again = run_report(clone, "--pr", f"{shas['base']}..{shas['nolog']}", path=tools, env=env)
+    assert again.code == 0, again.stderr
+    assert body.read_text(encoding="utf-8") == (
+        "Description.\n\n" + "\n".join(block_of_the_rig(clone, shas, "nolog")) + "\n\nFooter.\n"
+    )
+    assert body.read_text(encoding="utf-8").count("<!-- const-change-cost -->") == 1
+    # a gh that fails to write: the block is printed above J6.13, and exit 1
+    failed = run_report(
+        clone, "--pr", "base..HEAD", path=tools, env={**env, "GH_FAIL": "HTTP 401: Bad credentials"}
+    )
+    assert failed.code == 1 and failed.stdout.splitlines() == block
+    assert failed.stderr.splitlines() == [
+        "BROKEN: gh could not write the description of pull request #7: HTTP 401: Bad credentials — fix:"
+        " repair what gh names, such as its login, or paste the block printed above into the description",
+        REPORT_CLOSING,
+    ]
+
+
+@item(18, "--notes: one note per counted commit under refs/notes/change-cost, the same figures, J16, no push")
+def test_notes(tmp_path: Path) -> None:
+    clone, shas = report_rig(tmp_path / "rig")
+    bare = tmp_path / "remote.git"
+    subprocess.run(["git", "init", "-q", "--bare", str(bare)], check=True, env={**os.environ, **GIT_ENV})
+    git_in(clone.root, "remote", "add", "origin", str(bare), session=None)
+    git_in(clone.root, "config", "push.default", "matching", session=None)
+    done = run_report(clone, "--notes", "base..HEAD", env=AUTHOR)
+    assert done.code == 0 and done.stderr == "", done.stderr
+    assert done.stdout.splitlines() == [
+        "NOTES: 2 note(s) written under refs/notes/change-cost — nothing is pushed; push them with git push"
+        " <remote> refs/notes/change-cost"
+    ]
+    ref = "refs/notes/change-cost"
+    noted = git_in(clone.root, "notes", "--ref", ref, "list", session=None).splitlines()
+    assert sorted(line.split()[1] for line in noted) == sorted([shas["counted"], shas["unpriced"]])
+    assert git_in(clone.root, "notes", "--ref", ref, "show", shas["counted"], session=None) == (
+        f"{short(shas, 'counted')}: {F1}"
+    )
+    assert git_in(clone.root, "notes", "--ref", ref, "show", shas["unpriced"], session=None) == (
+        f"{short(shas, 'unpriced')}: {F3}"
+    )
+    # run again: the notes are replaced, not doubled
+    again = run_report(clone, "--notes", "base..HEAD", env=AUTHOR)
+    assert again.code == 0 and again.stdout == done.stdout
+    assert len(git_in(clone.root, "notes", "--ref", ref, "list", session=None).splitlines()) == 2
+    # nothing reached the bare remote, whose refs stay empty
+    assert git_in(clone.root, "ls-remote", "origin", session=None) == ""
+    refs = subprocess.run(
+        ["git", "--git-dir", str(bare), "for-each-ref"], capture_output=True, text=True, check=True
+    )
+    assert refs.stdout == ""
 
 
 # ------------------------------------------------------------------ T19, T23: failures typed by hand

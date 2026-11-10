@@ -19,7 +19,7 @@ from constitution_layer_kit.identity import HOOK_SECONDS, Identity
 from constitution_layer_kit.model import KERNEL_KEYS, Mode
 from constitution_layer_kit.output import Output
 
-from . import counting, logs, messages, setup
+from . import counting, logs, messages, report, setup
 from . import git as gitpart
 from .model import STARTS
 
@@ -58,6 +58,17 @@ SETUP = Identity(
     until_installed="until then no hook of the commit log is written",
 )
 
+REPORT = Identity(
+    namespace=NAMESPACE,
+    gate=messages.REPORT_GATE,
+    plugin_root=COUNT.plugin_root,
+    dials_file="constitution.yaml",
+    kernel_keys=KERNEL_KEYS,
+    hook_seconds=HOOK_SECONDS,
+    # the clause of C2 and C12.11 alone: messages._until leaves it off the report's own failures
+    until_installed="until then no report or export is made",
+)
+
 
 class CountParser(argparse.ArgumentParser):
     def error(self, message: str) -> NoReturn:
@@ -67,6 +78,11 @@ class CountParser(argparse.ArgumentParser):
 class SetupParser(argparse.ArgumentParser):
     def error(self, message: str) -> NoReturn:
         raise ConfigurationFailure(messages.j6_11_misinvocation(message, messages.SETUP_USAGE))
+
+
+class ReportParser(argparse.ArgumentParser):
+    def error(self, message: str) -> NoReturn:
+        raise ConfigurationFailure(messages.j6_11_misinvocation(message, messages.REPORT_USAGE))
 
 
 def make_count_parser() -> CountParser:
@@ -157,3 +173,37 @@ def _setup(argv: Sequence[str], output: Output) -> int:
 
 def setup_main(argv: Sequence[str]) -> int:
     return cli.guarded(SETUP, Mode.ACT, lambda output: _setup(argv, output), messages.j8_setup_broken)
+
+
+def _report(argv: Sequence[str], output: Output) -> int:
+    parser = ReportParser(prog=REPORT.gate, add_help=False, allow_abbrev=False)
+    parser.add_argument("range", nargs="?")
+    which = parser.add_mutually_exclusive_group()
+    for flag in ("--trailer", "--pr", "--notes"):
+        which.add_argument(flag, metavar="RANGE")
+    args = parser.parse_args(list(argv))
+    exported = {flag: getattr(args, flag[2:]) for flag in ("--trailer", "--pr", "--notes")}
+    if args.range is not None and any(value is not None for value in exported.values()):
+        raise ConfigurationFailure(
+            messages.j6_11_misinvocation(f"unexpected argument {args.range}", messages.REPORT_USAGE)
+        )
+    preflight.check()
+    directory = Path.cwd()
+    if args.trailer is not None:
+        return report.run_trailer(output, directory, args.trailer)
+    if args.pr is not None:
+        return report.run_pr(output, directory, args.pr)
+    if args.notes is not None:
+        return report.run_notes(output, directory, args.notes)
+    return report.run_report(output, directory, args.range)
+
+
+def report_main(argv: Sequence[str]) -> int:
+    """`--pr` and `--notes` change something, so they run as an act; the rest only read."""
+    writes = any(held in ("--pr", "--notes") or held.startswith(("--pr=", "--notes=")) for held in argv)
+    return cli.guarded(
+        REPORT,
+        Mode.ACT if writes else Mode.REPORT,
+        lambda output: _report(argv, output),
+        messages.j7_report_broken,
+    )

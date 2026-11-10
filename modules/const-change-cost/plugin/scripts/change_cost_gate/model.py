@@ -27,6 +27,10 @@ GIT_MINIMUM = (2, 54)  # the first git that runs hooks set in its configuration,
 HOOK_COMMIT = "hook.const-change-cost-commit"  # the key of the hook on post-commit, as MODULE.md names it
 HOOK_MERGE = "hook.const-change-cost-merge"  # the key of the hook on post-merge
 SHA_SHOWN = 12  # how many characters of a commit's SHA a line shows
+GH_SECONDS = 30.0  # how long one gh call of --pr may take
+NOTES_REF = "refs/notes/change-cost"  # where --notes writes; the module never pushes it
+MARK_OPEN = "<!-- const-change-cost -->"  # the block of --pr stands between these two markers
+MARK_CLOSE = "<!-- /const-change-cost -->"
 
 # a reply, as ccusage keys it: its message id and its request id
 ReplyKey = tuple[str, str | None]
@@ -46,6 +50,9 @@ class Key(StrEnum):
     J6_9 = "J6.9"  # the throwaway folder could not be made
     J6_10 = "J6.10"  # git older than the setup needs
     J6_11 = "J6.11"  # misinvocation
+    J6_12 = "J6.12"  # git cannot read the range
+    J6_13 = "J6.13"  # gh could not write the pull request's description
+    J6_14 = "J6.14"  # git could not write a note
     J6_15 = "J6.15"  # git could not write a key into its configuration
 
 
@@ -95,6 +102,22 @@ class Kept:
     unpriced: tuple[str, ...]  # the models ccusage's table lacks
     ccusage: str  # the version that counted it
     counted_ms: int
+
+
+@dataclass(frozen=True, slots=True)
+class Figures:
+    """What the report shows of one commit or of a range's total: the counts of a kept line, or their sums."""
+
+    input: int
+    output: int
+    cache_write: int
+    cache_read: int
+    total: int
+    cost: float  # a lower bound where `unpriced` is not empty
+    replies: int
+    models: tuple[ModelTokens, ...]
+    compactions: int
+    unpriced: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)

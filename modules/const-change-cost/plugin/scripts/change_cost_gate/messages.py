@@ -19,12 +19,17 @@ from constitution_layer_kit.model import Broken
 
 from .model import (
     CCUSAGE_SECONDS,
+    GH_SECONDS,
     HOOK_COMMIT,
     HOOK_MERGE,
     LOCK_SECONDS,
+    MARK_CLOSE,
+    MARK_OPEN,
+    NOTES_REF,
     NPM_SECONDS,
     PIN,
     SHA_SHOWN,
+    Figures,
     Key,
     NotCounted,
     Reason,
@@ -36,13 +41,14 @@ def _ns() -> str:
 
 
 SETUP_GATE = "setup-commit-log"
+REPORT_GATE = "cost-report"
 
 
 def _until() -> str:
-    """The closing clause of a failure's fix: the entry's own, and none for the setup, a generator whose
+    """The closing clause of a failure's fix: the entry's own, and none for the setup and the report, whose
     clause closes the shared C2 alone."""
     current = identity.current()
-    if current.gate == SETUP_GATE:
+    if current.gate in (SETUP_GATE, REPORT_GATE):
         return ""
     return f" — {current.until_installed}" if current.until_installed else ""
 
@@ -207,6 +213,7 @@ def j6_9_no_folder(session: str, error: str) -> Broken:
 
 COUNT_USAGE = "count-costs.sh [--all | --session]"
 SETUP_USAGE = "setup-commit-log.sh [--remove | --check]"
+REPORT_USAGE = "cost-report.sh [<range>] | --trailer <range> | --pr <range> | --notes <range>"
 START_USAGE = "session-start.sh with no argument and one SessionStart event on its standard input"
 
 
@@ -221,6 +228,34 @@ def j6_10_old_git(version: str) -> Broken:
 
 def j6_11_misinvocation(detail: str, usage: str) -> Broken:
     return _fail(Key.J6_11, f"misinvocation: {echoed(detail)}", f"run it as {usage}")
+
+
+def j6_12_bad_range(range_text: str, root: str, detail: str) -> Broken:
+    return _fail(
+        Key.J6_12,
+        f"git cannot read the range {escaped(range_text)} in {escaped(root)}: {echoed(detail)}",
+        "name commits this clone has, such as main..HEAD; a shallow clone may need git fetch --unshallow",
+    )
+
+
+def detail_gh_silent() -> str:
+    return f"no answer in {_seconds(GH_SECONDS)} s"
+
+
+def j6_13_gh_failed(number: int, detail: str) -> Broken:
+    return _fail(
+        Key.J6_13,
+        f"gh could not write the description of pull request #{number}: {echoed(detail)}",
+        "repair what gh names, such as its login, or paste the block printed above into the description",
+    )
+
+
+def j6_14_no_note(sha: str, detail: str) -> Broken:
+    return _fail(
+        Key.J6_14,
+        f"git could not write the note on {sha12(sha)}: {echoed(detail)}",
+        "repair what git names, then run cost-report.sh --notes again; the notes already written stand",
+    )
 
 
 def j6_15_no_write(key: str, config: str, detail: str) -> Broken:
@@ -325,3 +360,138 @@ def j11_reason(not_counted: NotCounted) -> str:
 
 def j11_not_counted(not_counted: NotCounted) -> str:
     return f"{sha12(not_counted.sha)}: not counted — {j11_reason(not_counted)}"
+
+
+# ---------------------------------------------------------------- the report and its exports (J7, J9 to J16)
+
+
+def j7_report_broken() -> str:
+    return "BROKEN: the report could not run — nothing was shown or written"
+
+
+def _money(figures: Figures) -> str:
+    """The cost with two decimals; a lower bound, said so, where a model has no price."""
+    shown = f"${figures.cost:.2f}"
+    return f"at least {shown}" if figures.unpriced else shown
+
+
+def _models(figures: Figures) -> str:
+    return ", ".join(f"{escaped(held.model)} {held.tokens:,}" for held in figures.models) or "none"
+
+
+def _unpriced(figures: Figures) -> str:
+    return ", ".join(escaped(name) for name in figures.unpriced) or "none"
+
+
+def figures(shown: Figures) -> str:
+    """The figures of a line: the same for a commit, a range's total, a trailer, a row and a note."""
+    return (
+        f"input {shown.input:,}, output {shown.output:,}, cache write {shown.cache_write:,}, cache read"
+        f" {shown.cache_read:,}, total {shown.total:,} tokens; {_money(shown)} at list price;"
+        f" {shown.replies:,} replies; models: {_models(shown)}; compactions: {shown.compactions:,};"
+        f" unpriced: {_unpriced(shown)}"
+    )
+
+
+def _counted_by(versions: Sequence[str]) -> str:
+    named = ", ".join(escaped(version) for version in versions)
+    return f"tokens counted by ccusage {named}, cost at its list price"
+
+
+def j9_head(shown: int, counted: int, range_text: str, versions: Sequence[str]) -> str:
+    return (
+        f"CHANGE-COST: {shown} commit(s) of {escaped(range_text)}, {counted} counted,"
+        f" {shown - counted} not counted — {_counted_by(versions)}"
+    )
+
+
+def j9_head_all(counted: int, versions: Sequence[str]) -> str:
+    return f"CHANGE-COST: {counted} commit(s) counted in this clone — {_counted_by(versions)}"
+
+
+def j10_counted(sha: str, shown: Figures) -> str:
+    return f"{sha12(sha)}: {figures(shown)}"
+
+
+def j12_total(counted: int, shown: Figures) -> str:
+    return f"total, {counted} counted commit(s): {figures(shown)}"
+
+
+def j13_commit(sha: str, shown: Figures) -> str:
+    return f"Change-Cost-Commit: {sha12(sha)} {figures(shown)}"
+
+
+def j13_total(counted: int, shown: int, total: Figures) -> str:
+    return f"Change-Cost: {counted} of {shown} commit(s) counted; {figures(total)}"
+
+
+_HEADER = (
+    "commit",
+    "input",
+    "output",
+    "cache write",
+    "cache read",
+    "total",
+    "cost",
+    "replies",
+    "models",
+    "compactions",
+    "unpriced",
+)
+
+
+def _row(cells: Sequence[str]) -> str:
+    return "| " + " | ".join(cell.replace("|", "\\|") for cell in cells) + " |"
+
+
+def _cells(label: str, shown: Figures) -> list[str]:
+    return [
+        label,
+        f"{shown.input:,}",
+        f"{shown.output:,}",
+        f"{shown.cache_write:,}",
+        f"{shown.cache_read:,}",
+        f"{shown.total:,}",
+        _money(shown),
+        f"{shown.replies:,}",
+        _models(shown),
+        f"{shown.compactions:,}",
+        _unpriced(shown),
+    ]
+
+
+def j14_block(
+    rows: Sequence[tuple[str, Figures]],
+    total: Figures,
+    shown: int,
+    not_counted: Sequence[NotCounted],
+    versions: Sequence[str],
+) -> str:
+    lines = [
+        MARK_OPEN,
+        f"**Change cost** — {_counted_by(versions)}",
+        "",
+        _row(_HEADER),
+        "|" + "---|" * len(_HEADER),
+        *(_row(_cells(f"`{sha12(sha)}`", held)) for sha, held in rows),
+        _row(_cells(f"total, {len(rows)} of {shown}", total)),
+    ]
+    if not_counted:
+        lines += ["", *(f"- {j11_not_counted(held)}" for held in not_counted)]
+    lines.append(MARK_CLOSE)
+    return "\n".join(lines)
+
+
+def j15_1_written(number: int) -> str:
+    return f"PR: the block was written into the description of pull request #{number} through gh"
+
+
+def j15_2_printed() -> str:
+    return "note: gh found no pull request of this branch — the block above is printed for a person to paste"
+
+
+def j16_notes(counted: int) -> str:
+    return (
+        f"NOTES: {counted} note(s) written under {NOTES_REF} — nothing is pushed; push them with git push"
+        f" <remote> {NOTES_REF}"
+    )
