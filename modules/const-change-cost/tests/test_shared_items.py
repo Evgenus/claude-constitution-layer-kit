@@ -5,6 +5,7 @@ a verdict and a scan; section 10 of the module's document lists the numbers that
 from constitution_layer_kit.testing.items import (  # noqa: F401 — pytest collects the items from this file
     test_abbreviated_flag,
     test_cap_keeps_the_first,
+    test_copy_with_links_followed,
     test_declared_libraries,
     test_dials_file_empty,
     test_dials_file_name_is_the_declared_one,
@@ -18,6 +19,7 @@ from constitution_layer_kit.testing.items import (  # noqa: F401 — pytest coll
     test_effect_since,
     test_effect_transcripts_folder,
     test_git_absent,
+    test_git_failing,
     test_git_has_a_budget_in_a_hook,
     test_help_is_not_special,
     test_hook_has_one_deadline,

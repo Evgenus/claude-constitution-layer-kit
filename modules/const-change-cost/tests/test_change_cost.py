@@ -742,10 +742,32 @@ def test_finding_ccusage(tmp_path: Path) -> None:
     assert len(rig.npm_log.read_text(encoding="utf-8").splitlines()) == 1
     # a lockfile copy that differs: installed again
     (rig.clone.data / "package-lock.json").write_text("{}\n", encoding="utf-8")
+    rig.clone.commit("c" * 40, 16.5, S1)  # a pass looks for ccusage only when it has a window to count
+    rig.clone.append_record(S1, 18)
     third = rig.run(env={"FAKE_CCUSAGE": str(fake)})
     assert third.code == 0 and third.stdout.splitlines()[0] == note, third.stderr
     assert len(rig.npm_log.read_text(encoding="utf-8").splitlines()) == 2
     assert ccusage_failures(tmp_path / "failures") == []
+
+
+@item(
+    32,
+    "a pass with nothing to count looks for no ccusage: no npm call, no install, no J5.3, no J6, exit 0",
+)
+def test_no_lookup_without_a_window(tmp_path: Path) -> None:
+    """ccusage is asked for at the first complete window not yet counted. A clone with no commit logged, and
+    one whose only commit waits for a later record, have none: with no ccusage anywhere and no node on PATH,
+    the pass says its closing line and nothing else."""
+    for label, waiting in (("empty", False), ("waiting", True)):
+        rig = Rig.make(tmp_path / label, node=False, npm=FAKE_NPM)
+        (rig.clone.folder / "commits.jsonl").unlink()
+        if waiting:
+            rig.clone.commit("b" * 40, 20, S1)  # no record of the session is dated after it
+        done = rig.run()
+        wanted = counted_line(0, 0, 1 if waiting else 0, 0)
+        assert (done.code, done.stdout.splitlines(), done.stderr) == (0, [wanted], ""), label
+        assert not rig.npm_log.exists(), label
+        assert not (rig.clone.data / "node_modules").exists(), label
 
 
 @item(

@@ -15,7 +15,7 @@ import shutil
 import tempfile
 import time
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -36,6 +36,9 @@ from .model import (
     Report,
     StartLine,
 )
+
+# Finds the pinned ccusage, installing it where the plugin loads in place; asked at the first window to count.
+Locate = Callable[[], counters.Ccusage]
 
 
 @dataclass(slots=True)
@@ -105,12 +108,12 @@ def count_session(
     commits: list[CommitLine],
     starts: list[StartLine],
     kept: set[str],
-    counter: counters.Ccusage | None,
+    locate: Locate | None,
     folder: Path,
     tally: Tally,
 ) -> None:
-    """Counts what can be counted of one session's commits; with no `counter`, nothing is counted and a
-    commit that could be waits."""
+    """Counts what can be counted of one session's commits; with no `locate`, nothing is counted and a
+    commit that could be waits. ccusage is asked for only when a window is ready to count."""
     pending = [commit for commit in commits if commit.sha not in kept]
     tally.before += len(commits) - len(pending)
     if not pending:
@@ -141,10 +144,11 @@ def count_session(
     tally.not_counted += [
         NotCounted(commit.sha, Reason.WAITING, session)
         for index, commit in enumerate(commits)
-        if commit.sha not in kept and (index not in ready or counter is None)
+        if commit.sha not in kept and (index not in ready or locate is None)
     ]
-    if counter is None or not ready:
+    if locate is None or not ready:
         return
+    counter = locate()
     compactions = windows.compactions_in(found, times)
     try:
         root = Path(tempfile.mkdtemp(prefix=f"{identity.current().namespace}-"))
@@ -169,7 +173,7 @@ def count_session(
         shutil.rmtree(root, ignore_errors=True)
 
 
-def count_all(output: Output, scope: Scope, folder: Path, counter: counters.Ccusage | None) -> Tally:
+def count_all(output: Output, scope: Scope, folder: Path, locate: Locate | None) -> Tally:
     starts, start_notes = logs.read_starts(folder)
     commits, commit_notes = logs.read_commits(folder)
     counts, count_notes = logs.read_counts(folder)
@@ -182,7 +186,7 @@ def count_all(output: Output, scope: Scope, folder: Path, counter: counters.Ccus
         starts_of.setdefault(line.session, []).append(line)
     for session, held in commits_of(commits).items():
         if scope.session is None or session == scope.session:
-            count_session(session, held, starts_of.get(session, []), kept, counter, folder, tally)
+            count_session(session, held, starts_of.get(session, []), kept, locate, folder, tally)
     return tally
 
 
@@ -192,8 +196,16 @@ def run(output: Output, scope: Scope, directory: Path) -> int:
     data = os.environ.get("CLAUDE_PLUGIN_DATA")
     with logs.locked(folder, model.LOCK_SECONDS) as held:
         if held:
-            counter = counters.locate(identity.current().plugin_root, Path(data) if data else None, output)
-            tally = count_all(output, scope, folder, counter)
+            found: list[counters.Ccusage] = []
+
+            def locate() -> counters.Ccusage:
+                """The first window to count asks; a later one has the answer."""
+                if not found:
+                    root = identity.current().plugin_root
+                    found.append(counters.locate(root, Path(data) if data else None, output))
+                return found[0]
+
+            tally = count_all(output, scope, folder, locate)
         else:
             output.out(messages.j5_2_lock_held())
             tally = count_all(output, scope, folder, None)

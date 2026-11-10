@@ -9,6 +9,7 @@ import re
 from collections.abc import Sequence
 from pathlib import Path
 
+from constitution_layer_kit import messages as shared
 from constitution_layer_kit.errors import ConfigurationFailure
 from constitution_layer_kit.repository import git
 
@@ -22,12 +23,16 @@ _VERSION = re.compile(r"git version (\d+)\.(\d+)")
 
 def common_or_none(directory: Path) -> Path | None:
     """Git's common directory, the same from the main checkout and from every linked worktree; None outside
-    a git repository."""
+    a git repository. A git that fails for any other reason is the shared configuration failure, never None:
+    a skip would hide a broken setup."""
     if not directory.is_dir():
         return None
     done = git(["rev-parse", "--git-common-dir"], directory)
     if done.returncode != 0:
-        return None
+        detail = done.stderr.decode("utf-8", "replace").strip()
+        if "not a git repository" in detail:
+            return None
+        raise ConfigurationFailure(shared.c12_git_failed(detail.splitlines()[0] if detail else "no message"))
     return Path(os.path.realpath(directory / done.stdout.decode("utf-8", "replace").strip()))
 
 
