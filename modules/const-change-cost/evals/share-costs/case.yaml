@@ -35,7 +35,7 @@ graders:
   - type: regex
     name: the-report-ran
     target: trace
-    pattern: 'CHANGE-COST: 2 commit\(s\) of'
+    pattern: '(?:CHANGE-COST: 2 commit\(s\) of|Change-Cost: 2 of 2 commit\(s\) counted;)'
     flags: "m"
     match: contains
   - type: tool_order
@@ -48,7 +48,7 @@ graders:
       input_match: cost-report
   - type: regex
     name: the-merge-carries-the-trailer
-    target: { source: file, path: .git/merge-message.txt }
-    pattern: '\n\n(?:Change-Cost-Commit: [^\n]*\n)+Change-Cost: 2 of 2 commit\(s\) counted;[^\n]*\n*$'
+    target: { source: file, path: merge-message.txt }
+    pattern: '\n\n(?=(?:[A-Za-z][A-Za-z0-9-]*: [^\n]*\n)*Change-Cost-Commit: )(?:[A-Za-z][A-Za-z0-9-]*: [^\n]*\n)*Change-Cost: 2 of 2 commit\(s\) counted;[^\n]*\n(?:[A-Za-z][A-Za-z0-9-]*: [^\n]*\n)*\s*$'
     flags: ""
     match: contains
