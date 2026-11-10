@@ -2103,11 +2103,12 @@ def land(clone: Clone, name: str, message: str, counted: bool) -> str:
 
 @item(29, "W3: a merge commit of main that lands a counted commit carries Change-Cost, else missed by B6")
 def test_effect_trailer_on_merge(tmp_path: Path) -> None:
-    """Six merges on main, each of one branch with one commit. Applied: a counted commit and the trailer
+    """Seven merges on main, each of one branch with one commit. Applied: a counted commit and the trailer
     `Change-Cost:` in the last paragraph. Missed: a counted commit and no trailer; one with only
-    `Change-Cost-Commit:` trailers; one with the trailer in the first paragraph and a last paragraph
-    without. No moment: a merge that lands no counted commit, with or without the trailer. A counted commit
-    committed on main itself is no merge. `--since` keeps the merges at or after its day."""
+    `Change-Cost-Commit:` trailers; two with the trailer in the first paragraph and a last paragraph
+    without, which a test of the first paragraph in the place of the last would count applied. No moment:
+    a merge that lands no counted commit, with or without the trailer. A counted commit committed on main
+    itself is no merge. `--since` keeps the merges at or after its day."""
     clone = bare_clone(tmp_path)
     root = clone.root
     git_in(root, "checkout", "-q", "-b", "main", session=None)
@@ -2117,6 +2118,7 @@ def test_effect_trailer_on_merge(tmp_path: Path) -> None:
     land(clone, "bare", "Work: bare", True)
     land(clone, "commit-only", "Work: commit-only\n\nChange-Cost-Commit: aaaaaaaaaaaa 6,000 tokens", True)
     land(clone, "first-paragraph", f"Work: first\n{trailer}\n\nA closing paragraph.", True)
+    land(clone, "first-paragraph-too", f"Work: again\n{trailer}\n\nAnother closing paragraph.", True)
     land(clone, "uncounted", "Work: uncounted", False)
     land(clone, "uncounted-trailer", f"Work: uncounted\n\n{trailer}", False)
     git_in(root, "commit", "--allow-empty", "-q", "-m", "direct", session=None)
@@ -2124,11 +2126,11 @@ def test_effect_trailer_on_merge(tmp_path: Path) -> None:
         "counts.jsonl", kept_line(git_in(root, "rev-parse", "HEAD", session=None), S1, COUNTS_OF_ONE)
     )
     found = effect_lines(clone)
-    assert rule_line("W3", 1, 0, 3, "B6 3") in found, found
+    assert rule_line("W3", 1, 0, 4, "B6 4") in found, found
     future = effect_run(clone, args=["--since", "2999-01-01"])
     assert future.code == 0 and rule_line("W3", 0, 0, 0) in future.stdout.splitlines(), future.stdout
     past = effect_run(clone, args=["--since", "2000-01-01"])
-    assert rule_line("W3", 1, 0, 3, "B6 3") in past.stdout.splitlines(), past.stdout
+    assert rule_line("W3", 1, 0, 4, "B6 4") in past.stdout.splitlines(), past.stdout
 
 
 @item(30, "W4: a fake claude listing the plugin enabled is applied, disabled bypassed by B2")
