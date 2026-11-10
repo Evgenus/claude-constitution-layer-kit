@@ -39,7 +39,7 @@ The session recommended A on 2026-10-28, since B fails the decider's rule. Once 
 
 The decider chose to build on ccusage, in chat on 2026-11-08, since a tool this widely used is likely to be kept up to date. The session then proposed C and ran it that day, and the decider asked for this record built on it.
 
-<a id="r1"></a>**R1.** The tokens of a commit are counted by ccusage, at the version the module pins, through `ccusage claude session --id <session> --json --offline`, with `--config` naming an empty configuration file, so that no ccusage configuration of the project changes the count. The module's own code reads no token count from a transcript. It reads only a record's time, its session id and its ids, to cut and to copy.
+<a id="r1"></a>**R1.** The tokens of a commit are counted by ccusage, at the version the module pins, through `ccusage claude session --id <session> --json --offline`, with `--config` naming an empty configuration file, so that no ccusage configuration of the project changes the count. The module's own code reads no token count from a transcript. It reads only a record's time, its session id, its ids and, for a compaction, its type and subtype, to cut, to copy and to name a compaction.
 
 <a id="r2"></a>**R2.** ccusage reads a throwaway folder, named to it by `CLAUDE_CONFIG_DIR`, that holds only copies of one session's files: its own transcript, and every transcript under the folder named after it, its subagents and its workflow agents included. The copies are plain files, since ccusage's walk of a folder skips symbolic links.
 
