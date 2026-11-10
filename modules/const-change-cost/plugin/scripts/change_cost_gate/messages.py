@@ -98,6 +98,14 @@ def j5_3_installed(data: str) -> str:
     return f"note: the pinned ccusage {PIN} was installed into {escaped(data)}"
 
 
+def j5_4_install_lock_held(data: str) -> str:
+    return (
+        f"note: another pass kept the lock on the folder {escaped(data)} for"
+        f" {_seconds(INSTALL_LOCK_SECONDS)} s while it installed or ran ccusage — this pass counts nothing,"
+        " and the next pass counts what is left"
+    )
+
+
 # ---------------------------------------------------------------- why a log line cannot be read
 
 
@@ -114,14 +122,6 @@ def detail_field(name: str) -> str:
 
 
 # ---------------------------------------------------------------- configuration failures
-
-
-def j5_4_install_lock_held(data: str) -> str:
-    return (
-        f"note: another pass kept the lock on the folder {escaped(data)} for"
-        f" {_seconds(INSTALL_LOCK_SECONDS)} s while it installed or ran ccusage — this pass counts nothing,"
-        " and the next pass counts what is left"
-    )
 
 
 def j6_1_no_node() -> Broken:
@@ -289,6 +289,15 @@ def j6_15_no_write(key: str, config: str, detail: str) -> Broken:
         Key.J6_15,
         f"git could not write {escaped(key)} into {escaped(config)}: {echoed(detail)}",
         "repair what git names, such as the file's rights, then run setup-commit-log.sh --check",
+    )
+
+
+def j6_16_no_install_lock(data: str, detail: str) -> Broken:
+    return _fail(
+        Key.J6_16,
+        f"{_ns()} could not take the lock of the folder {escaped(data)}, which every ccusage run of the count"
+        f" holds: {echoed(detail)}",
+        "make that folder writable by this user, or delete it so that a session makes it again",
     )
 
 

@@ -6,9 +6,9 @@ plugin's `package.json` and `package-lock.json` stand in its folder `ccusage/`, 
 that the platform's install of a copied plugin installs nothing. The count copies both files into the data
 folder and runs `npm ci --ignore-scripts` there when the data folder's copy of the lockfile differs from the
 plugin's or the pinned version is not what stands there. The data folder is one per plugin, shared by
-every project, so the install runs under a lock of that folder. A run with no `CLAUDE_PLUGIN_DATA`, such as
-a person's shell, uses the data folder that a hook recorded in the clone, when that folder still stands, and
-has nowhere to install when none does.
+every project, so the install and every ccusage run of the pass stand under a lock of that folder. A run
+with no `CLAUDE_PLUGIN_DATA`, such as a person's shell, uses the data folder that a hook recorded in the
+clone, when that folder still stands, and has nowhere to install when none does.
 It is run through the launcher in its `.bin` folder and never through a platform binary by its path, as
 `ccusage claude session --id <session> --json --offline --config <plugin root>/ccusage.json` with
 `CLAUDE_CONFIG_DIR` naming the throwaway folder of one window; a second run without `--id` names the models
@@ -133,7 +133,13 @@ def locate(root: Path, data: Path | None, output: Output, stack: ExitStack) -> C
         raise ConfigurationFailure(messages.j6_1_no_node())
     if data is None:
         raise ConfigurationFailure(messages.j6_3_no_data_folder())
-    if not stack.enter_context(logs.locked(data, INSTALL_LOCK_SECONDS, INSTALL_LOCK)):
+    try:
+        held = stack.enter_context(logs.locked(data, INSTALL_LOCK_SECONDS, INSTALL_LOCK))
+    except OSError as exc:  # no right to make the lock file in the data folder
+        raise ConfigurationFailure(
+            messages.j6_16_no_install_lock(str(data), exc.strerror or str(exc))
+        ) from exc
+    if not held:
         output.out(messages.j5_4_install_lock_held(str(data)))
         return None
     installed = False

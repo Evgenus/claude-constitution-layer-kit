@@ -26,6 +26,7 @@ import subprocess
 import sys
 from bisect import bisect_left
 from collections.abc import Mapping, Sequence
+from contextlib import ExitStack
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -751,7 +752,8 @@ FAKE_NPM = fake_npm_of("20.0.48")
 @item(
     19,
     "ccusage in the data folder alone, installed there when the lockfile copy differs, the manifest and the"
-    " lockfile read from the plugin's ccusage folder; J5.3 and J6.1 to J6.6",
+    " lockfile read from the plugin's ccusage folder, under a lock held to the pass's last ccusage run;"
+    " J5.3, J5.4 and J6.1 to J6.6, J6.16",
 )
 def test_finding_ccusage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     fake = tmp_path / "fake-ccusage"
@@ -796,6 +798,8 @@ def test_finding_ccusage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
     assert len(rig.npm_log.read_text(encoding="utf-8").splitlines()) == 2
     assert by_hand(tmp_path / "by-hand", fake) == []
     install_busy(tmp_path / "busy", monkeypatch, fake)
+    lock_held_while_ccusage_runs(tmp_path / "running", monkeypatch, fake)
+    lock_not_made(tmp_path / "unwritable", monkeypatch)
     ccusage_silent(tmp_path / "silent", monkeypatch)
     assert ccusage_failures(tmp_path / "failures") == []
 
@@ -1701,8 +1705,8 @@ def test_no_start_is_made_up(clone: Clone, tmp_path: Path, installed: Path) -> N
 
 @item(
     33,
-    "a SessionStart event with no transcript_path exits 0 and logs the start with an empty path; the count"
-    " and the report name its commit as having no transcript, and neither crashes",
+    "a SessionStart event with no transcript_path exits 0 and logs the start with an empty path; the count's"
+    " stdout is the J3 line alone, and the report names the commit as having no transcript",
 )
 def test_start_without_a_transcript_path(clone: Clone) -> None:
     """A SessionStart event may leave the field out; the shared reader takes it as optional."""
@@ -2272,6 +2276,21 @@ def install_busy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake: Path) ->
     ]
     assert not rig.npm_log.exists() and not (rig.clone.data / "node_modules").exists()
     assert rig.clone.kept() == []
+    # the lock covers the runs, not the install alone: a data folder that is already stocked with the pinned
+    # version gives J5.4 and no kept line while a second process holds the lock
+    stocked_rig = Rig.make(tmp_path / "stocked-busy", npm=FAKE_NPM)
+    stock(stocked_rig.clone.data, PIN, FAKE_REPORT)
+    holder = hold_install_lock(stocked_rig.clone.data, stocked, "wait")
+    try:
+        quiet = pass_in_process(stocked_rig, monkeypatch, fake)
+    finally:
+        let_go(holder)
+    assert [text for _, text in quiet.lines] == [
+        f"note: another pass kept the lock on the folder {stocked_rig.clone.data} for 240 s while it"
+        " installed or ran ccusage — this pass counts nothing, and the next pass counts what is left",
+        counted_line(0, 0, 1, 0),
+    ]
+    assert stocked_rig.clone.kept() == [] and not stocked_rig.npm_log.exists()
     monkeypatch.setattr(counters, "INSTALL_LOCK_SECONDS", 30.0)
     other = Rig.make(tmp_path / "released", npm=FAKE_NPM)
     holder = hold_install_lock(other.clone.data, stocked, "0.6")
@@ -2282,6 +2301,47 @@ def install_busy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake: Path) ->
     assert [text for _, text in counted.lines] == [counted_line(1, 0, 0, 0)]
     assert not other.npm_log.exists(), "the pass asks again under the lock and finds the pinned version"
     assert totals(other.clone) == [10]
+
+
+def lock_held_while_ccusage_runs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake: Path) -> None:
+    """A fake ccusage that tries to take the install lock of the data folder and fails loudly if it gets
+    it: the pass holds the lock while ccusage runs, not only while npm does."""
+    rig = Rig.make(tmp_path / "held-while-running", npm=FAKE_NPM)
+    check = (
+        'python3 -c "import fcntl, os, sys\n'
+        "fd = os.open(sys.argv[1], os.O_RDWR)\n"
+        "try:\n"
+        "    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)\n"
+        "except BlockingIOError:\n"
+        "    sys.exit(0)\n"
+        "sys.stderr.write('the install lock was free while ccusage ran')\n"
+        f'sys.exit(9)" "{rig.clone.data}/install.lock" || exit 9\n'
+    )
+    stock(rig.clone.data, PIN, check + FAKE_REPORT)
+    said = pass_in_process(rig, monkeypatch, fake)
+    assert [text for _, text in said.lines] == [counted_line(1, 0, 0, 0)]
+    assert totals(rig.clone) == [10]
+
+
+def lock_not_made(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A data folder that holds a good install but cannot take the lock file is J6.16, with what failed and
+    the fix, never an unexpected failure."""
+    data = tmp_path / "data"
+    stock(data, PIN, FAKE_REPORT)
+    data.chmod(0o500)
+    try:
+        if os.access(data, os.W_OK):  # a superuser ignores the mode: the case cannot be made
+            return
+        monkeypatch.setenv("PATH", os.environ["PATH"])
+        with identity.declared(start.COUNT, Mode.ACT), pytest.raises(ConfigurationFailure) as caught:
+            counters.locate(PLUGIN, data, Said(), ExitStack())
+    finally:
+        data.chmod(0o700)
+    assert caught.value.broken.render() == broken_line(
+        f"const-change-cost could not take the lock of the folder {data}, which every ccusage run of the"
+        " count holds: Permission denied",
+        "make that folder writable by this user, or delete it so that a session makes it again",
+    )
 
 
 def by_hand(tmp_path: Path, fake: Path) -> list[str]:

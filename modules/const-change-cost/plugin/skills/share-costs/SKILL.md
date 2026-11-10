@@ -22,7 +22,8 @@ The start line of this plugin appears at session start while git's configuration
 hooks of the commit log. Commits made before the hooks stand are never logged, and never counted.
 
 1. Tell the person, once, in plain words: this clone logs no commit, so its commits get no count;
-   `setup-commit-log.sh` writes the two hooks, and git's configuration changes only at a person's word, run by the person or by a session when the person asks.
+   `setup-commit-log.sh` writes the two hooks, and git's configuration changes only at a person's word:
+   a person runs the script, or a session when the person asks.
 2. Run the setup only when the person asks for it:
 
    ```bash

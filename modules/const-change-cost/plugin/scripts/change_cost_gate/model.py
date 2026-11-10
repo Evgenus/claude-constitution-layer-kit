@@ -24,8 +24,12 @@ COMPACTION = "compact_boundary"  # the type, or the subtype, of the record a com
 LOCK_SECONDS = 120.0  # how long a count waits for the lock on the file of counts
 CCUSAGE_SECONDS = 60.0  # how long one ccusage run may take
 NPM_SECONDS = 120.0  # how long `npm ci` may take
-INSTALL_LOCK_SECONDS = 240.0  # how long a pass waits for another pass's install in the data folder
-INSTALL_LOCK = "install.lock"  # the lock on the install, in the plugin's data folder
+INSTALL_LOCK_SECONDS = (
+    240.0  # how long a pass waits for the lock of the data folder: installs and ccusage runs
+)
+INSTALL_LOCK = (
+    "install.lock"  # the lock a pass holds over its install and every ccusage run, in the data folder
+)
 GIT_MINIMUM = (2, 54)  # the first git that runs hooks set in its configuration, hook.<name>.command
 HOOK_COMMIT = "hook.const-change-cost-commit"  # the key of the hook on post-commit
 HOOK_MERGE = "hook.const-change-cost-merge"  # the key of the hook on post-merge
@@ -57,6 +61,7 @@ class Key(StrEnum):
     J6_13 = "J6.13"  # gh could not write the pull request's description
     J6_14 = "J6.14"  # git could not write a note
     J6_15 = "J6.15"  # git could not write a key into its configuration
+    J6_16 = "J6.16"  # the lock of the data folder cannot be taken
 
 
 @dataclass(frozen=True, slots=True)
