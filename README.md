@@ -46,6 +46,7 @@ Every gate's error message says what failed, why the rule exists, and the exact 
 | 9 | [`const-styling`](modules/const-styling/README.md) | one style guide, a departure declared with its reason | a scan | the style defaults |
 | 10 | [`const-language`](modules/const-language/README.md) | plain prose under a grade ceiling and a sentence limit | after every write and in a scan | writing plain English |
 | 11 | [`const-doc-budgets`](modules/const-doc-budgets/README.md) | a character ceiling per group of documents, set from history | after every write and in a scan | setting a ceiling |
+| 12 | [`const-change-cost`](modules/const-change-cost/README.md) | the tokens a session spent on each commit, counted from its own records and kept in the clone | none | sharing what a change cost |
 
 ## What a gate says
 
