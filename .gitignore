@@ -17,3 +17,6 @@ __pycache__/
 # What a developer's in-tree `python3 -m pip install ./shared` leaves in the shared code's folder (decision dec-0099-shared-code-installed-as-a-pip-package, R9).
 shared/build/
 shared/*.egg-info/
+
+# What `npm ci` leaves in a module's plugin root: the pinned ccusage of const-change-cost.
+modules/*/plugin/node_modules/

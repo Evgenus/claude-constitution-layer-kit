@@ -35,7 +35,7 @@ REQUIRES = "2.0.0"  # the release of the Python package constitution-layer-kit t
 TOO_OLD = (
     "BROKEN: const-change-cost needs Python %d.%d or newer, found %d.%d — fix: install a"
     " current Python 3 (https://www.python.org/downloads/) and put it first on PATH"
-    " — until then no session's start is logged, and its commits get no count\n"
+    "\n"
     "BROKEN: const-change-cost could not log this session's start — its commits will get no count\n"
 )
 
@@ -51,7 +51,7 @@ GUIDE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NO_SHARED_CODE = (
     "BROKEN: const-change-cost needs the Python package constitution-layer-kit %s or a later %s.x release,"
     " and python3 cannot import it — fix: install it for python3 as %s says"
-    " — until then no session's start is logged, and its commits get no count\n"
+    "\n"
     "BROKEN: const-change-cost could not log this session's start — its commits will get no count\n"
 )
 
@@ -68,7 +68,7 @@ failure = cli.version_failure(
     "const-change-cost",
     REQUIRES,
     GUIDE,
-    "until then no session's start is logged, and its commits get no count",
+    "",
 )
 if failure is not None:
     sys.stderr.write(failure + "\n" + NO_SHARED_CODE.partition("\n")[2])

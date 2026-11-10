@@ -49,7 +49,7 @@ SESSION = Identity(
 
 SETUP = Identity(
     namespace=NAMESPACE,
-    gate=messages.SETUP_GATE,
+    gate="setup-commit-log",
     plugin_root=COUNT.plugin_root,
     dials_file="constitution.yaml",
     kernel_keys=KERNEL_KEYS,
@@ -60,7 +60,7 @@ SETUP = Identity(
 
 REPORT = Identity(
     namespace=NAMESPACE,
-    gate=messages.REPORT_GATE,
+    gate="cost-report",
     plugin_root=COUNT.plugin_root,
     dials_file="constitution.yaml",
     kernel_keys=KERNEL_KEYS,

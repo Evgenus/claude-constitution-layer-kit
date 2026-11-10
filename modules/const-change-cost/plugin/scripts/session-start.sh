@@ -6,7 +6,7 @@
 # plugin's requirements file.)
 here=$(dirname "$0")
 if ! command -v python3 >/dev/null 2>&1; then
-  echo "BROKEN: const-change-cost needs python3 — fix: install Python 3.12 or newer (https://www.python.org/downloads/) — until then no session's start is logged, and its commits get no count" >&2
+  echo "BROKEN: const-change-cost needs python3 — fix: install Python 3.12 or newer (https://www.python.org/downloads/)" >&2
   echo "BROKEN: const-change-cost could not log this session's start — its commits will get no count" >&2
   exit 1
 fi

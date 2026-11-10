@@ -33,10 +33,11 @@ import pytest
 import yaml
 from change_cost_gate import counter as counters
 from change_cost_gate import counting, logs, messages, start, windows
-from change_cost_gate.model import PIN, CommitLine, NotCounted, Reason, StartLine
+from change_cost_gate.model import PIN, CommitLine, Key, NotCounted, Reason, StartLine
+from constitution_layer_kit.model import Finding
 from constitution_layer_kit.testing.acceptance import item
-from constitution_layer_kit.testing.harness import Harness, Result, fake_program
-from constitution_layer_kit.testing.items import fake_claude, tr_line
+from constitution_layer_kit.testing.harness import Edit, Harness, Result, Write, fake_program
+from constitution_layer_kit.testing.items import Subject, fake_claude, tr_line
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 PLUGIN = SCRIPTS.parent
@@ -1033,8 +1034,9 @@ def exit_codes_of_report(parent: Path) -> None:
 
 @dataclass(frozen=True)
 class Entry:
-    """One entry of the module under test: its harness, the arguments and input of a plain run, the clause it
-    closes its failures with (none for a generator's) and its closing line."""
+    """One entry of the module under test: its harness, the arguments and input of a plain run, the clause its
+    C1, C14 and C15 close with (none, since the kit's check reads every entry here as a generator's) and its
+    closing line."""
 
     harness: Harness
     script: str
@@ -1052,8 +1054,8 @@ class Entry:
 
 def entries(clone: Clone) -> list[Entry]:
     return [
-        Entry(H, "count-costs.py", ("--all",), "", CLAUSE, CLOSING, CLAUSE),
-        Entry(HS, "session-start.py", (), payload(S1, clone.root), START_CLAUSE, START_CLOSING, START_CLAUSE),
+        Entry(H, "count-costs.py", ("--all",), "", "", CLOSING, CLAUSE),
+        Entry(HS, "session-start.py", (), payload(S1, clone.root), "", START_CLOSING, START_CLAUSE),
         Entry(HU, "setup-commit-log.py", (), "", "", SETUP_CLOSING, SETUP_C2_CLAUSE),
         Entry(HR, "cost-report.py", (), "", "", REPORT_CLOSING, REPORT_C2_CLAUSE),
         Entry(HE, "effect-report.py", (), "", "", EFFECT_CLOSING, "", "2.1.0", False),
@@ -2245,3 +2247,64 @@ def exit_codes_of_effect(parent: Path) -> None:
         refused = clone.count(*args, harness=HE)
         assert refused.code == 1 and refused.stdout == "", args
         assert refused.stderr.splitlines() == [first, EFFECT_CLOSING], args
+
+
+# ------------------------------------------------------------------ the subject of the shared items
+
+REFUSED_RUN = Write("red", "")  # the shared items hand these two Writes; their target says which run
+COMPLETED_RUN = Write("valid", "")
+
+
+def gate_on(
+    action: Write | Edit,
+    dials_patch: dict[str, object] | None = None,
+    env: dict[str, str] | None = None,
+    raw_dials: str | None = None,
+    files: dict[str, str] | None = None,
+    remove: str | None = None,
+) -> tuple[Result, Path]:
+    """The count in a fresh repository: `valid` is `--all`, which completes with nothing to count, and `red`
+    is `--session` with no session in the environment, J6.8. The module reads no dials file, so a dials patch
+    or a raw dials file is no input of its own; the files and the removal are put into the repository."""
+    consumer = H.fresh_consumer()
+    for relative, text in (files or {}).items():
+        consumer.write(relative, text)
+    if remove is not None:
+        (consumer.root / remove).unlink()
+    arguments = ["--session"] if action.target == REFUSED_RUN.target else ["--all"]
+    result = H.run_gate(
+        "", args=arguments, env={"CLAUDE_CODE_SESSION_ID": "", **GIT_ENV, **(env or {})}, cwd=consumer.root
+    )
+    return result, consumer.root
+
+
+def own(**dials: object) -> dict[str, object]:
+    return {NS: dict(dials)}
+
+
+def claim(territory: Sequence[str]) -> dict[str, object]:
+    return {}
+
+
+SUBJECT = Subject(
+    harness=H,
+    gate_on=gate_on,
+    own=own,
+    valid=COMPLETED_RUN,
+    red=REFUSED_RUN,
+    red_finding=Finding(
+        Key.J6_8,
+        "--session needs CLAUDE_CODE_SESSION_ID, which Claude Code sets in its hooks and its shell tool",
+        "",
+        "",
+    ),
+    green=messages.j3_counted(0, 0, 0, 0),
+    territory=[],
+    claim=claim,
+    resolves_policies=False,
+    judges_envelopes=False,
+    event_driven=False,
+    closing=CLOSING,
+    act_args=["--all"],
+    effect="effect-report.sh",
+)

@@ -1,5 +1,5 @@
 """The texts of this module's own lines, notes and configuration failures, as functions with typed
-parameters, each under the key the module's MODULE.md gives it; the texts every gate shares live in the
+parameters, each under the key of the module's message table; the texts every gate shares live in the
 shared package's messages module.
 
 A failure is one self-sufficient line, what failed and the exact fix, followed by the entry's closing line.

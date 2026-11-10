@@ -3,7 +3,8 @@
 # it, both hooks of the commit log set in git's configuration, and the two commits' counts kept in the
 # module's folder of the git common directory, so that the report needs no ccusage. A post-merge hook of git's
 # own folder copies the merge commit's message into .git/merge-message.txt, where a grader reads it: the
-# eval's git is older than the one that runs hooks set in its configuration, and a message is no file.
+# eval's git is older than the one that runs hooks set in its configuration, and a message is no file. The file
+# is stale or absent after a merge concluded with --no-commit, and after an amended merge message.
 set -e
 git init -q -b main
 git config user.name "Eval"

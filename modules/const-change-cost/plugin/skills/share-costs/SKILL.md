@@ -86,15 +86,16 @@ notes on the old commits unless `notes.rewriteRef` names their ref; say so befor
 
 ## 5. Read a figure for what it is
 
-- Every cost is the **list price** of ccusage's table at the pinned version. Say "list price", never
-  "the bill": a project may pay another price.
-- A commit with a named **compaction** has at least the tokens shown. A compaction's own work reaches
-  no transcript and is not counted. Say "at least", and name the compaction.
-- A cost shown as "at least $…" has a model with no price in the table. Say "at least" and name the
-  model; never give the number as the whole cost.
-- A count is what a session spent, not all of a session's work and not a size of any document.
-- The commits of a window run over the whole session. While one agent works and another commits, the
-  first agent's tokens until then go to that commit. The session's total is exact.
+- **A cost is the list price:** the price of ccusage's table at the pinned version. Say "list price",
+  never "the bill": a project may pay another price.
+- **A compaction is named:** a commit with one has at least the tokens shown. A compaction's own work
+  reaches no transcript and is not counted. Say "at least", and name the compaction.
+- **An unpriced model:** a cost shown as "at least $…" has a model with no price in the table. Say "at
+  least" and name the model; never give the number as the whole cost.
+- **A count is spend:** it is what a session spent, not all of a session's work and not a size of any
+  document.
+- **A window runs over the whole session:** while one agent works and another commits, the first
+  agent's tokens until then go to that commit. The session's total is exact.
 
 ## 6. A commit that is not counted
 
