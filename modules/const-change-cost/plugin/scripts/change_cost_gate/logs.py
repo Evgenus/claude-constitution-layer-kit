@@ -1,9 +1,9 @@
 """The three logs of the module and the lock on the file of counts.
 
 They stand in the folder FOLDER of git's common directory, which every worktree of a clone shares, and are
-never committed or pushed. A log is appended one whole JSON line at a time, in one write; a line that cannot
-be read is left out of the reading and named in a note, and never stops it. The module writes no file in the
-working tree."""
+never committed or pushed; beside them stands one small file, the plugin's data folder as a hook saw it. A log
+is appended one whole JSON line at a time, in one write; a line that cannot be read is left out of the reading
+and named in a note, and never stops it. The module writes no file in the working tree."""
 
 from __future__ import annotations
 
@@ -21,6 +21,7 @@ from .model import (
     COUNTS,
     FOLDER,
     LOCK,
+    PLUGIN_DATA,
     STARTS,
     CommitLine,
     Kept,
@@ -205,6 +206,30 @@ def append_line(path: Path, line: Mapping[str, object]) -> None:
 
 def append_kept(folder: Path, kept: Kept) -> None:
     append_line(folder / COUNTS, kept_object(kept))
+
+
+def record_plugin_data(folder: Path, data: str) -> None:
+    """Keeps the plugin's data folder, as a hook saw it in `CLAUDE_PLUGIN_DATA`, for the run by hand that has
+    no such variable. One line, written whole and swapped in by a rename, and only when it differs."""
+    path = folder / PLUGIN_DATA
+    try:
+        if path.read_text(encoding="utf-8") == data:
+            return
+    except OSError:
+        pass
+    folder.mkdir(parents=True, exist_ok=True)
+    temporary = folder / f"{PLUGIN_DATA}.{os.getpid()}"
+    temporary.write_text(data, encoding="utf-8")
+    os.replace(temporary, path)
+
+
+def recorded_plugin_data(folder: Path) -> Path | None:
+    """The data folder a hook recorded, when none is recorded or the folder is gone, None."""
+    try:
+        text = (folder / PLUGIN_DATA).read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    return Path(text) if text and Path(text).is_dir() else None
 
 
 @contextmanager

@@ -8,13 +8,16 @@ Reads:    from the event: session_id, source, transcript_path and cwd; from git,
           common directory and the two hooks' keys. It reads no dials file: the module has no dials.
 Writes:   one line, the session, the time in milliseconds by this script's own clock, the source and the
           transcript's path, to starts.jsonl in the folder const-change-cost/ of the clone's git common
-          directory, making the folder where it is missing. It never writes git's configuration: only
-          setup-commit-log.sh, run by a person, does. Outside a git repository it writes and prints nothing.
+          directory, making the folder where it is missing; and, where CLAUDE_PLUGIN_DATA is set, that
+          folder's path to the file plugin-data beside it, for a run by hand. It never writes git's
+          configuration: only setup-commit-log.sh, run by a person, does. Outside a git repository it writes
+          and prints nothing.
 Exit:     0 logged, or nothing to log; 1 a configuration failure — the start could not be logged, said on
           stderr and in the log. Never 2: it has no finding.
 Output:   the start line on stdout, which the platform adds to the model's context, only while a hook of the
-          commit log is missing; BROKEN lines on stderr. Every print is also appended, as one record, to the
-          output log, under CLAUDE_PLUGIN_DATA, else nowhere. The dials: none.
+          commit log is missing; BROKEN lines on stderr. Every print is also appended, as one record naming
+          the session and its transcript, to the output log, under CLAUDE_PLUGIN_DATA, else nowhere. The
+          dials: none.
 
 This file stays parseable by any Python 3 so that an interpreter below the floor gets the
 teaching message rather than a syntax error. It states the release of the Python package
@@ -29,7 +32,7 @@ import os
 import sys
 
 FLOOR = (3, 12)
-REQUIRES = "2.0.0"  # the release of the Python package constitution-layer-kit this file needs
+REQUIRES = "2.1.0"  # the release of the Python package constitution-layer-kit this file needs
 
 # Percent formatting on purpose: this file must parse on any Python 3, and f-strings do not.
 TOO_OLD = (

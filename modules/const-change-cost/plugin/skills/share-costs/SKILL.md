@@ -44,9 +44,10 @@ Run the report for the change and put its block in the description:
 sh "${CLAUDE_PLUGIN_ROOT}/scripts/cost-report.sh" --pr <base>..<branch>
 ```
 
-Where `gh` finds the branch's pull request, the block is written into its description, between its two
-markers, and a second run replaces the block and keeps the rest. Where there is no pull request yet,
-or no `gh`, the block is printed: put it in the description you give to the forge, for example with
+Where `gh` finds the pull request of the range's head, the branch the range ends at, the block is
+written into its description, between its two markers, and a second run replaces the block and keeps
+the rest. Where there is no pull request yet, no `gh`, or a `gh` that fails, the block is printed with
+a note that says which: put it in the description you give to the forge, for example with
 `gh pr create --body-file`. Never type a cost by hand.
 
 ## 3. Before a pull request is merged
@@ -104,10 +105,10 @@ The report names each one, with the reason. Say what the line says; do not guess
 - **No line in the commit log:** the commit was made before the setup ran, by a tool that runs no git
   hook, or on a forge. It can never be counted.
 - **The commit log names no session:** the commit was made outside Claude Code.
-- **The session has no start in the start log:** it began before the plugin was enabled, or in another
-  folder. No start is ever made up.
-- **Its window is not complete:** no record of the session is dated after the commit yet. A later pass
-  counts it; `sh "${CLAUDE_PLUGIN_ROOT}/scripts/count-costs.sh" --all` counts what is ready now.
+- **The session has no start in the start log, or the commit was made before its first logged start:**
+  it began before the plugin was enabled, or in another folder. No start is ever made up.
+- **Its window may not be complete, or no pass has counted it yet:** run
+  `sh "${CLAUDE_PLUGIN_ROOT}/scripts/count-costs.sh" --all`, which counts it or names what stops it.
 - **No transcript of the session stands:** Claude Code's cleanup swept it, or it was never kept.
 
 Share the report with the names in it. Do not hold the trailers back until every commit is counted.

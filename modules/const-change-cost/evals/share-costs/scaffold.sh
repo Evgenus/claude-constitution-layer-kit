@@ -1,9 +1,9 @@
 #!/bin/sh
 # Seeds the run's working folder: a small inventory tool on its main branch, a branch of two commits ahead of
 # it, both hooks of the commit log set in git's configuration, and the two commits' counts kept in the
-# module's folder of the git common directory, so that the report needs no ccusage. No hook is written: in the
-# eval's environment git ran no hook of the session's commands, so the case grades the merge by the shell call
-# in the trace.
+# module's folder of the git common directory, so that the report needs no ccusage. The two hooks are
+# placeholders, `true` on `post-commit` and on `post-merge`, which log nothing: in the eval's environment git
+# ran no hook of the session's commands, so the case grades the merge by the shell call in the trace.
 set -e
 git init -q -b main
 git config user.name "Eval"

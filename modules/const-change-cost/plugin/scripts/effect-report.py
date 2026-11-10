@@ -1,18 +1,24 @@
 #!/usr/bin/env python3
 """const-change-cost: entry point of the effect report, the count of where the module's rules applied, were
-bypassed or were missed in a project that installs it (template section 13).
+bypassed or were missed in a project that installs it.
 
 It hands the module's rules, held by its package, to the shared runner, which reads the evidence — the
 transcripts the module's output log names, and those of a folder `--transcripts` names; the project's git
 history — and prints the report. The rules also read the module's own logs in the clone's git common
 directory, the commit log and the file of counts.
 
+Events:   none: it runs on demand, a person's or a session's, and is wired to no hook.
 Modes:    no arguments                 print the report over the transcripts the module's log names;
           --transcripts DIR            also read the transcripts of the folder DIR;
           --since YYYY-MM-DD           keep what is at or after the date;
           --reader                     let a fresh reader judge the reader rules (a subscription login);
                                        the module has none.
+Reads:    the output log under CLAUDE_PLUGIN_DATA and the transcripts it names; the transcripts of DIR; the
+          project's git history; the commit log and the file of counts in the clone's git common directory;
+          the plugin list that `claude` shows. It reads no event on its standard input.
 Exit:     0 the report is printed, whatever it counts; 1 it could not run. Never red, never 2.
+Output:   the report on stdout; BROKEN lines on stderr. Every print is also appended, as one record, to the
+          output log, under CLAUDE_PLUGIN_DATA, else nowhere. The dials: none, since the module has none.
 
 This file stays parseable by any Python 3, as the gate's entry does.
 """

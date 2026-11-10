@@ -19,6 +19,7 @@ STARTS = "starts.jsonl"
 COMMITS = "commits.jsonl"
 COUNTS = "counts.jsonl"
 LOCK = "counts.lock"
+PLUGIN_DATA = "plugin-data"  # the plugin's data folder as a hook saw it: one line, never committed
 COMPACTION = "compact_boundary"  # the type, or the subtype, of the record a compaction writes
 LOCK_SECONDS = 120.0  # how long a count waits for the lock on the file of counts
 CCUSAGE_SECONDS = 60.0  # how long one ccusage run may take
@@ -153,8 +154,8 @@ class Reason(StrEnum):
 
     NO_LOG = "J11.1"  # the report's: a commit of a range that the commit log does not hold
     NO_SESSION = "J11.2"
-    NO_START = "J11.3"
-    WAITING = "J11.4"
+    NO_START = "J11.3"  # no start in the start log, or the commit was made before the session's first one
+    WAITING = "J11.4"  # the fallback: the window may be incomplete, or no pass has counted it
     NO_TRANSCRIPT = "J11.5"
 
 

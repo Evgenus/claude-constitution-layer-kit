@@ -5,8 +5,8 @@ The report reads the file of counts, and the commit log and the start log to nam
 kept line; it reads no transcript and runs no ccusage. With no range it shows every kept line. With a range
 it shows each commit of the range, counted or not, in the range's order, and the total. The cost is the list
 price of ccusage's table, and every line says so. `--pr` writes its block through `gh` where `gh` finds the
-branch's pull request and prints it otherwise; `--notes` writes under the module's notes ref. The module
-never pushes."""
+pull request of the range's head, the branch the range ends at, and prints it with the reason otherwise;
+`--notes` writes under the module's notes ref. The module never pushes."""
 
 from __future__ import annotations
 
@@ -40,6 +40,7 @@ from .model import (
 )
 
 Shown = Kept | NotCounted
+NO_PULL_REQUEST = "no pull requests found"  # gh's own words, in lower case, when a branch has no pull request
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,7 +112,10 @@ def reason_of(sha: str, commits: dict[str, CommitLine], starts_of: dict[str, lis
     starts = starts_of.get(line.session, [])
     if not starts:
         return NotCounted(sha, Reason.NO_START, line.session)
-    first = min(starts, key=lambda held: held.ms).transcript_path
+    earliest = min(starts, key=lambda held: held.ms)
+    if line.ms < earliest.ms:
+        return NotCounted(sha, Reason.NO_START, line.session)
+    first = earliest.transcript_path
     if not any(
         windows.transcripts_of(Path(path)) for path in dict.fromkeys(s.transcript_path for s in starts)
     ):
@@ -195,10 +199,9 @@ def with_block(body: str, block: str) -> str:
     return (body.rstrip("\n") + "\n\n" if body.strip() else "") + block + "\n"
 
 
-def _gh(
-    directory: Path, args: list[str], stdin: str | None = None
-) -> subprocess.CompletedProcess[str] | None:
-    """One gh call within `GH_SECONDS`; None where gh cannot be started or does not answer in time."""
+def _gh(directory: Path, args: list[str], stdin: str | None = None) -> subprocess.CompletedProcess[str] | str:
+    """One gh call within `GH_SECONDS`; the detail of the failure, in words, where gh cannot be started or
+    does not answer in time."""
     try:
         return subprocess.run(
             ["gh", *args],
@@ -209,44 +212,67 @@ def _gh(
             check=False,
             timeout=GH_SECONDS,
         )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
+    except subprocess.TimeoutExpired:
+        return messages.detail_gh_silent()
+    except OSError as exc:
+        return str(exc)
 
 
-def pull_request(directory: Path) -> tuple[int, str] | None:
-    """The number and the description of the branch's pull request, or None where gh is not there or finds
-    none."""
+@dataclass(frozen=True, slots=True)
+class PullRequest:
+    """A pull request as `gh pr view` gives it: its number and its description."""
+
+    number: int
+    body: str
+
+
+def head_of(range_text: str) -> str:
+    """The end of the range that names the work: the side after `..` or `...`, `HEAD` where that is left
+    empty, and the text as it is where the range is a single revision."""
+    for separator in ("...", ".."):
+        if separator in range_text:
+            return range_text.partition(separator)[2] or "HEAD"
+    return range_text
+
+
+def pull_request(directory: Path, head: str) -> PullRequest | str:
+    """The pull request of the branch `head`, or the note, J15.2 to J15.4, that says why there is none: no gh,
+    a gh that failed or gave no answer in time, or a gh that found no pull request of that branch."""
     if shutil.which("gh") is None:
-        return None
-    done = _gh(directory, ["pr", "view", "--json", "number,body"])
-    if done is None or done.returncode != 0:
-        return None
+        return messages.j15_2_no_gh()
+    done = _gh(directory, ["pr", "view", head, "--json", "number,body"])
+    if isinstance(done, str):
+        return messages.j15_3_gh_failed(head, done)
+    if done.returncode != 0:
+        if NO_PULL_REQUEST in done.stderr.lower():
+            return messages.j15_4_no_pull_request(head)
+        return messages.j15_3_gh_failed(head, _first(done.stderr))
     try:
         found = json.loads(done.stdout)
     except ValueError:
-        return None
-    if not isinstance(found, dict):
-        return None
-    number, body = found.get("number"), found.get("body")
+        found = None
+    number = found.get("number") if isinstance(found, dict) else None
     if isinstance(number, bool) or not isinstance(number, int):
-        return None
-    return number, body if isinstance(body, str) else ""
+        return messages.j15_3_gh_failed(head, messages.detail_gh_answer())
+    body = found.get("body")
+    return PullRequest(number, body if isinstance(body, str) else "")
 
 
 def run_pr(output: Output, directory: Path, range_text: str) -> int:
     block = block_of(select(output, directory, range_text))
-    found = pull_request(directory)
-    if found is None:
+    found = pull_request(directory, gitpart.branch_of(directory, head_of(range_text)))
+    if isinstance(found, str):
         output.out(block)
-        output.out(messages.j15_2_printed())
+        output.out(found)
         return 0
-    number, body = found
-    done = _gh(directory, ["pr", "edit", str(number), "--body-file", "-"], with_block(body, block))
-    if done is None or done.returncode != 0:
+    done = _gh(
+        directory, ["pr", "edit", str(found.number), "--body-file", "-"], with_block(found.body, block)
+    )
+    if isinstance(done, str) or done.returncode != 0:
         output.out(block)
-        detail = messages.detail_gh_silent() if done is None else _first(done.stderr)
-        raise ConfigurationFailure(messages.j6_13_gh_failed(number, detail))
-    output.out(messages.j15_1_written(number))
+        detail = done if isinstance(done, str) else _first(done.stderr)
+        raise ConfigurationFailure(messages.j6_13_gh_failed(found.number, detail))
+    output.out(messages.j15_1_written(found.number))
     return 0
 
 

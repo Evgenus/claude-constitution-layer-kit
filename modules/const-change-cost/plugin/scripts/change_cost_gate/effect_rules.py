@@ -1,5 +1,5 @@
-"""The module's rules of the effect report (template section 13): where each rule applies, and whether it
-was applied, bypassed or missed. W2 and W4 are built by the helpers of `constitution_layer_kit.ways` with
+"""The module's rules of the effect report: where each rule applies, and whether it was applied, bypassed or
+missed. W2 and W4 are built by the helpers of `constitution_layer_kit.ways` with
 what only this module knows, its skill and its moment; W1 and W3 are found by this module's own code, since
 their evidence is the module's logs in git's common directory, which no helper reads. The module has no
 dials file, so W4 keeps the plugin list's moment and drops the helper's moments for the dials file. Every

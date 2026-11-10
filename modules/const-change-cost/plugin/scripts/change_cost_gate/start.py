@@ -4,6 +4,7 @@ its git calls have no clock, and its closing line says that no commit was counte
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import os
 import sys
@@ -15,6 +16,7 @@ from typing import NoReturn
 from constitution_layer_kit import cli, preflight
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.errors import ConfigurationFailure
+from constitution_layer_kit.events import read_event
 from constitution_layer_kit.identity import HOOK_SECONDS, Identity
 from constitution_layer_kit.model import KERNEL_KEYS, Mode
 from constitution_layer_kit.output import Output
@@ -112,6 +114,7 @@ def _count(argv: Sequence[str], output: Output) -> int:
     session = os.environ.get(SESSION_VARIABLE, "")
     if not session:
         raise ConfigurationFailure(messages.j6_8_no_session())
+    output.session = session  # the records of the output log name the session, as rule 12 asks
     return counting.run(output, counting.Scope(session), Path.cwd())
 
 
@@ -145,7 +148,10 @@ def _start(argv: Sequence[str], output: Output) -> int:
             messages.j6_11_misinvocation(f"unexpected argument {argv[0]}", messages.START_USAGE)
         )
     preflight.check()
-    event = _event(sys.stdin.read())
+    text = sys.stdin.read()
+    event = _event(text)
+    # the records of the output log name the session and its transcript, as rule 12 asks, from here on
+    output.stamp(read_event(io.StringIO(text)))
     session = _text(event, "session_id")
     source = _text(event, "source")
     transcript = _text(event, "transcript_path")
@@ -154,6 +160,9 @@ def _start(argv: Sequence[str], output: Output) -> int:
     common = gitpart.common_or_none(directory)
     if common is None:  # outside a git repository: nothing to log, nothing to say
         return 0
+    named = os.environ.get("CLAUDE_PLUGIN_DATA")
+    if named:  # kept for a run by hand, whose shell has no such variable
+        logs.record_plugin_data(logs.folder_of(common), named)
     logs.append_line(
         logs.folder_of(common) / STARTS,
         {"session": session, "ms": started, "source": source, "transcript_path": transcript},

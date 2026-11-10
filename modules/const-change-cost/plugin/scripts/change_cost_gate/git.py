@@ -122,6 +122,14 @@ def range_commits(directory: Path, root: Path, range_text: str) -> list[str]:
     return done.stdout.decode("utf-8", "replace").split()
 
 
+def branch_of(directory: Path, head: str) -> str:
+    """The name of the branch `head` stands for, such as the current branch for `HEAD`; `head` itself where
+    git gives no name, as for a commit's SHA or a detached `HEAD`."""
+    done = git(["rev-parse", "--abbrev-ref", head], directory)
+    named = done.stdout.decode("utf-8", "replace").strip().splitlines()
+    return named[0] if done.returncode == 0 and named and named[0] != "HEAD" else head
+
+
 def first_line(stderr: bytes) -> str:
     lines = stderr.decode("utf-8", "replace").strip().splitlines()
     return lines[0] if lines else "no message"

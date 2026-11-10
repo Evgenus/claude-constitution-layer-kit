@@ -8,18 +8,23 @@ Modes:    --all      count every complete window not yet counted, of every sessi
 Reads:    the three logs in the folder const-change-cost/ of the clone's git common directory (the start log,
           the commit log, the file of counts); the transcripts the start log names; from the environment
           CLAUDE_CODE_SESSION_ID for --session and CLAUDE_PLUGIN_DATA, where the pinned ccusage is installed
-          when the plugin root holds none. It reads no dials file: the module has no dials.
+          when the plugin root holds none; with CLAUDE_PLUGIN_DATA unset, as in a person's shell, the data
+          folder that a hook recorded in the file plugin-data beside the logs. Where it is set, the count
+          records it there. It reads no dials file: the module has no dials.
 The count: per commit, the window from the session's previous commit, or its start, to the commit's time in
           milliseconds, cut from the session's own records dated at or after its earliest logged start, and
           counted by the pinned ccusage over a throwaway folder that holds that window alone. A window is
           complete once a record of the session is dated after the commit; an incomplete one waits. Each
           count is one line of the file of counts, written once and never made again. A commit whose session
-          has no logged start gets no count. This file reads no token count of a transcript.
+          has no logged start, or that was made before its first, gets no count. This file reads no token
+          count of a transcript.
 Exit:     0 done, nothing to do included, the closing line saying how many commits were counted, waited or
           never will be; 1 a configuration failure — the count could not run. Never 2: it has no finding.
-          It fails open by design: an advisory count that blocks nothing and judges nothing.
+          It blocks nothing and judges nothing: a hook that runs it is async, so a count that cannot run, exit
+          1 with its line, stops no turn and no start; the commits it did not count wait for a later pass.
 Output:   the closing line and the notes on stdout; BROKEN lines on stderr. Every print is also appended, as
-          one record, to the output log, under CLAUDE_PLUGIN_DATA, else nowhere. The dials: none.
+          one record, to the output log, under CLAUDE_PLUGIN_DATA, else nowhere; with --session the record
+          names the session. The dials: none.
 
 This file stays parseable by any Python 3 so that an interpreter below the floor gets the
 teaching message rather than a syntax error. It states the release of the Python package

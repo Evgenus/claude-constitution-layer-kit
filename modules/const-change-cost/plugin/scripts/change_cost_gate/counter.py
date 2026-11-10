@@ -4,11 +4,13 @@ read.
 It stands in the `node_modules` of the plugin root, where Claude Code installed it for a plugin it copied;
 else in the `node_modules` of the plugin's data folder, `${CLAUDE_PLUGIN_DATA}`, where `npm ci
 --ignore-scripts` installs it for a plugin loaded in place, when the data folder's copy of the lockfile
-differs from the plugin's. It is run through the launcher in its `.bin` folder and never through a platform
-binary by its path, as `ccusage claude session --id <session> --json --offline --config <plugin
-root>/ccusage.json` with `CLAUDE_CONFIG_DIR` naming the throwaway folder of one window; a second run
-without `--id` names the models its table lacks. The module's own code reads no token count of a transcript
-and uses no per-reply cost of the output: the figures are those of the output."""
+differs from the plugin's or its `node_modules` is gone. A run with no `CLAUDE_PLUGIN_DATA`, such as a
+person's shell, looks in the data folder that a hook recorded in the clone, when that folder still stands.
+It is run through the launcher in its `.bin` folder and never through a platform binary by its path, as
+`ccusage claude session --id <session> --json --offline --config <plugin root>/ccusage.json` with
+`CLAUDE_CONFIG_DIR` naming the throwaway folder of one window; a second run without `--id` names the models
+its table lacks. The module's own code reads no token count of a transcript and uses no per-reply cost of
+the output: the figures are those of the output."""
 
 from __future__ import annotations
 
@@ -99,7 +101,8 @@ def install(root: Path, data: Path, output: Output) -> None:
 
 def locate(root: Path, data: Path | None, output: Output) -> Ccusage:
     """The pinned ccusage under the plugin root, else under the data folder, installed there when the lockfile
-    copy differs; a configuration failure, J6.1 to J6.5, where none can be had."""
+    copy differs or `node_modules` is gone; a configuration failure, J6.1 to J6.5, where none can be had.
+    `data` is None where no folder is known."""
     if shutil.which("node") is None:
         raise ConfigurationFailure(messages.j6_1_no_node())
     found = installed_version(root)
@@ -107,9 +110,11 @@ def locate(root: Path, data: Path | None, output: Output) -> Ccusage:
         return Ccusage(launcher_of(root), PIN, root)
     if data is None:
         raise ConfigurationFailure(
-            messages.j6_4_other_version(found, str(root)) if found else messages.j6_3_no_ccusage(str(root))
+            messages.j6_4_other_version(found, str(root))
+            if found
+            else messages.j6_3_no_ccusage(str(root), None)
         )
-    if not _same_lock(root, data):
+    if not _same_lock(root, data) or installed_version(data) is None:
         install(root, data, output)
     there = installed_version(data)
     if there == PIN:
@@ -118,7 +123,7 @@ def locate(root: Path, data: Path | None, output: Output) -> Ccusage:
         raise ConfigurationFailure(messages.j6_4_other_version(there, str(data)))
     if found is not None:
         raise ConfigurationFailure(messages.j6_4_other_version(found, str(root)))
-    raise ConfigurationFailure(messages.j6_3_no_ccusage(str(root)))
+    raise ConfigurationFailure(messages.j6_3_no_ccusage(str(root), str(data)))
 
 
 def _whole(entry: Mapping[str, object], name: str) -> int:

@@ -32,9 +32,12 @@ from pathlib import Path
 import pytest
 import yaml
 from change_cost_gate import counter as counters
-from change_cost_gate import counting, logs, messages, start, windows
+from change_cost_gate import counting, logs, messages, report, start, windows
 from change_cost_gate.model import PIN, CommitLine, Key, NotCounted, Reason, StartLine
-from constitution_layer_kit.model import Finding
+from constitution_layer_kit import identity
+from constitution_layer_kit.errors import ConfigurationFailure
+from constitution_layer_kit.model import Finding, Mode
+from constitution_layer_kit.output import Output
 from constitution_layer_kit.testing.acceptance import item
 from constitution_layer_kit.testing.harness import Edit, Harness, Result, Write, fake_program
 from constitution_layer_kit.testing.items import Subject, fake_claude, tr_line
@@ -550,6 +553,11 @@ def test_waits_and_once(tmp_path: Path, installed: Path) -> None:
     waiting = clone.count("--all")
     assert (waiting.code, closing(waiting)) == (0, counted_line(0, 0, 1, 0)), waiting.stderr
     assert clone.kept() == []
+    # a record dated in the very millisecond of the commit is not dated after it
+    clone.append_record(S1, 13)
+    same = clone.count("--all")
+    assert (same.code, closing(same)) == (0, counted_line(0, 0, 1, 0)), same.stderr
+    assert clone.kept() == []
     clone.append_record(S1, 14)
     counted = clone.count("--all")
     assert (counted.code, closing(counted)) == (0, counted_line(1, 0, 0, 0)), counted.stderr
@@ -572,6 +580,17 @@ def test_waits_and_once(tmp_path: Path, installed: Path) -> None:
     recovered = killed.count("--all")
     assert (recovered.code, closing(recovered)) == (0, counted_line(1, 0, 0, 0)), recovered.stderr
     assert totals(killed) == [5737]
+    # a SHA the commit log holds twice, as a commit and as a merge, is the first line's and kept once
+    twice = Clone.make(tmp_path / "twice", installed)
+    twice.start(S1, 0)
+    twice.append_record(S1, 14)
+    twice.commit("d" * 40, 13, S1)
+    twice.append_line("commits.jsonl", {"sha": "d" * 40, "ms": at(13.5), "session": S1, "event": "merge"})
+    logged, _ = logs.read_commits(twice.folder)
+    assert [line.event for line in counting.commits_of(logged)[S1]] == ["commit"]
+    both = twice.count("--all")
+    assert (both.code, closing(both)) == (0, counted_line(1, 0, 0, 0)), both.stderr
+    assert [held["sha"] for held in twice.kept()] == ["d" * 40]
 
 
 @item(
@@ -650,11 +669,10 @@ def test_commits_not_counted(clone: Clone) -> None:
         f"{sha}: not counted — no line in the commit log: made before setup-commit-log.sh ran, by a tool that"
         " runs no git hook, or on a forge",
         f"{sha}: not counted — the commit log names no session: made outside Claude Code",
-        f"{sha}: not counted — session {S1} has no start in the start log: it started before the plugin was"
-        " enabled, or in another folder",
-        f"{sha}: not counted — its window is not complete: no record of session {S1} is dated after the"
-        " commit"
-        " yet; a later pass counts it",
+        f"{sha}: not counted — session {S1} has no start in the start log, or the commit was made before the"
+        " session's first logged start: it started before the plugin was enabled, or in another folder",
+        f"{sha}: not counted — its window may not be complete, or no pass has counted it yet; run"
+        " count-costs.sh --all, which counts it or names what stops it",
         f"{sha}: not counted — no transcript of session {S1} stands at /x/s.jsonl: swept by Claude Code's"
         " cleanup, or never kept",
     ]
@@ -697,10 +715,13 @@ class Rig:
         clone.commit("a" * 40, 13, S1)
         return cls(clone, root, harness, folder, log)
 
-    def run(self, data: bool = True, env: Mapping[str, str] | None = None) -> Result:
+    def run(self, data: bool = True, env: Mapping[str, str] | None = None, by_hand: bool = False) -> Result:
+        """A pass in a hook (the data folder named by its variable), or `by_hand`, as a person's shell runs
+        it: the variable unset and the folder standing. With `data` false the folder is gone as well."""
         extra = {"PATH": str(self.bin), "NPM_LOG": str(self.npm_log), **(env or {})}
         if not data:
             self.clone.data.rmdir()
+        if not data or by_hand:
             extra["CLAUDE_PLUGIN_DATA"] = ""
         return self.clone.count("--all", env=extra, harness=self.harness)
 
@@ -718,7 +739,7 @@ FAKE_NPM = (
     "ccusage under the plugin root, else the data folder, installed there when the lockfile copy differs;"
     " J5.3 and J6.1 to J6.6",
 )
-def test_finding_ccusage(tmp_path: Path) -> None:
+def test_finding_ccusage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     fake = tmp_path / "fake-ccusage"
     fake_program(fake, FAKE_REPORT)
     # under the plugin root: used, no npm call
@@ -747,6 +768,8 @@ def test_finding_ccusage(tmp_path: Path) -> None:
     third = rig.run(env={"FAKE_CCUSAGE": str(fake)})
     assert third.code == 0 and third.stdout.splitlines()[0] == note, third.stderr
     assert len(rig.npm_log.read_text(encoding="utf-8").splitlines()) == 2
+    assert by_hand(tmp_path / "by-hand", fake) == []
+    ccusage_silent(tmp_path / "silent", monkeypatch)
     assert ccusage_failures(tmp_path / "failures") == []
 
 
@@ -880,6 +903,12 @@ def test_session_and_all(clone: Clone) -> None:
     everything = clone.count("--all")
     assert (everything.code, closing(everything)) == (0, counted_line(1, 1, 0, 0)), everything.stderr
     assert sorted(str(held["session"]) for held in clone.kept()) == [S1, S2]
+    # D4: the records of a --session run carry the session; those of --all name none
+    said = [
+        json.loads(raw)
+        for raw in (clone.data / "const-change-cost.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert [held["session"] for held in said if held["text"].startswith("COUNTED")] == [S2, ""]
 
 
 @item(
@@ -1077,7 +1106,7 @@ class Entry:
 def entries(clone: Clone) -> list[Entry]:
     return [
         Entry(H, "count-costs.py", ("--all",), "", "", CLOSING, CLAUSE),
-        Entry(HS, "session-start.py", (), payload(S1, clone.root), "", START_CLOSING, START_CLAUSE),
+        Entry(HS, "session-start.py", (), payload(S1, clone.root), "", START_CLOSING, START_CLAUSE, "2.1.0"),
         Entry(HU, "setup-commit-log.py", (), "", "", SETUP_CLOSING, SETUP_C2_CLAUSE),
         Entry(HR, "cost-report.py", (), "", "", REPORT_CLOSING, REPORT_C2_CLAUSE),
         Entry(HE, "effect-report.py", (), "", "", EFFECT_CLOSING, "", "2.1.0", False),
@@ -1243,6 +1272,14 @@ def test_start_record(tmp_path: Path, clone: Clone) -> None:
         assert isinstance(record["ms"], int) and before <= record["ms"] <= after
         assert text == json.dumps(record, separators=(",", ":"))  # compact
     assert not (worktree / ".git").is_dir() and not (worktree / "const-change-cost").exists()
+    # D3: the hook records the plugin's data folder, which a run by hand has no variable for
+    assert (clone.folder / "plugin-data").read_text(encoding="utf-8") == str(clone.data)
+    # D4: each record of the output log names the session and its transcript, as rule 12 asks
+    kept = [json.loads(raw) for raw in (clone.data / "const-change-cost.jsonl").read_text().splitlines()]
+    assert [(held["mode"], held["session"], held["transcript"]) for held in kept] == [
+        ("hook", S1, "/t/one.jsonl"),
+        ("hook", S2, "/t/two.jsonl"),
+    ]
 
 
 @item(2, "J1 with both hooks and with one missing; nothing printed when both stand or outside a repository")
@@ -1422,6 +1459,18 @@ def test_commit_log(tmp_path: Path, clone: Clone) -> None:
     git_in(root, "checkout", "-q", "main")
     git_in(root, "commit", "--allow-empty", "-q", "-m", "m2")
     logged("a commit on main again", wanted=1)
+    # a squash merge fires post-merge with no new commit; the commit that concludes it is logged as a commit
+    git_in(root, "checkout", "-q", "-b", "sq")
+    (root / "s").write_text("squashed\n", encoding="utf-8")
+    git_in(root, "add", "s")
+    git_in(root, "commit", "-q", "-m", "sq1")
+    logged("a commit to squash", wanted=1)
+    git_in(root, "checkout", "-q", "main")
+    git_in(root, "merge", "--squash", "-q", "sq")
+    assert git_in(root, "diff", "--cached", "--name-only", session=None) == "s"
+    logged("merge --squash", wanted=0)
+    git_in(root, "commit", "-q", "-m", "squashed")
+    logged("the commit that concludes a squash merge", wanted=1)
     git_in(root, "merge", "--no-ff", "-q", "-m", "merged", "n1")
     logged("merge --no-ff", wanted=1, event="merge")
     # a fast-forward fires post-merge and makes no commit
@@ -1567,12 +1616,14 @@ def test_always_on_texts() -> None:
 
 @item(
     31,
-    "a commit whose session has no logged start gets no count, even where another session's transcript"
-    " holds its records",
+    "a commit whose session has no logged start, or made before it, gets no count, even where another"
+    " session's transcript holds its records",
 )
-def test_no_start_is_made_up(clone: Clone) -> None:
+def test_no_start_is_made_up(clone: Clone, tmp_path: Path, installed: Path) -> None:
     """S3 committed, but its start was never logged. Its records stand inside the parent's transcript, as a
-    fork's copies do. No start is made up from them: the commit is never counted."""
+    fork's copies do. No start is made up from them: the commit is never counted. Nor is a commit counted
+    that its session made before the session's first logged start: its window holds no record, and a count
+    of 0 tokens would be a made-up count."""
     with clone.transcript(S1).open("a", encoding="utf-8") as handle:
         handle.write(user_record(S3, 6))
         handle.write(user_record(S3, 14))
@@ -1588,6 +1639,31 @@ def test_no_start_is_made_up(clone: Clone) -> None:
         S3, commits, [line for line in starts if line.session == S3], set(), None, clone.folder, tally
     )
     assert tally.not_counted == [NotCounted("a" * 40, Reason.NO_START, S3)]
+    # D1: S1's commit at 3 s precedes its first logged start, at 5 s: named J11.3, never kept as 0 tokens;
+    # the commit after the start is counted from the start on
+    early = Clone.make(tmp_path / "early", installed)
+    early.start(S1, 5)
+    early.commit("e" * 40, 3, S1)
+    early.commit("f" * 40, 13, S1)
+    early.append_record(S1, 14)
+    done = early.count("--all")
+    assert (done.code, closing(done)) == (0, counted_line(1, 0, 0, 1)), done.stderr
+    files = [path for path in (FIXTURE / S1).rglob("*.jsonl")] + [FIXTURE / f"{S1}.jsonl"]
+    after_the_start = apart(files, S1, 5, [3, 13])[1]
+    assert after_the_start > 0
+    assert [(held["sha"], held["total"]) for held in early.kept()] == [("f" * 40, after_the_start)]
+    commits, _ = logs.read_commits(early.folder)
+    starts, _ = logs.read_starts(early.folder)
+    tally = counting.Tally()
+    counting.count_session(S1, commits, starts, set(), None, early.folder, tally)
+    assert tally.not_counted == [
+        NotCounted("e" * 40, Reason.NO_START, S1),
+        NotCounted("f" * 40, Reason.WAITING, S1),
+    ]
+    # the report names it the same way
+    commit_of = {line.sha: line for line in commits}
+    assert report.reason_of("e" * 40, commit_of, {S1: starts}) == NotCounted("e" * 40, Reason.NO_START, S1)
+    assert report.reason_of("f" * 40, commit_of, {S1: starts}).reason is Reason.WAITING
 
 
 # ------------------------------------------------------------------ T15 to T18: the report and its exports
@@ -1596,12 +1672,12 @@ NOT_COUNTED = {
     "nolog": "no line in the commit log: made before setup-commit-log.sh ran, by a tool that runs no git"
     " hook, or on a forge",
     "nosession": "the commit log names no session: made outside Claude Code",
-    "nostart": f"session {S3} has no start in the start log: it started before the plugin was enabled, or in"
-    " another folder",
+    "nostart": f"session {S3} has no start in the start log, or the commit was made before the session's"
+    " first logged start: it started before the plugin was enabled, or in another folder",
     "notranscript": f"no transcript of session {S4} stands at {{gone}}: swept by Claude Code's cleanup, or"
     " never kept",
-    "waiting": f"its window is not complete: no record of session {S1} is dated after the commit yet; a later"
-    " pass counts it",
+    "waiting": "its window may not be complete, or no pass has counted it yet; run count-costs.sh --all,"
+    " which counts it or names what stops it",
 }
 F1 = (
     "input 1,000, output 200, cache write 300, cache read 4,500, total 6,000 tokens; $0.01 at list price;"
@@ -1778,6 +1854,7 @@ FAKE_GH = (
     'echo "$*" >> "$GH_LOG"\n'
     'case "$1 $2" in\n'
     '  "pr view")\n'
+    '    if [ -n "$GH_VIEW_FAIL" ]; then echo "$GH_VIEW_FAIL" >&2; exit 1; fi\n'
     '    if [ -n "$GH_NO_PR" ]; then echo "no pull requests found for branch" >&2; exit 1; fi\n'
     '    /bin/cat "$GH_VIEW" ;;\n'
     '  "pr edit")\n'
@@ -1843,10 +1920,14 @@ def block_of_the_rig(clone: Clone, shas: Mapping[str, str], upto: str | None = N
     "--pr: no gh prints the block and J15.2; a fake gh gets it between its markers, J15.1, a rerun replaces"
     " it; a failing gh is J6.13",
 )
-def test_pr(tmp_path: Path) -> None:
+def test_pr(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     clone, shas = report_rig(tmp_path / "rig")
     block = block_of_the_rig(clone, shas)
-    j15_2 = "note: gh found no pull request of this branch — the block above is printed for a person to paste"
+    head = git_in(
+        clone.root, "rev-parse", "--abbrev-ref", "HEAD", session=None
+    )  # the branch `base..HEAD` ends at
+    j15_2 = "note: gh is not on PATH — the block above is printed for a person to paste"
+    j15_4 = f"note: gh found no pull request of {head} — the block above is printed for a person to paste"
     # no gh on PATH: the block is printed, nothing is changed
     without = run_report(clone, "--pr", "base..HEAD", path=tool_folder(tmp_path / "none"))
     assert without.code == 0 and without.stderr == "", without.stderr
@@ -1857,9 +1938,28 @@ def test_pr(tmp_path: Path) -> None:
     view.write_text(json.dumps({"number": 7, "body": "Description.\n"}), encoding="utf-8")
     tools = tool_folder(tmp_path / "fake", FAKE_GH)
     absent = run_report(clone, "--pr", "base..HEAD", path=tools, env={**env, "GH_NO_PR": "1"})
-    assert absent.code == 0 and absent.stdout.splitlines() == [*block, j15_2], absent.stderr
-    assert log.read_text(encoding="utf-8").splitlines() == ["pr view --json number,body"]
+    assert absent.code == 0 and absent.stdout.splitlines() == [*block, j15_4], absent.stderr
+    assert log.read_text(encoding="utf-8").splitlines() == [f"pr view {head} --json number,body"]
     assert not body.exists()
+    # a gh that fails for another cause is told from one that finds no pull request, with its first line
+    log.unlink()
+    broken = run_report(clone, "--pr", "base..HEAD", path=tools, env={**env, "GH_VIEW_FAIL": "HTTP 401: Bad"})
+    assert broken.code == 0 and broken.stderr == "", broken.stderr
+    assert broken.stdout.splitlines() == [
+        *block,
+        f"note: gh failed when asked for the pull request of {head}: HTTP 401: Bad — the block above is"
+        " printed for a person to paste",
+    ]
+    assert not body.exists()
+    # the pull request is that of the range's head, not of the branch checked out
+    log.unlink()
+    git_in(clone.root, "branch", "elsewhere", shas["nolog"], session=None)
+    other = run_report(clone, "--pr", "base..elsewhere", path=tools, env=env)
+    assert other.code == 0, other.stderr
+    assert log.read_text(encoding="utf-8").splitlines() == [
+        "pr view elsewhere --json number,body",
+        "pr edit 7 --body-file -",
+    ]
     # a gh that finds the pull request: the block is added after the description
     log.unlink()
     written = run_report(clone, "--pr", "base..HEAD", path=tools, env=env)
@@ -1868,7 +1968,7 @@ def test_pr(tmp_path: Path) -> None:
         "PR: the block was written into the description of pull request #7 through gh"
     ]
     assert log.read_text(encoding="utf-8").splitlines() == [
-        "pr view --json number,body",
+        f"pr view {head} --json number,body",
         "pr edit 7 --body-file -",
     ]
     first = "Description.\n\n" + "\n".join(block) + "\n"
@@ -1891,6 +1991,52 @@ def test_pr(tmp_path: Path) -> None:
         " repair what gh names, such as its login, or paste the block printed above into the description",
         REPORT_CLOSING,
     ]
+    gh_silent(clone, tmp_path, monkeypatch)
+
+
+class Said(Output):
+    """An output that keeps what is printed, for a call made in this process."""
+
+    def __init__(self) -> None:
+        super().__init__(Mode.ACT)
+        self.lines: list[tuple[str, str]] = []
+
+    def out(self, text: str) -> None:
+        self.lines.append(("out", text))
+
+    def err(self, text: str) -> None:
+        self.lines.append(("err", text))
+
+
+def gh_silent(clone: Clone, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A gh that gives no answer in time, for the view and for the edit: cut after 0.3 s here, and the lines
+    name the 30 s that the module allows, as hand-typed texts."""
+    monkeypatch.setattr(report, "GH_SECONDS", 0.3)
+    head = git_in(clone.root, "rev-parse", "--abbrev-ref", "HEAD", session=None)
+    slow = tool_folder(tmp_path / "slow-view", "exec /bin/sleep 5\n")
+    monkeypatch.setenv("PATH", str(slow))
+    said = Said()
+    assert report.run_pr(said, clone.root, "base..HEAD") == 0
+    assert said.lines[-1] == (
+        "out",
+        f"note: gh failed when asked for the pull request of {head}: no answer in 30 s — the block above is"
+        " printed for a person to paste",
+    )
+    edit = (  # answers the view at once and sleeps on the edit
+        'case "$1 $2" in\n'
+        '  "pr view") echo \'{"number": 7, "body": ""}\' ;;\n'
+        "  *) exec /bin/sleep 5 ;;\n"
+        "esac\n"
+    )
+    monkeypatch.setenv("PATH", str(tool_folder(tmp_path / "slow-edit", edit)))
+    said = Said()
+    with identity.declared(start.REPORT, Mode.ACT), pytest.raises(ConfigurationFailure) as caught:
+        report.run_pr(said, clone.root, "base..HEAD")
+    assert caught.value.broken.render() == (
+        "BROKEN: gh could not write the description of pull request #7: no answer in 30 s — fix: repair what"
+        " gh names, such as its login, or paste the block printed above into the description"
+    )
+    assert said.lines[0][0] == "out" and said.lines[0][1].startswith("<!-- const-change-cost -->")
 
 
 @item(18, "--notes: one note per counted commit under refs/notes/change-cost, the same figures, J16, no push")
@@ -1930,6 +2076,72 @@ def test_notes(tmp_path: Path) -> None:
 # ------------------------------------------------------------------ T19, T23: failures typed by hand
 
 
+def no_data_folder(root: Path) -> str:
+    """J6.3 where the run has no data folder to look in: the variable unset, and no recorded folder stands."""
+    return broken_line(
+        f"const-change-cost needs ccusage 20.0.48, which its package-lock.json pins, and found none under"
+        f" {root}; it looked in no data folder, since CLAUDE_PLUGIN_DATA is not set here and the clone"
+        " records none that stands",
+        f"run npm ci --ignore-scripts in {root}, or start a Claude Code session in this project and run"
+        " count-costs.sh --all again, which then finds the folder the session records",
+    )
+
+
+def ccusage_silent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """J6.6 where ccusage gives no answer in time: the run is cut after 0.3 s here, and the line names the
+    60 s that the module allows, as a hand-typed text."""
+    monkeypatch.setattr(counters, "CCUSAGE_SECONDS", 0.3)
+    root = tmp_path / "slow"
+    install_script(root, PIN, "exec /bin/sleep 5\n")
+    window = tmp_path / "window"
+    window.mkdir()
+    launcher = counters.launcher_of(root)
+    with pytest.raises(ConfigurationFailure) as caught:
+        counters.count(counters.Ccusage(launcher, PIN, PLUGIN), window, S1)
+    assert caught.value.broken.render() == broken_line(
+        f"ccusage gave no count for session {S1}: no answer in 60 s",
+        "this is a defect of the count or of the installed ccusage, not of the repository; run"
+        f" {launcher} --version and report both to whoever maintains the plugin",
+    )
+
+
+def by_hand(tmp_path: Path, fake: Path) -> list[str]:
+    """D3: a run by hand has no CLAUDE_PLUGIN_DATA. The folder a hook recorded stands in for it, so the
+    ccusage that the hook's pass installed is found; and a lockfile copy that matches with its node_modules
+    gone is installed again."""
+    failures: list[str] = []
+    rig = Rig.make(tmp_path, npm=FAKE_NPM)
+    env = {"FAKE_CCUSAGE": str(fake)}
+    hooked = rig.run(env=env)  # in a hook: the variable names the folder, ccusage is installed there
+    if hooked.code != 0 or rig.clone.folder.joinpath("plugin-data").read_text("utf-8") != str(rig.clone.data):
+        failures.append(f"the hook's pass did not record the data folder: {hooked.stderr.strip()[:300]}")
+    rig.clone.commit("b" * 40, 14.5, S1)
+    rig.clone.append_record(S1, 16)
+    by_shell = rig.run(env=env, by_hand=True)
+    if (by_shell.code, by_shell.stdout.splitlines()) != (0, [counted_line(1, 1, 0, 0)]):
+        failures.append(f"a run by hand: exit {by_shell.code}: {by_shell.stderr.strip()[:300]}")
+    if len(rig.npm_log.read_text(encoding="utf-8").splitlines()) != 1:
+        failures.append("a run by hand installed again though the data folder held ccusage")
+    # the lockfile copy matches, its node_modules is gone: npm ci runs again
+    shutil.rmtree(rig.clone.data / "node_modules")
+    rig.clone.commit("c" * 40, 16.5, S1)
+    rig.clone.append_record(S1, 18)
+    again = rig.run(env=env, by_hand=True)
+    note = f"note: the pinned ccusage {PIN} was installed into {rig.clone.data}"
+    if again.code != 0 or again.stdout.splitlines() != [note, counted_line(1, 2, 0, 0)]:
+        failures.append(f"node_modules gone: exit {again.code}: {again.stderr.strip()[:300]}")
+    if len(rig.npm_log.read_text(encoding="utf-8").splitlines()) != 2:
+        failures.append("node_modules gone: npm ci did not run again")
+    # the recorded folder is gone too, and no variable names one: J6.3 says so and gives a fix for a shell
+    shutil.rmtree(rig.clone.data)
+    rig.clone.commit("d" * 40, 18.5, S1)
+    rig.clone.append_record(S1, 20)
+    lost = rig.run(env=env, by_hand=True)
+    if lost.code != 1 or lost.stderr.splitlines() != [no_data_folder(rig.root), CLOSING]:
+        failures.append(f"no data folder: exit {lost.code}: {lost.stderr.strip()[:500]}")
+    return failures
+
+
 def ccusage_failures(tmp_path: Path) -> list[str]:
     """J6.1 to J6.6 of the count, each typed by hand: the failures of finding, installing and running"
     " ccusage."""
@@ -1959,16 +2171,15 @@ def ccusage_failures(tmp_path: Path) -> list[str]:
         ),
     )
     rig = Rig.make(tmp_path / "none")
+    check("J6.3", rig.run(data=False), no_data_folder(rig.root))
+    rig = Rig.make(tmp_path / "none-known", npm="exit 0\n")  # an npm that succeeds and installs nothing
     check(
-        "J6.3",
-        rig.run(data=False),
+        "J6.3 data folder known",
+        rig.run(),
         broken_line(
             "const-change-cost needs ccusage 20.0.48, which its package-lock.json pins, and found none"
-            f" under {rig.root}"
-            " or in the plugin's data folder",
-            "start a Claude Code session in this project, whose start installs it, or run npm ci"
-            " --ignore-scripts"
-            f" in {rig.root}",
+            f" under {rig.root} or in the data folder {rig.clone.data}",
+            f"run npm ci --ignore-scripts in {rig.root}",
         ),
     )
     rig = Rig.make(tmp_path / "other")
@@ -1978,7 +2189,7 @@ def ccusage_failures(tmp_path: Path) -> list[str]:
         rig.run(data=False),
         broken_line(
             f"const-change-cost needs ccusage 20.0.48 and found 20.0.47 under {rig.root}",
-            "start a Claude Code session in this project, whose start installs the pinned one, or run npm ci"
+            "start a Claude Code session in this project, whose count installs the pinned one, or run npm ci"
             f" --ignore-scripts in {rig.root}",
         ),
     )

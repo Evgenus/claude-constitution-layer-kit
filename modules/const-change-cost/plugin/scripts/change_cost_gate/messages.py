@@ -131,13 +131,22 @@ def j6_2_no_npm(data: str) -> Broken:
     )
 
 
-def j6_3_no_ccusage(root: str) -> Broken:
+def j6_3_no_ccusage(root: str, data: str | None) -> Broken:
+    """`data` is the data folder the run looked in, or None where it had none to look in."""
+    if data is None:
+        return _fail(
+            Key.J6_3,
+            f"{_ns()} needs ccusage {PIN}, which its package-lock.json pins, and found none under"
+            f" {escaped(root)}; it looked in no data folder, since CLAUDE_PLUGIN_DATA is not set here and the"
+            " clone records none that stands",
+            f"run npm ci --ignore-scripts in {escaped(root)}, or start a Claude Code session in this project"
+            " and run count-costs.sh --all again, which then finds the folder the session records",
+        )
     return _fail(
         Key.J6_3,
         f"{_ns()} needs ccusage {PIN}, which its package-lock.json pins, and found none under"
-        f" {escaped(root)} or in the plugin's data folder",
-        "start a Claude Code session in this project, whose start installs it, or run npm ci"
-        f" --ignore-scripts in {escaped(root)}",
+        f" {escaped(root)} or in the data folder {escaped(data)}",
+        f"run npm ci --ignore-scripts in {escaped(root)}",
     )
 
 
@@ -145,7 +154,7 @@ def j6_4_other_version(found: str, where: str) -> Broken:
     return _fail(
         Key.J6_4,
         f"{_ns()} needs ccusage {PIN} and found {echoed(found)} under {escaped(where)}",
-        "start a Claude Code session in this project, whose start installs the pinned one, or run npm ci"
+        "start a Claude Code session in this project, whose count installs the pinned one, or run npm ci"
         f" --ignore-scripts in {escaped(where)}",
     )
 
@@ -242,6 +251,10 @@ def detail_gh_silent() -> str:
     return f"no answer in {_seconds(GH_SECONDS)} s"
 
 
+def detail_gh_answer() -> str:
+    return "its answer is no pull request with a number"
+
+
 def j6_13_gh_failed(number: int, detail: str) -> Broken:
     return _fail(
         Key.J6_13,
@@ -325,15 +338,15 @@ def j11_2_no_session() -> str:
 
 def j11_3_no_start(session: str) -> str:
     return (
-        f"session {escaped(session)} has no start in the start log: it started before the plugin was"
-        " enabled, or in another folder"
+        f"session {escaped(session)} has no start in the start log, or the commit was made before the"
+        " session's first logged start: it started before the plugin was enabled, or in another folder"
     )
 
 
-def j11_4_waiting(session: str) -> str:
+def j11_4_waiting() -> str:
     return (
-        f"its window is not complete: no record of session {escaped(session)} is dated after the commit yet;"
-        " a later pass counts it"
+        "its window may not be complete, or no pass has counted it yet; run count-costs.sh --all, which"
+        " counts it or names what stops it"
     )
 
 
@@ -353,7 +366,7 @@ def j11_reason(not_counted: NotCounted) -> str:
         case Reason.NO_START:
             return j11_3_no_start(not_counted.session)
         case Reason.WAITING:
-            return j11_4_waiting(not_counted.session)
+            return j11_4_waiting()
         case Reason.NO_TRANSCRIPT:
             return j11_5_no_transcript(not_counted.session, not_counted.path)
 
@@ -486,8 +499,19 @@ def j15_1_written(number: int) -> str:
     return f"PR: the block was written into the description of pull request #{number} through gh"
 
 
-def j15_2_printed() -> str:
-    return "note: gh found no pull request of this branch — the block above is printed for a person to paste"
+_PASTE = "the block above is printed for a person to paste"
+
+
+def j15_2_no_gh() -> str:
+    return f"note: gh is not on PATH — {_PASTE}"
+
+
+def j15_3_gh_failed(head: str, detail: str) -> str:
+    return f"note: gh failed when asked for the pull request of {escaped(head)}: {echoed(detail)} — {_PASTE}"
+
+
+def j15_4_no_pull_request(head: str) -> str:
+    return f"note: gh found no pull request of {escaped(head)} — {_PASTE}"
 
 
 def j16_notes(counted: int) -> str:

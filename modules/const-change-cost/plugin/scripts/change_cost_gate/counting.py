@@ -6,7 +6,8 @@ transcript and everything under the folder named after it. A window is complete 
 a record dated after the commit; a commit whose window is not complete waits for a later pass. A complete
 window is copied into a throwaway folder, counted by ccusage, and the folder removed. The kept line is
 appended whole after the count, so a count that is killed first leaves none. A commit whose session has no
-logged start is never counted: no start is made up from other sessions' transcripts."""
+logged start, or that was made before the session's first logged start, is never counted: no start is made up
+from other sessions' transcripts."""
 
 from __future__ import annotations
 
@@ -125,6 +126,15 @@ def count_session(
         tally.not_counted += [NotCounted(commit.sha, Reason.NO_START, session) for commit in pending]
         return
     first_start = min(starts, key=lambda line: line.ms)
+    # a commit made before the session's first logged start has a window that holds no record of the session:
+    # a count of it would be 0 tokens made up, so it is named and never counted
+    early = {commit.sha for commit in pending if commit.ms < first_start.ms}
+    tally.not_counted += [
+        NotCounted(commit.sha, Reason.NO_START, session) for commit in pending if commit.sha in early
+    ]
+    pending = [commit for commit in pending if commit.sha not in early]
+    if not pending:
+        return
     files: list[windows.Transcript] = []
     for path in dict.fromkeys(line.transcript_path for line in starts):
         files += windows.transcripts_of(Path(path))
@@ -136,15 +146,16 @@ def count_session(
         return
     found = windows.survey(files, session, first_start.ms)
     times = [commit.ms for commit in commits]
+    countable = {commit.sha for commit in pending}
     ready = {
         index: commit
         for index, commit in enumerate(commits)
-        if commit.sha not in kept and found.newest_ms is not None and found.newest_ms > commit.ms
+        if commit.sha in countable and found.newest_ms is not None and found.newest_ms > commit.ms
     }
     tally.not_counted += [
         NotCounted(commit.sha, Reason.WAITING, session)
         for index, commit in enumerate(commits)
-        if commit.sha not in kept and (index not in ready or locate is None)
+        if commit.sha in countable and (index not in ready or locate is None)
     ]
     if locate is None or not ready:
         return
@@ -193,7 +204,10 @@ def count_all(output: Output, scope: Scope, folder: Path, locate: Locate | None)
 def run(output: Output, scope: Scope, directory: Path) -> int:
     """One pass over the clone's logs; exit 0, the closing line saying what it did."""
     folder = logs.folder_of(gitpart.common_directory(directory))
-    data = os.environ.get("CLAUDE_PLUGIN_DATA")
+    named = os.environ.get("CLAUDE_PLUGIN_DATA")
+    if named:  # in a hook: keep the folder for a run by hand, whose shell has no such variable
+        logs.record_plugin_data(folder, named)
+    data = Path(named) if named else logs.recorded_plugin_data(folder)
     with logs.locked(folder, model.LOCK_SECONDS) as held:
         if held:
             found: list[counters.Ccusage] = []
@@ -202,7 +216,7 @@ def run(output: Output, scope: Scope, directory: Path) -> int:
                 """The first window to count asks; a later one has the answer."""
                 if not found:
                     root = identity.current().plugin_root
-                    found.append(counters.locate(root, Path(data) if data else None, output))
+                    found.append(counters.locate(root, data, output))
                 return found[0]
 
             tally = count_all(output, scope, folder, locate)
