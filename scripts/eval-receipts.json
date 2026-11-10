@@ -28,118 +28,118 @@
   "const-doc-budgets": {
     "attempts": [
       {
-        "at": "2026-11-08T02:43:17Z",
+        "at": "2026-11-10T03:27:58Z",
         "cases": 1,
         "passed": 1,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:42e9c451b26d3470c947de01a9adc009ba6c51ea8b8f838f7f0caf1c9103040e",
+    "hash": "sha256:d4e41f3559faf97bf1393909072582d35238cde7daa65409f20f046c8cd74d13",
     "model": "claude-opus-5-5"
   },
   "const-interaction": {
     "attempts": [
       {
-        "at": "2026-11-08T02:43:29Z",
+        "at": "2026-11-10T03:28:11Z",
         "cases": 1,
         "passed": 1,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:43dfeddb23ddd5eb12c00e44659c38b0fa4365543e42440d37dfa2e79bb7e56f",
+    "hash": "sha256:ced12a2f3bf2204b2574661f5a2716b336eb5444ffe3ea18d65efc5a35d98363",
     "model": "claude-opus-5-5"
   },
   "const-language": {
     "attempts": [
       {
-        "at": "2026-11-08T02:44:17Z",
+        "at": "2026-11-10T03:29:01Z",
         "cases": 1,
         "passed": 1,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:1496a92a6d587253ab62da38e584dbd9f6b1c77a3f23198851faf9be17ab1ea5",
+    "hash": "sha256:895313dafbc5e7dff7e793186278e7761279ca461723420d6a412b14281e58e9",
     "model": "claude-opus-5-5"
   },
   "const-locations": {
     "attempts": [
       {
-        "at": "2026-11-08T02:47:57Z",
+        "at": "2026-11-10T03:33:54Z",
         "cases": 2,
         "passed": 2,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:5460d5816a92a1dee5083d450466004cc929d7f1c57765c4156bb688d9de4b03",
+    "hash": "sha256:3cd0609cf640608ffa71f1d9db622f17aa7a4f171714991f06956f73af6911b9",
     "model": "claude-opus-5-5"
   },
   "const-meta-types": {
     "attempts": [
       {
-        "at": "2026-11-08T02:49:32Z",
+        "at": "2026-11-10T03:35:54Z",
         "cases": 1,
         "passed": 1,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:4eaff4b44df2de32d918d047db4920b91fa86240bf87981414b6033e9c495ad8",
+    "hash": "sha256:27b30870dc5ff8c3fb3f161724097d8a7c3430467c6a1c17247d18722ab5aa21",
     "model": "claude-opus-5-5"
   },
   "const-questions": {
     "attempts": [
       {
-        "at": "2026-11-08T02:51:07Z",
+        "at": "2026-11-10T03:37:37Z",
         "cases": 2,
         "passed": 2,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:2c3b1610d1ac9a3cd78769f517b8054bc641fcd6f4e95d49bc198a2a615b9e29",
+    "hash": "sha256:7ebd7c63d39dd0a6dcabb14286c02439684da27f7e96edc6d34a7e87d822d9c0",
     "model": "claude-opus-5-5"
   },
   "const-referencing": {
     "attempts": [
       {
-        "at": "2026-11-08T02:52:00Z",
+        "at": "2026-11-10T03:38:37Z",
         "cases": 2,
         "passed": 2,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:bb3ea22de8036335566c2c295c1f4e70117c3fd785a84a0927a1d5e8483868ea",
+    "hash": "sha256:06db8f20b83103e9786a32f3df158ceaabf98ad55f4e6afe0258420a9f72ee89",
     "model": "claude-opus-5-5"
   },
   "const-styling": {
     "attempts": [
       {
-        "at": "2026-11-08T02:53:17Z",
+        "at": "2026-11-10T03:40:04Z",
         "cases": 1,
         "passed": 1,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:d97b19c2b71cc77a3f97a132c101183dcb15ca208d650e82ab40d38a0de8d02d",
+    "hash": "sha256:faf0ece2fff69e315c2040677ce24fc6251cda7e5b336759e959123a7f413e96",
     "model": "claude-opus-5-5"
   },
   "const-task-close": {
     "attempts": [
       {
-        "at": "2026-11-08T02:55:39Z",
+        "at": "2026-11-10T03:42:36Z",
         "cases": 2,
         "passed": 2,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:5c76a518b8a5bef2cec8033685e20a8369e5f4694bfae68f3738357613f266fd",
+    "hash": "sha256:c0fa255886591684d75f2f43b2366b8c1bc91d3e91cfd0556a04874e125ce0fa",
     "model": "claude-opus-5-5"
   }
 }
