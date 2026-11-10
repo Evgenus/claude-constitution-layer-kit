@@ -1346,6 +1346,32 @@ def test_commit_log(tmp_path: Path, clone: Clone) -> None:
     git_in(upstream, "commit", "--allow-empty", "-q", "-m", "upstream", session=None)
     git_in(root, "pull", "-q", "--ff-only", str(upstream), "main")
     logged("pull --ff-only", wanted=0)
+    # a fast-forward onto a branch whose tip is a merge commit: HEAD has a second parent, so only the
+    # reflog's word "Fast-forward" keeps it out of the log
+    far = tmp_path / "far"
+    git_in(tmp_path, "clone", "-q", str(root), str(far))
+    for base, name in ((root, "mb"), (far, "fb")):
+        who = S1 if base == root else None
+        git_in(base, "checkout", "-q", "-b", name, "main", session=who)
+        git_in(base, "commit", "--allow-empty", "-q", "-m", f"{name}1", session=who)
+        git_in(base, "checkout", "-q", "-b", f"{name}2", "main", session=who)
+        git_in(base, "commit", "--allow-empty", "-q", "-m", f"{name}2", session=who)
+        git_in(base, "checkout", "-q", name, session=who)
+        git_in(base, "merge", "--no-ff", "-q", "-m", f"{name} merged", f"{name}2", session=who)
+    assert len(log_lines(clone, "commits.jsonl")) == seen["count"] + 3  # two commits and the merge, logged
+    seen["count"] += 3
+    git_in(root, "checkout", "-q", "main")
+    old_main = git_in(root, "rev-parse", "main", session=None)
+    git_in(root, "merge", "--ff-only", "-q", "mb")
+    assert git_in(root, "rev-parse", "HEAD^2", session=None)  # the tip is a merge commit
+    logged("merge --ff-only onto a merge commit", wanted=0)
+    git_in(far, "checkout", "-q", "main", session=None)
+    git_in(far, "merge", "--ff-only", "-q", "fb", session=None)
+    git_in(root, "checkout", "-q", "-b", "behind", old_main)
+    git_in(root, "pull", "-q", "--ff-only", str(far), "fb")
+    assert git_in(root, "rev-parse", "HEAD^2", session=None)
+    logged("pull --ff-only onto a merge commit", wanted=0)
+    git_in(root, "checkout", "-q", "main")
     # no variable: the commit is logged, with an empty session
     git_in(root, "commit", "--allow-empty", "-q", "-m", "by hand", session=None)
     logged("no variable", wanted=1, session="")
