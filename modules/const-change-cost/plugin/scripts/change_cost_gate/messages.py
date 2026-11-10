@@ -297,7 +297,8 @@ def j6_16_no_install_lock(data: str, detail: str) -> Broken:
         Key.J6_16,
         f"{_ns()} could not take the lock of the folder {escaped(data)}, which every ccusage run of the count"
         f" holds: {echoed(detail)}",
-        "make that folder writable by this user, or delete it so that a session makes it again",
+        "make that folder and its install.lock writable by this user, or delete the folder so that a session"
+        " makes it again",
     )
 
 

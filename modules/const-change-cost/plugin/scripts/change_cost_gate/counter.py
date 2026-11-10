@@ -127,7 +127,8 @@ def locate(root: Path, data: Path | None, output: Output, stack: ExitStack) -> C
     not, before J5.3 says an install was made. None, with the note J5.4, where another pass kept the lock
     past the wait: nothing is run, npm included, and a later pass counts the windows. `root` is the plugin
     root, which holds the manifest and the lockfile in its `ccusage/` folder and the file `ccusage.json`;
-    `data` is None where no folder is known; a configuration failure, J6.1 to J6.5, where none can be had.
+    `data` is None where no folder is known; a configuration failure, J6.1 to J6.5 or J6.16, where none can
+    be had.
     The caller holds the lock of the file of counts first: the lock order is that one, then this one."""
     if shutil.which("node") is None:
         raise ConfigurationFailure(messages.j6_1_no_node())

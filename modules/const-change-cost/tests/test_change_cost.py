@@ -2324,23 +2324,23 @@ def lock_held_while_ccusage_runs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 
 
 def lock_not_made(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A data folder that holds a good install but cannot take the lock file is J6.16, with what failed and
-    the fix, never an unexpected failure."""
+    """A data folder that holds a good install but whose lock file cannot be opened is J6.16, with what
+    failed and the fix, never an unexpected failure. A folder stands where the lock file should, which no
+    user can open as a file, a superuser included, so the case is made on every machine; the fake `node`
+    of its own folder stands first on PATH, so the case needs no real one."""
     data = tmp_path / "data"
     stock(data, PIN, FAKE_REPORT)
-    data.chmod(0o500)
-    try:
-        if os.access(data, os.W_OK):  # a superuser ignores the mode: the case cannot be made
-            return
-        monkeypatch.setenv("PATH", os.environ["PATH"])
-        with identity.declared(start.COUNT, Mode.ACT), pytest.raises(ConfigurationFailure) as caught:
-            counters.locate(PLUGIN, data, Said(), ExitStack())
-    finally:
-        data.chmod(0o700)
+    (data / "install.lock").mkdir()
+    (tmp_path / "bin").mkdir()
+    fake_program(tmp_path / "bin" / "node", "exit 0\n")
+    monkeypatch.setenv("PATH", f"{tmp_path / 'bin'}{os.pathsep}{os.environ['PATH']}")
+    with identity.declared(start.COUNT, Mode.ACT), pytest.raises(ConfigurationFailure) as caught:
+        counters.locate(PLUGIN, data, Said(), ExitStack())
     assert caught.value.broken.render() == broken_line(
         f"const-change-cost could not take the lock of the folder {data}, which every ccusage run of the"
-        " count holds: Permission denied",
-        "make that folder writable by this user, or delete it so that a session makes it again",
+        " count holds: Is a directory",
+        "make that folder and its install.lock writable by this user, or delete the folder so that a session"
+        " makes it again",
     )
 
 
