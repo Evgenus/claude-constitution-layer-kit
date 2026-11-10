@@ -1,13 +1,13 @@
 ---
 id: kit-template-slot-guidance
 type: current-state
-title: The slot guidance of the module template — the texts moved out of its sections
+title: The slot guidance of the module template — the texts its slots link to
 status: active
 ---
 
 # The slot guidance of the module template
 
-Each text below stands word for word as it stood in [the module template](MODULE.md), in the section its heading names, so "this document" and "here" in a text mean the module's document, as they did in the template. The slot of the template links to it. Like the template, this page stands in no policy's territory, and a module's document does not copy it.
+Each text below, save the last, stands word for word as it stood in [the module template](MODULE.md), in the section its heading names, so "this document" and "here" in a text mean the module's document, as they did in the template. The last, [the configuration row](#s13), was written here and never stood in the template, whose ceiling leaves no room for it. The slot of the template links to each text. Like the template, this page stands in no policy's territory, and a module's document does not copy it.
 
 <a id="s1"></a>
 ## The plugin skeleton
@@ -24,7 +24,7 @@ const-<aspect-name>/
 │   ├── INSTALL.md           # install/uninstall notes; the pip command of the shared package at the tag of REQUIRES; the one CLAUDE.md pointer line if any
 │   ├── requirements.txt     # optional; the libraries its scripts need, installed by one command
 │   ├── <file>               # optional; a pinned tool's own file at the plugin root, as the configuration row places it
-│   ├── <tool>/              # optional; a pinned tool's files that the platform would act on at the plugin root
+│   ├── <tool>/              # optional; a pinned tool's files in a folder named for the tool, as the configuration row places them
 │   ├── skills/
 │   │   └── <name>/          # optional; SKILL.md, and any file it names through ${CLAUDE_SKILL_DIR}
 │   ├── commands/<name>.md   # optional
@@ -37,6 +37,7 @@ const-<aspect-name>/
 │       ├── <grant>.sh       # optional, with <grant>.py: a grant's entry, the hook that answers allow for the module's own command
 │       ├── print-skill-pointer.sh  # optional: the pointer line, at session start and, with --subagent, at a subagent's start
 │       ├── effect-report.sh # optional, with effect-report.py: the effect report of §13, which hands the module's rules to the shared runner
+│       ├── <file>           # optional; a pinned tool's own file among the scripts, as the configuration row places it
 │       └── <module>_gate/   # the module's own package: model, messages, checks, modes, start, dials, session
 ├── evals/<case>/case.yaml   # the eval cases, each naming its plugin (plugins: ../../plugin), scaffold.sh beside one that needs a project; evals/results/ ignored by git; never installed
 └── tests/                   # conftest.py, test_<name>.py, test_shared_items.py; constitution_layer_kit linked from shared/, its testing/ the shared test files; <module>_gate from ../plugin/scripts/; one red→green fixture per gate ([law 7 of CLAUDE.md](../CLAUDE.md#law-7)); never installed
@@ -130,12 +131,12 @@ The paragraph of [section 9](MODULE.md#t9) of the template that follows its tabl
 
 The text of the row "configuration" of the table of [section 6](MODULE.md#t6) of the template, in its "carries" cell, after its first sentence.
 
-A pinned third-party tool's own files are parts of the plugin root. They are of two kinds: its configuration, which the gate that runs the tool reads or hands to the tool, and its pin, the files that name the exact version an install takes. Each such file stands in one of three places:
+A pinned third-party tool's own files are parts of the plugin root. They are of two kinds: its configuration, which the code that runs the tool reads or hands to the tool, and its pin, the files that name the exact version an install takes. Each such file stands in one of three places:
 
 1. At the plugin root, `plugin/<file>`.
 2. Among the scripts, `plugin/scripts/<file>`.
 3. In a folder of the plugin root named for the tool, `plugin/<tool>/<file>`.
 
-A file that the platform acts on when it stands at a plugin root stands in the tool's folder, never at the root. A `package.json` with its lockfile is the case the kit has met. The module's platform facts name what the platform does there, with its source.
+A file that the platform acts on when it stands at a plugin root stands in the tool's folder, never at the root. A `package.json` with its lockfile is the case the kit has met. The module's platform facts name what the platform does at a plugin root, with its source.
 
-The row lists every such file by its path. Of a file in a tool's folder it says why the file stands there. The module's pair in the coverage map of the range check lists each such file that stands outside `plugin/scripts/`, `plugin/hooks/` and `plugin/skills/`, by its path. Review holds this: the kit's `scripts/check-gate-lists.py` holds the five folders of the pair alone (decision [dec-0119-pinned-tool-files-in-the-plugin-root](../docs/decisions/dec-0119-pinned-tool-files-in-the-plugin-root.md)).
+The row's path cell lists every such file by its path. Of a file in a tool's folder the row says why the file stands there. The module's pair in the coverage map of the range check lists, by its path, each such file that stands outside `plugin/scripts/`. Review holds this: of a pair's code patterns, the kit's `scripts/check-gate-lists.py` asks only for the pair's five folders (decision [dec-0119-pinned-tool-files-in-the-plugin-root](../docs/decisions/dec-0119-pinned-tool-files-in-the-plugin-root.md)).
