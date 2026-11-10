@@ -130,7 +130,7 @@ The session recommended A: it keeps one counter, and the shortfall is shown, not
 
 ## Applied
 
-The change that holds this record adds aspect A15, rows [A15.1](../requirements.md#a15-1) to [A15.6](../requirements.md#a15-6), and the specification of `const-change-cost` to the requirements matrix: adding a row is a `process` ruling under [rule 2 of plc-0007-requirements](../policies/plc-0007-requirements.md#r2), and this record's yes covers it. The module itself is built by [item 9.35 of the rollout plan](../rollout-plan.md#s9-35).
+The change that holds this record adds aspect A15, rows [A15.1](../requirements.md#a15-1) to [A15.6](../requirements.md#a15-6), and the specification of `const-change-cost` to the requirements matrix: adding a row is a `process` ruling under [rule 2 of plc-0007-requirements](../policies/plc-0007-requirements.md#r2), and this record's yes covers it; row [A15.7](../requirements.md#a15-7), sharing, comes in the same change under [dec-0117-change-cost-module-rulings](dec-0117-change-cost-module-rulings.md). The module itself is built by [item 9.35 of the rollout plan](../rollout-plan.md#s9-35).
 
 ## Carry list
 
