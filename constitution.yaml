@@ -777,6 +777,8 @@ const-doc-budgets:                    # a character ceiling per group of documen
         to: 2026-11-08
     # install-guide, first set 2026-10-01 at 15,000 from one day of data; 2026-11-08: set from the guide shortened as far
     # as its rulings allow (the decider's pick D4 of 2026-11-08 in chat), 25,543 characters, plus 10 %, rounded up to 1,000.
+    # Its number, level and window stand in this entry, and no record sets them. A later re-set by the rule at the key
+    # `ceilings` is routine, its day and its reason written in this comment (decision dec-0118-two-ceilings-follow-the-dials-file).
     - name: install-guide
       paths: *install_guide
       max: 29000
@@ -878,6 +880,9 @@ const-doc-budgets:                    # a character ceiling per group of documen
       window:
         from: 2026-10-09
         to: 2026-11-08
+    # module-readmes, 2026-11-08: re-set by the rule at the key `ceilings` from the 30 days of its window, and moved to error.
+    # Its number, level and window stand in this entry, and no record sets them. A later re-set by that rule is routine,
+    # its day and its reason written in this comment (decision dec-0118-two-ceilings-follow-the-dials-file).
     - name: module-readmes   # first set 2026-10-09 on the pages' second day, at 8,000
       paths:
         - "modules/*/README.md"
