@@ -1,12 +1,13 @@
 """The cutter: one session's records into the windows of its commits, copied into a throwaway folder.
 
-Of a record it reads its time, its session id, its message id, its request id and its type, and nothing
-else: no token count is read here, every figure of a count comes from ccusage's output. A session owns the
-records dated at or after its earliest start and carrying its id, so the history a fork copies in stays with
-the session that made it. All the records of one reply, one message id and one request id, go into the
-window of the reply's first record. A window runs from the session's previous commit, or its start, up to
-the commit's time. The copy is made of plain files in the layout ccusage walks, `projects/<project>/...`,
-each line byte for byte as it was read."""
+Of a record it reads its time, its session id, its message id, its request id, its type and its subtype,
+and nothing else: no token count is read here, every figure of a count comes from ccusage's output. A
+session owns the records dated at or after its earliest start and carrying its id, so the history a fork
+copies in stays with the session that made it. All the records of one reply, one message id and one request
+id, go into the window of the reply's first record. A window runs from the session's previous commit, or
+its start, up to the commit's time. The copy is made of plain files in the layout ccusage walks,
+`projects/<project>/...`, each line byte for byte as it was read, save that a newline closes a last line
+that lacks one."""
 
 from __future__ import annotations
 
@@ -27,7 +28,7 @@ MILLISECOND = timedelta(milliseconds=1)
 
 @dataclass(frozen=True, slots=True)
 class Record:
-    """The five things read of one line of a transcript."""
+    """The things read of one line of a transcript: its time, its reply key and whether it is a compaction."""
 
     ms: int
     key: ReplyKey | None  # message id and request id; None for a record that is no reply

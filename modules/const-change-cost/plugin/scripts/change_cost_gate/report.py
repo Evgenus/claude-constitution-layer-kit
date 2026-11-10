@@ -117,7 +117,8 @@ def reason_of(sha: str, commits: dict[str, CommitLine], starts_of: dict[str, lis
         return NotCounted(sha, Reason.NO_START, line.session)
     first = earliest.transcript_path
     if not any(
-        windows.transcripts_of(Path(path)) for path in dict.fromkeys(s.transcript_path for s in starts)
+        windows.transcripts_of(Path(path))
+        for path in dict.fromkeys(s.transcript_path for s in starts if s.transcript_path)
     ):
         return NotCounted(sha, Reason.NO_TRANSCRIPT, line.session, first)
     return NotCounted(sha, Reason.WAITING, line.session)

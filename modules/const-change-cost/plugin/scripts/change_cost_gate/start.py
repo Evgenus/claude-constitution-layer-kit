@@ -129,6 +129,12 @@ def _text(event: dict[object, object], name: str) -> str:
     return value
 
 
+def _optional_text(event: dict[object, object], name: str) -> str:
+    """A field the shared reader takes as optional: absent, or not a string, is the empty string."""
+    value = event.get(name)
+    return value if isinstance(value, str) else ""
+
+
 def _event(text: str) -> dict[object, object]:
     try:
         loaded: object = json.loads(text)
@@ -154,7 +160,7 @@ def _start(argv: Sequence[str], output: Output) -> int:
     output.stamp(read_event(io.StringIO(text)))
     session = _text(event, "session_id")
     source = _text(event, "source")
-    transcript = _text(event, "transcript_path")
+    transcript = _optional_text(event, "transcript_path")
     cwd = event.get("cwd")
     directory = Path(cwd) if isinstance(cwd, str) and cwd else Path.cwd()
     common = gitpart.common_or_none(directory)

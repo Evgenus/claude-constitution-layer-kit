@@ -9,8 +9,9 @@ description: >-
 Claude Code writes the tokens of every reply into the session's transcript. This plugin logs each
 session's start and each commit as they happen, counts the tokens of each commit's window with a
 pinned ccusage, and keeps one line of counts per commit in the clone's git common directory. Nothing
-leaves the clone by itself. A count reaches the team only when a person starts it, and this skill is
-how a session does that at the two moments that matter: a pull request opened, and a change merged.
+leaves the clone by itself. A count reaches the team only when a person starts it: by running a command,
+or by asking a session to open a pull request or to make a merge. This skill is how a session does that at
+those two moments. A hook never starts it.
 
 The report reads the file of counts. It runs no ccusage and reads no transcript, so it is quick and
 safe to run. Its range is the commits of the change, such as `main..HEAD` or `<base>..<branch>`.
@@ -38,7 +39,7 @@ hooks of the commit log. Commits made before the hooks stand are never logged, a
 
 ## 2. Before a pull request is opened
 
-Run the report for the change and put its block in the description:
+When the person asks you to open a pull request, run the report for the change and put its block in the description:
 
 ```bash
 sh "${CLAUDE_PLUGIN_ROOT}/scripts/cost-report.sh" --pr <base>..<branch>
@@ -51,6 +52,8 @@ a note that says which: put it in the description you give to the forge, for exa
 `gh pr create --body-file`. Never type a cost by hand.
 
 ## 3. Before a pull request is merged
+
+When the person asks you to make the merge, or says yes to it:
 
 1. Run `--pr <base>..<branch>` again, so the block holds every commit made since it was written.
 2. Make the trailer lines:

@@ -1,4 +1,4 @@
-"""The three logs of the module and the lock on the file of counts.
+"""The two logs of the module, its file of counts and the lock on that file.
 
 They stand in the folder FOLDER of git's common directory, which every worktree of a clone shares, and are
 never committed or pushed; beside them stands one small file, the plugin's data folder as a hook saw it. A log

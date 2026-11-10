@@ -15,10 +15,16 @@ Modes:    no arguments                 print the report over the transcripts the
                                        the module has none.
 Reads:    the output log under CLAUDE_PLUGIN_DATA and the transcripts it names; the transcripts of DIR; the
           project's git history; the commit log and the file of counts in the clone's git common directory;
-          the plugin list that `claude` shows. It reads no event on its standard input.
+          the plugin list that `claude` shows; the project's dials file, `constitution.yaml`, through the
+          shared runner (see The dials). It reads no event on its standard input.
 Exit:     0 the report is printed, whatever it counts; 1 it could not run. Never red, never 2.
 Output:   the report on stdout; BROKEN lines on stderr. Every print is also appended, as one record, to the
-          output log, under CLAUDE_PLUGIN_DATA, else nowhere. The dials: none, since the module has none.
+          output log, in the folder the dial `log_dir` of the namespace const-change-cost names, when the
+          dials file sets one and git ignores that folder (else the run fails with the shared C13), else under
+          CLAUDE_PLUGIN_DATA, else nowhere.
+The dials: the module has none of its own, but this entry alone reads the dials file, for the dial `log_dir`
+          that every module's namespace takes; with no file or no `log_dir` it reads nothing more, and a file
+          the shared reader finds malformed stops the report. No other entry reads the file.
 
 This file stays parseable by any Python 3, as the gate's entry does.
 """
@@ -27,7 +33,7 @@ import os
 import sys
 
 FLOOR = (3, 12)
-REQUIRES = "2.1.0"  # the release of the Python package constitution-layer-kit this file needs
+REQUIRES = "2.2.0"  # the release of the Python package constitution-layer-kit this file needs
 
 # Percent formatting on purpose: this file must parse on any Python 3, and f-strings do not.
 TOO_OLD = (

@@ -7,7 +7,8 @@ a record dated after the commit; a commit whose window is not complete waits for
 window is copied into a throwaway folder, counted by ccusage, and the folder removed. The kept line is
 appended whole after the count, so a count that is killed first leaves none. A commit whose session has no
 logged start, or that was made before the session's first logged start, is never counted: no start is made up
-from other sessions' transcripts."""
+from other sessions' transcripts. The count prints no J11 line for it, only the tally of commits never to be
+counted in its closing line; the report names the commit, J11.3."""
 
 from __future__ import annotations
 
@@ -136,7 +137,7 @@ def count_session(
     if not pending:
         return
     files: list[windows.Transcript] = []
-    for path in dict.fromkeys(line.transcript_path for line in starts):
+    for path in dict.fromkeys(line.transcript_path for line in starts if line.transcript_path):
         files += windows.transcripts_of(Path(path))
     if not files:
         tally.not_counted += [

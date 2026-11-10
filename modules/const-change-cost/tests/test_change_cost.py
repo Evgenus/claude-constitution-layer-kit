@@ -8,7 +8,8 @@ from 1, the items every gate shares from 101.
 
 The transcripts are the comparison's synthetic fixture (res-0015, E3): a parent session `S1` with a
 subagent and a workflow agent, and its fork `S2`, fixed ids, round counts, no personal data. Each test
-builds its own clone: a git repository with the three logs written by hand, and a copy of the transcripts.
+builds its own clone: a git repository with the two logs and the file of counts written by hand, and a
+copy of the transcripts.
 The count is driven through its real entry, `count-costs.sh`, with a plugin data folder that holds the
 installed ccusage and the same lockfile, so that nothing is installed during a test unless it is the point.
 The independent count of the items about windows is made apart from ccusage, in this file, from the
@@ -620,7 +621,7 @@ def test_kept_line_and_unreadable_lines(clone: Clone) -> None:
     assert round(float(str(held["cost"])), 6) == 0.012213
     assert abs(int(str(held["counted_ms"])) - int(datetime.now(UTC).timestamp() * 1000)) < 120_000
     assert list(clone.tmp.iterdir()) == []
-    # lines that cannot be read, in each of the three logs, are left out with their note
+    # lines that cannot be read, in the two logs and the file of counts, are left out with their note
     for name, text in (
         ("starts.jsonl", "this is not JSON\n"),
         ("commits.jsonl", "[1, 2]\n"),
@@ -936,7 +937,7 @@ def test_exit_codes(tmp_path: Path, clone: Clone) -> None:
         misuse = clone.count(*args)
         assert misuse.code == 1, args
         assert misuse.stderr.splitlines() == [
-            broken_line(f"misinvocation: {detail}", "run it as count-costs.sh [--all | --session]"),
+            broken_line(f"misinvocation: {detail}", "run it as count-costs.sh --all | --session"),
             CLOSING,
         ], args
     # the throwaway folder cannot be made
@@ -1108,8 +1109,8 @@ def entries(clone: Clone) -> list[Entry]:
         Entry(H, "count-costs.py", ("--all",), "", "", CLOSING, CLAUSE),
         Entry(HS, "session-start.py", (), payload(S1, clone.root), "", START_CLOSING, START_CLAUSE, "2.1.0"),
         Entry(HU, "setup-commit-log.py", (), "", "", SETUP_CLOSING, SETUP_C2_CLAUSE),
-        Entry(HR, "cost-report.py", (), "", "", REPORT_CLOSING, REPORT_C2_CLAUSE),
-        Entry(HE, "effect-report.py", (), "", "", EFFECT_CLOSING, "", "2.1.0", False),
+        Entry(HR, "cost-report.py", (), "", "", REPORT_CLOSING, REPORT_C2_CLAUSE, "2.1.0"),
+        Entry(HE, "effect-report.py", (), "", "", EFFECT_CLOSING, "", "2.2.0", False),
     ]
 
 
@@ -1666,6 +1667,38 @@ def test_no_start_is_made_up(clone: Clone, tmp_path: Path, installed: Path) -> N
     assert report.reason_of("f" * 40, commit_of, {S1: starts}).reason is Reason.WAITING
 
 
+@item(
+    33,
+    "a SessionStart event with no transcript_path exits 0 and logs the start with an empty path; the count"
+    " and the report name its commit as having no transcript, and neither crashes",
+)
+def test_start_without_a_transcript_path(clone: Clone) -> None:
+    """The kit's install check sends such an event; the shared reader takes the field as optional."""
+    bare = json.dumps(
+        {"session_id": S1, "cwd": str(clone.root), "hook_event_name": "SessionStart", "source": "startup"}
+    )
+    done = start_hook(clone, bare)
+    assert (done.code, done.stderr) == (0, ""), done.stderr
+    records = log_lines(clone, "starts.jsonl")
+    assert [(held["session"], held["transcript_path"]) for held in records] == [(S1, "")]
+    not_text = json.dumps({**json.loads(bare), "transcript_path": 7})
+    assert start_hook(clone, not_text).code == 0  # a field that is no string is read as absent too
+    assert [held["transcript_path"] for held in log_lines(clone, "starts.jsonl")] == ["", ""]
+    later = int(str(records[0]["ms"])) + 1000
+    clone.append_line("commits.jsonl", {"sha": "a" * 40, "ms": later, "session": S1, "event": "commit"})
+    counted = clone.count("--all")  # Path("") would be the current folder: the path is skipped instead
+    assert (counted.code, closing(counted)) == (0, counted_line(0, 0, 0, 1)), counted.stderr
+    commits, _ = logs.read_commits(clone.folder)
+    starts, _ = logs.read_starts(clone.folder)
+    tally = counting.Tally()
+    counting.count_session(S1, commits, starts, set(), None, clone.folder, tally)
+    assert tally.not_counted == [NotCounted("a" * 40, Reason.NO_TRANSCRIPT, S1, "")]
+    commit_of = {line.sha: line for line in commits}
+    assert report.reason_of("a" * 40, commit_of, {S1: starts}) == NotCounted(
+        "a" * 40, Reason.NO_TRANSCRIPT, S1, ""
+    )
+
+
 # ------------------------------------------------------------------ T15 to T18: the report and its exports
 
 NOT_COUNTED = {
@@ -1918,7 +1951,7 @@ def block_of_the_rig(clone: Clone, shas: Mapping[str, str], upto: str | None = N
 @item(
     17,
     "--pr: no gh prints the block and J15.2; a fake gh gets it between its markers, J15.1, a rerun replaces"
-    " it; a failing gh is J6.13",
+    " it; a gh answer with no number is J15.3; a failing gh is J6.13",
 )
 def test_pr(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     clone, shas = report_rig(tmp_path / "rig")
@@ -1951,6 +1984,18 @@ def test_pr(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         " printed for a person to paste",
     ]
     assert not body.exists()
+    # a gh that answers JSON with no number: J15.3 with the detail of that answer, nothing written
+    log.unlink()
+    view.write_text(json.dumps({"body": "Description.\n"}), encoding="utf-8")
+    numberless = run_report(clone, "--pr", "base..HEAD", path=tools, env=env)
+    assert numberless.code == 0 and numberless.stderr == "", numberless.stderr
+    assert numberless.stdout.splitlines() == [
+        *block,
+        f"note: gh failed when asked for the pull request of {head}: its answer is no pull request with a"
+        " number — the block above is printed for a person to paste",
+    ]
+    assert not body.exists()
+    view.write_text(json.dumps({"number": 7, "body": "Description.\n"}), encoding="utf-8")
     # the pull request is that of the range's head, not of the branch checked out
     log.unlink()
     git_in(clone.root, "branch", "elsewhere", shas["nolog"], session=None)

@@ -5,12 +5,12 @@ Events:   SessionStart (async), Stop (async) — the hooks only start it; none o
 Modes:    --all      count every complete window not yet counted, of every session in the clone's logs;
           --session  the same for the session CLAUDE_CODE_SESSION_ID names, and no other.
           Both run as an act: git and ccusage have no deadline here. A hook hands it no input; it reads none.
-Reads:    the three logs in the folder const-change-cost/ of the clone's git common directory (the start log,
-          the commit log, the file of counts); the transcripts the start log names; from the environment
-          CLAUDE_CODE_SESSION_ID for --session and CLAUDE_PLUGIN_DATA, where the pinned ccusage is installed
-          when the plugin root holds none; with CLAUDE_PLUGIN_DATA unset, as in a person's shell, the data
-          folder that a hook recorded in the file plugin-data beside the logs. Where it is set, the count
-          records it there. It reads no dials file: the module has no dials.
+Reads:    the two logs and the file of counts in the folder const-change-cost/ of the clone's git common
+          directory (the start log, the commit log, the file of counts); the transcripts the start log names;
+          from the environment CLAUDE_CODE_SESSION_ID for --session and CLAUDE_PLUGIN_DATA, where the
+          pinned ccusage is installed when the plugin root holds none; with CLAUDE_PLUGIN_DATA unset, as in
+          a person's shell, the data folder that a hook recorded in the file plugin-data beside the logs.
+          Where it is set, the count records it there. It reads no dials file: the module has no dials.
 The count: per commit, the window from the session's previous commit, or its start, to the commit's time in
           milliseconds, cut from the session's own records dated at or after its earliest logged start, and
           counted by the pinned ccusage over a throwaway folder that holds that window alone. A window is

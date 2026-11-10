@@ -1,10 +1,10 @@
-"""This module's own structures: the lines of its three logs, a commit's window, a count, a ccusage report,
-the reasons a commit is not counted, and the keys of its configuration failures.
+"""This module's own structures: the lines of its two logs and its file of counts, a commit's window, a
+count, a ccusage report, the reasons a commit is not counted, and the keys of its configuration failures.
 
-The three logs stand in the folder FOLDER of git's common directory, each line one compact JSON object:
-the start log (a session's id, its start in milliseconds, its source and its transcript's path), the commit
-log (a commit's SHA, the time in milliseconds, the session that made it, the event that logged it) and the
-file of counts (one kept line per counted commit)."""
+The two logs and the file of counts stand in the folder FOLDER of git's common directory, each line one
+compact JSON object: the start log (a session's id, its start in milliseconds, its source and its
+transcript's path), the commit log (a commit's SHA, the time in milliseconds, the session that made it, the
+event that logged it) and the file of counts (one kept line per counted commit)."""
 
 from __future__ import annotations
 

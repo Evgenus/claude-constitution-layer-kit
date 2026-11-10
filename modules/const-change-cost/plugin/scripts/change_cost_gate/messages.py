@@ -220,7 +220,7 @@ def j6_9_no_folder(session: str, error: str) -> Broken:
     )
 
 
-COUNT_USAGE = "count-costs.sh [--all | --session]"
+COUNT_USAGE = "count-costs.sh --all | --session"
 SETUP_USAGE = "setup-commit-log.sh [--remove | --check]"
 REPORT_USAGE = "cost-report.sh [<range>] | --trailer <range> | --pr <range> | --notes <range>"
 START_USAGE = "session-start.sh with no argument and one SessionStart event on its standard input"
