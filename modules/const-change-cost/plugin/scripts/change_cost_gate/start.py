@@ -11,7 +11,7 @@ import sys
 import time
 from collections.abc import Sequence
 from pathlib import Path
-from typing import NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 from constitution_layer_kit import cli, preflight
 from constitution_layer_kit import messages as shared
@@ -24,6 +24,9 @@ from constitution_layer_kit.output import Output
 from . import counting, logs, messages, report, setup
 from . import git as gitpart
 from .model import STARTS
+
+if TYPE_CHECKING:
+    from constitution_layer_kit.effect import Rule
 
 NAMESPACE = "const-change-cost"
 SESSION_VARIABLE = "CLAUDE_CODE_SESSION_ID"
@@ -233,3 +236,11 @@ def report_main(argv: Sequence[str]) -> int:
         lambda output: _report(argv, output),
         messages.j7_report_broken,
     )
+
+
+def load_rules() -> Sequence[Rule]:
+    # Necessary here, not at the top: the rules import the declared libraries, and only after the
+    # preflight does a missing one become its designed message instead of a traceback.
+    from . import effect_rules  # noqa: PLC0415
+
+    return effect_rules.rules()

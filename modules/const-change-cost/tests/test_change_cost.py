@@ -71,6 +71,7 @@ START_CLOSING = "BROKEN: const-change-cost could not log this session's start �
 SETUP_C2_CLAUSE = "until then no hook of the commit log is written"
 SETUP_CLOSING = "BROKEN: the setup could not run — setup-commit-log.sh --check shows what stands"
 REPORT_C2_CLAUSE = "until then no report or export is made"
+EFFECT_C2_CLAUSE = "until then the effect report is not made"
 REPORT_CLOSING = "BROKEN: the report could not run — nothing was shown or written"
 EFFECT_CLOSING = "BROKEN: the report could not run — no rule counted"
 HOOK_COMMIT = "hook.const-change-cost-commit"
@@ -1130,7 +1131,6 @@ class Entry:
     closing: str
     c2_clause: str  # the identity's clause, which closes the shared C2 alone for a generator
     requires: str = "2.0.0"  # the release of the shared package the entry file states
-    reaches_c2: bool = True  # False where the shared runner imports PyYAML before it can print C2
 
     def tail(self) -> str:
         return f" — {self.clause}" if self.clause else ""
@@ -1142,7 +1142,7 @@ def entries(clone: Clone) -> list[Entry]:
         Entry(HS, "session-start.py", (), payload(S1, clone.root), "", START_CLOSING, START_CLAUSE, "2.1.0"),
         Entry(HU, "setup-commit-log.py", (), "", "", SETUP_CLOSING, SETUP_C2_CLAUSE),
         Entry(HR, "cost-report.py", (), "", "", REPORT_CLOSING, REPORT_C2_CLAUSE, "2.1.0"),
-        Entry(HE, "effect-report.py", (), "", "", EFFECT_CLOSING, "", "2.2.0", False),
+        Entry(HE, "effect-report.py", (), "", "", EFFECT_CLOSING, EFFECT_C2_CLAUSE, "2.2.0"),
     ]
 
 
@@ -1175,16 +1175,15 @@ def test_install_failures(tmp_path: Path, clone: Clone) -> None:
             f" (https://www.python.org/downloads/){entry.tail()}",
             entry.closing,
         ], entry.script
-        if entry.reaches_c2:
-            no_yaml = entry.harness.run_gate(
-                entry.stdin, args=list(entry.args), env={**env, "PYTHONPATH": str(shadow)}, cwd=clone.root
-            )
-            assert no_yaml.code == 1, entry.script
-            assert no_yaml.stderr.splitlines() == [
-                "BROKEN: const-change-cost needs PyYAML — fix: run: python3 -m pip install -r"
-                f" '{PLUGIN}/requirements.txt' — {entry.c2_clause}",
-                entry.closing,
-            ], entry.script
+        no_yaml = entry.harness.run_gate(
+            entry.stdin, args=list(entry.args), env={**env, "PYTHONPATH": str(shadow)}, cwd=clone.root
+        )
+        assert no_yaml.code == 1, entry.script
+        assert no_yaml.stderr.splitlines() == [
+            "BROKEN: const-change-cost needs PyYAML — fix: run: python3 -m pip install -r"
+            f" '{PLUGIN}/requirements.txt' — {entry.c2_clause}",
+            entry.closing,
+        ], entry.script
         path = SCRIPTS / entry.script  # the entry file run as an interpreter of 3.11 would run it
         old = entry.harness.run_gate(
             entry.stdin, command=[sys.executable, "-c", lowered, str(path)], env=env, cwd=clone.root

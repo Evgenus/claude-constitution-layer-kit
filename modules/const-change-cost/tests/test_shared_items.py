@@ -13,6 +13,7 @@ from constitution_layer_kit.testing.items import (  # noqa: F401 — pytest coll
     test_dials_prefix_is_the_files,
     test_effect_disagree,
     test_effect_flags_broken,
+    test_effect_library_absent,
     test_effect_log_finds_transcript,
     test_effect_no_transcript,
     test_effect_shared_entry,
