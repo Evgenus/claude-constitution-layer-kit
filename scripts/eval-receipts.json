@@ -15,14 +15,14 @@
   "const-change-cost": {
     "attempts": [
       {
-        "at": "2026-11-10T17:47:19Z",
+        "at": "2026-11-10T18:26:40Z",
         "cases": 2,
         "passed": 2,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:3a8bbdd826b7f45cbcf9dd61fad7fbe083b906dcdef00f74d52ec1b4fb671c52",
+    "hash": "sha256:ae41a22aee3cfd7a2befcc56fa78c4be5b51c8bfbdfde50d7686a45770b01dcc",
     "model": "claude-opus-5-5"
   },
   "const-decision-records": {
