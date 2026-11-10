@@ -23,6 +23,8 @@ const-<aspect-name>/
 │   │   └── plugin.json      # manifest — the ONLY file inside .claude-plugin/; version 0.0.x while draft
 │   ├── INSTALL.md           # install/uninstall notes; the pip command of the shared package at the tag of REQUIRES; the one CLAUDE.md pointer line if any
 │   ├── requirements.txt     # optional; the libraries its scripts need, installed by one command
+│   ├── <file>               # optional; a pinned tool's own file at the plugin root, as the configuration row places it
+│   ├── <tool>/              # optional; a pinned tool's files that the platform would act on at the plugin root
 │   ├── skills/
 │   │   └── <name>/          # optional; SKILL.md, and any file it names through ${CLAUDE_SKILL_DIR}
 │   ├── commands/<name>.md   # optional
@@ -122,3 +124,18 @@ The paragraph of [section 6](MODULE.md#t6) of the template that follows the erro
 The paragraph of [section 9](MODULE.md#t9) of the template that follows its table and its honest limits.
 
 **Exit-code contract** *(template rule)* for every check: a finding (the repository is wrong) and a configuration failure (the checker is broken, a pinned tool is missing, the invocation is malformed) are distinct exit codes with distinct messages, so a reader never mistakes one for the other. A missing tool is loud, never a silent pass; a check that could not run reports that it could not run.
+
+<a id="s13"></a>
+## The configuration row
+
+The text of the row "configuration" of the table of [section 6](MODULE.md#t6) of the template, in its "carries" cell, after its first sentence.
+
+A pinned third-party tool's own files are parts of the plugin root. They are of two kinds: its configuration, which the gate that runs the tool reads or hands to the tool, and its pin, the files that name the exact version an install takes. Each such file stands in one of three places:
+
+1. At the plugin root, `plugin/<file>`.
+2. Among the scripts, `plugin/scripts/<file>`.
+3. In a folder of the plugin root named for the tool, `plugin/<tool>/<file>`.
+
+A file that the platform acts on when it stands at a plugin root stands in the tool's folder, never at the root. A `package.json` with its lockfile is the case the kit has met. The module's platform facts name what the platform does there, with its source.
+
+The row lists every such file by its path. Of a file in a tool's folder it says why the file stands there. The module's pair in the coverage map of the range check lists each such file that stands outside `plugin/scripts/`, `plugin/hooks/` and `plugin/skills/`, by its path. Review holds this: the kit's `scripts/check-gate-lists.py` holds the five folders of the pair alone (decision [dec-0119-pinned-tool-files-in-the-plugin-root](../docs/decisions/dec-0119-pinned-tool-files-in-the-plugin-root.md)).
