@@ -23,13 +23,15 @@ For every file git lists under profiles/, tracked or not, ignored ones excepted,
               repository lacks.
 And it holds that the folder has a profile at all.
 
-Before the profiles, every scan runs once on the same repository with a dials file of one line, the
-module prefix. A scan that is not green there cannot run on this machine, a tool or the shared
-package missing, and the check stops BROKEN instead of blaming a profile. A profile that fails yaml
+Before the profiles, every scan runs once on a repository of its own, which holds no policy and a
+dials file of one line, `module_prefix: const-`, the kit's own prefix. A scan that is not green there
+cannot run on this machine, a tool or the shared package missing, and the check stops BROKEN instead
+of blaming a profile. A profile that fails yaml
 or schema is not handed to the scans: every scan would stop on the same fault.
 
 What the check does not hold, left to review: that a profile writes no dial at its default, that
-two profiles agree where they should, and the dials of a module that has no scan, which no run
+two profiles agree where they should, that a profile which sets `severity` for the gates that run in
+a hook names every module that has one, and the dials of a module that has no scan, which no run
 here reads.
 
 Modes:  no arguments   check the kit's profiles;

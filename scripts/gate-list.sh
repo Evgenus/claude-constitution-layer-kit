@@ -21,7 +21,8 @@
 # The jobs are read from the entries, never listed apart, so no entry is left out of CI. A module's
 # scan reads the whole tree, or for task-close the change's whole range, so a red scan on a module's
 # job means the tree, or the change, breaks that module's rule, not that the module's code is broken;
-# the annotation names the entry.
+# the annotation names the entry. The entry `profiles` of `kit` runs every module's scan too, on throwaway
+# repositories that hold a profile: a module's scan red there means a profile breaks that module's rule.
 # The install-<module> and session-<module> gates and the guide gate need the `claude` that scripts/claude-code.version pins on
 # PATH and no Claude account login: on any other version they fail to run, unless CONSTITUTION_KIT_ANY_CLAUDE=1,
 # when they run with a note naming both versions on every headline line of their report after the version
