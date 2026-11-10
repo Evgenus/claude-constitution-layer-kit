@@ -109,12 +109,26 @@ def make_count_parser() -> CountParser:
     return parser
 
 
+def _hook_session() -> str:
+    """The `session_id` of the hook event on stdin, which equals CLAUDE_CODE_SESSION_ID in Claude Code's own
+    hooks: a caller that runs the hook without the variable still names the session. "" where stdin is a
+    terminal, which a run by hand has, or holds no such event."""
+    if sys.stdin is None or sys.stdin.isatty():
+        return ""
+    try:
+        loaded: object = json.loads(sys.stdin.read() or "null")
+    except ValueError:
+        return ""
+    value = loaded.get("session_id") if isinstance(loaded, dict) else None
+    return value if isinstance(value, str) else ""
+
+
 def _count(argv: Sequence[str], output: Output) -> int:
     args = make_count_parser().parse_args(list(argv))
     preflight.check()
     if args.all:
         return counting.run(output, counting.Scope(None), Path.cwd())
-    session = os.environ.get(SESSION_VARIABLE, "")
+    session = os.environ.get(SESSION_VARIABLE, "") or _hook_session()
     if not session:
         raise ConfigurationFailure(messages.j6_8_no_session())
     output.session = session  # the records of the output log name the session, as rule 12 asks

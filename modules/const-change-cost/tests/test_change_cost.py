@@ -914,8 +914,8 @@ def test_lock(clone: Clone) -> None:
 
 @item(
     22,
-    "--session counts only the session CLAUDE_CODE_SESSION_ID names, J6.8 without it; --all covers every"
-    " session",
+    "--session counts only the session CLAUDE_CODE_SESSION_ID names, else the hook event's session_id, J6.8"
+    " without either; --all covers every session",
 )
 def test_session_and_all(clone: Clone) -> None:
     clone.start(S1, 0)
@@ -928,21 +928,27 @@ def test_session_and_all(clone: Clone) -> None:
     assert lacking.code == 1 and lacking.stdout == ""
     assert lacking.stderr.splitlines() == [
         "BROKEN: --session needs CLAUDE_CODE_SESSION_ID, which Claude Code sets in its hooks and its shell"
-        f" tool — fix: run it in a Claude Code session, or run count-costs.sh --all — {CLAUSE}",
+        " tool, or a hook event's session_id on stdin — fix: run it in a Claude Code session, or run"
+        f" count-costs.sh --all — {CLAUSE}",
         CLOSING,
     ]
     own = clone.count("--session", env={"CLAUDE_CODE_SESSION_ID": S2})
     assert (own.code, closing(own)) == (0, counted_line(1, 0, 0, 0)), own.stderr
     assert [held["session"] for held in clone.kept()] == [S2]
+    # no variable, as a caller that runs the hook outside Claude Code has it: the event on stdin names S1
+    event = json.dumps({"hook_event_name": "Stop", "session_id": S1, "cwd": str(clone.root)})
+    hooked = H.run_gate(event, args=["--session"], env=clone.environment(None), cwd=clone.root)
+    assert (hooked.code, closing(hooked)) == (0, counted_line(1, 0, 0, 0)), hooked.stderr
+    assert sorted(str(held["session"]) for held in clone.kept()) == [S1, S2]
     everything = clone.count("--all")
-    assert (everything.code, closing(everything)) == (0, counted_line(1, 1, 0, 0)), everything.stderr
+    assert (everything.code, closing(everything)) == (0, counted_line(0, 2, 0, 0)), everything.stderr
     assert sorted(str(held["session"]) for held in clone.kept()) == [S1, S2]
     # D4: the records of a --session run carry the session; those of --all name none
     said = [
         json.loads(raw)
         for raw in (clone.data / "const-change-cost.jsonl").read_text(encoding="utf-8").splitlines()
     ]
-    assert [held["session"] for held in said if held["text"].startswith("COUNTED")] == [S2, ""]
+    assert [held["session"] for held in said if held["text"].startswith("COUNTED")] == [S2, S1, ""]
 
 
 @item(
@@ -2769,7 +2775,8 @@ SUBJECT = Subject(
     red=REFUSED_RUN,
     red_finding=Finding(
         Key.J6_8,
-        "--session needs CLAUDE_CODE_SESSION_ID, which Claude Code sets in its hooks and its shell tool",
+        "--session needs CLAUDE_CODE_SESSION_ID, which Claude Code sets in its hooks and its shell tool, or a"
+        " hook event's session_id on stdin",
         "",
         "",
     ),

@@ -220,7 +220,8 @@ def j6_7_no_repository(directory: str) -> Broken:
 def j6_8_no_session() -> Broken:
     return _fail(
         Key.J6_8,
-        "--session needs CLAUDE_CODE_SESSION_ID, which Claude Code sets in its hooks and its shell tool",
+        "--session needs CLAUDE_CODE_SESSION_ID, which Claude Code sets in its hooks and its shell tool, or a"
+        " hook event's session_id on stdin",
         "run it in a Claude Code session, or run count-costs.sh --all",
     )
 
