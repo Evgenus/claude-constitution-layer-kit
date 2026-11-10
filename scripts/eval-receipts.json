@@ -2,27 +2,27 @@
   "const-catalogs": {
     "attempts": [
       {
-        "at": "2026-11-08T02:39:34Z",
+        "at": "2026-11-10T03:23:39Z",
         "cases": 1,
         "passed": 1,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:6fd0457a5676e8d42016ddf523b1a5183d915bd5921191a6d2ffd436a10e198f",
+    "hash": "sha256:8514fe6e3b9517afe0cff0e5930a7356df4755e19b7d728d0a179a2f07852dba",
     "model": "claude-opus-5-5"
   },
   "const-decision-records": {
     "attempts": [
       {
-        "at": "2026-11-08T02:42:05Z",
+        "at": "2026-11-10T03:26:33Z",
         "cases": 2,
         "passed": 2,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:6b6211e9d34b9537770125fd4de951cde58e5bff807bc6b58cbd4cfea2f973d5",
+    "hash": "sha256:b65b28ddbc0e11bfa9e23dfdf5369af8bca548713d3688693960492df2a2b658",
     "model": "claude-opus-5-5"
   },
   "const-doc-budgets": {
