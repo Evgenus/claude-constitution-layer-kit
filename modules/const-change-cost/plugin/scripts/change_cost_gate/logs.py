@@ -233,11 +233,12 @@ def recorded_plugin_data(folder: Path) -> Path | None:
 
 
 @contextmanager
-def locked(folder: Path, seconds: float) -> Iterator[bool]:
-    """The lock on the file of counts: True once held, False when another count kept it for `seconds`. The
-    lock is the operating system's, so it falls with a process that is killed."""
+def locked(folder: Path, seconds: float, name: str = LOCK) -> Iterator[bool]:
+    """The lock `name` in `folder`, by default the lock on the file of counts: True once held, False when
+    another process kept it for `seconds`. The lock is the operating system's, so it falls with a process
+    that is killed."""
     folder.mkdir(parents=True, exist_ok=True)
-    descriptor = os.open(folder / LOCK, os.O_RDWR | os.O_CREAT, 0o644)
+    descriptor = os.open(folder / name, os.O_RDWR | os.O_CREAT, 0o644)
     held = False
     try:
         deadline = time.monotonic() + seconds

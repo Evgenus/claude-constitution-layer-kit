@@ -31,7 +31,7 @@ total, 2 counted commit(s): input 2,000, output 550, cache write 5,000, cache re
 
 **At turn end.** A background hook counts the commits of its own session whose window is complete. A window is the part of the session between one commit and the next. It is complete when the session wrote a record after the commit. Each count is one line, written once and never made again.
 
-**The setup command.** `setup-commit-log.sh` writes two hooks into the clone's git settings, one on commit and one on merge. Each appends the commit, the time and the session's id to a log. Only a person runs it. It can check that the hooks stand and remove them, and it leaves the logs.
+**The setup command.** `setup-commit-log.sh` writes two hooks into the clone's git settings, one on commit and one on merge. Each appends the commit, the time and the session's id to a log. A person runs it, or a session when the person asks. It can check that the hooks stand and remove them, and it leaves the logs.
 
 **The count.** `count-costs.sh` copies one window of one session into a throwaway folder and runs the pinned ccusage over it. It keeps the four counts, their total, the cost, the number of replies, the tokens of each model, the compactions it saw and the models with no price. A compaction is the moment Claude Code shortens a session's history, and its work reaches no transcript, so it is named and not counted. It runs after each turn and at each start, and a person can run it too.
 
@@ -39,7 +39,7 @@ total, 2 counted commit(s): input 2,000, output 550, cache write 5,000, cache re
 
 **The skill `share-costs`.** A procedure in prose: set up the commit log only when asked, share the block and the trailers at the pull request and the merge, write notes only on your word, and read each figure as what it is. It checks nothing. The start line names it where it applies.
 
-**Settings.** The module has no dials and works with no configuration. It reads no settings file of the project. The ccusage version is pinned, so two clones count alike, and every cost is the list price at that version.
+**Settings.** The module has no dials and works with no configuration. Only its effect report reads the project's settings file, and only for the keys every module takes; leave `log_dir` unset for this module. The ccusage version is pinned, so two clones count alike, and every cost is the list price at that version.
 
 <a id="a5"></a>
 ## Get it

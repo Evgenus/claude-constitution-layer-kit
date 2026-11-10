@@ -22,6 +22,7 @@ from .model import (
     GH_SECONDS,
     HOOK_COMMIT,
     HOOK_MERGE,
+    INSTALL_LOCK_SECONDS,
     LOCK_SECONDS,
     MARK_CLOSE,
     MARK_OPEN,
@@ -144,20 +145,17 @@ def j6_3_no_data_folder() -> Broken:
 
 
 def j6_4_other_version(found: str, where: str) -> Broken:
+    """The install ran and left another version: the plugin's own lockfile does not pin ccusage."""
     return _fail(
         Key.J6_4,
-        f"{_ns()} needs ccusage {PIN} and found {echoed(found)} under {escaped(where)}",
-        "start a Claude Code session in this project, whose count installs the pinned one, or run npm ci"
-        f" --ignore-scripts in {escaped(where)}",
+        f"{_ns()} needs ccusage {PIN} and found {echoed(found)} under {escaped(where)}, after installing from"
+        " the plugin's ccusage/package-lock.json",
+        "that lockfile is broken; reinstall the plugin",
     )
 
 
 def detail_npm_line(line: str) -> str:
     return echoed(line)
-
-
-def detail_npm_nothing() -> str:
-    return f"it finished and left no ccusage {PIN} in the folder"
 
 
 def detail_npm_silent() -> str:
@@ -169,6 +167,26 @@ def j6_5_npm_failed(data: str, detail: str) -> Broken:
         Key.J6_5,
         f"npm could not install the pinned ccusage into {escaped(data)}: {detail}",
         "repair what npm names — the network, the registry, the folder's rights — then start a session again",
+    )
+
+
+def j6_5_nothing_installed(data: str) -> Broken:
+    """npm ran, exit 0, and the folder holds no ccusage: npm named nothing, so the plugin itself is broken."""
+    return _fail(
+        Key.J6_5,
+        f"npm could not install the pinned ccusage into {escaped(data)}: it finished and left no ccusage"
+        f" {PIN} in the folder",
+        "the plugin's ccusage/package-lock.json is broken; reinstall the plugin",
+    )
+
+
+def j6_5_install_busy(data: str) -> Broken:
+    """Another pass kept the lock on the install in the shared data folder past the wait."""
+    return _fail(
+        Key.J6_5,
+        f"npm could not install the pinned ccusage into {escaped(data)}: another install kept the lock on the"
+        f" folder for {_seconds(INSTALL_LOCK_SECONDS)} s",
+        "wait for the other session's install to end, then start a session again",
     )
 
 
@@ -348,6 +366,11 @@ def j11_4_waiting() -> str:
 
 
 def j11_5_no_transcript(session: str, path: str) -> str:
+    if not path:  # the start event carried no transcript_path, as the kit's install check sends it
+        return (
+            f"no transcript of session {escaped(session)} can be read: its start event carried no transcript"
+            " path"
+        )
     return (
         f"no transcript of session {escaped(session)} stands at {escaped(path)}: swept by Claude Code's"
         " cleanup, or never kept"

@@ -13,18 +13,22 @@ Modes:    no arguments                 print the report over the transcripts the
           --since YYYY-MM-DD           keep what is at or after the date;
           --reader                     let a fresh reader judge the reader rules (a subscription login);
                                        the module has none.
-Reads:    the output log under CLAUDE_PLUGIN_DATA and the transcripts it names; the transcripts of DIR; the
+Reads:    the output log and the transcripts it names; the transcripts of DIR; the
           project's git history; the commit log and the file of counts in the clone's git common directory;
           the plugin list that `claude` shows; the project's dials file, `constitution.yaml`, through the
-          shared runner (see The dials). It reads no event on its standard input.
+          shared runner (see The dials). The output log it reads is the one under CLAUDE_PLUGIN_DATA, or in
+          the `log_dir` folder when the dials file sets one. It reads no event on its standard input.
 Exit:     0 the report is printed, whatever it counts; 1 it could not run. Never red, never 2.
 Output:   the report on stdout; BROKEN lines on stderr. Every print is also appended, as one record, to the
           output log, in the folder the dial `log_dir` of the namespace const-change-cost names, when the
           dials file sets one and git ignores that folder (else the run fails with the shared C13), else under
           CLAUDE_PLUGIN_DATA, else nowhere.
-The dials: the module has none of its own, but this entry alone reads the dials file, for the dial `log_dir`
-          that every module's namespace takes; with no file or no `log_dir` it reads nothing more, and a file
-          the shared reader finds malformed stops the report. No other entry reads the file.
+The dials: the module has none of its own, but this entry alone reads the dials file, through `gather` of
+          the shared effect.py, which calls `load_dials` of dials.py and `route_log` of pipeline.py. The
+          reader parses the kernel keys, the territory of every namespace and, in the namespace
+          const-change-cost, `severity` (a bad value stops the report with the shared C5 line) and `log_dir`.
+          A malformed file stops the report. Leave `log_dir` unset: no other entry of the module writes to
+          that folder, so the report would find no session through its log. No other entry reads the file.
 
 This file stays parseable by any Python 3, as the gate's entry does.
 """

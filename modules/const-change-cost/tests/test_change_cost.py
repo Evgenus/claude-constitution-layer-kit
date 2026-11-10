@@ -735,12 +735,17 @@ class Rig:
         return self.clone.count("--all", env=extra, harness=self.harness)
 
 
-FAKE_NPM = (
-    'echo "$PWD $*" >> "$NPM_LOG"\n'
-    "/bin/mkdir -p node_modules/ccusage node_modules/.bin\n"
-    'echo \'{"version":"20.0.48"}\' > node_modules/ccusage/package.json\n'
-    '/bin/cp "$FAKE_CCUSAGE" node_modules/.bin/ccusage\n'
-)
+def fake_npm_of(version: str) -> str:
+    """A fake npm that logs its call and leaves a ccusage of `version` in the folder it ran in."""
+    return (
+        'echo "$PWD $*" >> "$NPM_LOG"\n'
+        "/bin/mkdir -p node_modules/ccusage node_modules/.bin\n"
+        f'echo \'{{"version":"{version}"}}\' > node_modules/ccusage/package.json\n'
+        '/bin/cp "$FAKE_CCUSAGE" node_modules/.bin/ccusage\n'
+    )
+
+
+FAKE_NPM = fake_npm_of("20.0.48")
 
 
 @item(
@@ -764,6 +769,12 @@ def test_finding_ccusage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
     unused = rig.run(env={"FAKE_CCUSAGE": str(fake)})
     assert (unused.code, closing(unused)) == (0, counted_line(1, 0, 0, 0)), unused.stderr
     assert rig.npm_log.read_text(encoding="utf-8").splitlines() == [f"{rig.clone.data} ci --ignore-scripts"]
+    # a lockfile copy that matches and another version installed: npm ci runs once and the pass counts
+    rig = Rig.make(tmp_path / "old-version", npm=FAKE_NPM)
+    stock(rig.clone.data, "20.0.47", "exit 9\n")
+    again = rig.run(env={"FAKE_CCUSAGE": str(fake)})
+    assert (again.code, closing(again)) == (0, counted_line(1, 0, 0, 0)), again.stderr
+    assert rig.npm_log.read_text(encoding="utf-8").splitlines() == [f"{rig.clone.data} ci --ignore-scripts"]
     # no ccusage anywhere, the data folder without a lockfile: installed there, once, by npm ci
     rig = Rig.make(tmp_path / "data", npm=FAKE_NPM)
     first = rig.run(env={"FAKE_CCUSAGE": str(fake)})
@@ -784,6 +795,7 @@ def test_finding_ccusage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
     assert third.code == 0 and third.stdout.splitlines()[0] == note, third.stderr
     assert len(rig.npm_log.read_text(encoding="utf-8").splitlines()) == 2
     assert by_hand(tmp_path / "by-hand", fake) == []
+    install_busy(tmp_path / "busy", monkeypatch)
     ccusage_silent(tmp_path / "silent", monkeypatch)
     assert ccusage_failures(tmp_path / "failures") == []
 
@@ -1647,7 +1659,9 @@ def test_no_start_is_made_up(clone: Clone, tmp_path: Path, installed: Path) -> N
     clone.start(S1, 0)
     clone.commit("a" * 40, 13, S3)
     done = clone.count("--all")
-    assert (done.code, closing(done)) == (0, counted_line(0, 0, 0, 1)), done.stderr
+    assert (done.code, done.stdout.splitlines()) == (0, [counted_line(0, 0, 0, 1)]), (
+        done.stderr
+    )  # no J11 line
     assert clone.kept() == []
     commits, _ = logs.read_commits(clone.folder)
     starts, _ = logs.read_starts(clone.folder)
@@ -1664,7 +1678,9 @@ def test_no_start_is_made_up(clone: Clone, tmp_path: Path, installed: Path) -> N
     early.commit("f" * 40, 13, S1)
     early.append_record(S1, 14)
     done = early.count("--all")
-    assert (done.code, closing(done)) == (0, counted_line(1, 0, 0, 1)), done.stderr
+    assert (done.code, done.stdout.splitlines()) == (0, [counted_line(1, 0, 0, 1)]), (
+        done.stderr
+    )  # no J11 line
     files = [path for path in (FIXTURE / S1).rglob("*.jsonl")] + [FIXTURE / f"{S1}.jsonl"]
     after_the_start = apart(files, S1, 5, [3, 13])[1]
     assert after_the_start > 0
@@ -1713,6 +1729,21 @@ def test_start_without_a_transcript_path(clone: Clone) -> None:
     assert report.reason_of("a" * 40, commit_of, {S1: starts}) == NotCounted(
         "a" * 40, Reason.NO_TRANSCRIPT, S1, ""
     )
+    # the printed lines: the count's closing line above holds the commit among those never to be counted and
+    # prints no J11 line; the report prints J11.5 in its form for a start event that carried no path
+    git_in(clone.root, "commit", "--allow-empty", "-q", "-m", "one", session=None)
+    git_in(clone.root, "commit", "--allow-empty", "-q", "-m", "two", session=None)
+    sha = git_in(clone.root, "rev-parse", "HEAD", session=None)
+    clone.append_line("commits.jsonl", {"sha": sha, "ms": later, "session": S1, "event": "commit"})
+    shown = run_report(clone, "HEAD~1..HEAD")
+    assert shown.code == 0 and shown.stderr == "", shown.stderr
+    assert shown.stdout.splitlines() == [
+        f"CHANGE-COST: 1 commit(s) of HEAD~1..HEAD, 0 counted, 1 not counted — {LIST_PRICE}",
+        f"{sha[:12]}: not counted — no transcript of session {S1} can be read: its start event carried no"
+        " transcript path",
+        "total, 0 counted commit(s): input 0, output 0, cache write 0, cache read 0, total 0 tokens; $0.00 at"
+        " list price; 0 replies; models: none; compactions: 0; unpriced: none",
+    ]
 
 
 # ------------------------------------------------------------------ T15 to T18: the report and its exports
@@ -2167,6 +2198,28 @@ def ccusage_silent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
+def install_busy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The data folder is shared by every project, so an install runs under a lock of the folder: while
+    another process holds it, the pass waits, and past the wait it gives J6.5 and runs no npm. The wait is
+    0.3 s here, and the line names the 240 s that the module allows, as a hand-typed text."""
+    monkeypatch.setattr(counters, "INSTALL_LOCK_SECONDS", 0.3)
+    data = tmp_path / "data"
+    data.mkdir(parents=True)
+    descriptor = os.open(data / "install.lock", os.O_RDWR | os.O_CREAT, 0o644)
+    fcntl.flock(descriptor, fcntl.LOCK_EX)
+    try:
+        with identity.declared(start.COUNT, Mode.ACT), pytest.raises(ConfigurationFailure) as caught:
+            counters.locate(PLUGIN, data, Said())
+    finally:
+        os.close(descriptor)
+    assert caught.value.broken.render() == broken_line(
+        f"npm could not install the pinned ccusage into {data}: another install kept the lock on the folder"
+        " for 240 s",
+        "wait for the other session's install to end, then start a session again",
+    )
+    assert not (data / "node_modules").exists() and not (data / "package-lock.json").exists()
+
+
 def by_hand(tmp_path: Path, fake: Path) -> list[str]:
     """D3: a run by hand has no CLAUDE_PLUGIN_DATA. The folder a hook recorded stands in for it, so the
     ccusage that the hook's pass installed is found; and a lockfile copy that matches with its node_modules
@@ -2241,21 +2294,24 @@ def ccusage_failures(tmp_path: Path) -> list[str]:
         broken_line(
             f"npm could not install the pinned ccusage into {rig.clone.data}: it finished and left no"
             " ccusage 20.0.48 in the folder",
-            "repair what npm names — the network, the registry, the folder's rights — then start a session"
-            " again",
+            "the plugin's ccusage/package-lock.json is broken; reinstall the plugin",
         ),
     )
-    rig = Rig.make(tmp_path / "other")
+    other = tmp_path / "other-ccusage"
+    other.parent.mkdir(parents=True, exist_ok=True)
+    fake_program(other, FAKE_REPORT)
+    rig = Rig.make(tmp_path / "other", npm=fake_npm_of("20.0.47"))  # an install that still leaves another one
     stock(rig.clone.data, "20.0.47", FAKE_REPORT)
     check(
         "J6.4",
-        rig.run(),
+        rig.run(env={"FAKE_CCUSAGE": str(other)}),
         broken_line(
-            f"const-change-cost needs ccusage 20.0.48 and found 20.0.47 under {rig.clone.data}",
-            "start a Claude Code session in this project, whose count installs the pinned one, or run npm ci"
-            f" --ignore-scripts in {rig.clone.data}",
+            f"const-change-cost needs ccusage 20.0.48 and found 20.0.47 under {rig.clone.data}, after"
+            " installing from the plugin's ccusage/package-lock.json",
+            "that lockfile is broken; reinstall the plugin",
         ),
     )
+    assert len(rig.npm_log.read_text(encoding="utf-8").splitlines()) == 1, "J6.4 follows one install"
     rig = Rig.make(tmp_path / "npm-fails", npm='echo "npm error network down" >&2\nexit 1\n')
     check(
         "J6.5",

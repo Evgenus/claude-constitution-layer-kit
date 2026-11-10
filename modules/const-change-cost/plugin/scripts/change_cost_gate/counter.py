@@ -1,13 +1,14 @@
-"""The counter: the pinned ccusage, where it stands, how it is installed, how it is run and how its output is
-read.
+"""The counter: the pinned ccusage, where it stands, how it is installed, how it is run and how its output
+is read.
 
 It stands in the `node_modules` of the plugin's data folder, `${CLAUDE_PLUGIN_DATA}`, and nowhere else: the
 plugin's `package.json` and `package-lock.json` stand in its folder `ccusage/`, not at the plugin root, so
 that the platform's install of a copied plugin installs nothing. The count copies both files into the data
 folder and runs `npm ci --ignore-scripts` there when the data folder's copy of the lockfile differs from the
-plugin's or its `node_modules` is gone. A run with no `CLAUDE_PLUGIN_DATA`, such as a person's shell, uses
-the data folder that a hook recorded in the clone, when that folder still stands, and has nowhere to install
-when none does.
+plugin's or the pinned version is not what stands there. The data folder is one per plugin, shared by
+every project, so the install runs under a lock of that folder. A run with no `CLAUDE_PLUGIN_DATA`, such as
+a person's shell, uses the data folder that a hook recorded in the clone, when that folder still stands, and
+has nowhere to install when none does.
 It is run through the launcher in its `.bin` folder and never through a platform binary by its path, as
 `ccusage claude session --id <session> --json --offline --config <plugin root>/ccusage.json` with
 `CLAUDE_CONFIG_DIR` naming the throwaway folder of one window; a second run without `--id` names the models
@@ -29,8 +30,17 @@ from constitution_layer_kit.errors import ConfigurationFailure
 from constitution_layer_kit.output import Output
 from constitution_layer_kit.repository import first_line
 
-from . import messages
-from .model import CCUSAGE_SECONDS, NPM_SECONDS, PIN, Counted, Entry, Report
+from . import logs, messages
+from .model import (
+    CCUSAGE_SECONDS,
+    INSTALL_LOCK,
+    INSTALL_LOCK_SECONDS,
+    NPM_SECONDS,
+    PIN,
+    Counted,
+    Entry,
+    Report,
+)
 
 LOCKFILE = "package-lock.json"
 MANIFEST = "package.json"
@@ -103,23 +113,34 @@ def install(root: Path, data: Path, output: Output) -> None:
     output.out(messages.j5_3_installed(str(data)))
 
 
+def _wanted(root: Path, data: Path) -> bool:
+    """Whether the data folder needs an install: its lockfile copy differs from the plugin's, or the pinned
+    ccusage is not what stands there, whatever stands."""
+    return not _same_lock(root, data) or installed_version(data) != PIN
+
+
 def locate(root: Path, data: Path | None, output: Output) -> Ccusage:
-    """The pinned ccusage in the data folder, installed there when the lockfile copy differs or
-    `node_modules` is gone; a configuration failure, J6.1 to J6.5, where none can be had. `root` is the
-    plugin root, which holds the manifest and the lockfile in its `ccusage/` folder and the file
-    `ccusage.json`; `data` is None where no folder is known."""
+    """The pinned ccusage in the data folder, installed there when the lockfile copy differs or the pinned
+    version is not what stands there; a configuration failure, J6.1 to J6.5, where none can be had. `root` is
+    the plugin root, which holds the manifest and the lockfile in its `ccusage/` folder and the file
+    `ccusage.json`; `data` is None where no folder is known. The data folder is one per plugin, shared by
+    every project, so the install runs under a lock of the folder and asks again once it holds it."""
     if shutil.which("node") is None:
         raise ConfigurationFailure(messages.j6_1_no_node())
     if data is None:
         raise ConfigurationFailure(messages.j6_3_no_data_folder())
-    if not _same_lock(root, data) or installed_version(data) is None:
-        install(root, data, output)
+    if _wanted(root, data):
+        with logs.locked(data, INSTALL_LOCK_SECONDS, INSTALL_LOCK) as held:
+            if not held:
+                raise ConfigurationFailure(messages.j6_5_install_busy(str(data)))
+            if _wanted(root, data):
+                install(root, data, output)
     there = installed_version(data)
     if there == PIN:
         return Ccusage(launcher_of(data), PIN, root)
     if there is not None:
         raise ConfigurationFailure(messages.j6_4_other_version(there, str(data)))
-    raise ConfigurationFailure(messages.j6_5_npm_failed(str(data), messages.detail_npm_nothing()))
+    raise ConfigurationFailure(messages.j6_5_nothing_installed(str(data)))
 
 
 def _whole(entry: Mapping[str, object], name: str) -> int:
