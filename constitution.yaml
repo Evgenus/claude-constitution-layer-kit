@@ -781,9 +781,9 @@ const-doc-budgets:                    # a character ceiling per group of documen
     # By decision dec-0118-two-ceilings-follow-the-dials-file, the number, the level and the window of this ceiling are
     # those of this entry, and of no record. A later re-set by the rule at the key `ceilings` is routine: a new window, the
     # number that rule gives from it (the window's longest plus 10 %, rounded up to 1,000), and the level (warning until
-    # the window holds 30 days of data, error from then on). The change that makes the re-set writes its day and its
-    # reason in this comment. A change of this entry by another measure, such as a number set from a shortened document,
-    # is priced by its stakes like any other change.
+    # 30 days of data, error in the change that brings the group under its number). The change that makes the re-set
+    # writes its day and its reason in this comment. A change of this entry by another measure, such as a number set from
+    # a shortened document, is priced by its stakes like any other change.
     - name: install-guide
       paths: *install_guide
       max: 29000
@@ -890,9 +890,9 @@ const-doc-budgets:                    # a character ceiling per group of documen
     # By decision dec-0118-two-ceilings-follow-the-dials-file, the number, the level and the window of this ceiling are
     # those of this entry, and of no record. A later re-set by the rule at the key `ceilings` is routine: a new window, the
     # number that rule gives from it (the window's longest plus 10 %, rounded up to 1,000), and the level (warning until
-    # the window holds 30 days of data, error from then on). The change that makes the re-set writes its day and its
-    # reason in this comment. A change of this entry by another measure, such as a number set from a shortened document,
-    # is priced by its stakes like any other change.
+    # 30 days of data, error in the change that brings the group under its number). The change that makes the re-set
+    # writes its day and its reason in this comment. A change of this entry by another measure, such as a number set from
+    # a shortened document, is priced by its stakes like any other change.
     - name: module-readmes
       paths:
         - "modules/*/README.md"

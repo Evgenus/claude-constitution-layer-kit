@@ -54,11 +54,11 @@ B, by the decider in chat on 2026-11-11.
 
 <a id="r4"></a>**R4.** The number, the level and the window of the two ceilings are those of their entries under `const-doc-budgets.ceilings` in the dials file, and of no record.
 
-<a id="r5"></a>**R5.** A later re-set of either entry by the dial's rule is routine: a new window, the number that the rule gives from it, and the level. The dial's rule is what the dials file states at the key `ceilings` for a ceiling's number and its level: the window's longest document plus 10 %, rounded up to 1,000, and warning until the window holds 30 days of data, error from then on. The change that makes the re-set writes its day and its reason in the comment at that entry. A change of either entry by another measure, such as a number set from a shortened document, is priced by its stakes like any other change.
+<a id="r5"></a>**R5.** A later re-set of either entry by the dial's rule is routine: a new window, the number that the rule gives from it, and the level. The dial's rule is what the dials file states at the key `ceilings` for a ceiling's number and its level: the window's longest document plus 10 %, rounded up to 1,000; warning until 30 days of data; error in the change that brings the group under its number. The change that makes the re-set writes its day and its reason in the comment at that entry. A change of either entry by another measure, such as a number set from a shortened document, is priced by its stakes like any other change.
 
 ## Applied
 
-The two ceilings stand in the dials file as R3 says since 2026-11-08. This change adds the comment of R4 and R5 at each of the two entries, and changes no number, level or window. The record is born `inactive`.
+The two ceilings stand in the dials file as R3 says since 2026-11-08. This change adds the comment of R4 and R5 at each of the two entries. It also names the window's longest in the comment of `install-guide`, and folds the inline comment of `module-readmes` into its block. It changes no number, level or window. The record is born `inactive`.
 
 ## Carry list
 
