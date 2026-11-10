@@ -5,11 +5,15 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from constitution_layer_kit import cli
 from constitution_layer_kit.identity import HOOK_SECONDS, Identity
 
 from .model import LAYER_DIALECT_KEY
+
+if TYPE_CHECKING:
+    from constitution_layer_kit.effect import Rule
 
 # A gate of another layer: the dials file of its own layer, and that file's kernel keys, `module_prefix`
 # among them. The policies are read from the constitution's file inside a scope of their own.
@@ -29,6 +33,14 @@ def load_modes() -> cli.Modes:
     from . import modes  # noqa: PLC0415
 
     return cli.Modes(hook=modes.hook_mode, scan=modes.scan_mode)
+
+
+def load_rules() -> Sequence[Rule]:
+    # Necessary here, not at the top: the rules import the declared libraries, and only after the
+    # preflight does a missing one become its designed message instead of a traceback.
+    from . import effect_rules  # noqa: PLC0415
+
+    return effect_rules.rules()
 
 
 def main(argv: Sequence[str]) -> int:

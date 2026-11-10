@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from constitution_layer_kit import cli
 from constitution_layer_kit.identity import HOOK_SECONDS, Identity
@@ -14,6 +15,9 @@ from constitution_layer_kit.model import KERNEL_KEYS
 
 from . import session
 from .model import COMMAND_FLAG
+
+if TYPE_CHECKING:
+    from constitution_layer_kit.effect import Rule
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 NAMESPACE = "const-interaction"
@@ -71,6 +75,14 @@ def load_list_modes() -> cli.Modes:
     from . import lists  # noqa: PLC0415 — the same reason
 
     return cli.Modes(hook=lists.hook_mode, scan=lists.scan_mode)
+
+
+def load_rules() -> Sequence[Rule]:
+    # Necessary here, not at the top: the rules import the declared libraries, and only after the
+    # preflight does a missing one become its designed message instead of a traceback.
+    from . import effect_rules  # noqa: PLC0415
+
+    return effect_rules.rules()
 
 
 def main(argv: Sequence[str]) -> int:
