@@ -30,7 +30,7 @@ Neither change named a record. So the two rulings still gave the old level, and 
   - **Pros:** it says exactly what the picks of 2026-11-08 decided; it is the smallest ruling.
   - **Cons:** a record again sets two numbers, so the next routine re-set of either ceiling opens the same gap and needs another record.
 - **B. The two moves, and a rule for later moves of these two ceilings.** Today's numbers are history. What binds is that the number, the level and the window of the two ceilings stand in the dials file, and that a later re-set by the dial's rule is routine, with its reason in a comment at the entry.
-  - **Pros:** the gap cannot open again for these two; they move like the ceilings that no record sets.
+  - **Pros:** the gap cannot open again for these two; they then move as the other ceilings moved on 2026-11-08, by a routine change.
   - **Cons:** a new rule beyond the picks of 2026-11-08; two more comments in the dials file.
 - **C. As B, for every ceiling of the dial.** One rule at the key `ceilings` of the dials file says that a re-set of any ceiling by the dial's rule is routine.
   - **Pros:** one rule for all ceilings; it matches how twelve ceilings moved on 2026-11-08.
@@ -48,17 +48,17 @@ B, by the decider in chat on 2026-11-11.
 
 <a id="r1"></a>**R1.** The ceiling `install-guide` no longer takes its number, its level or its window from R12 of [dec-0062-install-guide-governed-kind](dec-0062-install-guide-governed-kind.md#r12). This record reverses that ruling in those three points. The ceiling's name and the document it holds stay as that ruling gave them.
 
-<a id="r2"></a>**R2.** The ceiling `module-readmes` no longer takes its level or its window from R4 of [dec-0077-module-readme-pages](dec-0077-module-readme-pages.md#r4). This record reverses that ruling in those two points. The ceiling's name, its paths and the rule that sets its number stay as that ruling gave them.
+<a id="r2"></a>**R2.** The ceiling `module-readmes` no longer takes the way its number is set, its level or its window from R4 of [dec-0077-module-readme-pages](dec-0077-module-readme-pages.md#r4). This record reverses that ruling in those three points. The ceiling's name and its paths stay as that ruling gave them.
 
 <a id="r3"></a>**R3.** The two routine changes of 2026-11-08 stand. They set `install-guide` to 29,000 at error and `module-readmes` to 9,000 at error, each over the window 2026-10-09 to 2026-11-08, by the decider's picks of that day.
 
-<a id="r4"></a>**R4.** The number, the level and the window of the two ceilings are those of their entries under `const-doc-budgets.ceilings` in the dials file. No record sets them.
+<a id="r4"></a>**R4.** The number, the level and the window of the two ceilings are those of their entries under `const-doc-budgets.ceilings` in the dials file, and of no record.
 
-<a id="r5"></a>**R5.** A later re-set of either entry by the dial's rule is routine. The dial's rule is the one the dials file states at the key `ceilings`. The change that re-sets an entry writes its day and its reason in the comment at that entry.
+<a id="r5"></a>**R5.** A later re-set of either entry by the dial's rule is routine: a new window, the number that the rule gives from it, and the level. The dial's rule is what the dials file states at the key `ceilings` for a ceiling's number and its level: the window's longest document plus 10 %, rounded up to 1,000, and warning until the window holds 30 days of data, error from then on. The change that makes the re-set writes its day and its reason in the comment at that entry. A change of either entry by another measure, such as a number set from a shortened document, is priced by its stakes like any other change.
 
 ## Applied
 
-The two ceilings stand in the dials file as R3 says since 2026-11-08. The commit that creates this record adds the comment of R4 and R5 at each of the two entries, and changes no number, level or window. The record is born `inactive`.
+The two ceilings stand in the dials file as R3 says since 2026-11-08. This change adds the comment of R4 and R5 at each of the two entries, and changes no number, level or window. The record is born `inactive`.
 
 ## Carry list
 
