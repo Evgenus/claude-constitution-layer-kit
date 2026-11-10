@@ -103,7 +103,10 @@ For the module named, in throwaway folders that the check removes:
      the bare repository, and its JSON on standard output neither blocks, denies, asks nor stops,
      each waited for its own `timeout`, else the seconds the hooks reference gives a `command` hook
      on its event: 600, but 30 on UserPromptSubmit, PreModelSwitch and PostModelSwitch, 10 on
-     MessageDisplay and 1.5 on SessionEnd;
+     MessageDisplay and 1.5 on SessionEnd; every hook, and every scan below, runs without the variables
+     Claude Code sets for its own tools and hooks (`SESSION_ENV`, `hook_env`), which a run of the check
+     inside a session would hand on and the kit's CI lacks, so that one that needs such a variable fails
+     here as it fails in CI;
      every scan the module declares in the enforcement section (template §9) of its MODULE.md, which
      stays at the module folder's top beside the source and is never installed, run from the copy,
      exits 0 there. The scans are read by `kit_module_doc.enforcement`, whatever a row's indent
@@ -263,7 +266,12 @@ Modes:  --module <name> [--from <source>]  check one module of the kit;
                          whose hook and scan import it, green with the environment's PATH and red without
                          it, the hook and the scan each exiting 1; and a copy that holds a folder, a link, a
                          dangling link or a file at scripts/constitution_layer_kit, whatever its source holds
-                         there, a finding that names what stands there, ahead of any other.
+                         there, a finding that names what stands there, ahead of any other; and a check run
+                         with every variable of `SESSION_ENV` and a CLAUDE_PLUGIN_OPTION_ one set, each to a
+                         value and each set empty: a hook that exits 1 without CLAUDE_CODE_SESSION_ID red,
+                         as in CI, and a hook and a scan that write their environment down given none of
+                         them, an unrelated variable kept, the check's three plugin variables and the PATH
+                         given.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -285,7 +293,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, replace
 from functools import partial
 from pathlib import Path
@@ -342,6 +350,32 @@ EVENT_HOOK_TIMEOUT = {
     "MessageDisplay": 10.0,
     "SessionEnd": 1.5,
 }
+# The variables Claude Code sets in the processes it starts for its own tools and hooks, which a run of the
+# check inside a session inherits and the kit's CI lacks (the environment-variables page and the hooks
+# reference, read on 2026-11-10): CLAUDECODE and CLAUDE_CODE_CHILD_SESSION, both `1`; the session's id,
+# CLAUDE_CODE_SESSION_ID, and its ids for Remote Control and the cloud, CLAUDE_CODE_BRIDGE_SESSION_ID and
+# CLAUDE_CODE_REMOTE_SESSION_ID; CLAUDE_CODE_REMOTE, `true` in the cloud; the inbox socket and its token,
+# CLAUDE_CODE_MESSAGING_SOCKET and CLAUDE_CODE_MESSAGING_TOKEN; the effort level, CLAUDE_EFFORT; the file of
+# SessionStart's exports, CLAUDE_ENV_FILE; a background session's folder, CLAUDE_JOB_DIR; Claude Code's own
+# process id, CLAUDE_PID; and a plugin's options, each CLAUDE_PLUGIN_OPTION_<KEY>. Each hook and scan runs
+# without them, so that a hook that reads one passes or fails here as in CI (rollout plan item 9.37: a hook of
+# const-change-cost that read the session's id passed a local run and failed in CI on 2026-11-10). The three a
+# hook is given, CLAUDE_PLUGIN_ROOT, CLAUDE_PROJECT_DIR and CLAUDE_PLUGIN_DATA, the check sets itself.
+SESSION_ENV = (
+    "CLAUDECODE",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "CLAUDE_CODE_SESSION_ID",
+    "CLAUDE_CODE_BRIDGE_SESSION_ID",
+    "CLAUDE_CODE_REMOTE_SESSION_ID",
+    "CLAUDE_CODE_REMOTE",
+    "CLAUDE_CODE_MESSAGING_SOCKET",
+    "CLAUDE_CODE_MESSAGING_TOKEN",
+    "CLAUDE_EFFORT",
+    "CLAUDE_ENV_FILE",
+    "CLAUDE_JOB_DIR",
+    "CLAUDE_PID",
+)
+SESSION_ENV_PREFIX = "CLAUDE_PLUGIN_OPTION_"
 
 
 @dataclass(frozen=True)
@@ -764,11 +798,34 @@ def shared_code_findings(module: str, plugin: Path) -> list[Finding]:
     ]
 
 
+def hook_env(
+    base: Mapping[str, str], plugin: Path, repo: Path, data: Path, path: str | None
+) -> dict[str, str]:
+    """The environment every hook and scan of `check_installed` runs in: `base` less the variables of
+    `SESSION_ENV` and every one named with `SESSION_ENV_PREFIX`, each whether set to a value or to nothing,
+    then the three a hook is given, naming the copy, the bare repository and the data folder, and `path` as
+    PATH when given. Every other variable stays."""
+    kept = {
+        key: value
+        for key, value in base.items()
+        if key not in SESSION_ENV and not key.startswith(SESSION_ENV_PREFIX)
+    }
+    return (
+        kept
+        | {
+            "CLAUDE_PLUGIN_ROOT": str(plugin),
+            "CLAUDE_PROJECT_DIR": str(repo),
+            "CLAUDE_PLUGIN_DATA": str(data),
+        }
+        | ({} if path is None else {"PATH": path})
+    )
+
+
 def check_installed(
     module: str, source: Path, plugin: Path, repo: Path, data: Path, path: str | None = None
 ) -> list[Finding]:
     """What the kit's source of the module promises, held in its installed copy on a bare repository, every
-    hook and scan run with `path` as its PATH when given, as `check_module` gives it; a
+    hook and scan run in `hook_env`, with `path` as its PATH when given, as `check_module` gives it; a
     failure that stops the check (a `Broken`) is raised in this order, the source's hooks file (`hooks_of`)
     and the copy's hooks-file lookup first, then the walks and lookups of the links, then the rest, so that
     a hooks folder that cannot be searched is named by its own lookup before a walk names it."""
@@ -784,15 +841,7 @@ def check_installed(
         findings.append(
             Finding(module, "the installed copy has no hooks/hooks.json", "restore the hooks file")
         )
-    env = (
-        os.environ
-        | {
-            "CLAUDE_PLUGIN_ROOT": str(plugin),
-            "CLAUDE_PROJECT_DIR": str(repo),
-            "CLAUDE_PLUGIN_DATA": str(data),
-        }
-        | ({} if path is None else {"PATH": path})
-    )
+    env = hook_env(os.environ, plugin, repo, data, path)
     for hook in hooks:
         argv = [a.replace("${CLAUDE_PLUGIN_ROOT}", str(plugin)) for a in (hook.command, *hook.args)]
         shown = " ".join(argv[1:]).replace(str(plugin), "<plugin>")
@@ -4581,6 +4630,125 @@ def shared_hook_cases(tally: Tally, base: Path, shared: Path) -> None:
     )
 
 
+NEEDS_SESSION = (
+    "import os, sys\n"
+    "if not os.environ.get('CLAUDE_CODE_SESSION_ID'):\n"
+    "    print('no session id')\n"
+    "    sys.exit(1)\n"
+)
+WRITES_ENV = (  # writes its environment to <data>/<script name>.json, the scan's `--scan` aside
+    "import json, os, sys\n"
+    "name = os.path.join(os.environ['CLAUDE_PLUGIN_DATA'], os.path.basename(sys.argv[0]) + '.json')\n"
+    "with open(name, 'w', encoding='utf-8') as out:\n"
+    "    json.dump(dict(os.environ), out)\n"
+)
+
+
+def session_plugin(root: Path) -> Path:
+    """The plugin of a toy module with a Stop hook that exits 1 without CLAUDE_CODE_SESSION_ID, as a hook of
+    const-change-cost did until 2026-11-10, and a SessionStart hook and a scan that write their environment
+    down; the plugin folder."""
+    module = root / "module"
+    plugin = module / "plugin"
+    (plugin / "hooks").mkdir(parents=True)
+    (plugin / "scripts").mkdir()
+    (plugin / "scripts" / "needs-session.py").write_text(NEEDS_SESSION, encoding="utf-8")
+    (plugin / "scripts" / "writes-env.py").write_text(WRITES_ENV, encoding="utf-8")
+    (plugin / "scripts" / "check-e.py").write_text(WRITES_ENV, encoding="utf-8")
+
+    def hook(script: str) -> dict[str, object]:
+        args = [f"${{CLAUDE_PLUGIN_ROOT}}/scripts/{script}"]
+        return {"type": "command", "command": "python3", "args": args}
+
+    events = {
+        "SessionStart": [{"hooks": [hook("writes-env.py")]}],
+        "Stop": [{"hooks": [hook("needs-session.py")]}],
+    }
+    (plugin / "hooks" / "hooks.json").write_text(json.dumps({"hooks": events}), encoding="utf-8")
+    (module / "MODULE.md").write_text(
+        '<a id="t9"></a>\n| E1 | `check-e.py --scan` | `gate` |\n<a id="t10"></a>\n', encoding="utf-8"
+    )
+    return plugin
+
+
+# The variables the platform's pages name as set for its tools and hooks, as the comment of `SESSION_ENV`
+# gives them, with one of a plugin's options: typed here, and not read from `SESSION_ENV`, so that a name
+# dropped from the check is red.
+SESSION_SET = (
+    "CLAUDECODE",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "CLAUDE_CODE_SESSION_ID",
+    "CLAUDE_CODE_BRIDGE_SESSION_ID",
+    "CLAUDE_CODE_REMOTE_SESSION_ID",
+    "CLAUDE_CODE_REMOTE",
+    "CLAUDE_CODE_MESSAGING_SOCKET",
+    "CLAUDE_CODE_MESSAGING_TOKEN",
+    "CLAUDE_EFFORT",
+    "CLAUDE_ENV_FILE",
+    "CLAUDE_JOB_DIR",
+    "CLAUDE_PID",
+    "CLAUDE_PLUGIN_OPTION_WEBHOOK_URL",
+)
+
+
+def session_env_cases(tally: Tally) -> None:
+    """A check run inside a Claude Code session, every variable of `SESSION_SET` set, each to a value and each
+    set empty: its hooks and scans see none of them, as in the kit's CI (rollout plan item 9.37), and see an
+    unrelated variable, the check's three plugin variables and the PATH given."""
+    person = {name: f"person-{name.lower()}" for name in SESSION_SET}
+    others = {
+        "CLAUDE_PLUGIN_ROOT": "person-root",
+        "CLAUDE_PROJECT_DIR": "person-repo",
+        "CLAUDE_PLUGIN_DATA": "person-data",
+        "FAKE_KEEP": "kept",
+    }
+    runs: list[tuple[str, list[Finding], dict[str, dict[str, str]], dict[str, str]]] = []
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp).resolve()
+        plugin = session_plugin(base / "toy")
+        repo = base / "repo"
+        (repo / "docs").mkdir(parents=True)
+        path = f"{base / 'no-bin'}{os.pathsep}{os.environ.get('PATH', '')}"
+        for kind, values in (("a value", person), ("empty", dict.fromkeys(person, ""))):
+            data = base / f"data-{len(runs)}"
+            data.mkdir()
+            with mock.patch.dict(os.environ, values | others):
+                findings = check_installed("const-x", plugin, plugin, repo, data, path)
+            seen = {
+                name: json.loads((data / f"{name}.json").read_text(encoding="utf-8"))
+                for name in ("writes-env.py", "check-e.py")
+                if (data / f"{name}.json").is_file()
+            }
+            given = {"CLAUDE_PLUGIN_ROOT": str(plugin), "CLAUDE_PROJECT_DIR": str(repo)}
+            given |= {"CLAUDE_PLUGIN_DATA": str(data), "PATH": path, "FAKE_KEEP": "kept"}
+            runs.append((kind, findings, seen, given))
+    findings = runs[0][1]
+    version_case(
+        tally,
+        "a Stop hook that exits 1 without CLAUDE_CODE_SESSION_ID, the check run in a session that sets it:"
+        " red, as in CI, the hook exiting 1",
+        len(findings) == 1
+        and findings[0].what
+        == "its Stop hook `<plugin>/scripts/needs-session.py` exits 1 on a bare repository (no session id)",
+        f"{findings}",
+    )
+    for kind, _, seen, given in runs:
+        shown_env = {
+            name: {key: value for key, value in env.items() if key in person or key in given}
+            for name, env in seen.items()
+        }
+        version_case(
+            tally,
+            f"the variables Claude Code sets for its tools and hooks, each set to {kind} in the person's"
+            " environment: a hook and a scan see none of them, an unrelated variable kept, the check's three"
+            " and the PATH given",
+            sorted(seen) == ["check-e.py", "writes-env.py"]
+            and all(not set(person) & set(env) for env in seen.values())
+            and all({key: env.get(key) for key in given} == given for env in seen.values()),
+            f"{shown_env}",
+        )
+
+
 def shared_environment_cases(tally: Tally) -> None:
     """The shared step of `kit_install` (decision dec-0099-shared-code-installed-as-a-pip-package, R17) over a
     toy kit: the environment it makes, each failure, a check under a virtual environment, and the red and
@@ -4615,6 +4783,7 @@ def self_test() -> int:
     step_two_cases(tally)
     source_at_commit_case(tally)
     shared_environment_cases(tally)
+    session_env_cases(tally)
     total = len(LINK_CASES) + len(UNREADABLE_CASES) + 6 + tally.extra
     print(f"{total - tally.failed}/{total} cases green")
     return EXIT_GREEN if tally.failed == 0 else EXIT_RED
