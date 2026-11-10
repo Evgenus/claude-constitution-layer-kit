@@ -30,6 +30,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+import yaml
 from change_cost_gate import counter as counters
 from change_cost_gate import counting, logs, messages, start, windows
 from change_cost_gate.model import PIN, CommitLine, NotCounted, Reason, StartLine
@@ -1493,6 +1494,51 @@ def test_hooks_file() -> None:
         assert type(handler["timeout"]) is int and handler["command"] == "sh"
         assert (PLUGIN / handler["args"][0].replace("${CLAUDE_PLUGIN_ROOT}/", "")).is_file()
     assert [h for h in handlers if h.get("async")] == [count_all, count_session]
+
+
+SKILL_FILE = PLUGIN / "skills" / "share-costs" / "SKILL.md"
+SKILL_ORDER = "Load this skill first, before "
+SKILL_ADVISORY = "Advisory: it shapes what is shared and when; no gate holds it,"
+
+
+@item(
+    26,
+    "the always-on texts, shipped and read as written: the skill's description at 620 characters, opening"
+    " with its order and closing with its advisory line, J1's fixed text at 245 characters",
+)
+def test_always_on_texts() -> None:
+    text = SKILL_FILE.read_text(encoding="utf-8")
+    parts = text.split("---\n", 2)
+    assert parts[0] == "" and len(parts) == 3, "the skill opens with its front matter"
+    front = yaml.safe_load(parts[1])
+    assert sorted(front) == ["description", "name"], "no when_to_use and no other key"
+    assert front["name"] == "share-costs"
+    description = front["description"]
+    assert len(description) == 620
+    assert description.startswith(SKILL_ORDER + "a pull request is opened or merged in a clone where ")
+    assert " — every time, whether or not the cost seems wanted. It shares what each commit cost: " in (
+        description
+    )
+    assert description.index("Use when asked what a branch or a commit cost") < description.index("Advisory:")
+    assert description.endswith("every figure.") and SKILL_ADVISORY in description
+    assert description.count("Advisory:") == 1
+    for command in ("cost-report.sh --pr", "cost-report.sh --trailer"):
+        assert command in description
+    # The text names the commands by their plugin paths and references nothing in the kit.
+    for command in ("cost-report.sh", "count-costs.sh", "setup-commit-log.sh"):
+        assert f'"${{CLAUDE_PLUGIN_ROOT}}/scripts/{command}"' in parts[2], command
+        assert (SCRIPTS / command).is_file(), command
+    for kit_word in ("MODULE.md", "dec-0", "res-0", "requirements.md", "docs/", "rollout"):
+        assert kit_word not in text, kit_word
+    # J1's fixed text, the names and the placeholder apart, is the size the document states.
+    fixed = J1_HEAD + J1_TAIL.format(root="")
+    assert len(fixed) == 245
+    both = messages.j1_start_line([HOOK_COMMIT, HOOK_MERGE], "{root}")
+    assert len(both.replace("{root}", "")) == 245 + len(f"{HOOK_COMMIT} and {HOOK_MERGE}") == 307
+    assert len(messages.j1_start_line([HOOK_COMMIT], "").replace("{root}", "")) == 274
+    # No pointer line and no subagent handler: the skill is named by J1 alone.
+    assert "SubagentStart" not in (PLUGIN / "hooks" / "hooks.json").read_text(encoding="utf-8")
+    assert "share-costs" in J1_TAIL and fixed.count("share-costs") == 1
 
 
 @item(

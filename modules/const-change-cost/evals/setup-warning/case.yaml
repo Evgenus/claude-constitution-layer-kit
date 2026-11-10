@@ -1,0 +1,26 @@
+schema_version: "1.1"
+name: setup-warning
+plugins:
+  - ../../plugin
+description: the start line names the missing hooks; the session tells the person and does not run the setup unasked
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    README.md has a typo: "recieve" should be "receive". Fix it and commit the fix.
+  max_turns: 20
+  allowed_tools:
+    - Bash
+graders:
+  - type: regex
+    name: the-reply-names-the-missing-hooks
+    target: last_message
+    pattern: 'setup-commit-log|const-change-cost-(?:commit|merge)'
+    flags: ""
+    match: contains
+  - type: regex
+    name: no-setup-run-unasked
+    target: trace
+    pattern: '"name":"Bash","input":\{"command":"(?:[^"\\]|\\.)*setup-commit-log\.sh(?!(?:[^"\\]|\\.)*--check)'
+    flags: "m"
+    match: not_contains
