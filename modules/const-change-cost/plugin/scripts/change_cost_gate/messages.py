@@ -116,6 +116,14 @@ def detail_field(name: str) -> str:
 # ---------------------------------------------------------------- configuration failures
 
 
+def j5_4_install_lock_held(data: str) -> str:
+    return (
+        f"note: another pass kept the lock on the folder {escaped(data)} for"
+        f" {_seconds(INSTALL_LOCK_SECONDS)} s while it installed or ran ccusage — this pass counts nothing,"
+        " and the next pass counts what is left"
+    )
+
+
 def j6_1_no_node() -> Broken:
     return _fail(
         Key.J6_1,
@@ -177,16 +185,6 @@ def j6_5_nothing_installed(data: str) -> Broken:
         f"npm could not install the pinned ccusage into {escaped(data)}: it finished and left no ccusage"
         f" {PIN} in the folder",
         "the plugin's ccusage/package-lock.json is broken; reinstall the plugin",
-    )
-
-
-def j6_5_install_busy(data: str) -> Broken:
-    """Another pass kept the lock on the install in the shared data folder past the wait."""
-    return _fail(
-        Key.J6_5,
-        f"npm could not install the pinned ccusage into {escaped(data)}: another install kept the lock on the"
-        f" folder for {_seconds(INSTALL_LOCK_SECONDS)} s",
-        "wait for the other session's install to end, then start a session again",
     )
 
 
@@ -366,7 +364,7 @@ def j11_4_waiting() -> str:
 
 
 def j11_5_no_transcript(session: str, path: str) -> str:
-    if not path:  # the start event carried no transcript_path, as the kit's install check sends it
+    if not path:  # a SessionStart event may leave transcript_path out; the shared reader takes it as optional
         return (
             f"no transcript of session {escaped(session)} can be read: its start event carried no transcript"
             " path"

@@ -36,10 +36,10 @@ A line that starts `BROKEN: const-change-cost needs the Python package constitut
    ```bash
    sh "<plugin root>/scripts/setup-commit-log.sh"
    ```
-   A person runs it, or a session when the person asks: git's configuration changes only at a person's word. While either hook is
-   missing, the start line names it at every session start, and a commit made before the setup is
-   never logged, so never counted. `--check` tells whether both hooks stand and exits 0 either way;
-   `--remove` takes both out and keeps the logs and the counts.
+   A person runs it, or a session when the person asks: git's configuration changes only at a
+   person's word. While either hook is missing, the start line names it at every session start, and
+   a commit made before the setup is never logged, so never counted. `--check` tells whether both
+   hooks stand and exits 0 either way; `--remove` takes both out and keeps the logs and the counts.
 3. **The count** runs by itself, after each turn and at each start. A person can run it:
    ```bash
    sh "<plugin root>/scripts/count-costs.sh" --all
@@ -73,7 +73,8 @@ A line that starts `BROKEN: const-change-cost needs the Python package constitut
    2.54 or newer, Node, npm and the network once, to install the pinned ccusage into a scratch folder.
 7. CLAUDE.md line: none. The skill `/const-change-cost:share-costs` is named by the start line, which
    is printed while a hook of the commit log is missing; no session has been found to skip it at a
-   merge. This module has no dials of its own. Only the effect report reads the project's `constitution.yaml`.
+   merge. This module has no dials of its own. Only the effect report reads the project's
+   `constitution.yaml`.
    Its reader takes the kernel keys, the namespaces' territories and, under `const-change-cost`, the keys
    `severity` and `log_dir`; leave `log_dir` unset, since no other entry writes to that folder. No other
    entry reads the file.

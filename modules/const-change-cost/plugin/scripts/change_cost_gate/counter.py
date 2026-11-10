@@ -23,6 +23,7 @@ import os
 import shutil
 import subprocess
 from collections.abc import Mapping
+from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -88,7 +89,7 @@ def _same_lock(root: Path, data: Path) -> bool:
         return False
 
 
-def install(root: Path, data: Path, output: Output) -> None:
+def install(root: Path, data: Path) -> None:
     """Copies the plugin's manifest and lockfile into the data folder and runs `npm ci --ignore-scripts`
     there; the lockfile copy stays only when the install succeeded, so that a failed one is tried again."""
     if shutil.which("npm") is None:
@@ -110,7 +111,6 @@ def install(root: Path, data: Path, output: Output) -> None:
         (data / LOCKFILE).unlink(missing_ok=True)
         said = first_line(done.stderr) if done.stderr.strip() else first_line(done.stdout)
         raise ConfigurationFailure(messages.j6_5_npm_failed(str(data), messages.detail_npm_line(said)))
-    output.out(messages.j5_3_installed(str(data)))
 
 
 def _wanted(root: Path, data: Path) -> bool:
@@ -119,28 +119,35 @@ def _wanted(root: Path, data: Path) -> bool:
     return not _same_lock(root, data) or installed_version(data) != PIN
 
 
-def locate(root: Path, data: Path | None, output: Output) -> Ccusage:
-    """The pinned ccusage in the data folder, installed there when the lockfile copy differs or the pinned
-    version is not what stands there; a configuration failure, J6.1 to J6.5, where none can be had. `root` is
-    the plugin root, which holds the manifest and the lockfile in its `ccusage/` folder and the file
-    `ccusage.json`; `data` is None where no folder is known. The data folder is one per plugin, shared by
-    every project, so the install runs under a lock of the folder and asks again once it holds it."""
+def locate(root: Path, data: Path | None, output: Output, stack: ExitStack) -> Ccusage | None:
+    """The pinned ccusage in the data folder, under the lock of that folder, which `stack` holds until the
+    pass has made its last ccusage run: the data folder is one per plugin, shared by every project, and
+    another pass must run neither a half-installed launcher nor another version's. Under the lock it checks
+    what stands, installs when wanted, and checks that the pinned version stands, J6.4 or J6.5 where it does
+    not, before J5.3 says an install was made. None, with the note J5.4, where another pass kept the lock
+    past the wait: nothing is run, npm included, and a later pass counts the windows. `root` is the plugin
+    root, which holds the manifest and the lockfile in its `ccusage/` folder and the file `ccusage.json`;
+    `data` is None where no folder is known; a configuration failure, J6.1 to J6.5, where none can be had.
+    The caller holds the lock of the file of counts first: the lock order is that one, then this one."""
     if shutil.which("node") is None:
         raise ConfigurationFailure(messages.j6_1_no_node())
     if data is None:
         raise ConfigurationFailure(messages.j6_3_no_data_folder())
+    if not stack.enter_context(logs.locked(data, INSTALL_LOCK_SECONDS, INSTALL_LOCK)):
+        output.out(messages.j5_4_install_lock_held(str(data)))
+        return None
+    installed = False
     if _wanted(root, data):
-        with logs.locked(data, INSTALL_LOCK_SECONDS, INSTALL_LOCK) as held:
-            if not held:
-                raise ConfigurationFailure(messages.j6_5_install_busy(str(data)))
-            if _wanted(root, data):
-                install(root, data, output)
+        install(root, data)
+        installed = True
     there = installed_version(data)
-    if there == PIN:
-        return Ccusage(launcher_of(data), PIN, root)
-    if there is not None:
+    if there is None:
+        raise ConfigurationFailure(messages.j6_5_nothing_installed(str(data)))
+    if there != PIN:
         raise ConfigurationFailure(messages.j6_4_other_version(there, str(data)))
-    raise ConfigurationFailure(messages.j6_5_nothing_installed(str(data)))
+    if installed:
+        output.out(messages.j5_3_installed(str(data)))
+    return Ccusage(launcher_of(data), PIN, root)
 
 
 def _whole(entry: Mapping[str, object], name: str) -> int:

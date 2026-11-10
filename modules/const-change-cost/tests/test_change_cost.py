@@ -795,7 +795,7 @@ def test_finding_ccusage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
     assert third.code == 0 and third.stdout.splitlines()[0] == note, third.stderr
     assert len(rig.npm_log.read_text(encoding="utf-8").splitlines()) == 2
     assert by_hand(tmp_path / "by-hand", fake) == []
-    install_busy(tmp_path / "busy", monkeypatch)
+    install_busy(tmp_path / "busy", monkeypatch, fake)
     ccusage_silent(tmp_path / "silent", monkeypatch)
     assert ccusage_failures(tmp_path / "failures") == []
 
@@ -1705,7 +1705,7 @@ def test_no_start_is_made_up(clone: Clone, tmp_path: Path, installed: Path) -> N
     " and the report name its commit as having no transcript, and neither crashes",
 )
 def test_start_without_a_transcript_path(clone: Clone) -> None:
-    """The kit's install check sends such an event; the shared reader takes the field as optional."""
+    """A SessionStart event may leave the field out; the shared reader takes it as optional."""
     bare = json.dumps(
         {"session_id": S1, "cwd": str(clone.root), "hook_event_name": "SessionStart", "source": "startup"}
     )
@@ -1719,7 +1719,7 @@ def test_start_without_a_transcript_path(clone: Clone) -> None:
     later = int(str(records[0]["ms"])) + 1000
     clone.append_line("commits.jsonl", {"sha": "a" * 40, "ms": later, "session": S1, "event": "commit"})
     counted = clone.count("--all")  # Path("") would be the current folder: the path is skipped instead
-    assert (counted.code, closing(counted)) == (0, counted_line(0, 0, 0, 1)), counted.stderr
+    assert (counted.code, counted.stdout.splitlines()) == (0, [counted_line(0, 0, 0, 1)]), counted.stderr
     commits, _ = logs.read_commits(clone.folder)
     starts, _ = logs.read_starts(clone.folder)
     tally = counting.Tally()
@@ -2198,26 +2198,90 @@ def ccusage_silent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-def install_busy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The data folder is shared by every project, so an install runs under a lock of the folder: while
-    another process holds it, the pass waits, and past the wait it gives J6.5 and runs no npm. The wait is
-    0.3 s here, and the line names the 240 s that the module allows, as a hand-typed text."""
-    monkeypatch.setattr(counters, "INSTALL_LOCK_SECONDS", 0.3)
-    data = tmp_path / "data"
-    data.mkdir(parents=True)
-    descriptor = os.open(data / "install.lock", os.O_RDWR | os.O_CREAT, 0o644)
-    fcntl.flock(descriptor, fcntl.LOCK_EX)
-    try:
-        with identity.declared(start.COUNT, Mode.ACT), pytest.raises(ConfigurationFailure) as caught:
-            counters.locate(PLUGIN, data, Said())
-    finally:
-        os.close(descriptor)
-    assert caught.value.broken.render() == broken_line(
-        f"npm could not install the pinned ccusage into {data}: another install kept the lock on the folder"
-        " for 240 s",
-        "wait for the other session's install to end, then start a session again",
+HOLDER = (
+    "import fcntl, os, shutil, sys, time\n"
+    "fd = os.open(sys.argv[1] + '/install.lock', os.O_RDWR | os.O_CREAT, 0o644)\n"
+    "fcntl.flock(fd, fcntl.LOCK_EX)\n"
+    "print('held', flush=True)\n"
+    "if sys.argv[3] == 'wait':\n"
+    "    sys.stdin.readline()\n"
+    "else:\n"
+    "    time.sleep(float(sys.argv[3]))\n"
+    "    shutil.copytree(sys.argv[2], sys.argv[1], dirs_exist_ok=True, symlinks=True)\n"
+)
+
+
+def hold_install_lock(data: Path, stocked: Path, how: str) -> subprocess.Popen[str]:
+    """A second PROCESS that holds the install lock of `data`: until its stdin closes (`wait`), or for `how`
+    seconds, after which it installs what is in `stocked` into `data` and lets go."""
+    data.mkdir(parents=True, exist_ok=True)
+    holder = subprocess.Popen(
+        [sys.executable, "-c", HOLDER, str(data), str(stocked), how],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
     )
-    assert not (data / "node_modules").exists() and not (data / "package-lock.json").exists()
+    assert holder.stdout is not None and holder.stdout.readline().strip() == "held"
+    return holder
+
+
+def let_go(holder: subprocess.Popen[str]) -> None:
+    """Ends the holder process and closes its pipes, so that the run leaves no open file behind."""
+    for pipe in (holder.stdin, holder.stdout):
+        if pipe is not None:
+            pipe.close()
+    holder.wait(timeout=20)
+
+
+def pass_in_process(rig: Rig, monkeypatch: pytest.MonkeyPatch, fake: Path) -> Said:
+    """One count pass in this process, over the rig's clone, with the rig's fake node and npm on PATH."""
+    for name, value in (
+        ("PATH", str(rig.bin)),
+        ("NPM_LOG", str(rig.npm_log)),
+        ("FAKE_CCUSAGE", str(fake)),
+        ("CLAUDE_PLUGIN_DATA", str(rig.clone.data)),
+        ("TMPDIR", str(rig.clone.tmp)),
+    ):
+        monkeypatch.setenv(name, value)
+    monkeypatch.chdir(rig.clone.root)
+    said = Said()
+    with identity.declared(start.COUNT, Mode.ACT):
+        assert counting.run(said, counting.Scope(None), rig.clone.root) == 0
+    return said
+
+
+def install_busy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake: Path) -> None:
+    """The data folder is shared by every project, so a pass holds the install lock of the folder from its
+    first window to count to its last ccusage run, under the lock of the file of counts. While a second
+    process holds it, the pass waits (0.3 s here, 240 s in the module) and then counts nothing: J5.4, exit 0,
+    the windows waiting for a later pass, no npm call. A lock that the other process lets go after it
+    installed the pinned version leads to no npm call, since the pass asks again under the lock."""
+    monkeypatch.setattr(counters, "INSTALL_LOCK_SECONDS", 0.3)
+    stocked = tmp_path / "stocked"
+    stock(stocked, PIN, FAKE_REPORT)
+    rig = Rig.make(tmp_path / "busy", npm=FAKE_NPM)
+    holder = hold_install_lock(rig.clone.data, stocked, "wait")
+    try:
+        said = pass_in_process(rig, monkeypatch, fake)
+    finally:
+        let_go(holder)
+    assert [text for _, text in said.lines] == [
+        f"note: another pass kept the lock on the folder {rig.clone.data} for 240 s while it installed or ran"
+        " ccusage — this pass counts nothing, and the next pass counts what is left",
+        counted_line(0, 0, 1, 0),
+    ]
+    assert not rig.npm_log.exists() and not (rig.clone.data / "node_modules").exists()
+    assert rig.clone.kept() == []
+    monkeypatch.setattr(counters, "INSTALL_LOCK_SECONDS", 30.0)
+    other = Rig.make(tmp_path / "released", npm=FAKE_NPM)
+    holder = hold_install_lock(other.clone.data, stocked, "0.6")
+    try:
+        counted = pass_in_process(other, monkeypatch, fake)
+    finally:
+        let_go(holder)
+    assert [text for _, text in counted.lines] == [counted_line(1, 0, 0, 0)]
+    assert not other.npm_log.exists(), "the pass asks again under the lock and finds the pinned version"
+    assert totals(other.clone) == [10]
 
 
 def by_hand(tmp_path: Path, fake: Path) -> list[str]:
@@ -2263,8 +2327,8 @@ def ccusage_failures(tmp_path: Path) -> list[str]:
     failures: list[str] = []
 
     def check(label: str, result: Result, first: str) -> None:
-        if result.code != 1 or result.stderr.splitlines() != [first, CLOSING]:
-            failures.append(f"{label}: exit {result.code}: {result.stderr.strip()[:500]}")
+        if result.code != 1 or result.stderr.splitlines() != [first, CLOSING] or result.stdout != "":
+            failures.append(f"{label}: exit {result.code}: {result.stderr.strip()[:500]} {result.stdout!r}")
 
     rig = Rig.make(tmp_path / "no-node", node=False, npm=FAKE_NPM)
     check(

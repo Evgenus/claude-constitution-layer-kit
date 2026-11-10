@@ -39,7 +39,7 @@ total, 2 counted commit(s): input 2,000, output 550, cache write 5,000, cache re
 
 **The skill `share-costs`.** A procedure in prose: set up the commit log only when asked, share the block and the trailers at the pull request and the merge, write notes only on your word, and read each figure as what it is. It checks nothing. The start line names it where it applies.
 
-**Settings.** The module has no dials and works with no configuration. Only its effect report reads the project's settings file, and only for the keys every module takes; leave `log_dir` unset for this module. The ccusage version is pinned, so two clones count alike, and every cost is the list price at that version.
+**Settings.** The module has no dials and works with no configuration. Only its effect report reads the project's settings file: the kernel keys, every namespace's territory and, for this module, the keys `severity` and `log_dir`. Leave `log_dir` unset for this module. The ccusage version is pinned, so two clones count alike, and every cost is the list price at that version.
 
 <a id="a5"></a>
 ## Get it

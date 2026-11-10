@@ -18,6 +18,7 @@ import tempfile
 import time
 from collections import Counter
 from collections.abc import Callable, Sequence
+from contextlib import ExitStack
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -40,7 +41,7 @@ from .model import (
 )
 
 # Finds the pinned ccusage, installing it into the data folder when needed; asked at the first window.
-Locate = Callable[[], counters.Ccusage]
+Locate = Callable[[], counters.Ccusage | None]
 
 
 @dataclass(slots=True)
@@ -161,6 +162,9 @@ def count_session(
     if locate is None or not ready:
         return
     counter = locate()
+    if counter is None:  # another pass holds the data folder: these windows wait for a later pass
+        tally.not_counted += [NotCounted(commit.sha, Reason.WAITING, session) for commit in ready.values()]
+        return
     compactions = windows.compactions_in(found, times)
     try:
         root = Path(tempfile.mkdtemp(prefix=f"{identity.current().namespace}-"))
@@ -211,16 +215,17 @@ def run(output: Output, scope: Scope, directory: Path) -> int:
     data = Path(named) if named else logs.recorded_plugin_data(folder)
     with logs.locked(folder, model.LOCK_SECONDS) as held:
         if held:
-            found: list[counters.Ccusage] = []
+            found: list[counters.Ccusage | None] = []
+            with ExitStack() as installs:  # the install lock, held after the counts lock to the pass's end
 
-            def locate() -> counters.Ccusage:
-                """The first window to count asks; a later one has the answer."""
-                if not found:
-                    root = identity.current().plugin_root
-                    found.append(counters.locate(root, data, output))
-                return found[0]
+                def locate() -> counters.Ccusage | None:
+                    """The first window to count asks; a later one has the answer."""
+                    if not found:
+                        root = identity.current().plugin_root
+                        found.append(counters.locate(root, data, output, installs))
+                    return found[0]
 
-            tally = count_all(output, scope, folder, locate)
+                tally = count_all(output, scope, folder, locate)
         else:
             output.out(messages.j5_2_lock_held())
             tally = count_all(output, scope, folder, None)
