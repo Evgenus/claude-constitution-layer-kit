@@ -31,7 +31,7 @@ The session recommended B, the only option that loses no commit. The decider cho
 
 <a id="r1"></a>**R1.** The commit log is git's `post-commit` and `post-merge` hooks, set in the clone's git configuration. Each is a whole command that appends the commit's SHA, the time in milliseconds and the value of `CLAUDE_CODE_SESSION_ID` to the log in the clone's git common directory, which every worktree of the clone shares.
 
-<a id="r2"></a>**R2.** The module ships a command that writes the two keys into the clone's `.git/config`, and removes them when asked; it writes nothing else there. While either key is missing, the module's `SessionStart` hook names the missing keys and that command in its output at each session start. No hook of the module writes the keys.
+<a id="r2"></a>**R2.** The module ships a command that writes the two keys into the clone's `.git/config`, and removes them when asked; it writes nothing else there. While either key is missing, the module's `SessionStart` hook names the missing keys and that command in its output at each session start. No hook of the module writes the keys. The commit log runs only from the setup in each clone, so for the commit log this narrows [R13](dec-0116-tokens-per-commit-counted-by-ccusage.md#r13) of dec-0116: the start log and the count run from the project's first session that commits, the commit log from the clone's setup, and a commit made before it is not logged.
 
 ## 2. How the module runs ccusage
 
@@ -222,11 +222,11 @@ The change that holds this record carries R9 and R12 to R17 into the requirement
 
 ## Carry list
 
-1. R1, R2 — [section 3 of the module's document](../../modules/const-change-cost/MODULE.md#t3), the reading of the logs' row, and [section 5](../../modules/const-change-cost/MODULE.md#t5), rule J-a.
+1. R1, R2 — [section 2 of the module's document](../../modules/const-change-cost/MODULE.md#t2), the setup in each clone, [section 3](../../modules/const-change-cost/MODULE.md#t3), the reading of the logs' row, and [section 5](../../modules/const-change-cost/MODULE.md#t5), rule J-a.
 2. R3, R8, R9 — [section 3 of the module's document](../../modules/const-change-cost/MODULE.md#t3), the reading of the counter's row, [section 6](../../modules/const-change-cost/MODULE.md#t6), the configuration row, and [row A15.2 of the requirements matrix](../requirements.md#a15-2).
 3. R4, R10, R16 — [section 6 of the module's document](../../modules/const-change-cost/MODULE.md#t6), the rows of the scripts and of the package.
 4. R5 — [section 3 of the module's document](../../modules/const-change-cost/MODULE.md#t3), the reading of the count's row.
 5. R6, R7 — [section 3 of the module's document](../../modules/const-change-cost/MODULE.md#t3), the reading of the row of ownership and windows.
 6. R11 — [section 7 of the module's document](../../modules/const-change-cost/MODULE.md#t7), and [section 12](../../modules/const-change-cost/MODULE.md#t12), items 1 to 3.
 7. R12, R13, R14, R15 — [section 5 of the module's document](../../modules/const-change-cost/MODULE.md#t5), rules J-b and J-c, [section 6](../../modules/const-change-cost/MODULE.md#t6), the rows of the skill and the scripts, and [row A15.7 of the requirements matrix](../requirements.md#a15-7).
-8. R17 — [section 3 of the module's document](../../modules/const-change-cost/MODULE.md#t3), the reading of the row of the count's reach, and [row A15.4 of the requirements matrix](../requirements.md#a15-4).
+8. R17 — [section 3 of the module's document](../../modules/const-change-cost/MODULE.md#t3), the reading of the row of the count's reach, [section 6](../../modules/const-change-cost/MODULE.md#t6), the line that defines `{figures}`, and [row A15.4 of the requirements matrix](../requirements.md#a15-4).

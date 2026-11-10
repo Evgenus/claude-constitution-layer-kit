@@ -126,7 +126,7 @@ The decider asked for a count that holds all the work of a session. [res-0015-co
 
 The session recommended A: it keeps one counter, and the shortfall is shown, not hidden. B can come later as a dial when a project needs compactions counted. The decider chose A in chat on 2026-11-09.
 
-<a id="r14"></a>**R14.** A compaction's tokens are not counted. The count holds every reply the session's transcripts record, and the report names each compaction, by its `compact_boundary` record, in the window of the commit it falls in.
+<a id="r14"></a>**R14.** A compaction's tokens are not counted. The count holds every reply the session's transcripts record, and the report names each compaction, by its `compact_boundary` record, in the window of the commit it falls in. Counting compactions can come later as a dial, when a project needs them counted.
 
 ## Applied
 
@@ -136,10 +136,10 @@ The change that holds this record adds aspect A15, rows [A15.1](../requirements.
 
 1. R1, R2 — [row A15.2 of the requirements matrix](../requirements.md#a15-2).
 2. R3, R4 — [row A15.3 of the requirements matrix](../requirements.md#a15-3).
-3. R5, R6 — [row A15.4 of the requirements matrix](../requirements.md#a15-4).
+3. R5, R6 — [row A15.4 of the requirements matrix](../requirements.md#a15-4), and [row A15.2](../requirements.md#a15-2), where the cost of each reply is not used.
 4. R7 — [row A15.5 of the requirements matrix](../requirements.md#a15-5).
 5. R8 — [row A15.2 of the requirements matrix](../requirements.md#a15-2) for the pin's place, and [row A15.6](../requirements.md#a15-6) for the known count.
 6. R9, R11, R13 — [section 2 of the module's document](../../modules/const-change-cost/MODULE.md#t2), its failure class, its entry trigger and that no other module carries any part, and [aspect A15](../requirements.md#a15).
 7. R10 — pending: [item 9.35 of the rollout plan](../rollout-plan.md#s9-35).
 8. R12 — [the module's specification in the requirements matrix](../requirements.md#const-change-cost), its heading, and [aspect A15](../requirements.md#a15).
-9. R14 — [row A15.1 of the requirements matrix](../requirements.md#a15-1).
+9. R14 — [row A15.1 of the requirements matrix](../requirements.md#a15-1), and [section 12 of the module's document](../../modules/const-change-cost/MODULE.md#t12), item 4, the dial that counts compactions.
