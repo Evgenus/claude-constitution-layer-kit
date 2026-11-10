@@ -1,16 +1,19 @@
 """The counter: the pinned ccusage, where it stands, how it is installed, how it is run and how its output is
 read.
 
-It stands in the `node_modules` of the plugin root, where Claude Code installed it for a plugin it copied;
-else in the `node_modules` of the plugin's data folder, `${CLAUDE_PLUGIN_DATA}`, where `npm ci
---ignore-scripts` installs it for a plugin loaded in place, when the data folder's copy of the lockfile
-differs from the plugin's or its `node_modules` is gone. A run with no `CLAUDE_PLUGIN_DATA`, such as a
-person's shell, looks in the data folder that a hook recorded in the clone, when that folder still stands.
+It stands in the `node_modules` of the plugin's data folder, `${CLAUDE_PLUGIN_DATA}`, and nowhere else: the
+plugin's `package.json` and `package-lock.json` stand in its folder `ccusage/`, not at the plugin root, so
+that the platform's install of a copied plugin installs nothing. The count copies both files into the data
+folder and runs `npm ci --ignore-scripts` there when the data folder's copy of the lockfile differs from the
+plugin's or its `node_modules` is gone. A run with no `CLAUDE_PLUGIN_DATA`, such as a person's shell, uses
+the data folder that a hook recorded in the clone, when that folder still stands, and has nowhere to install
+when none does.
 It is run through the launcher in its `.bin` folder and never through a platform binary by its path, as
 `ccusage claude session --id <session> --json --offline --config <plugin root>/ccusage.json` with
 `CLAUDE_CONFIG_DIR` naming the throwaway folder of one window; a second run without `--id` names the models
 its table lacks. The module's own code reads no token count of a transcript and uses no per-reply cost of
-the output: the figures are those of the output."""
+the output: the figures are those of the output. It passes its own environment on to ccusage; the variables
+the installed `20.0.48` reads, other than the one set here, did not change its output on the known count."""
 
 from __future__ import annotations
 
@@ -31,6 +34,7 @@ from .model import CCUSAGE_SECONDS, NPM_SECONDS, PIN, Counted, Entry, Report
 
 LOCKFILE = "package-lock.json"
 MANIFEST = "package.json"
+SOURCE = "ccusage"  # the folder of the plugin that holds the manifest and the lockfile, never the plugin root
 NPM_ARGUMENTS = ["npm", "ci", "--ignore-scripts"]
 
 
@@ -69,7 +73,7 @@ def installed_version(base: Path) -> str | None:
 
 def _same_lock(root: Path, data: Path) -> bool:
     try:
-        return (root / LOCKFILE).read_bytes() == (data / LOCKFILE).read_bytes()
+        return (root / SOURCE / LOCKFILE).read_bytes() == (data / LOCKFILE).read_bytes()
     except OSError:
         return False
 
@@ -80,8 +84,8 @@ def install(root: Path, data: Path, output: Output) -> None:
     if shutil.which("npm") is None:
         raise ConfigurationFailure(messages.j6_2_no_npm(str(data)))
     data.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(root / MANIFEST, data / MANIFEST)
-    shutil.copyfile(root / LOCKFILE, data / LOCKFILE)
+    shutil.copyfile(root / SOURCE / MANIFEST, data / MANIFEST)
+    shutil.copyfile(root / SOURCE / LOCKFILE, data / LOCKFILE)
     try:
         done = subprocess.run(NPM_ARGUMENTS, cwd=data, capture_output=True, check=False, timeout=NPM_SECONDS)
     except subprocess.TimeoutExpired as exc:
@@ -100,20 +104,14 @@ def install(root: Path, data: Path, output: Output) -> None:
 
 
 def locate(root: Path, data: Path | None, output: Output) -> Ccusage:
-    """The pinned ccusage under the plugin root, else under the data folder, installed there when the lockfile
-    copy differs or `node_modules` is gone; a configuration failure, J6.1 to J6.5, where none can be had.
-    `data` is None where no folder is known."""
+    """The pinned ccusage in the data folder, installed there when the lockfile copy differs or
+    `node_modules` is gone; a configuration failure, J6.1 to J6.5, where none can be had. `root` is the
+    plugin root, which holds the manifest and the lockfile in its `ccusage/` folder and the file
+    `ccusage.json`; `data` is None where no folder is known."""
     if shutil.which("node") is None:
         raise ConfigurationFailure(messages.j6_1_no_node())
-    found = installed_version(root)
-    if found == PIN:
-        return Ccusage(launcher_of(root), PIN, root)
     if data is None:
-        raise ConfigurationFailure(
-            messages.j6_4_other_version(found, str(root))
-            if found
-            else messages.j6_3_no_ccusage(str(root), None)
-        )
+        raise ConfigurationFailure(messages.j6_3_no_data_folder())
     if not _same_lock(root, data) or installed_version(data) is None:
         install(root, data, output)
     there = installed_version(data)
@@ -121,9 +119,7 @@ def locate(root: Path, data: Path | None, output: Output) -> Ccusage:
         return Ccusage(launcher_of(data), PIN, root)
     if there is not None:
         raise ConfigurationFailure(messages.j6_4_other_version(there, str(data)))
-    if found is not None:
-        raise ConfigurationFailure(messages.j6_4_other_version(found, str(root)))
-    raise ConfigurationFailure(messages.j6_3_no_ccusage(str(root), str(data)))
+    raise ConfigurationFailure(messages.j6_5_npm_failed(str(data), messages.detail_npm_nothing()))
 
 
 def _whole(entry: Mapping[str, object], name: str) -> int:

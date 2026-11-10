@@ -39,7 +39,7 @@ from .model import (
     StartLine,
 )
 
-# Finds the pinned ccusage, installing it where the plugin loads in place; asked at the first window to count.
+# Finds the pinned ccusage, installing it into the data folder when needed; asked at the first window.
 Locate = Callable[[], counters.Ccusage]
 
 

@@ -131,22 +131,15 @@ def j6_2_no_npm(data: str) -> Broken:
     )
 
 
-def j6_3_no_ccusage(root: str, data: str | None) -> Broken:
-    """`data` is the data folder the run looked in, or None where it had none to look in."""
-    if data is None:
-        return _fail(
-            Key.J6_3,
-            f"{_ns()} needs ccusage {PIN}, which its package-lock.json pins, and found none under"
-            f" {escaped(root)}; it looked in no data folder, since CLAUDE_PLUGIN_DATA is not set here and the"
-            " clone records none that stands",
-            f"run npm ci --ignore-scripts in {escaped(root)}, or start a Claude Code session in this project"
-            " and run count-costs.sh --all again, which then finds the folder the session records",
-        )
+def j6_3_no_data_folder() -> Broken:
+    """The count installs ccusage into the plugin's data folder only, and this run knows none."""
     return _fail(
         Key.J6_3,
-        f"{_ns()} needs ccusage {PIN}, which its package-lock.json pins, and found none under"
-        f" {escaped(root)} or in the data folder {escaped(data)}",
-        f"run npm ci --ignore-scripts in {escaped(root)}",
+        f"{_ns()} needs ccusage {PIN}, which its package-lock.json pins and the count installs into the"
+        " plugin's data folder; it found no data folder, since CLAUDE_PLUGIN_DATA is not set here and the"
+        " clone records none that stands",
+        "start a Claude Code session in this project and run count-costs.sh --all again, which then finds"
+        " the folder the session records",
     )
 
 
@@ -161,6 +154,10 @@ def j6_4_other_version(found: str, where: str) -> Broken:
 
 def detail_npm_line(line: str) -> str:
     return echoed(line)
+
+
+def detail_npm_nothing() -> str:
+    return f"it finished and left no ccusage {PIN} in the folder"
 
 
 def detail_npm_silent() -> str:

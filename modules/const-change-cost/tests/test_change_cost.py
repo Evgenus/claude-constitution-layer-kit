@@ -45,6 +45,7 @@ from constitution_layer_kit.testing.items import Subject, fake_claude, tr_line
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 PLUGIN = SCRIPTS.parent
+PINNED = PLUGIN / "ccusage"  # where the manifest and the lockfile of the pin stand, never the plugin root
 FIXTURE = Path(__file__).resolve().parent / "fixture" / "projects" / "p"
 
 IDENTITY = start.COUNT  # declared for the whole session by conftest; the expected messages read it
@@ -172,6 +173,15 @@ def install_script(root: Path, version: str, body: str) -> None:
     fake_program(root / "node_modules" / ".bin" / "ccusage", body)
 
 
+def stock(data: Path, version: str, body: str) -> None:
+    """A data folder that holds a fake ccusage of `version` under `node_modules` and the plugin's lockfile, as
+    a pass that installed it leaves it."""
+    data.mkdir(parents=True, exist_ok=True)
+    for name in ("package.json", "package-lock.json"):
+        shutil.copyfile(PINNED / name, data / name)
+    install_script(data, version, body)
+
+
 FAKE_REPORT = (
     'case "$*" in\n'
     '  *"--id"*) echo \'{"entries":[{"model":"m","inputTokens":1,"outputTokens":2,'
@@ -204,7 +214,7 @@ class Clone:
         data.mkdir()
         if installed is not None:
             for name in ("package.json", "package-lock.json"):
-                shutil.copyfile(PLUGIN / name, data / name)
+                shutil.copyfile(PINNED / name, data / name)
             os.symlink(installed / "node_modules", data / "node_modules")
         tmp = parent / "tmp"
         tmp.mkdir()
@@ -262,7 +272,7 @@ def installed(tmp_path_factory: pytest.TempPathFactory) -> Path:
     failed install fails the run with the install command, never skips what needs it."""
     folder = tmp_path_factory.mktemp("ccusage-installed")
     for name in ("package.json", "package-lock.json"):
-        shutil.copyfile(PLUGIN / name, folder / name)
+        shutil.copyfile(PINNED / name, folder / name)
     npm = shutil.which("npm")
     if npm is None:
         pytest.fail(f"npm is not on PATH, and the items that count need the pinned ccusage — {NPM_HINT}")
@@ -571,11 +581,9 @@ def test_waits_and_once(tmp_path: Path, installed: Path) -> None:
     killed.start(S1, 0)
     killed.append_record(S1, 14)
     killed.commit("b" * 40, 13, S1)
-    root = tmp_path / "killer"
-    shutil.copytree(PLUGIN, root, ignore=shutil.ignore_patterns("__pycache__", "node_modules"))
-    install_script(root, PIN, "kill -9 $PPID\n")
-    harness = Harness(root / "scripts", "count-costs.sh", "count-costs.py", NS)
-    dead = killed.count("--all", harness=harness, env={"CLAUDE_PLUGIN_DATA": str(tmp_path / "nowhere")})
+    killer = tmp_path / "killer-data"
+    stock(killer, PIN, "kill -9 $PPID\n")
+    dead = killed.count("--all", env={"CLAUDE_PLUGIN_DATA": str(killer)})
     assert dead.code == -9, dead.stderr
     assert killed.kept() == []
     recovered = killed.count("--all")
@@ -737,19 +745,25 @@ FAKE_NPM = (
 
 @item(
     19,
-    "ccusage under the plugin root, else the data folder, installed there when the lockfile copy differs;"
-    " J5.3 and J6.1 to J6.6",
+    "ccusage in the data folder alone, installed there when the lockfile copy differs, the manifest and the"
+    " lockfile read from the plugin's ccusage folder; J5.3 and J6.1 to J6.6",
 )
 def test_finding_ccusage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     fake = tmp_path / "fake-ccusage"
     fake_program(fake, FAKE_REPORT)
-    # under the plugin root: used, no npm call
+    # in the data folder with the plugin's lockfile copy: used, no npm call
     rig = Rig.make(tmp_path / "root", npm=FAKE_NPM)
-    install_script(rig.root, PIN, FAKE_REPORT)
+    stock(rig.clone.data, PIN, FAKE_REPORT)
     done = rig.run()
     assert (done.code, closing(done)) == (0, counted_line(1, 0, 0, 0)), done.stderr
     assert not rig.npm_log.exists()
     assert totals(rig.clone) == [10]
+    # a ccusage under the plugin root is not looked for: the data folder gets its own, installed by npm ci
+    rig = Rig.make(tmp_path / "root-unused", npm=FAKE_NPM)
+    install_script(rig.root, PIN, "echo 'the plugin root is no place for ccusage' >&2\nexit 9\n")
+    unused = rig.run(env={"FAKE_CCUSAGE": str(fake)})
+    assert (unused.code, closing(unused)) == (0, counted_line(1, 0, 0, 0)), unused.stderr
+    assert rig.npm_log.read_text(encoding="utf-8").splitlines() == [f"{rig.clone.data} ci --ignore-scripts"]
     # no ccusage anywhere, the data folder without a lockfile: installed there, once, by npm ci
     rig = Rig.make(tmp_path / "data", npm=FAKE_NPM)
     first = rig.run(env={"FAKE_CCUSAGE": str(fake)})
@@ -796,13 +810,15 @@ def test_no_lookup_without_a_window(tmp_path: Path) -> None:
 
 @item(
     20,
-    "the pin: package.json and the lockfile name ccusage 20.0.48 exactly, every package an https address"
-    " and a hash, none a script",
+    "the pin: package.json and the lockfile, in the plugin's ccusage folder and not at its root, name ccusage"
+    " 20.0.48 exactly, every package an https address and a hash, none a script",
 )
 def test_the_pin() -> None:
-    manifest = json.loads((PLUGIN / "package.json").read_text(encoding="utf-8"))
+    for name in ("package.json", "package-lock.json"):  # at the plugin root the platform would install them
+        assert not (PLUGIN / name).exists(), name
+    manifest = json.loads((PINNED / "package.json").read_text(encoding="utf-8"))
     assert manifest["dependencies"] == {"ccusage": "20.0.48"}
-    lock = json.loads((PLUGIN / "package-lock.json").read_text(encoding="utf-8"))
+    lock = json.loads((PINNED / "package-lock.json").read_text(encoding="utf-8"))
     assert lock["lockfileVersion"] == 3
     packages = {name: held for name, held in lock["packages"].items() if name}
     assert packages["node_modules/ccusage"]["version"] == "20.0.48"
@@ -2121,14 +2137,15 @@ def test_notes(tmp_path: Path) -> None:
 # ------------------------------------------------------------------ T19, T23: failures typed by hand
 
 
-def no_data_folder(root: Path) -> str:
-    """J6.3 where the run has no data folder to look in: the variable unset, and no recorded folder stands."""
+def no_data_folder() -> str:
+    """J6.3 where the run has no data folder to install into: the variable unset, and no recorded folder
+    stands. It is the only form of J6.3, and its fix names no npm call in the plugin root."""
     return broken_line(
-        f"const-change-cost needs ccusage 20.0.48, which its package-lock.json pins, and found none under"
-        f" {root}; it looked in no data folder, since CLAUDE_PLUGIN_DATA is not set here and the clone"
-        " records none that stands",
-        f"run npm ci --ignore-scripts in {root}, or start a Claude Code session in this project and run"
-        " count-costs.sh --all again, which then finds the folder the session records",
+        "const-change-cost needs ccusage 20.0.48, which its package-lock.json pins and the count installs"
+        " into the plugin's data folder; it found no data folder, since CLAUDE_PLUGIN_DATA is not set here"
+        " and the clone records none that stands",
+        "start a Claude Code session in this project and run count-costs.sh --all again, which then finds"
+        " the folder the session records",
     )
 
 
@@ -2182,7 +2199,7 @@ def by_hand(tmp_path: Path, fake: Path) -> list[str]:
     rig.clone.commit("d" * 40, 18.5, S1)
     rig.clone.append_record(S1, 20)
     lost = rig.run(env=env, by_hand=True)
-    if lost.code != 1 or lost.stderr.splitlines() != [no_data_folder(rig.root), CLOSING]:
+    if lost.code != 1 or lost.stderr.splitlines() != [no_data_folder(), CLOSING]:
         failures.append(f"no data folder: exit {lost.code}: {lost.stderr.strip()[:500]}")
     return failures
 
@@ -2216,26 +2233,27 @@ def ccusage_failures(tmp_path: Path) -> list[str]:
         ),
     )
     rig = Rig.make(tmp_path / "none")
-    check("J6.3", rig.run(data=False), no_data_folder(rig.root))
+    check("J6.3", rig.run(data=False), no_data_folder())
     rig = Rig.make(tmp_path / "none-known", npm="exit 0\n")  # an npm that succeeds and installs nothing
     check(
-        "J6.3 data folder known",
+        "npm left no ccusage",
         rig.run(),
         broken_line(
-            "const-change-cost needs ccusage 20.0.48, which its package-lock.json pins, and found none"
-            f" under {rig.root} or in the data folder {rig.clone.data}",
-            f"run npm ci --ignore-scripts in {rig.root}",
+            f"npm could not install the pinned ccusage into {rig.clone.data}: it finished and left no"
+            " ccusage 20.0.48 in the folder",
+            "repair what npm names — the network, the registry, the folder's rights — then start a session"
+            " again",
         ),
     )
     rig = Rig.make(tmp_path / "other")
-    install_script(rig.root, "20.0.47", FAKE_REPORT)
+    stock(rig.clone.data, "20.0.47", FAKE_REPORT)
     check(
         "J6.4",
-        rig.run(data=False),
+        rig.run(),
         broken_line(
-            f"const-change-cost needs ccusage 20.0.48 and found 20.0.47 under {rig.root}",
+            f"const-change-cost needs ccusage 20.0.48 and found 20.0.47 under {rig.clone.data}",
             "start a Claude Code session in this project, whose count installs the pinned one, or run npm ci"
-            f" --ignore-scripts in {rig.root}",
+            f" --ignore-scripts in {rig.clone.data}",
         ),
     )
     rig = Rig.make(tmp_path / "npm-fails", npm='echo "npm error network down" >&2\nexit 1\n')
@@ -2260,11 +2278,11 @@ def ccusage_failures(tmp_path: Path) -> list[str]:
         ),
     ):
         rig = Rig.make(tmp_path / label.replace(" ", "-"))
-        install_script(rig.root, PIN, body)
-        launcher = rig.root / "node_modules" / ".bin" / "ccusage"
+        stock(rig.clone.data, PIN, body)
+        launcher = rig.clone.data / "node_modules" / ".bin" / "ccusage"
         check(
             label,
-            rig.run(data=False),
+            rig.run(),
             broken_line(
                 f"ccusage gave no count for session {S1}: {what}",
                 f"{where} {launcher} --version and report both to whoever maintains the plugin",

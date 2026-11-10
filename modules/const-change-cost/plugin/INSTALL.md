@@ -24,10 +24,11 @@ A line that starts `BROKEN: const-change-cost needs the Python package constitut
    start. The skill `share-costs` tells a session how to put the counts into a pull request and a
    merge commit, and to share them only when a person starts it: by a command, or by asking the session to
    open a pull request or make a merge. A hook never starts it. The pinned ccusage comes with the
-   plugin: Claude Code installs it into the folder it copies the plugin to, and for a plugin loaded in
-   place the count installs it into the plugin's data folder, at the first pass that has a complete
-   window to count. The start hook and the count record that data folder in the clone, so that a
-   count you run by hand, in a shell that has no `CLAUDE_PLUGIN_DATA`, finds the same ccusage.
+   plugin as a manifest and a lockfile in its folder `ccusage/`, and the platform installs nothing for
+   them. The count installs ccusage into the plugin's data folder, with `npm ci --ignore-scripts`, at the
+   first pass that has a complete window to count. The start hook and the count record that data folder
+   in the clone, so that a count you run by hand, in a shell that has no `CLAUDE_PLUGIN_DATA`, finds the
+   same ccusage.
 2. **Once per clone, a person runs the setup command.** It writes two hooks into the clone's git
    configuration, `hook.const-change-cost-commit` on `post-commit` and
    `hook.const-change-cost-merge` on `post-merge`, which log every commit with the session that made
@@ -44,9 +45,9 @@ A line that starts `BROKEN: const-change-cost needs the Python package constitut
    sh "<plugin root>/scripts/count-costs.sh" --all
    ```
    A commit is counted once its window is complete, which is when the session has a record dated after
-   the commit. Each count is one line, written once and never made again. Where it finds no ccusage,
-   it says where it looked: run `npm ci --ignore-scripts` in the plugin root it names, or start a
-   session in this project, which records the data folder, and run it again.
+   the commit. Each count is one line, written once and never made again. Where it knows no data folder
+   to install ccusage into, it says so: start a session in this project, which records the data
+   folder, and run it again.
 4. **The report**, run by a person or by a session at their word, from anywhere in the clone:
    ```bash
    sh "<plugin root>/scripts/cost-report.sh" [<range>]

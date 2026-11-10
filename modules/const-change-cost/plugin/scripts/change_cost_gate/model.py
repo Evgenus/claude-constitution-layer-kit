@@ -42,7 +42,7 @@ class Key(StrEnum):
 
     J6_1 = "J6.1"  # node is not on PATH
     J6_2 = "J6.2"  # npm is not on PATH, and the pinned ccusage must be installed
-    J6_3 = "J6.3"  # no ccusage stands under the plugin root or in the data folder
+    J6_3 = "J6.3"  # no data folder is known to install ccusage into
     J6_4 = "J6.4"  # a ccusage of another version stands there
     J6_5 = "J6.5"  # npm could not install the pinned ccusage
     J6_6 = "J6.6"  # ccusage gave no count

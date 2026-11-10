@@ -130,7 +130,18 @@ When a plugin root holds a `package.json` with a lockfile, Claude Code installs 
 
 The session recommended A, native first for every project installed from the marketplace while the kit's own load in place stays covered, with the module's fixtures to prove the install the survey did not run. The decider chose A in chat on 2026-11-09.
 
-<a id="r8"></a>**R8.** A `package.json` and its `package-lock.json` at the plugin root pin ccusage to an exact version. Where Claude Code copies the plugin, its own install of that lockfile is the module's install. Where the plugin loads in place, the module's `SessionStart` hook installs the same lockfile into `${CLAUDE_PLUGIN_DATA}` when the copy there differs.
+**Revisited on 2026-11-10, before this record's yes.** The kit's bare-install check, run on the pinned Claude Code 2.1.282, reported "the installed copy holds a link its source lacks: `node_modules/.bin/ccusage`" for the plugin with its two files at the root. That link is the platform's own install, the first half of the choice above. The check holds [requirement A12.1](../requirements.md#a12-1), that a module installs and runs on a bare repository with its own files alone. A probe on a scratch copy with the two files in a subfolder reported no link finding. The decider was asked again, with two options.
+
+- **A. Keep the files at the plugin root.** The platform installs `node_modules` into the copy, and the kit's two install checks learn to accept that folder.
+  - **Pros:** the choice above stands; a project that installs from the marketplace gets the platform's own install and nothing of the module's to fail.
+  - **Cons:** two kit checks gain an exception for one module's folder, which weakens the rule they hold; the module keeps two install paths to build and test; the code looks for ccusage in two places.
+- **B. Move the files into a subfolder of the plugin.** The platform finds no `package.json` at the root and installs nothing; the count always installs into `${CLAUDE_PLUGIN_DATA}`.
+  - **Pros:** the install checks stay as they are and green; one install path, the same for every project; one place where ccusage stands, and so one place to look.
+  - **Cons:** the module does by hand what the platform would do, against the native-first principle of the [intent page](../../INTENT.md#p1); each person's first count needs the network and npm, as option B above said.
+
+The session recommended B: a green check on the rule of [requirement A12.1](../requirements.md#a12-1) is worth more than the platform's install here, because the count runs in the data folder in any case. The decider chose B in chat on 2026-11-10, which reverses the first half of the earlier pick, the platform's install of a copied plugin, and keeps the second, the module's own install into `${CLAUDE_PLUGIN_DATA}`.
+
+<a id="r8"></a>**R8.** A `package.json` and its `package-lock.json` pin ccusage to an exact version and stand in the plugin's folder `ccusage/`, never at the plugin root, so that no platform install acts on them. The count installs that lockfile into `${CLAUDE_PLUGIN_DATA}` at its first complete window to count, whichever pass meets it, and installs it again when the copy there differs or its `node_modules` is gone. ccusage is looked for in the data folder only.
 
 ## 8. A model with no price
 
@@ -223,7 +234,7 @@ The change that holds this record carries R9 and R12 to R17 into the requirement
 ## Carry list
 
 1. R1, R2 — [section 2 of the module's document](../../modules/const-change-cost/MODULE.md#t2), the setup in each clone, [section 3](../../modules/const-change-cost/MODULE.md#t3), the reading of the logs' row, and [section 5](../../modules/const-change-cost/MODULE.md#t5), rule J-a.
-2. R3, R8, R9 — [section 3 of the module's document](../../modules/const-change-cost/MODULE.md#t3), the reading of the counter's row, [section 6](../../modules/const-change-cost/MODULE.md#t6), the configuration row, and [row A15.2 of the requirements matrix](../requirements.md#a15-2).
+2. R3, R8, R9 — [section 3 of the module's document](../../modules/const-change-cost/MODULE.md#t3), the reading of the counter's row, [section 6](../../modules/const-change-cost/MODULE.md#t6), the configuration row for where the two files of the pin stand, the package row for the install into the data folder at the first complete window, and platform fact 15, and [row A15.2 of the requirements matrix](../requirements.md#a15-2).
 3. R4, R10, R16 — [section 6 of the module's document](../../modules/const-change-cost/MODULE.md#t6), the rows of the scripts and of the package.
 4. R5 — [section 3 of the module's document](../../modules/const-change-cost/MODULE.md#t3), the reading of the count's row.
 5. R6, R7 — [section 3 of the module's document](../../modules/const-change-cost/MODULE.md#t3), the reading of the row of ownership and windows.
