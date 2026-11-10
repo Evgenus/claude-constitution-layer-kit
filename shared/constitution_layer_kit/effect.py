@@ -31,13 +31,11 @@ from pathlib import Path
 
 from . import identity, judge, messages, preflight
 from .cli import Parser, guarded
-from .dials import load_dials
 from .errors import ConfigurationFailure
 from .history import HookRun, LogRecord, Session, ToolCall, read_log, read_transcript, script_of
 from .identity import Identity
 from .model import EXIT_BROKEN, Mode
 from .output import Output
-from .pipeline import route_log
 from .repository import repo_root
 
 ENTRY = ("scripts", "effect-report.sh")  # a plugin's entry, by its parts below the plugin's root
@@ -274,6 +272,11 @@ def _counted(rule: Rule, moments: Sequence[Moment], total: int | None = None) ->
 
 def gather(output: Output, flags: Flags) -> History:
     """The evidence: the dials' log, the transcripts it names and those of the folder, within the window."""
+    # Necessary here, not at the top: the dials and the pipeline import the declared library, and only
+    # after the preflight does a missing one become its designed message instead of a traceback.
+    from .dials import load_dials  # noqa: PLC0415
+    from .pipeline import route_log  # noqa: PLC0415
+
     root = repo_root(Path(os.getcwd()).resolve())
     if root is None:
         raise ConfigurationFailure(messages.c12_no_repo(os.getcwd()))

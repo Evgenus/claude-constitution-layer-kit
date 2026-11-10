@@ -10,7 +10,7 @@ import os
 import sys
 from collections.abc import Sequence
 from pathlib import Path
-from typing import NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 from constitution_layer_kit import cli, preflight
 from constitution_layer_kit import messages as shared_messages
@@ -21,6 +21,9 @@ from constitution_layer_kit.output import Output
 
 from . import granting, messages
 from .model import Request
+
+if TYPE_CHECKING:
+    from constitution_layer_kit.effect import Rule
 
 GENERATOR = Identity(
     namespace="const-locations",
@@ -89,6 +92,14 @@ def _body(argv: Sequence[str], output: Output) -> int:
         dry_run=args.dry_run,
     )
     return creating.act(output, request)
+
+
+def load_rules() -> Sequence[Rule]:
+    # Necessary here, not at the top: the rules import the declared libraries, and only after the
+    # preflight does a missing one become its designed message instead of a traceback.
+    from . import effect_rules  # noqa: PLC0415
+
+    return effect_rules.rules()
 
 
 def main(argv: Sequence[str]) -> int:
