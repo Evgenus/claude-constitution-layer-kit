@@ -181,8 +181,8 @@ WHY_KIT = (
     " names none of the kit's documents (law 2 of CLAUDE.md)"
 )
 WHY_FOLDER = (
-    "a module that names the kit's own folders carries the kit's layout into a project, where they do not"
-    " exist (law 2 of CLAUDE.md)"
+    "a module installs into any project and takes every place there from the dials file at run time, so it"
+    " names none of the kit's own folders (law 2 of CLAUDE.md)"
 )
 WHYS = {"kit_file": WHY_KIT, "kit_id": WHY_KIT, "kit_folder": WHY_FOLDER}  # the other forms give WHY
 
@@ -1199,8 +1199,8 @@ def run_name_reports(c: Cases) -> None:
             code = report(*check_kit(root))
     folder_report = [
         "RED: modules/const-x/plugin/INSTALL.md:1: a document folder of the kit, 'docs/decisions'",
-        "  why: a module that names the kit's own folders carries the kit's layout into a project, where they"
-        " do not exist (law 2 of CLAUDE.md)",
+        "  why: a module installs into any project and takes every place there from the dials file at run"
+        " time, so it names none of the kit's own folders (law 2 of CLAUDE.md)",
         "  fix: name the place through the dials file, or, in a Markdown file, show it as an example in a"
         " fenced block or a code span",
         "RED: 1 finding(s) — 3 installed file(s) of 1 module(s) and the shared code examined",
