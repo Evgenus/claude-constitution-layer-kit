@@ -69,6 +69,17 @@ REPORT = Identity(
     until_installed="until then no report or export is made",
 )
 
+EFFECT = Identity(
+    namespace=NAMESPACE,
+    gate="effect-report",
+    plugin_root=COUNT.plugin_root,
+    dials_file="constitution.yaml",
+    kernel_keys=KERNEL_KEYS,
+    hook_seconds=HOOK_SECONDS,
+    # the clause of C2 alone, as a generator's: the shared runner closes its failures with its own line
+    until_installed="until then the effect report is not made",
+)
+
 
 class CountParser(argparse.ArgumentParser):
     def error(self, message: str) -> NoReturn:

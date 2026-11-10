@@ -35,6 +35,7 @@ from change_cost_gate import counting, logs, messages, start, windows
 from change_cost_gate.model import PIN, CommitLine, NotCounted, Reason, StartLine
 from constitution_layer_kit.testing.acceptance import item
 from constitution_layer_kit.testing.harness import Harness, Result, fake_program
+from constitution_layer_kit.testing.items import fake_claude, tr_line
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 PLUGIN = SCRIPTS.parent
@@ -46,6 +47,7 @@ H = Harness(SCRIPTS, "count-costs.sh", "count-costs.py", NS)
 HS = Harness(SCRIPTS, "session-start.sh", "session-start.py", NS)  # the start hook
 HU = Harness(SCRIPTS, "setup-commit-log.sh", "setup-commit-log.py", NS)  # the setup a person runs
 HR = Harness(SCRIPTS, "cost-report.sh", "cost-report.py", NS)  # the report a person runs
+HE = Harness(SCRIPTS, "effect-report.sh", "effect-report.py", NS)  # the effect report
 
 S1 = "11111111-1111-4111-8111-111111111111"
 S2 = "22222222-2222-4222-8222-222222222222"
@@ -62,6 +64,7 @@ SETUP_C2_CLAUSE = "until then no hook of the commit log is written"
 SETUP_CLOSING = "BROKEN: the setup could not run — setup-commit-log.sh --check shows what stands"
 REPORT_C2_CLAUSE = "until then no report or export is made"
 REPORT_CLOSING = "BROKEN: the report could not run — nothing was shown or written"
+EFFECT_CLOSING = "BROKEN: the report could not run — no rule counted"
 HOOK_COMMIT = "hook.const-change-cost-commit"
 HOOK_MERGE = "hook.const-change-cost-merge"
 NPM_HINT = (
@@ -904,6 +907,7 @@ def test_exit_codes(tmp_path: Path, clone: Clone) -> None:
     assert clone.kept() == []
     exit_codes_of_start_and_setup(tmp_path, clone)
     exit_codes_of_report(tmp_path / "report-codes")
+    exit_codes_of_effect(tmp_path / "effect-codes")
 
 
 def exit_codes_of_start_and_setup(tmp_path: Path, clone: Clone) -> None:
@@ -1038,6 +1042,8 @@ class Entry:
     clause: str
     closing: str
     c2_clause: str  # the identity's clause, which closes the shared C2 alone for a generator
+    requires: str = "2.0.0"  # the release of the shared package the entry file states
+    reaches_c2: bool = True  # False where the shared runner imports PyYAML before it can print C2
 
     def tail(self) -> str:
         return f" — {self.clause}" if self.clause else ""
@@ -1049,6 +1055,7 @@ def entries(clone: Clone) -> list[Entry]:
         Entry(HS, "session-start.py", (), payload(S1, clone.root), START_CLAUSE, START_CLOSING, START_CLAUSE),
         Entry(HU, "setup-commit-log.py", (), "", "", SETUP_CLOSING, SETUP_C2_CLAUSE),
         Entry(HR, "cost-report.py", (), "", "", REPORT_CLOSING, REPORT_C2_CLAUSE),
+        Entry(HE, "effect-report.py", (), "", "", EFFECT_CLOSING, "", "2.1.0", False),
     ]
 
 
@@ -1081,15 +1088,16 @@ def test_install_failures(tmp_path: Path, clone: Clone) -> None:
             f" (https://www.python.org/downloads/){entry.tail()}",
             entry.closing,
         ], entry.script
-        no_yaml = entry.harness.run_gate(
-            entry.stdin, args=list(entry.args), env={**env, "PYTHONPATH": str(shadow)}, cwd=clone.root
-        )
-        assert no_yaml.code == 1, entry.script
-        assert no_yaml.stderr.splitlines() == [
-            "BROKEN: const-change-cost needs PyYAML — fix: run: python3 -m pip install -r"
-            f" '{PLUGIN}/requirements.txt' — {entry.c2_clause}",
-            entry.closing,
-        ], entry.script
+        if entry.reaches_c2:
+            no_yaml = entry.harness.run_gate(
+                entry.stdin, args=list(entry.args), env={**env, "PYTHONPATH": str(shadow)}, cwd=clone.root
+            )
+            assert no_yaml.code == 1, entry.script
+            assert no_yaml.stderr.splitlines() == [
+                "BROKEN: const-change-cost needs PyYAML — fix: run: python3 -m pip install -r"
+                f" '{PLUGIN}/requirements.txt' — {entry.c2_clause}",
+                entry.closing,
+            ], entry.script
         path = SCRIPTS / entry.script  # the entry file run as an interpreter of 3.11 would run it
         old = entry.harness.run_gate(
             entry.stdin, command=[sys.executable, "-c", lowered, str(path)], env=env, cwd=clone.root
@@ -1110,8 +1118,8 @@ def test_install_failures(tmp_path: Path, clone: Clone) -> None:
         )
         assert no_package.code == 1, entry.script
         assert no_package.stderr.splitlines() == [
-            "BROKEN: const-change-cost needs the Python package constitution-layer-kit 2.0.0 or a later 2.x"
-            " release,"
+            f"BROKEN: const-change-cost needs the Python package constitution-layer-kit {entry.requires} or a"
+            " later 2.x release,"
             f" and python3 cannot import it — fix: install it for python3 as {PLUGIN}/INSTALL.md says"
             f"{entry.tail()}",
             entry.closing,
@@ -1949,3 +1957,243 @@ def ccusage_failures(tmp_path: Path) -> list[str]:
         {"session": "s", "ms": 1, "source": "startup", "transcript_path": "/t"}
     )
     return failures
+
+
+# ------------------------------------------------------------------ T27 to T30: the effect report
+# The rules W1 to W4 of the module's section 13, each run through `effect-report.sh` over transcripts made by
+# hand and, for W3, over a git history made in a scratch clone. The lines are typed by hand.
+
+SHARE = "const-change-cost:share-costs"
+OTHER_SKILL = "const-task-close:close-task"
+
+
+def tr_call(session: str, cwd: Path, seconds: float, call_id: str, name: str, **given: object) -> str:
+    block = {"type": "tool_use", "id": call_id, "name": name, "input": given}
+    return tr_line(
+        "assistant", session, cwd, stamp(seconds), message={"role": "assistant", "content": [block]}
+    )
+
+
+def tr_failed(session: str, cwd: Path, seconds: float, call_id: str) -> str:
+    """The tool result of a call that failed, as Claude Code records an error."""
+    block = {"type": "tool_result", "tool_use_id": call_id, "is_error": True, "content": "exit 1"}
+    return tr_line("user", session, cwd, stamp(seconds), message={"role": "user", "content": [block]})
+
+
+def effect_run(
+    clone: Clone,
+    sessions: Mapping[str, Sequence[str]] | None = None,
+    claude: str = "echo '[]'\n",
+    args: Sequence[str] = (),
+) -> Result:
+    """The effect report over the sessions, one transcript each; a fake `claude` lists the plugins."""
+    folder = clone.tmp / "sessions"
+    folder.mkdir(exist_ok=True)
+    for name, lines in (sessions or {}).items():
+        (folder / f"{name}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    env = fake_claude(HE.scratch_dir(), claude)
+    return clone.count("--transcripts", str(folder), *args, harness=HE, env=env)
+
+
+def effect_lines(
+    clone: Clone, sessions: Mapping[str, Sequence[str]] | None = None, claude: str = "echo '[]'\n"
+) -> list[str]:
+    result = effect_run(clone, sessions, claude)
+    assert result.code == 0, result.stdout + result.stderr
+    return result.stdout.splitlines()
+
+
+def rule_line(key: str, applied: int, bypassed: int, missed: int, by: str = "") -> str:
+    total = applied + bypassed + missed
+    tail = f" — {by}" if by else ""
+    return (
+        f"  {key} (pattern): {total} moment(s): {applied} applied, {bypassed} bypassed, {missed} missed{tail}"
+    )
+
+
+@item(27, "W1: a git commit with a commit-log line of its session is applied, one with none missed by B6")
+def test_effect_commit_logged(tmp_path: Path) -> None:
+    """Each call of the session is a shell call that commits. Applied: a commit with a line of its session
+    in the commit log from its time on. Missed: a commit with no line, a commit whose line is another
+    session's or has no session, and the first of two commits that share one line, since a line belongs to
+    the last call at or before it. No moment: a call that failed, `--dry-run`, `git status`, a quoted
+    phrase and a commit of another session's transcript outside the project. Lines are typed by hand."""
+    clone = bare_clone(tmp_path)
+    root = clone.root
+    s1, s2 = S1, S2
+    clone.commit("a" * 40, 11, s1)  # the line of the first call
+    clone.commit("b" * 40, 41, S3)  # another session's line, at the time of the call of s2
+    clone.commit("c" * 40, 61, s1)  # one line for the two calls at 50 and 60
+    clone.commit("d" * 40, 81, "")  # a commit made outside Claude Code
+    sessions = {
+        "one": [
+            tr_call(s1, root, 10, "a", "Bash", command="git add -A && git commit -qm a"),
+            tr_call(s1, root, 20, "b", "Bash", command="git -C . commit -qam b"),
+            tr_call(s1, root, 30, "c", "Bash", command="git commit -m failed"),
+            tr_failed(s1, root, 31, "c"),
+            tr_call(s1, root, 32, "d", "Bash", command="git commit --dry-run"),
+            tr_call(s1, root, 33, "e", "Bash", command="git status --short"),
+            tr_call(s1, root, 34, "f", "Bash", command='echo "git commit"'),
+            tr_call(s1, root, 50, "g", "Bash", command="git commit -qm first"),
+            tr_call(s1, root, 60, "h", "Bash", command="git commit -qm second"),
+            tr_call(s1, root, 80, "i", "Bash", command="git commit -qm unlogged-session"),
+        ],
+        "two": [tr_call(s2, root, 40, "a", "Bash", command="git commit -qm other")],
+        "three": [
+            tr_call("55555555-5555-4555-8555-555555555555", tmp_path, 12, "a", "Bash", command="git commit")
+        ],
+    }
+    found = effect_lines(clone, sessions)
+    assert rule_line("W1", 2, 0, 4, "B6 4") in found, found
+
+
+@item(
+    28,
+    "W2: gh pr create, gh pr merge or git merge after a load of share-costs is applied, else missed by B5",
+)
+def test_effect_share_costs(tmp_path: Path) -> None:
+    """The moment is a shell command that opens or merges: `gh pr create`, `gh pr merge` or `git merge`,
+    behind `cd`, with options of git before the subcommand. A load of the skill earlier in the session, in
+    full or bare, makes it applied; none, or a load of another module's skill, makes it missed.
+    `git merge --abort`, `git merge-base`, a log of merges, `gh pr view` and a quoted phrase are no
+    moment."""
+    clone = bare_clone(tmp_path)
+    root = clone.root
+    s = "s28"
+    sessions = {
+        "a": [
+            tr_call(s, root, 1, "k", "Skill", skill=SHARE),
+            tr_call(s, root, 2, "m", "Bash", command="cd . && gh pr create --fill"),
+            tr_call(s, root, 3, "n", "Bash", command="gh pr merge 5 --merge --subject 'Work: x'"),
+        ],
+        "b": [tr_call(s, root, 1, "m", "Bash", command="git merge work/x")],
+        "c": [
+            tr_call(s, root, 1, "k", "Skill", skill=OTHER_SKILL),
+            tr_call(s, root, 2, "m", "Bash", command="gh pr create"),
+        ],
+        "d": [
+            tr_call(s, root, 1, "1", "Bash", command="git merge --abort"),
+            tr_call(s, root, 2, "2", "Bash", command="git merge-base main work/x"),
+            tr_call(s, root, 3, "3", "Bash", command="git log --merges"),
+            tr_call(s, root, 4, "4", "Bash", command='echo "gh pr merge 7"'),
+            tr_call(s, root, 5, "5", "Bash", command="gh pr view 7"),
+        ],
+        "e": [
+            tr_call(s, root, 1, "k", "Skill", skill="share-costs"),
+            tr_call(s, root, 2, "m", "Bash", command="git -C /elsewhere merge --no-ff work/y"),
+        ],
+    }
+    found = effect_lines(clone, sessions)
+    assert rule_line("W2", 3, 0, 2, "B5 2") in found, found
+
+
+def land(clone: Clone, name: str, message: str, counted: bool) -> str:
+    """A branch of one commit merged into main without a fast-forward; the kept line of the commit when
+    `counted`. Returns the merge commit's SHA."""
+    root = clone.root
+    git_in(root, "checkout", "-q", "-b", name, "main", session=None)
+    git_in(root, "commit", "--allow-empty", "-q", "-m", name, session=None)
+    sha = git_in(root, "rev-parse", "HEAD", session=None)
+    if counted:
+        clone.append_line("counts.jsonl", kept_line(sha, S1, COUNTS_OF_ONE))
+    git_in(root, "checkout", "-q", "main", session=None)
+    git_in(root, "merge", "--no-ff", "-q", "-m", message, name, session=None)
+    return git_in(root, "rev-parse", "HEAD", session=None)
+
+
+@item(29, "W3: a merge commit of main that lands a counted commit carries Change-Cost, else missed by B6")
+def test_effect_trailer_on_merge(tmp_path: Path) -> None:
+    """Six merges on main, each of one branch with one commit. Applied: a counted commit and the trailer
+    `Change-Cost:` in the last paragraph. Missed: a counted commit and no trailer; one with only
+    `Change-Cost-Commit:` trailers; one with the trailer in the first paragraph and a last paragraph
+    without. No moment: a merge that lands no counted commit, with or without the trailer. A counted commit
+    committed on main itself is no merge. `--since` keeps the merges at or after its day."""
+    clone = bare_clone(tmp_path)
+    root = clone.root
+    git_in(root, "checkout", "-q", "-b", "main", session=None)
+    git_in(root, "commit", "--allow-empty", "-q", "-m", "base", session=None)
+    trailer = "Change-Cost: 1 of 1 commit(s) counted; 6,000 tokens"
+    land(clone, "applied", f"Work: applied\n\nAccepted: x\n{trailer}", True)
+    land(clone, "bare", "Work: bare", True)
+    land(clone, "commit-only", "Work: commit-only\n\nChange-Cost-Commit: aaaaaaaaaaaa 6,000 tokens", True)
+    land(clone, "first-paragraph", f"Work: first\n{trailer}\n\nA closing paragraph.", True)
+    land(clone, "uncounted", "Work: uncounted", False)
+    land(clone, "uncounted-trailer", f"Work: uncounted\n\n{trailer}", False)
+    git_in(root, "commit", "--allow-empty", "-q", "-m", "direct", session=None)
+    clone.append_line(
+        "counts.jsonl", kept_line(git_in(root, "rev-parse", "HEAD", session=None), S1, COUNTS_OF_ONE)
+    )
+    found = effect_lines(clone)
+    assert rule_line("W3", 1, 0, 3, "B6 3") in found, found
+    future = effect_run(clone, args=["--since", "2999-01-01"])
+    assert future.code == 0 and rule_line("W3", 0, 0, 0) in future.stdout.splitlines(), future.stdout
+    past = effect_run(clone, args=["--since", "2000-01-01"])
+    assert rule_line("W3", 1, 0, 3, "B6 3") in past.stdout.splitlines(), past.stdout
+
+
+@item(30, "W4: a fake claude listing the plugin enabled is applied, disabled bypassed by B2")
+def test_effect_plugin_enabled(tmp_path: Path) -> None:
+    """The plugin list names the plugin enabled: one applied moment; disabled: one bypassed by B2. A list that
+    names another plugin only counts nothing and says so in a note. A commit that gives the module a
+    namespace in the dials file is no moment, since the module has no dials."""
+    clone = bare_clone(tmp_path)
+    root = clone.root
+
+    def listing(enabled: bool, name: str = "const-change-cost@kit") -> str:
+        entry = {"id": name, "enabled": enabled, "installPath": str(root), "projectPath": str(root)}
+        return f"echo '{json.dumps([entry])}'\n"
+
+    git_in(root, "commit", "--allow-empty", "-q", "-m", "base", session=None)
+    (root / "constitution.yaml").write_text(
+        "module_prefix: const-\nconst-change-cost:\n  severity: warn\n", encoding="utf-8"
+    )
+    git_in(root, "add", "constitution.yaml", session=None)
+    git_in(root, "commit", "-q", "-m", "a namespace for a module without dials", session=None)
+    assert rule_line("W4", 1, 0, 0) in effect_lines(clone, claude=listing(True))
+    assert rule_line("W4", 0, 1, 0, "B2 1") in effect_lines(clone, claude=listing(False))
+    other = effect_run(clone, claude=listing(True, "const-other@kit"))
+    assert other.code == 0
+    assert rule_line("W4", 0, 0, 0) in other.stdout.splitlines()
+    assert any(
+        held.startswith("note: const-change-cost: W4: the plugin list names this plugin for no scope")
+        for held in other.stdout.splitlines()
+    ), other.stdout
+    broken = effect_run(clone, claude="exit 3\n")
+    assert broken.code == 0 and rule_line("W4", 0, 0, 0) in broken.stdout.splitlines()
+
+
+def exit_codes_of_effect(parent: Path) -> None:
+    """The effect report's part of the exit-code split: 0 with its headline, 1 with the line first on stderr
+    and the report's closing line, never 2; the shared J-free lines of a misuse, a bad date, a folder that
+    is none and a place outside a repository typed by hand."""
+    clone = bare_clone(parent)
+    ran = effect_run(clone)
+    assert ran.code == 0 and ran.stderr == "", ran.stderr
+    assert ran.stdout.splitlines()[0] == (
+        "EFFECT: const-change-cost: 4 rule(s) over 0 session(s), 0 transcript line(s) unread"
+    )
+    usage = "[--reader] [--transcripts <dir>] [--since <YYYY-MM-DD>]"
+    outside = parent / "outside"
+    outside.mkdir()
+    nowhere = clone.count(harness=HE, cwd=outside, env={"GIT_CEILING_DIRECTORIES": str(parent)})
+    assert nowhere.code == 1 and nowhere.stdout == ""
+    assert nowhere.stderr.splitlines()[1] == EFFECT_CLOSING
+    assert nowhere.stderr.splitlines()[0].startswith(f"BROKEN: {outside} is not inside a git repository"), (
+        nowhere.stderr
+    )
+    for args, first in (
+        (("--bogus",), f"BROKEN: misinvocation: unrecognized arguments: --bogus — fix: {usage}"),
+        (("x",), f"BROKEN: misinvocation: unrecognized arguments: x — fix: {usage}"),
+        (
+            ("--since", "2026-13-01"),
+            f"BROKEN: {NS}: --since '2026-13-01' is no date — fix: write the date as YYYY-MM-DD",
+        ),
+        (
+            ("--transcripts", "no-such-folder"),
+            f"BROKEN: {NS}: --transcripts 'no-such-folder' is no folder — fix: name the folder that holds"
+            " the session transcripts, the *.jsonl files",
+        ),
+    ):
+        refused = clone.count(*args, harness=HE)
+        assert refused.code == 1 and refused.stdout == "", args
+        assert refused.stderr.splitlines() == [first, EFFECT_CLOSING], args
