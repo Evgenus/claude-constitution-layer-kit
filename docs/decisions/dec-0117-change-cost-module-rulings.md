@@ -216,13 +216,17 @@ The session recommended C. The decider chose A, B and D together in chat on 2026
 
 <a id="r17"></a>**R17.** The report and every export show the counts in depth, for each commit and for a range's total: input, output, cache write and cache read each on its own, their total, the cost at list price, the number of replies, the tokens of each model, and the compactions and unpriced models by name. The merge commit's trailers of R13, the pull request's block of R14 and the notes of R15 hold the same figures for each commit as the report. The cost is never split by kind of token, since ccusage computes it for the window as a whole.
 
+## Applied
+
+The change that holds this record carries R9 and R12 to R17 into the requirements matrix too, a `process` ruling under [rule 2 of plc-0007-requirements](../policies/plc-0007-requirements.md#r2) that this record's yes covers: row [A15.7](../requirements.md#a15-7), sharing, is added, and rows [A15.2](../requirements.md#a15-2) and [A15.4](../requirements.md#a15-4) name the second run of ccusage and the fields kept, as the module's fresh-context review of 2026-11-10 asked under [law 4 of CLAUDE.md](../../CLAUDE.md#law-4).
+
 ## Carry list
 
 1. R1, R2 — [section 3 of the module's document](../../modules/const-change-cost/MODULE.md#t3), the reading of the logs' row, and [section 5](../../modules/const-change-cost/MODULE.md#t5), rule J-a.
-2. R3, R8, R9 — [section 3 of the module's document](../../modules/const-change-cost/MODULE.md#t3), the reading of the counter's row, and [section 6](../../modules/const-change-cost/MODULE.md#t6), the configuration row.
+2. R3, R8, R9 — [section 3 of the module's document](../../modules/const-change-cost/MODULE.md#t3), the reading of the counter's row, [section 6](../../modules/const-change-cost/MODULE.md#t6), the configuration row, and [row A15.2 of the requirements matrix](../requirements.md#a15-2).
 3. R4, R10, R16 — [section 6 of the module's document](../../modules/const-change-cost/MODULE.md#t6), the rows of the scripts and of the package.
 4. R5 — [section 3 of the module's document](../../modules/const-change-cost/MODULE.md#t3), the reading of the count's row.
 5. R6, R7 — [section 3 of the module's document](../../modules/const-change-cost/MODULE.md#t3), the reading of the row of ownership and windows.
 6. R11 — [section 7 of the module's document](../../modules/const-change-cost/MODULE.md#t7), and [section 12](../../modules/const-change-cost/MODULE.md#t12), items 1 to 3.
-7. R12, R13, R14, R15 — [section 5 of the module's document](../../modules/const-change-cost/MODULE.md#t5), rules J-b and J-c, and [section 6](../../modules/const-change-cost/MODULE.md#t6), the rows of the skill and the scripts.
-8. R17 — [section 3 of the module's document](../../modules/const-change-cost/MODULE.md#t3), the reading of the row of the count's reach.
+7. R12, R13, R14, R15 — [section 5 of the module's document](../../modules/const-change-cost/MODULE.md#t5), rules J-b and J-c, [section 6](../../modules/const-change-cost/MODULE.md#t6), the rows of the skill and the scripts, and [row A15.7 of the requirements matrix](../requirements.md#a15-7).
+8. R17 — [section 3 of the module's document](../../modules/const-change-cost/MODULE.md#t3), the reading of the row of the count's reach, and [row A15.4 of the requirements matrix](../requirements.md#a15-4).
