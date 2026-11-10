@@ -368,7 +368,7 @@ def test_fork(tmp_path: Path, installed: Path) -> None:
 
 
 @item(8, "the earliest start owns: a start log with startup, resume and compact for one id cuts at the first")
-def test_earliest_start(clone: Clone) -> None:
+def test_earliest_start(clone: Clone, tmp_path: Path, installed: Path) -> None:
     clone.start(S1, 11, "compact")
     clone.start(S1, 0, "startup")
     clone.start(S1, 8, "resume")
@@ -377,6 +377,39 @@ def test_earliest_start(clone: Clone) -> None:
     done = clone.count("--all")
     assert (done.code, closing(done)) == (0, counted_line(1, 0, 0, 0)), done.stderr
     assert totals(clone) == [5737]
+    # what stands before the earliest start is no part of the session: a compaction there is named in no
+    # window, and a reply that began there does not move a later record of it into an earlier window
+    cut = Clone.make(tmp_path / "cut", installed)
+    with cut.transcript(S2).open("a", encoding="utf-8") as handle:
+        handle.write(assistant_record(S2, 15, "msg_x", 100))
+        handle.write(assistant_record(S2, 22.5, "msg_x", 110))
+        handle.write(
+            line_of(
+                {"type": "system", "subtype": "compact_boundary", "timestamp": stamp(18), "sessionId": S2}
+            )
+        )
+        handle.write(user_record(S2, 30))
+    cut.start(S2, 20)
+    cut.commit("a" * 40, 21.5, S2)
+    cut.commit("b" * 40, 25, S2)
+    again = cut.count("--all")
+    assert (again.code, closing(again)) == (0, counted_line(2, 0, 0, 0)), again.stderr
+    assert totals(cut) == [3660, 4880]
+    assert [held["compactions"] for held in cut.kept()] == [0, 0]
+
+
+def assistant_record(session: str, seconds: float, message: str, tokens: int) -> str:
+    usage = {"input_tokens": tokens, "output_tokens": 0}
+    body = {"id": message, "model": SONNET, "role": "assistant", "usage": usage}
+    return line_of(
+        {
+            "type": "assistant",
+            "timestamp": stamp(seconds),
+            "sessionId": session,
+            "requestId": "req_" + message,
+            "message": body,
+        }
+    )
 
 
 @item(9, "the copy: plain files, the agents' included, lines byte for byte; --config keeps the count")
@@ -401,6 +434,28 @@ def test_copy_and_config(tmp_path: Path, installed: Path) -> None:
     for path in copied:
         source = FIXTURE / path.relative_to(folders[0] / "projects" / "p")
         assert path.read_bytes() == source.read_bytes()
+    # what is no regular file is left out: a link to a .jsonl, a dangling link, a folder named .jsonl, and a
+    # session's own transcript given as a link; the copy and the count stay as they were
+    hostile = tmp_path / "hostile" / "projects" / "p"
+    shutil.copytree(FIXTURE, hostile)
+    own = hostile / S1
+    os.symlink(hostile / f"{S2}.jsonl", own / "subagents" / "link.jsonl")
+    os.symlink(hostile / "nowhere.jsonl", own / "dangling.jsonl")
+    (own / "folder.jsonl").mkdir()
+    plain_names = sorted(held.destination.name for held in files)
+    assert (
+        sorted(held.destination.name for held in windows.transcripts_of(hostile / f"{S1}.jsonl"))
+        == plain_names
+    )
+    linked = tmp_path / "linked" / "projects" / "p"
+    linked.mkdir(parents=True)
+    os.symlink(FIXTURE / f"{S1}.jsonl", linked / f"{S1}.jsonl")
+    assert windows.transcripts_of(linked / f"{S1}.jsonl") == []
+    hostile_files = windows.transcripts_of(hostile / f"{S1}.jsonl")
+    hostile_found = windows.survey(hostile_files, S1, at(0))
+    hostile_cut = windows.cut(hostile_files, S1, at(0), hostile_found, [at(60)], {0}, tmp_path / "cut")
+    assert sorted(p.name for p in hostile_cut[0].rglob("*.jsonl")) == plain_names
+    assert counters.count(ccusage_of(installed), hostile_cut[0], S1).report.total_tokens == 5737
     plan = '{"claude":{"commands":{"session":{"mode":"display"}}}}'
     (folders[0] / ".ccusage").mkdir()
     (folders[0] / ".ccusage" / "ccusage.json").write_text(plan, encoding="utf-8")
