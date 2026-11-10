@@ -1507,6 +1507,11 @@ def committed(files: dict[str, str], dials_patch: dict[str, object] | None = Non
     return consumer.root
 
 
+def git_asked(log: Path) -> list[str]:
+    """The lines of a `git_patch` log: for each git call, its timeout and its arguments."""
+    return log.read_text(encoding="utf-8").splitlines() if log.exists() else []
+
+
 def write_over(
     before: dict[str, str], action: Write | Edit, dials_patch: dict[str, object] | None = None
 ) -> Result:
@@ -1527,7 +1532,11 @@ def test_t33() -> None:
     alone: the scan stays red on the same document; a document the commit does not hold, and one it
     holds at or under the ceiling, are L1; the grade at warning keeps its own note, N2; a departure
     for the grade leaves no note; another finding in the document is red, the note with it. The copy
-    the commit holds is prepared as the written one is: an envelope of long words there is no prose."""
+    the commit holds is prepared as the written one is: an envelope of long words there is no prose,
+    and a Vale comment there switches nothing off. The copy is the last commit's, not the index's: a
+    lower text staged and written again is the note. The gate asks git for the copy once, under a
+    hook's cap, and not at all where the grade cannot be a finding — at warning, under a departure —
+    nor in the scan."""
     note = (
         f"note: {DOC}:1: the document reads at grade 33.04 by Flesch–Kincaid, above the ceiling of 10 and"
         " below the 43.54 of its last commit — reported, not red, while the grade falls: split the long"
@@ -1566,6 +1575,28 @@ def test_t33() -> None:
         + GRADE_LOWER
     )
     same_under_envelope = write_over({DOC: enveloped}, Write(DOC, GRADE_LOWER))
+    # a Vale comment in the committed copy is blanked as one in the written document is: read as it
+    # stands it would switch every rule off there, and the copy would have no grade to fall from
+    commented = write_over({DOC: "<!-- vale off -->\n" + GRADE_RED}, Write(DOC, GRADE_LOWER))
+    # the last commit, not the index: the lower text staged, then written again
+    staged_root = committed({DOC: GRADE_RED})
+    (staged_root / DOC).write_text(GRADE_LOWER, encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], cwd=staged_root, check=True, capture_output=True)
+    staged = H.run_gate(event_json(staged_root, Write(DOC, GRADE_LOWER)))
+    # what git was asked: the copy once where the grade can be a finding, and never elsewhere
+    ask = ["cat-file", "blob", f"HEAD:{DOC}"]
+    asked_env, asked_log = git_patch(H, unclocked=True)
+    H.run_gate(event_json(committed({DOC: GRADE_RED}), Write(DOC, GRADE_LOWER)), env=asked_env)
+    warned_env, warned_log = git_patch(H, unclocked=True)
+    H.run_gate(
+        event_json(committed({DOC: GRADE_RED}, own(levels={"grade": "warning"})), Write(DOC, GRADE_LOWER)),
+        env=warned_env,
+    )
+    departed_env, departed_log = git_patch(H, unclocked=True)
+    departure = own(departures=[{"paths": ["/" + DOC], "allow": ["grade"], "reason": "stands"}])
+    H.run_gate(event_json(committed({DOC: GRADE_RED}, departure), Write(DOC, GRADE_LOWER)), env=departed_env)
+    scan_env, scan_log = git_patch(H, unclocked=True)
+    H.run_gate("", args=["--scan", str(root)], env=scan_env)
 
     assert messages.n4_falling(DOC, GRADE_LOWER_VALUE, 10.0, GRADE_RED_VALUE) == note, "N4 typed whole"
     expect(same, 2, messages.l1_grade(DOC, GRADE_RED_VALUE, 10.0).render(), "stderr")
@@ -1600,6 +1631,23 @@ def test_t33() -> None:
         f"the other finding is the only RED: {headlines(both)}"
     )
     expect(same_under_envelope, 2, lower_found.headline, "stderr")
+    for name, result in (("a Vale comment in the committed copy", commented), ("a staged text", staged)):
+        said = context(result)
+        assert said.code == 0 and said.stdout.splitlines() == [note, green_hook()], (
+            f"{name}: exit {said.code}, {said.stdout.splitlines()} {said.stderr.strip()}"
+        )
+    asked = [line for line in git_asked(asked_log) if line.endswith(repr(ask))]
+    assert len(asked) == 1 and asked[0].split(" ", 1)[0] == repr(GIT_SECONDS), (
+        f"the copy is asked for once, under a hook's cap of {GIT_SECONDS} s: {asked}"
+    )
+    for name, log in (
+        ("at warning", warned_log),
+        ("under a departure", departed_log),
+        ("the scan", scan_log),
+    ):
+        assert git_asked(log) and not [line for line in git_asked(log) if "cat-file" in line], (
+            f"{name}: git is asked, and never for the committed copy: {git_asked(log)}"
+        )
 
 
 def ran_pointer(*args: str) -> Result:
