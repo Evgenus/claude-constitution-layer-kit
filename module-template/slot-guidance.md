@@ -7,7 +7,7 @@ status: active
 
 # The slot guidance of the module template
 
-Each text below, save the last, stands word for word as it stood in [the module template](MODULE.md), in the section its heading names, so "this document" and "here" in a text mean the module's document, as they did in the template. The last, [the configuration row](#s13), was written here and never stood in the template, whose ceiling leaves no room for it. The slot of the template links to each text. Like the template, this page stands in no policy's territory, and a module's document does not copy it.
+Each text below, save the last, moved here word for word from [the module template](MODULE.md), from the section its heading names, so "this document" and "here" in a text mean the module's document, as they did in the template. The last, [the configuration row](#s13), was written here and never stood in the template, whose ceiling leaves no room for it. Each slot of the template links to its text. Like the template, this page stands in no policy's territory, and a module's document does not copy it.
 
 <a id="s1"></a>
 ## The plugin skeleton
@@ -129,7 +129,7 @@ The paragraph of [section 9](MODULE.md#t9) of the template that follows its tabl
 <a id="s13"></a>
 ## The configuration row
 
-The text of the row "configuration" of the table of [section 6](MODULE.md#t6) of the template, in its "carries" cell, after its first sentence.
+The text that continues the row "configuration" of the table of [section 6](MODULE.md#t6) of the template, after the first sentence of its "carries" cell.
 
 A pinned third-party tool's own files are parts of the plugin root. They are of two kinds: its configuration, which the code that runs the tool reads or hands to the tool, and its pin, the files that name the exact version an install takes. Each such file stands in one of three places:
 
