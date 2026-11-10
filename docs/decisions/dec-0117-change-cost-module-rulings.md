@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-Record [dec-0116-tokens-per-commit-counted-by-ccusage](dec-0116-tokens-per-commit-counted-by-ccusage.md) rules what the module counts and how, and its R10 of [dec-0116-tokens-per-commit-counted-by-ccusage](dec-0116-tokens-per-commit-counted-by-ccusage.md#r10) leaves the rest to this record, after the module's research round. That round is [res-0015-const-change-cost](../research/res-0015-const-change-cost.md). It confirmed rows [A15.1](../requirements.md#a15-1) to [A15.6](../requirements.md#a15-6) of the requirements matrix and left some choices to the decider. The session puts them in chat from 2026-11-09, one per message, and each adds a section here.
+Record [dec-0116-tokens-per-commit-counted-by-ccusage](dec-0116-tokens-per-commit-counted-by-ccusage.md) rules what the module counts and how, and R10 of [dec-0116-tokens-per-commit-counted-by-ccusage](dec-0116-tokens-per-commit-counted-by-ccusage.md#r10) leaves the rest to this record, after the module's research round. That round is [res-0015-const-change-cost](../research/res-0015-const-change-cost.md). It confirmed rows [A15.1](../requirements.md#a15-1) to [A15.6](../requirements.md#a15-6) of the requirements matrix and left some choices to the decider. The session puts them in chat from 2026-11-09, one per message, and each adds a section here.
 
 ## 1. How the commit log reaches each clone
 
@@ -117,9 +117,10 @@ The session recommended A, the comparison's recommendation: B breaks the rule th
 ## 7. How a project gets the pinned ccusage
 
 When a plugin root holds a `package.json` with a lockfile, Claude Code installs the dependencies itself into each version folder it copies. It needs exact versions, `https` downloads and no overrides, runs no install scripts, stops after 60 seconds, and cannot be turned off; ccusage's lockfile meets those limits (the comparison's a17 and E1). For a plugin loaded in place from a local marketplace, as the kit loads its own modules, it installs nothing. The plugin pages give a `SessionStart` hook that runs `npm install` into `${CLAUDE_PLUGIN_DATA}`, a folder kept across updates, as an example (a18).
+
 - **A. Both installs, from one lockfile.** A `package.json` and its `package-lock.json` at the plugin root pin ccusage: Claude Code installs it where it copies the plugin, and a `SessionStart` hook installs the same lockfile into `${CLAUDE_PLUGIN_DATA}` where the plugin loads in place.
   - **Pros:** a project that installs the module from the marketplace gets the platform's own install, with nothing of the module's to fail; the kit's load in place is covered too; one pin serves both.
-  - **Cons:** two paths to build and test; a first session in place needs the network.
+  - **Cons:** two paths to build and test; the survey did not run the platform's install; a first session in place needs the network.
 - **B. The start hook's install only.** No `package.json` at the root, and a `SessionStart` hook installs into `${CLAUDE_PLUGIN_DATA}` everywhere.
   - **Pros:** one path to build and test, the same for every project.
   - **Cons:** it does by hand what the platform does itself, against the native-first principle of the [intent page](../../INTENT.md#p1); each person's first session needs the network and runs npm.
@@ -127,10 +128,10 @@ When a plugin root holds a `package.json` with a lockfile, Claude Code installs 
   - **Pros:** the least code; no install step.
   - **Cons:** the first count needs the network, and again whenever npm's cache is cleared; no lockfile checks the platform binary's integrity.
 - **D. The files in a subfolder, the count's install only.** A `package.json` and its `package-lock.json` stand in the plugin's folder `ccusage/`. The platform finds none at the root and installs nothing; the count installs the lockfile into `${CLAUDE_PLUGIN_DATA}` at its first complete window.
-  - **Pros:** the kit's bare-install check stays green; one install path, the same for every project; ccusage stands in one place, and so there is one place to look.
+  - **Pros:** the kit's bare-install check stays green; one install path, the same for every project; ccusage stands in one place.
   - **Cons:** it does by hand what the platform does itself, against the native-first principle of the [intent page](../../INTENT.md#p1); each person's first count needs the network and npm.
 
-The session first recommended A, native first for every project installed from the marketplace with the kit's own load in place covered, and the decider picked A in chat on 2026-11-09. The kit's bare-install check, run on the pinned Claude Code 2.1.282, then reported "the installed copy holds a link its source lacks: `node_modules/.bin/ccusage`" for the plugin with its two files at the root. That link is the platform's own install, and the check holds [requirement A12.1](../requirements.md#a12-1), that a module installs and runs on a bare repository with its own files alone. A probe on a scratch copy with the files in a subfolder reported no link finding. Keeping A would mean teaching two kit checks an exception for one module's folder, and keeping two install paths.
+The session first recommended A, native first for every project installed from the marketplace with the kit's own load in place covered, and the decider picked A in chat on 2026-11-09. The kit's bare-install check, run on the pinned Claude Code 2.1.282, then reported "the installed copy holds a link its source lacks: `node_modules/.bin/ccusage`" for the plugin with its two files at the root. That link is the platform's own install, and the check holds [requirement A12.1](../requirements.md#a12-1), that a module installs and runs on a bare repository with its own files alone. A probe on a scratch copy with the files in a subfolder reported no link finding. Keeping A would mean an exception in two kit checks for one module's folder, and two install paths.
 
 The session recommended D: a green check on that rule is worth more than the platform's install here, because the count runs in the data folder in any case. The decider, asked again in chat with this option put as "B", chose D on 2026-11-10, before this record's yes. That reverses the first half of the first pick, the platform's install of a copied plugin, and keeps the second, the module's own install into `${CLAUDE_PLUGIN_DATA}`.
 
