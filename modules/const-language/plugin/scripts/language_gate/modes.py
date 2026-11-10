@@ -2,12 +2,13 @@
 code. No policy is resolved: the covered documents are the Markdown files git lists that the
 module's own territories hold. Both modes run the same examination — the documents prepared,
 copied into a temporary tree beside a configuration generated from the dials, and handed to Vale
-in one run."""
+in one run. The hook alone also reads the written document as the last commit holds it, so that a
+document still above the grade ceiling, but below its grade there, is a note and not a finding."""
 
 from __future__ import annotations
 
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TextIO
@@ -18,12 +19,12 @@ from constitution_layer_kit.errors import ConfigurationFailure
 from constitution_layer_kit.model import POST_WRITE, PRE_WRITE, Finding
 from constitution_layer_kit.output import Output
 from constitution_layer_kit.pipeline import Skip
-from constitution_layer_kit.repository import list_markdown, read_text
+from constitution_layer_kit.repository import git, list_markdown, read_text
 from constitution_layer_kit.territory import Matcher
 
 from . import dials as own_dials
 from . import messages, rules, vale
-from .model import Hit, LanguageDials, Level, Rule
+from .model import Hit, LanguageDials, Level, Prepared, Rule
 from .prepare import prepare
 
 
@@ -48,7 +49,9 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
         allowed = _allowed(matcher, dials, [rel])
     if not covered:
         return pipeline.skip(output, messages.g1_skip_not_covered(rel))
-    verdict = examine({rel: target.text}, dials, allowed, _hook_waits())
+    verdict = examine(
+        {rel: target.text}, dials, allowed, _hook_waits(), lambda path: _committed(target.root, path)
+    )
     if not verdict.findings:
         return pipeline.green_hook(output, messages.g1_covered(), verdict.notes, target.event_name)
     shown = pipeline.within_the_cap(verdict.findings)
@@ -70,6 +73,13 @@ def _hook_waits() -> vale.Waits:
         probe=lambda: identity.remaining(vale.VERSION_SECONDS, vale.PROBE_BEFORE),
         run=lambda: identity.remaining(vale.HOOK_SECONDS, vale.RUN_BEFORE),
     )
+
+
+def _committed(root: Path, rel: str) -> str | None:
+    """The document as the last commit holds it, read as the file on disk is read; None where that
+    commit holds no such file — a new document, a repository with no commit — or git does not give it."""
+    done = git(["cat-file", "blob", f"HEAD:{rel}"], root)
+    return done.stdout.decode("utf-8", errors="replace") if done.returncode == 0 else None
 
 
 def scan_mode(output: Output, start: Path) -> int:
@@ -110,32 +120,52 @@ def _allowed(matcher: Matcher, dials: LanguageDials, rels: Sequence[str]) -> dic
 
 
 def examine(
-    texts: dict[str, str], dials: LanguageDials, allowed: dict[str, set[Rule]], waits: vale.Waits
+    texts: dict[str, str],
+    dials: LanguageDials,
+    allowed: dict[str, set[Rule]],
+    waits: vale.Waits,
+    committed: Callable[[str], str | None] | None = None,
 ) -> Verdict:
     """Every document prepared and checked in one Vale run; the findings and notes in document
     and line order, a Vale comment outside a fence or a code span a finding wherever it stands; a
     hit of a rule that a departure allows for its document is neither. `waits` says how long the version
     probe and each Vale run may take, asked as each begins: the hook's are capped by what its deadline has
-    left, the scan's probe has its cap and its runs none, and there is no default."""
+    left, the scan's probe has its cap and its runs none, and there is no default. `committed` gives a
+    document as the last commit holds it, or None where it holds none; the hook passes it and the scan
+    does not. It is asked after the binary's preflight, and only for a document whose grade can be a
+    finding: the grade rule at level error, and no departure allowing it there. Such a document goes
+    through the same Vale run, for its grade alone."""
     binary = vale.preflight(waits.probe())
     findings: list[Finding] = []
     notes: list[str] = []
     if not texts:
         return Verdict(findings, notes)
+    prepared = {rel: prepare(text) for rel, text in texts.items()}
+    before = _texts_before(prepared, dials, allowed, committed)
     with tempfile.TemporaryDirectory(prefix="const-language-") as scratch:
         directory = Path(scratch)
         config = rules.write_style(directory, dials)
         tree = directory / "tree"
-        prepared = {rel: prepare(text) for rel, text in texts.items()}
         # Flat numbered names: Vale picks the format from the ending, and the one section the
         # configuration holds is `[*.md]`, so a covered X.MD under its own name would be read as no
-        # Markdown at all; no ending, no collision of X.MD with X.md, no odd path (a line break, a dash)
+        # Markdown at all; no ending, no collision of X.MD with X.md, no odd path (a line break, a dash).
+        # A committed copy takes the name of its document with a `c` before it.
         named = {f"{index:06d}.md": rel for index, rel in enumerate(prepared)}
+        earlier = {f"c{name}": rel for name, rel in named.items() if rel in before}
         tree.mkdir()
         for name, rel in named.items():
             (tree / name).write_text(prepared[rel].text, encoding="utf-8")
-        ran = vale.run(binary, config, tree, list(named), waits.run)
-        hits = {named[name]: found for name, found in ran.items()}
+        for name, rel in earlier.items():
+            (tree / name).write_text(before[rel], encoding="utf-8")
+        ran = vale.run(binary, config, tree, [*named, *earlier], waits.run)
+        hits = {named[name]: found for name, found in ran.items() if name in named}
+        grades_before = {
+            earlier[name]: float(hit.message)
+            for name, found in ran.items()
+            if name in earlier
+            for hit in found
+            if hit.rule is Rule.GRADE
+        }
     for rel in sorted(prepared):
         lines = prepared[rel].text.split("\n")
         placed: list[tuple[int, int, Finding | str]] = []
@@ -144,7 +174,7 @@ def examine(
         for hit in hits.get(rel, []):
             if hit.rule in allowed.get(rel, set()):
                 continue
-            placed.append((hit.line, 1, _judge(rel, hit, lines, dials)))
+            placed.append((hit.line, 1, _judge(rel, hit, lines, dials, grades_before.get(rel))))
         for _, _, item in sorted(placed, key=lambda p: (p[0], p[1])):
             if isinstance(item, Finding):
                 findings.append(item)
@@ -153,12 +183,38 @@ def examine(
     return Verdict(findings, notes)
 
 
-def _judge(rel: str, hit: Hit, lines: Sequence[str], dials: LanguageDials) -> Finding | str:
-    """A hit as its rule's level says: a finding at error, a note at warning."""
+def _texts_before(
+    prepared: dict[str, Prepared],
+    dials: LanguageDials,
+    allowed: dict[str, set[Rule]],
+    committed: Callable[[str], str | None] | None,
+) -> dict[str, str]:
+    """The prepared text of each document as the last commit holds it, for the documents whose grade can
+    be a finding and that the commit holds: {rel: text}. Empty where nobody gives the committed text."""
+    if committed is None or dials.levels[Rule.GRADE] is not Level.ERROR:
+        return {}
+    before: dict[str, str] = {}
+    for rel in prepared:
+        if Rule.GRADE in allowed.get(rel, set()):
+            continue
+        text = committed(rel)
+        if text is not None:
+            before[rel] = prepare(text).text
+    return before
+
+
+def _judge(
+    rel: str, hit: Hit, lines: Sequence[str], dials: LanguageDials, grade_before: float | None
+) -> Finding | str:
+    """A hit as its rule's level says: a finding at error, a note at warning. A grade above the ceiling
+    at level error is a note too while it is below `grade_before`, the grade of the document as the last
+    commit holds it, which is None where that copy was not read or is not above the ceiling."""
     if hit.rule is Rule.SENTENCE:  # Vale names where the sentence starts and not its words: echo them
         line = lines[hit.line - 1] if 0 < hit.line <= len(lines) else ""
         hit = Hit(hit.rule, hit.line, hit.column, line[max(hit.column - 1, 0) :].strip(), hit.message)
     found = messages.finding(rel, hit, dials.grade_ceiling, dials.sentence_words)
     if dials.levels[hit.rule] is Level.WARNING:
         return messages.n2_warning(rel, hit.rule, found)
+    if hit.rule is Rule.GRADE and grade_before is not None and float(hit.message) < grade_before:
+        return messages.n4_falling(rel, float(hit.message), dials.grade_ceiling, grade_before)
     return found

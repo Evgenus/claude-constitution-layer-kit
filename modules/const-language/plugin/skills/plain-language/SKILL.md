@@ -49,7 +49,11 @@ The check runs after every write of a covered document and in its scan, `check-l
 --scan`. Each finding names the file and line, why the rule exists and the fix:
 
 - **Over the grade ceiling**, reported at line 1: shorten the long sentences first, then the
-  long words; the check prints the grade after the next write.
+  long words; the check prints the grade after the next write. A long document may come down
+  one edit at a time. While a write leaves it below its grade in the last commit, the check
+  after the write reports a note with both grades, and no red. The scan stays red until the
+  document is at or under the ceiling, so bring it there before the change is merged. A new
+  document has no committed grade: it stays red after each write until it is under the ceiling.
 - **A sentence over the limit**: split it where the finding's echo shows it starts.
 - **A construction plain language avoids**: say it in plain words, or drop it.
 - **A word with a plain replacement**: write the plain word the finding names.
