@@ -193,6 +193,18 @@ const-task-close:                     # task close as one act: a change that tou
         - "modules/const-catalogs/evals/**"
       docs:
         - "modules/const-catalogs/MODULE.md"
+    - name: const-change-cost
+      code:
+        - "modules/const-change-cost/plugin/scripts/**"
+        - "modules/const-change-cost/plugin/hooks/**"
+        - "modules/const-change-cost/plugin/skills/**"
+        - "modules/const-change-cost/plugin/ccusage/package.json"
+        - "modules/const-change-cost/plugin/ccusage/package-lock.json"
+        - "modules/const-change-cost/plugin/ccusage.json"
+        - "modules/const-change-cost/tests/**"
+        - "modules/const-change-cost/evals/**"
+      docs:
+        - "modules/const-change-cost/MODULE.md"
     - name: const-referencing
       code:
         - "modules/const-referencing/plugin/scripts/**"

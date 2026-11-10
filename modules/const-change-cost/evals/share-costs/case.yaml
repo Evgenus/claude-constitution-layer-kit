@@ -1,0 +1,54 @@
+schema_version: "1.1"
+name: share-costs
+plugins:
+  - ../../plugin
+description: merging a branch loads the share-costs skill, runs the report, and carries the trailer in the merge message
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    The branch work/report-total is reviewed and ready. You are on main: merge the branch into main with a merge commit, not a fast-forward.
+  max_turns: 20
+  allowed_tools:
+    - Read
+    - Glob
+    - Grep
+    - Write
+    - Edit
+    - Skill
+    - Bash
+graders:
+  - type: tool_used
+    name: loads-share-costs
+    tool: Skill
+    input_match: share-costs
+  - type: regex
+    name: share-costs-before-any-edit
+    target: trace
+    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill","input":\{"skill":"[^"]*share-costs"'
+    flags: "s"
+    match: contains
+  - type: tool_used
+    name: runs-the-report
+    tool: Bash
+    input_match: cost-report
+  - type: regex
+    name: the-report-ran
+    target: trace
+    pattern: '(?:CHANGE-COST: 2 commit\(s\) of|Change-Cost: 2 of 2 commit\(s\) counted;)'
+    flags: "m"
+    match: contains
+  - type: tool_order
+    name: share-costs-before-the-report
+    before:
+      tool: Skill
+      input_match: share-costs
+    after:
+      tool: Bash
+      input_match: cost-report
+  - type: regex
+    name: the-merge-carries-the-trailer
+    target: trace
+    pattern: '"name":"Bash","input":\{"command":"(?:[^"\\]|\\.)*git (?:merge|commit)(?:[^"\\]|\\.)*(?:Change-Cost:|cost-report\.sh(?:[^"\\]|\\.)*--trailer)'
+    flags: ""
+    match: contains

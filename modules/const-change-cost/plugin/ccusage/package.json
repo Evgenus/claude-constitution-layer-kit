@@ -1,0 +1,10 @@
+{
+  "name": "const-change-cost-plugin",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Pins the ccusage that const-change-cost counts with.",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "ccusage": "20.0.48"
+  }
+}

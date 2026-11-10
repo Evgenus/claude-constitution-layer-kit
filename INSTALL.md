@@ -26,6 +26,7 @@ Every module is a draft at manifest version `0.0.x` until Phase D of the [rollou
    brew install vale lychee
    ```
    A missing tool stops a gate with exit 1, never with a silent pass. Each module's own `INSTALL.md` names what it needs.
+5. Node.js with npm, and git 2.54 or newer, for [`const-change-cost`](docs/requirements.md#const-change-cost): Node runs the pinned ccusage that counts the tokens, npm installs it, and git 2.54 runs the hooks that its setup writes into git's configuration. The module's own `INSTALL.md` says more.
 
 <a id="s2"></a>
 ## Bootstrap a new project

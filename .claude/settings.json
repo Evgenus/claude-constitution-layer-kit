@@ -9,6 +9,7 @@
   },
   "enabledPlugins": {
     "const-catalogs@claude-constitution-layer-kit": true,
+    "const-change-cost@claude-constitution-layer-kit": true,
     "const-decision-records@claude-constitution-layer-kit": true,
     "const-doc-budgets@claude-constitution-layer-kit": true,
     "const-interaction@claude-constitution-layer-kit": true,
