@@ -1,0 +1,79 @@
+# Profile existing-repository: a prewritten constitution.yaml for a repository that already has
+# documents when it adopts the constitution kit. It is the profile new-project with one change:
+# every gate that runs in a hook is set to `severity: warn`.
+#
+# With `warn` a gate reports its finding and lets the act go on, so the documents written before
+# the kit do not stop the work of the first days. The scans ignore `severity` and report every
+# finding: their output is the list of what to repair. When a module's scan is green, delete that
+# module's `severity: warn` line. The default, `block`, then holds every new write.
+#
+# The rest is as in new-project. The file holds only what no default gives, beside the nine
+# `severity` lines. The order is the one of the kit's install guide, INSTALL.md: step 4 writes the
+# lines marked "step 4" below and the nine `severity` lines, and step 6 writes each further
+# policy, and after it the lines marked with that policy. The file names no style guide: the
+# skill /const-styling:style-defaults writes those lines in step 6.
+#
+# What a project adds later, each as its module's own INSTALL.md says: `coverage` of
+# const-task-close, the third dial that switches a check on; `ceilings` of const-doc-budgets, set
+# from the project's own history; `deciders` of const-decision-records and `preferences` of
+# const-questions, which name the project's people.
+
+# --- kernel-owned keys: step 4 ---
+
+root_policy: docs/policies/plc-0001-root-policy.md   # where the root policy is
+module_prefix: const-                                # required: the prefix of every module's namespace
+
+# --- policy namespaces: one per document kind, keyed by the policy's id ---
+
+plc-0001-root-policy:                 # step 4: the policy for policies; its territory is where policies live
+  territory:
+    - "docs/policies/**"
+
+plc-0002-kernel-policy:               # step 6, after this policy: the kernel copy
+  territory:
+    - "docs/constitution/**"
+
+plc-0003-decision-records:            # step 6, after this policy: the decision records
+  territory:
+    - "docs/decisions/**"
+
+# --- module namespaces: a module reads only its own ---
+# severity  values: block | warn — warn: a finding is reported and the act goes on, the adoption path
+
+const-meta-types:
+  severity: warn                      # a write with a missing or wrong envelope is reported and goes on
+
+const-decision-records:
+  severity: warn                      # a record with a wrong type, stakes or decider is reported and goes on
+  record_policies:                    # step 6, after the policy for decision records: the gate examines nothing until this names it
+    - plc-0003-decision-records
+
+const-catalogs:
+  severity: warn                      # a wrong name, id or number is reported and goes on
+  catalogs:                           # the gate examines nothing until a catalog is listed
+    - prefix: dec                     # step 6, after the policy for decision records: a record is dec-<nnnn>-<slug>
+      width: 4
+      territory:
+        - "docs/decisions/**"
+    - prefix: plc                     # step 4: a policy is plc-<nnnn>-<slug>, so the first policy's name is checked
+      width: 4
+      territory:
+        - "docs/policies/**"
+
+const-referencing:
+  severity: warn                      # a reference in a wrong form is reported and the write goes on
+
+const-task-close:
+  severity: warn                      # a dirty tree at turn end is shown to the user; the model is not asked to commit
+
+const-questions:
+  severity: warn                      # a write that holds an open-question marker is reported and goes on
+
+const-interaction:
+  severity: warn                      # a listed destructive command is reported and runs with no prompt
+
+const-language:
+  severity: warn                      # the findings after a write reach the model as context
+
+const-doc-budgets:
+  severity: warn                      # a document over its ceiling is reported as context
