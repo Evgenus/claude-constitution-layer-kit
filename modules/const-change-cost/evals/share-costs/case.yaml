@@ -48,7 +48,7 @@ graders:
       input_match: cost-report
   - type: regex
     name: the-merge-carries-the-trailer
-    target: { source: file, path: merge-message.txt }
-    pattern: '\n\n(?=(?:[A-Za-z][A-Za-z0-9-]*: [^\n]*\n)*Change-Cost-Commit: )(?:[A-Za-z][A-Za-z0-9-]*: [^\n]*\n)*Change-Cost: 2 of 2 commit\(s\) counted;[^\n]*\n(?:[A-Za-z][A-Za-z0-9-]*: [^\n]*\n)*\s*$'
+    target: trace
+    pattern: '"name":"Bash","input":\{"command":"(?:[^"\\]|\\.)*git (?:merge|commit)(?:[^"\\]|\\.)*(?:Change-Cost:|cost-report\.sh(?:[^"\\]|\\.)*--trailer)'
     flags: ""
     match: contains

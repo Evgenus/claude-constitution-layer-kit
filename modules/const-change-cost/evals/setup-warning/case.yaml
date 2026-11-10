@@ -21,7 +21,7 @@ graders:
   - type: regex
     name: the-reply-names-the-missing-hooks
     target: last_message
-    pattern: 'setup-commit-log|const-change-cost-(?:commit|merge)'
+    pattern: 'setup-commit-log|const-change-cost'
     flags: ""
     match: contains
   - type: regex

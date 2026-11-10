@@ -1,11 +1,9 @@
 #!/bin/sh
 # Seeds the run's working folder: a small inventory tool on its main branch, a branch of two commits ahead of
 # it, both hooks of the commit log set in git's configuration, and the two commits' counts kept in the
-# module's folder of the git common directory, so that the report needs no ccusage. A post-merge and a
-# post-commit hook of git's own folder copy the message of HEAD, when HEAD is a merge commit, into
-# merge-message.txt at the top of the work tree, which the exclude file keeps out of git and where a grader
-# reads it: the eval's git is older than the one that runs hooks set in its configuration, a message is no
-# file, and the post-commit hook keeps the file current after a merge concluded with --no-commit or amended.
+# module's folder of the git common directory, so that the report needs no ccusage. No hook is written: in the
+# eval's environment git ran no hook of the session's commands, so the case grades the merge by the shell call
+# in the trace.
 set -e
 git init -q -b main
 git config user.name "Eval"
@@ -20,7 +18,6 @@ printf '%s\n' \
   /.claude/agents /.claude/commands /.claude/hooks /.claude/launch.json /.claude/loop.md \
   /.claude/output-styles /.claude/routines /.claude/scheduled_tasks.json /.claude/settings.json \
   /.claude/settings.local.json /.claude/skills /.claude/workflows \
-  /merge-message.txt \
   >> .git/info/exclude
 mkdir -p src
 cat > src/inventory.py <<'END_OF_FILE'
@@ -60,13 +57,3 @@ printf '{"sha":"%s","ms":1793527205500,"session":"%s","event":"commit"}\n' "$fir
 printf '{"sha":"%s","ms":1793527210500,"session":"%s","event":"commit"}\n' "$second" "$session" >> "$logs/commits.jsonl"
 printf '{"sha":"%s","session":"%s","input":1200,"output":340,"cache_write":5000,"cache_read":20000,"total":26540,"cost":0.0521,"replies":6,"models":{"claude-sonnet-4-5-20250929":26540},"compactions":0,"unpriced":[],"ccusage":"20.0.48","counted_ms":1793527300000}\n' "$first" "$session" >> "$logs/counts.jsonl"
 printf '{"sha":"%s","session":"%s","input":800,"output":210,"cache_write":0,"cache_read":25000,"total":26010,"cost":0.0214,"replies":4,"models":{"claude-sonnet-4-5-20250929":26010},"compactions":0,"unpriced":[],"ccusage":"20.0.48","counted_ms":1793527300000}\n' "$second" "$session" >> "$logs/counts.jsonl"
-
-for hook in post-merge post-commit; do
-  cat > ".git/hooks/$hook" <<'END_OF_FILE'
-#!/bin/sh
-if git rev-parse -q --verify HEAD^2 >/dev/null; then
-  git log -1 --format=%B HEAD > "$(git rev-parse --show-toplevel)/merge-message.txt"
-fi
-END_OF_FILE
-  chmod +x ".git/hooks/$hook"
-done
