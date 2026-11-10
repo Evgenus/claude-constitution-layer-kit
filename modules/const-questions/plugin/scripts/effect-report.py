@@ -59,7 +59,7 @@ if failure is not None:
     sys.exit(1)
 
 from constitution_layer_kit import effect  # noqa: E402
-from questions_gate import effect_rules, start  # noqa: E402
+from questions_gate import start  # noqa: E402
 
 if __name__ == "__main__":
-    sys.exit(effect.run(sys.argv[1:], start.EFFECT, effect_rules.rules))
+    sys.exit(effect.run(sys.argv[1:], start.EFFECT, start.load_rules))

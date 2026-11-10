@@ -4418,3 +4418,33 @@ def test_effect_shared_entry(subject: Subject) -> None:
         "BROKEN: the effect reports could not run — no plugin read\n"
     )
     assert (failed.code, failed.stdout, failed.stderr) == (1, "", wanted), f"{failed}"
+
+
+@item(
+    204, "effect report: a declared library (PyYAML) that cannot be imported is C2, exit 1, never a traceback"
+)
+def test_effect_library_absent(subject: Subject) -> None:
+    """The module's effect entry run with a `yaml` first on PYTHONPATH that fails to import, as item 114
+    runs the gate's: stderr is the two lines and nothing else, `C2` naming PyYAML and the plugin's
+    requirements file, typed by hand up to the closing clause of the entry's identity, then the report's
+    closing line; nothing on stdout. A shared module or a module's rule imported before the preflight ends
+    the run in a traceback instead, which this item holds red."""
+    it = shared(subject, "effect_library_absent")
+    root = it.h.fresh_consumer().root
+    shadow = it.h.scratch_dir()
+    (shadow / "yaml.py").write_text("raise ImportError('simulated absence')\n", encoding="utf-8")
+    result = effect_run(it, root, env={"PYTHONPATH": str(shadow)})
+    line = (  # typed by hand, up to the clause, which is the identity's
+        f"BROKEN: {it.ns} needs PyYAML — fix: run: python3 -m pip install -r"
+        f" '{preflight.requirements_file()}' — "
+    )
+    lines = result.stderr.splitlines()
+    ok = (
+        result.code == 1
+        and result.stdout == ""
+        and len(lines) == 2
+        and lines[0].startswith(line)
+        and len(lines[0]) > len(line)
+        and lines[1] == "BROKEN: the report could not run — no rule counted"
+    )
+    assert ok, f"exit {result.code}; stdout {result.stdout!r}; stderr {result.stderr.strip()[-600:]!r}"

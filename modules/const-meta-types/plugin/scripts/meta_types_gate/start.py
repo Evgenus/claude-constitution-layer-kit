@@ -5,10 +5,14 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from constitution_layer_kit import cli
 from constitution_layer_kit.identity import HOOK_SECONDS, Identity
 from constitution_layer_kit.model import KERNEL_KEYS, Mode
+
+if TYPE_CHECKING:
+    from constitution_layer_kit.effect import Rule
 
 GATE = Identity(
     namespace="const-meta-types",
@@ -36,6 +40,14 @@ def load_modes() -> cli.Modes:
     from . import modes  # noqa: PLC0415
 
     return cli.Modes(hook=modes.hook_mode, scan=modes.scan_mode)
+
+
+def load_rules() -> Sequence[Rule]:
+    # Necessary here, not at the top: the rules import the declared libraries, and only after the
+    # preflight does a missing one become its designed message instead of a traceback.
+    from . import effect_rules  # noqa: PLC0415
+
+    return effect_rules.rules()
 
 
 def main(argv: Sequence[str]) -> int:
