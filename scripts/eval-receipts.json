@@ -12,6 +12,19 @@
     "hash": "sha256:6fd0457a5676e8d42016ddf523b1a5183d915bd5921191a6d2ffd436a10e198f",
     "model": "claude-opus-5-5"
   },
+  "const-change-cost": {
+    "attempts": [
+      {
+        "at": "2026-11-10T02:41:59Z",
+        "cases": 2,
+        "passed": 1,
+        "score": 0.8333333333333333
+      }
+    ],
+    "claude": "2.1.282",
+    "hash": "sha256:e41b4909e7b43e6c9f74e89f7f12302f105eeb11cd916050c2130e8f32cecc8c",
+    "model": "claude-opus-5-5"
+  },
   "const-decision-records": {
     "attempts": [
       {
