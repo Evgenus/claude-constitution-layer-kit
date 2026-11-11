@@ -943,8 +943,8 @@ class SharedItems:
             known[key] = (
                 float(declared[0])
                 if declared
-                else "declares no hook budget: its entry point opened no scope of `identity.declared`, so"
-                " the tie has no number to hold it to"
+                else "never declares itself: its entry point opened no scope of `identity.declared`, so the"
+                " tie has no number to hold it to"
             )
             return known[key]
 
@@ -998,7 +998,7 @@ class SharedItems:
                 holds(gate, handler("printer.sh", 39 + margin)),
             ),
             ("the printer at 30 s, above the gate's floor", False, holds(gate, handler("printer.sh", 30))),
-            ("a handler that declares nothing", False, holds(gate, handler("silent.sh", 600))),
+            ("a handler that never declares itself", False, holds(gate, handler("silent.sh", 600))),
         ]
         ok = all(got[0] == expected for _, expected, got in cases) and not mark.exists()
         said = "; ".join(

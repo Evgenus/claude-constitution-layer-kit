@@ -1404,9 +1404,9 @@ def test_hooks_file_shape() -> None:
     """Two SessionStart handlers (the printer of the dial's state, the skill pointer) and a SubagentStart
     handler, each with no matcher, and a PreToolUse handler on Write|Edit, exec form, the placeholder in
     args, integer timeouts, every script present. The module's own wait in one hook run, the history read,
-    fits the hook's budget the gate declares (`GATE.hook_seconds`); each handler's timeout holds the budget
-    its own entry point declares and `LEFT_FOR_THE_REST`, which the shared item S165 ties; the two printers
-    read no history."""
+    fits the hook's budget the gate declares (`GATE.hook_seconds`); the timeout of each handler that names
+    python3 holds the budget its own entry point declares and `LEFT_FOR_THE_REST`, which the shared item S165
+    ties; the two printers read no history."""
     hooks = json.loads((PLUGIN_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
     root = "${CLAUDE_PLUGIN_ROOT}/scripts/"
     wanted: dict[str, list[list[str]]] = {
