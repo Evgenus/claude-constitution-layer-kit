@@ -81,7 +81,10 @@ PACKAGE = "constitution_layer_kit"  # the shared package, a folder of the kit's 
 # budget of 3 s could cut a call the case never meant to cut.
 # It also logs the `hook_seconds` of each scope the process opens (`identity.declared`), and where the
 # environment names a lower hook budget it opens the scope with that many seconds in place of the gate's
-# own: the one deadline of a hook run, lowered for the case that spends it.
+# own: the one deadline of a hook run, lowered for the case that spends it. Where the environment asks for
+# it, the process ends there, right after the line is logged and before the scope opens: the tie of the
+# hooks file starts each handler only to read the budget its entry point declares, and nothing of the run
+# may happen.
 GIT_PATCH = """\
 import dataclasses
 import os
@@ -96,6 +99,7 @@ trigger = os.environ.get("GIT_PATCH_TRIGGER")
 hook_lowered = os.environ.get("GIT_PATCH_HOOK_SECONDS")
 late = os.environ.get("GIT_PATCH_LATE")
 unclocked = os.environ.get("GIT_PATCH_UNCLOCKED")
+stop = os.environ.get("GIT_PATCH_STOP")
 log, run, declared = os.environ["GIT_PATCH_LOG"], subprocess.run, identity.declared
 if late or unclocked:  # the deadline's clock stands still but for the lateness of git's answers
     clock = [0.0]
@@ -124,6 +128,8 @@ def declaring(gate, mode=None):
         gate = dataclasses.replace(gate, hook_seconds=float(hook_lowered))
     with open(log + "-hook-seconds", "a") as out:
         out.write(repr(gate.hook_seconds) + "\\n")
+    if stop:  # the case wanted the declared budget alone
+        os._exit(0)
     return declared(gate, mode)
 
 
@@ -147,6 +153,7 @@ def git_patch(
     hook_seconds: float | None = None,
     late: float | None = None,
     unclocked: bool = False,
+    stop: bool = False,
 ) -> tuple[dict[str, str], Path]:
     """The environment that makes a gate's process log the `timeout=` of each git call it makes and the
     `hook_seconds` its scope is opened with, and, with `seconds` and a `trigger`, give the call whose
@@ -158,7 +165,8 @@ def git_patch(
     alone, never from how fast the machine runs; a call that answers runs with no clock. With `unclocked`,
     every call but the one `trigger` and `seconds` lower runs with no clock, and the deadline's clock stands
     still: the log still holds the budget the gate gave each call, and no call the case did not choose is cut
-    by a slow start of a fake git just written."""
+    by a slow start of a fake git just written. With `stop`, the process ends as it declares itself, the
+    `hook_seconds` logged and nothing else done: the scope does not open, and the run is never reached."""
     folder = h.scratch_dir()
     (folder / "sitecustomize.py").write_text(GIT_PATCH, encoding="utf-8")
     log = folder / "git-calls"
@@ -175,6 +183,8 @@ def git_patch(
         env["GIT_PATCH_LATE"] = repr(late)
     if unclocked:
         env["GIT_PATCH_UNCLOCKED"] = "1"
+    if stop:
+        env["GIT_PATCH_STOP"] = "1"
     return env, log
 
 
@@ -821,19 +831,25 @@ class SharedItems:
         except OSError:
             return True
 
-    def handlers_outlive_git(self, plugin: Path, hook_seconds: float) -> tuple[bool, str]:
+    def handlers_outlive_git(
+        self, plugin: Path, budget_of: Callable[[Sequence[str]], float | str], needs_one: bool = True
+    ) -> tuple[bool, str]:
         """Every handler of the plugin's hooks file whose script names python3 has a timeout of at least
-        `hook_seconds` (the one the gate is declared with) plus `LEFT_FOR_THE_REST` (limit 16): the hook's
-        deadline, and so a git that hangs, ends with the gate's own line before the platform cuts the hook,
-        which says nothing. The floor implies that the timeout is above `GIT_SECONDS`. A handler's scripts
+        the hook budget its own entry point declares plus `LEFT_FOR_THE_REST` (limit 16): the hook's
+        deadline, and so a git that hangs, ends with the entry point's own line before the platform cuts the
+        hook, which says nothing. The floor implies that the timeout is above `GIT_SECONDS`. `budget_of`
+        gives the budget for a handler's command line as the platform starts it, or says in words why none
+        is known, which is red. A handler's scripts
         are each of its `args` that is no option (`--subagent`), and each word of its `command` that, once
         `${CLAUDE_PLUGIN_ROOT}` (or the unbraced `$CLAUDE_PLUGIN_ROOT`, as a shell expands it) is replaced,
         is a path under the plugin's folder or an existing file: a redirection, an option or any other word
         is no script. A handler whose `command` names python3 as a word is held too, and a script that
         cannot be read, a missing one under the plugin's folder included, counts as one that names
-        python3."""
-        floor = hook_seconds + identity.LEFT_FOR_THE_REST
+        python3. `needs_one`: a hooks file with no handler to hold is red, as for a gate with a hook run;
+        without it, a module whose handlers all name no python3, or that has no hooks file, is green."""
         hooks = plugin / "hooks" / "hooks.json"
+        if not needs_one and not hooks.exists():
+            return True, f"{hooks} does not exist: no handler to hold"
         try:
             spec = json.loads(hooks.read_text(encoding="utf-8"))
             handlers = [
@@ -854,11 +870,10 @@ class SharedItems:
                 words = command.split()
             root = str(plugin)
             words = [re.sub(r"\$\{CLAUDE_PLUGIN_ROOT\}|\$CLAUDE_PLUGIN_ROOT(?!\w)", root, w) for w in words]
-            scripts = [
-                a.replace("${CLAUDE_PLUGIN_ROOT}", root)
-                for a in handler.get("args", [])
-                if not a.startswith("-")
-            ] + [w for w in words if w.startswith(root + os.sep) or self.is_file(w)]
+            given = [a.replace("${CLAUDE_PLUGIN_ROOT}", root) for a in handler.get("args", [])]
+            scripts = [a for a in given if not a.startswith("-")] + [
+                w for w in words if w.startswith(root + os.sep) or self.is_file(w)
+            ]
             try:
                 names_python = re.search(r"(?<![\w-])python3(?![\w-])", command) is not None or any(
                     b"python3" in Path(a).read_bytes() for a in scripts
@@ -868,23 +883,129 @@ class SharedItems:
             if not names_python:
                 continue
             checked += 1
+            # exec form, `command` with `args`, is started as it stands; shell form is a line for a shell
+            budget = budget_of([command, *given] if "args" in handler else [self.h.sh, "-c", command])
+            where = f"{event} handler {command!r} {scripts}"
+            if isinstance(budget, str):
+                short.append(f"{where} {budget}")
+                continue
+            floor = budget + identity.LEFT_FOR_THE_REST
             timeout = handler.get("timeout")
             numeric = isinstance(timeout, int | float) and not isinstance(timeout, bool)
             if not numeric or timeout < floor:
-                short.append(f"{event} handler {command!r} {scripts} has timeout {timeout!r}")
+                short.append(
+                    f"{where} has timeout {timeout!r}, under the {floor:g} s of its hook budget"
+                    f" ({budget:g} s) and LEFT_FOR_THE_REST ({identity.LEFT_FOR_THE_REST:g} s)"
+                )
         if checked == 0:
-            return False, f"{hooks} holds no handler whose script names python3"
+            none = f"{hooks} holds no handler whose script names python3"
+            return not needs_one, none
         if short:
             return False, (
-                f"{'; '.join(short)} — under the {floor:g} s of the hook's budget ({hook_seconds:g} s) and"
-                f" LEFT_FOR_THE_REST ({identity.LEFT_FOR_THE_REST:g} s): a hook that spends its deadline"
-                " would be cut by the platform before the gate said so"
+                f"{'; '.join(short)}: a hook that spends its deadline would be cut by the platform before"
+                " its entry point said so"
             )
         return (
             True,
-            f"{checked} handler(s) whose script names python3 hold {floor:g} s: the hook's budget"
-            f" ({hook_seconds:g} s) and LEFT_FOR_THE_REST ({identity.LEFT_FOR_THE_REST:g} s)",
+            f"{checked} handler(s) whose script names python3 hold the hook budget their own entry point"
+            f" declares and LEFT_FOR_THE_REST ({identity.LEFT_FOR_THE_REST:g} s)",
         )
+
+    def declared_budget(self, plugin: Path) -> Callable[[Sequence[str]], float | str]:
+        """How the tie learns the hook budget of a handler: it starts the handler as the platform does, in a
+        fresh consumer and on empty input, under the patch that logs the `hook_seconds` the entry point
+        declares itself with and ends the process there, so that nothing of the run happens. The budget
+        logged is the handler's. A handler that could not be started, or that ended without declaring
+        itself, has no budget the tie could hold, said in words. A command line is started once."""
+        known: dict[tuple[str, ...], float | str] = {}
+
+        def measured(argv: Sequence[str]) -> float | str:
+            key = tuple(argv)
+            if key in known:
+                return known[key]
+            env, log = git_patch(self.h, stop=True)
+            env["CLAUDE_PLUGIN_ROOT"] = str(plugin)
+            try:
+                subprocess.run(
+                    list(argv),
+                    input="",
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                    env=self.h.environment(env),
+                    cwd=self.h.fresh_consumer().root,
+                    timeout=HANG_BOUND,
+                )
+            except (OSError, subprocess.TimeoutExpired) as error:
+                known[key] = f"could not be started to read its hook budget ({type(error).__name__})"
+                return known[key]
+            declared = declared_hook_seconds(log)
+            known[key] = (
+                float(declared[0])
+                if declared
+                else "declares no hook budget: its entry point opened no scope of `identity.declared`, so"
+                " its run has no deadline for the tie to hold"
+            )
+            return known[key]
+
+        return measured
+
+    def each_handler_holds_its_own_budget(self) -> None:
+        """The tie reads the budget each handler's own entry point declares, on a plugin made here: a gate
+        that declares 10 s and a printer that declares 40 s, each a script that opens a scope of
+        `identity.declared`. Both at their own floor are green. The printer one second under its floor is
+        red, and so is the printer at 30 s, which the gate's budget alone would let pass. A handler that
+        names python3 and declares nothing is red, since it has no deadline to hold. The handlers are
+        started only as far as their declaration: none leaves the mark its run would write."""
+        plugin = self.h.scratch_dir()
+        (plugin / "hooks").mkdir()
+        scripts = plugin / "scripts"
+        scripts.mkdir()
+        mark = plugin / "ran"
+        (scripts / "declares.py").write_text(
+            "import sys\n"
+            "from pathlib import Path\n"
+            "from constitution_layer_kit import identity\n"
+            "from constitution_layer_kit.model import Mode\n"
+            "who = identity.Identity('x-y', 'y', Path('.'), 'x.yaml', ('module_prefix',),"
+            " hook_seconds=float(sys.argv[1]))\n"
+            "with identity.declared(who, Mode.HOOK):\n"
+            "    Path(sys.argv[2]).write_text('the run was reached')\n",
+            encoding="utf-8",
+        )
+        entry = shlex.quote(str(scripts / "declares.py"))
+        for name, budget in (("gate", 10), ("printer", 40)):
+            line = f"exec python3 {entry} {budget} {shlex.quote(str(mark))}\n"
+            (scripts / f"{name}.sh").write_text(line, encoding="utf-8")
+        (scripts / "silent.sh").write_text("exec python3 -c pass\n", encoding="utf-8")
+        margin = identity.LEFT_FOR_THE_REST
+
+        def handler(name: str, timeout: float) -> dict[str, object]:
+            script = "${CLAUDE_PLUGIN_ROOT}/scripts/" + name
+            return {"type": "command", "command": "sh", "args": [script], "timeout": timeout}
+
+        def holds(*handlers: dict[str, object]) -> tuple[bool, str]:
+            spec = {"hooks": {"SessionStart": [{"hooks": list(handlers)}]}}
+            (plugin / "hooks" / "hooks.json").write_text(json.dumps(spec), encoding="utf-8")
+            return self.handlers_outlive_git(plugin, self.declared_budget(plugin))
+
+        gate = handler("gate.sh", 10 + margin)
+        cases: list[tuple[str, bool, tuple[bool, str]]] = [
+            ("each at its own floor", True, holds(gate, handler("printer.sh", 40 + margin))),
+            (
+                "the printer a second under its own floor",
+                False,
+                holds(gate, handler("printer.sh", 39 + margin)),
+            ),
+            ("the printer at 30 s, above the gate's floor", False, holds(gate, handler("printer.sh", 30))),
+            ("a handler that declares nothing", False, holds(gate, handler("silent.sh", 600))),
+        ]
+        ok = all(got[0] == expected for _, expected, got in cases) and not mark.exists()
+        said = "; ".join(
+            f"{label}: {'green' if got[0] else 'red'} (wanted {'green' if expected else 'red'}: {got[1]})"
+            for label, expected, got in cases
+        )
+        assert ok, f"{said}; the mark of a run: {'written' if mark.exists() else 'none'}"
 
     def the_tie_catches_a_short_handler(self) -> None:
         """The tie on hooks files made here, for a hook budget of 10 s: a timeout one second under the
@@ -919,7 +1040,7 @@ class SharedItems:
         def holds(*handlers: dict[str, object]) -> tuple[bool, str]:
             spec = {"hooks": {"PreToolUse": [{"matcher": "Write", "hooks": list(handlers)}]}}
             (plugin / "hooks" / "hooks.json").write_text(json.dumps(spec), encoding="utf-8")
-            return self.handlers_outlive_git(plugin, hook_seconds)
+            return self.handlers_outlive_git(plugin, lambda _: hook_seconds)
 
         cases: list[tuple[str, bool, tuple[dict[str, object], ...]]] = [
             ("exec form, one second under the floor", False, (exec_form("gate.sh", under),)),
@@ -2563,6 +2684,7 @@ def test_git_has_a_budget_in_a_hook(subject: Subject) -> None:
             it.scopes_shadow,
             it.git_words,
             it.the_tie_catches_a_short_handler,
+            it.each_handler_holds_its_own_budget,
             it.the_scratch_hang_spares_the_repository,
         )
     ]
@@ -2601,10 +2723,13 @@ def test_git_has_a_budget_in_a_hook(subject: Subject) -> None:
         )
         declared = set(declared_hook_seconds(log))  # the hook budget the gate declared itself with
         results.append(
-            it.handlers_outlive_git(preflight.requirements_file().parent, float(declared.pop()))
-            if len(declared) == 1
-            else (False, f"a hook run declared the gate with {sorted(declared)} hook budgets, not one")
+            (len(declared) == 1, f"a hook run declared the gate with {sorted(declared)} hook budget(s)")
         )
+    # the tie of the hooks file: each handler at the budget its own entry point declares; a gate with a
+    # hook run has at least one handler to hold
+    plugin = preflight.requirements_file().parent
+    hook_run = it.s.event_driven and not it.s.scan_only
+    results.append(it.handlers_outlive_git(plugin, it.declared_budget(plugin), needs_one=hook_run))
     if it.s.event_driven or it.s.scan_only:  # a scan, on the prepared consumer
         _, scanned = it.s.gate_on(it.s.valid)
         unclocked = it.git_calls(lambda env: it.h.run_gate("", args=it.scan_args(scanned), env=env))
