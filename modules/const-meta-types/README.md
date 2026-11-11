@@ -5,7 +5,7 @@
 
 Write-time guard of claimed territory: every Markdown document there carries the envelope (id, type, title, status) and resolves to exactly one governing policy. Plus a skill for choosing the meta-type.
 
-In plain words: a policy is a document that holds the rules for one kind of page, and the folders it governs are its territory. A territory that a policy claims is claimed territory. Every Markdown page there starts with a short block, the envelope, that says what the page is. The envelope holds an id, a type, a title and a status. The type, also called the meta-type, is one of three: how things are now, where things should go, or a page that binds nothing. The module checks the envelope at the moment the page is written, which is why it is called a write-time guard, and checks that exactly one policy governs the page. A skill helps pick the type.
+In plain words: a policy is a document that holds the rules for one kind of page, and the folders it governs are its territory. A territory that a policy claims is claimed territory. Every Markdown page there starts with a short block, the envelope, that says what the page is. The envelope holds an id, a type, a title and a status. The type, also called the meta-type, is one of three: how things are now, where things should go, or a page that binds nothing. The module checks the envelope at the moment the page is written, which is why it is called a write-time guard. It also checks that exactly one policy governs the page. A skill helps pick the type.
 
 <a id="a2"></a>
 ## Why use it
@@ -32,11 +32,11 @@ The skill `choose-meta-type` is there for the moment a document is created or so
 
 **Before a write.** A hook runs before every `Write` and `Edit` of the platform's file tools. It reads the file as it would be after the write and finds the policy whose territory holds the path. It checks the four fields, and that no other file in the tree carries the same id. Then it lets the write through or refuses it with the message above. It sees only writes made through the file tools. A file written by a shell command, a script or another person passes it unseen, which is what the scan is for.
 
-**The pointer to the policy.** The same hook, on a write that passes. The first time in a session that a write passes for a document of some policy, it adds one short line to what the model reads next. The line names the policy's file and, where the policy has a rule named Enforcement, that rule's place in the file. The session can then open the rules review will hold before it edits further. The line is advice and blocks nothing. It is said once per session for each repository and policy, which the module remembers in a small file beside its log.
+**The pointer to the policy.** The same hook, on a write that passes. Take the first write in a session that passes for a document of some policy. The hook adds one short line to what the model reads next. The line names the policy's file and, where the policy has a rule named Enforcement, that rule's place in the file. The session can then open the rules review will hold before it edits further. The line is advice and blocks nothing. It is said once per session for each repository and policy, which the module remembers in a small file beside its log.
 
-**At session start.** A hook that runs when a session starts prints one short line that names the skill and the moment to load it: before a governed document is created or its type changed, and when a write is refused for its envelope. It reads nothing, checks nothing and blocks nothing.
+**At session start.** A hook that runs when a session starts prints one short line that names the skill and the moment to load it. The moment is before a governed document is created or its type changed, and when a write is refused for its envelope. It reads nothing, checks nothing and blocks nothing.
 
-**At a subagent's start.** A hook on the start of each subagent gives the same line to that subagent, which starts with a context of its own and would not otherwise know the skill is there.
+**At a subagent's start.** A hook on the start of each subagent gives the same line to that subagent. A subagent starts with a context of its own and would not otherwise know the skill is there.
 
 **The scan.** The same check over every Markdown file git lists, run from the command line. It reports every finding and exits with code 2 when there is one. It says how many documents it examined, so a scan of nothing is never read as green. Run it in CI and before a merge.
 
