@@ -33,7 +33,7 @@ A, by the session: it writes down what the check does today, so the policy and t
 
 ## Choice
 
-A, by the decider, in chat on 2026-11-11. The decider gave the letter and no reason. The pick did not name R6 and R7. The session added them in the fixes of the first round of the carry audit, where the new sentence of rule 5 read two ways; both state what the check already does.
+A, by the decider, in chat on 2026-11-11. The decider gave the letter and no reason. The pick did not name R6 and R7. The session added them in the fixes of the first round of the carry audit: R7 where the new sentence of rule 5 read two ways, R6 where the rule did not say under which id the record must stand at the commit the receipt names. Both state what the check already does.
 
 ## Ruling
 
@@ -45,7 +45,7 @@ A, by the decider, in chat on 2026-11-11. The decider gave the letter and no rea
 
 <a id="r4"></a>**R4.** The docstring and the note of `scripts/check-carry-lists.py` name the renamed record beside the renumbered one.
 
-<a id="r5"></a>**R5.** R1, R2 and R3 widen R8 of [dec-0078-landed-collisions-renumber-and-kit-checks-hold-numbers-descriptions-namespaces-and-folders](dec-0078-landed-collisions-renumber-and-kit-checks-hold-numbers-descriptions-namespaces-and-folders.md#r8), which ruled the same for a renumbered record. That record is not touched.
+<a id="r5"></a>**R5.** R1, R2 and R3 widen R8 of [dec-0078-landed-collisions-renumber-and-kit-checks-hold-numbers-descriptions-namespaces-and-folders](dec-0078-landed-collisions-renumber-and-kit-checks-hold-numbers-descriptions-namespaces-and-folders.md#r8), which ruled the same for a renumbered record. R6 adds to that ruling which commit the receipt names. That record is not touched.
 
 <a id="r6"></a>**R6.** For a renumbered record and for a renamed one, the commit the receipt names is one at which the record already stood under its new id.
 
@@ -59,4 +59,4 @@ The commit that creates this record adds the sentence of R1 and R2 to rule 5 of 
 
 1. R1, R2, R3, R6, R7 — [rule 5 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r5), its sentences on an `Accepted:` id that names no record, on a renamed record, on the commit the receipt names, and on a record numbered below `0030`.
 2. R4 — [the check](../../scripts/check-carry-lists.py), the receipt paragraph of its docstring and the note of an accepted id that is no record.
-3. R5 — history only: the widening of an earlier ruling, which binds nothing once R1, R2 and R3 are carried.
+3. R5 — history only: the widening of an earlier ruling, which binds nothing once R1, R2, R3 and R6 are carried.
