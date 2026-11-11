@@ -17,7 +17,7 @@ A line that starts `BROKEN: const-questions needs the Python package constitutio
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). Two hooks. The shape of a decision message is printed into the session's context at
    every session start. That holds after a resume, a compaction and a clear too. The text is 648
-   characters and advisory. It holds lettered options with **Pros:** and **Cons:** sub-bullets, one
+   characters, advisory. It holds lettered options with **Pros:** and **Cons:** sub-bullets, one
    recommendation and the decider named. It also holds the instruction to load the skill before any
    choice is put. Before every `Write` and `Edit` of a Markdown file the document as it will be after
    the write is checked for open-question markers. A finding blocks the write.
