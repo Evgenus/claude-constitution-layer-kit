@@ -130,6 +130,10 @@ def declaring(gate, mode=None):
 subprocess.run = spy
 identity.declared = declaring
 """
+# The argument that only the scratch repository's `check-ignore` carries. The case that fails or hangs that
+# call names it by this argument: the subcommand's own name would cut the first `check-ignore` of the run,
+# and a gate may ask the person's repository one before its matcher asks the scratch repository.
+SCRATCH_CHECK_IGNORE = "--no-index"
 HANG_SECONDS = 0.5  # the budget of the one call a hang case lowers it for: the case waits well under a second
 # What a hang case allows the whole run, the gate's start-up included. It only stops an endless wait, so it is
 # far above anything a loaded machine takes; the assertion that matters is the line from the 0.5 s budget.
@@ -577,24 +581,11 @@ class SharedItems:
 
     # ---------------------------------------------------------------- git failing in one way; a file unread
 
-    def git_failing_at(
-        self,
-        trigger: str,
-        code: int,
-        line: Callable[[Path], str],
-        through_scan: bool = False,
-        then: str = "",
-        hangs: bool = False,
-    ) -> None:
-        """A git first on PATH that exits `code` when one of its arguments is `trigger`, and hands every
-        other call to the real git — so the gate gets as far as that one call. `through_scan`: the
-        failing git is met by the scan on the prepared consumer, for a gate whose hook never makes
-        the call. `then`: a second stderr line the failing git adds, which no message may carry.
-        `hangs`: the git does not fail but never answers — it becomes a process that waits for ever,
-        which the budget kills — and the hook run, whose budget is lowered to `HANG_SECONDS`, is bounded
-        by the case itself, so that a gate with no budget reads as a red item, not an endless wait. Every
-        other call runs with no clock (`git_patch`, `unclocked`): the fake is a file just written, whose
-        first start on a loaded machine has taken longer than the 3 s a hook gives git."""
+    def failing_git(self, trigger: str, code: int, then: str = "", hangs: bool = False) -> dict[str, str]:
+        """The environment of `git_failing_at`: a git first on PATH that exits `code`, or with `hangs` never
+        answers, when one of its arguments is `trigger`, and hands every other call to the real git; and the
+        patch that runs every other call with no clock and, for a hang, gives the call that holds the trigger
+        `HANG_SECONDS`."""
         real, silent = shutil.which("git"), shutil.which("tail")
         if real is None or silent is None:
             pytest.fail("no git or no tail on PATH: the fake git hands every other call to the real one")
@@ -615,6 +606,67 @@ class SharedItems:
         env = {"PATH": str(directory) + os.pathsep + os.environ.get("PATH", os.defpath)}
         cut = (HANG_SECONDS, trigger) if hangs else (None, None)
         env.update(git_patch(self.h, *cut, unclocked=True)[0])
+        return env
+
+    def the_scratch_hang_spares_the_repository(self) -> None:
+        """The case that hangs the scratch repository's `check-ignore` cuts that call and no other. A
+        process of its own, in a hook's scope, first asks the person's repository whether a path is ignored
+        and then matches a territory, as a gate may: under the fake git of that case the first call answers
+        and the second ends in `C12.13`, typed by hand. A case that named the call by its subcommand would
+        cut the first, and the line would be `C12.12`."""
+        program = (
+            "import sys\n"
+            "from pathlib import Path\n"
+            "from constitution_layer_kit import identity, repository\n"
+            "from constitution_layer_kit.errors import ConfigurationFailure\n"
+            "from constitution_layer_kit.model import Mode\n"
+            "from constitution_layer_kit.territory import Matcher\n"
+            "who = identity.Identity('x-y', 'y', Path('.'), 'x.yaml', ('module_prefix',))\n"
+            "with identity.declared(who, Mode.HOOK):\n"
+            "    try:\n"
+            "        repository.is_ignored(Path(sys.argv[1]), 'a.md')\n"
+            "        print('the repository answered')\n"
+            "        with Matcher() as matcher:\n"
+            "            matcher.match(['*.md'], ['a.md'])\n"
+            "        print('no call was cut')\n"
+            "    except ConfigurationFailure as failure:\n"
+            "        print(failure.broken.render())\n"
+        )
+        root = self.h.fresh_consumer().root
+        env = self.h.environment(self.failing_git(SCRATCH_CHECK_IGNORE, 0, hangs=True))
+        done = subprocess.run(
+            [sys.executable, "-c", program, str(root)],
+            capture_output=True,
+            text=True,
+            check=False,
+            env=env,
+            timeout=HANG_BOUND,
+        )
+        wanted = ["the repository answered", self.silent_scratch("check-ignore")]
+        said = done.stdout.splitlines()
+        assert said == wanted, (
+            f"exit {done.returncode}: wanted {wanted}, got {said} {done.stderr.strip()[-300:]}"
+        )
+
+    def git_failing_at(
+        self,
+        trigger: str,
+        code: int,
+        line: Callable[[Path], str],
+        through_scan: bool = False,
+        then: str = "",
+        hangs: bool = False,
+    ) -> None:
+        """A git first on PATH that exits `code` when one of its arguments is `trigger`, and hands every
+        other call to the real git — so the gate gets as far as that one call. `through_scan`: the
+        failing git is met by the scan on the prepared consumer, for a gate whose hook never makes
+        the call. `then`: a second stderr line the failing git adds, which no message may carry.
+        `hangs`: the git does not fail but never answers — it becomes a process that waits for ever,
+        which the budget kills — and the hook run, whose budget is lowered to `HANG_SECONDS`, is bounded
+        by the case itself, so that a gate with no budget reads as a red item, not an endless wait. Every
+        other call runs with no clock (`git_patch`, `unclocked`): the fake is a file just written, whose
+        first start on a loaded machine has taken longer than the 3 s a hook gives git."""
+        env = self.failing_git(trigger, code, then, hangs)
         with self.h.bounded(HANG_BOUND) if hangs else nullcontext():
             if through_scan:
                 _, root = self.s.gate_on(self.s.valid)
@@ -2240,7 +2292,7 @@ def test_check_ignore_fails(subject: Subject) -> None:
     line of stderr stays out of the message, whose first line is the one that reaches the user."""
     it = shared(subject, "check_ignore_fails")
     it.git_failing_at(
-        "--no-index",
+        SCRATCH_CHECK_IGNORE,
         128,
         lambda _: (
             "BROKEN: git check-ignore failed: fatal: simulated --no-index failure — fix: territory"
@@ -2511,6 +2563,7 @@ def test_git_has_a_budget_in_a_hook(subject: Subject) -> None:
             it.scopes_shadow,
             it.git_words,
             it.the_tie_catches_a_short_handler,
+            it.the_scratch_hang_spares_the_repository,
         )
     ]
     if it.s.event_driven and not it.s.scan_only:  # a gate with a hook run
@@ -2522,11 +2575,11 @@ def test_git_has_a_budget_in_a_hook(subject: Subject) -> None:
                 "ls-files", str(root), "ls-files --cached --others --exclude-standard"
             ),
             "init": lambda _: it.silent_scratch("init"),
-            "check-ignore": lambda _: it.silent_scratch("check-ignore"),
+            SCRATCH_CHECK_IGNORE: lambda _: it.silent_scratch("check-ignore"),
         }
         reached = ["rev-parse"]
         if not it.no_file:
-            reached += ["init", "check-ignore"]
+            reached += ["init", SCRATCH_CHECK_IGNORE]
             if it.s.hook_lists_files:  # the hook asks git for the file list
                 reached.append("ls-files")
 
