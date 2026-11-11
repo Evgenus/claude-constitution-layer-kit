@@ -16,7 +16,7 @@ On 2026-10-16 the decider asked how the kit makes sure that every tool of a modu
 1. Each module's fixtures run its gate and hook scripts directly, on bare temporary repositories. They prove what a script decides, not that Claude Code runs it.
 2. `scripts/check-bare-install.py` installs each module through `claude plugin install` and runs every hook of the copy by hand, on a sample event. It starts no session, so it proves neither that the platform registers a hook nor that it loads a skill.
 3. `scripts/check-install-guide.py` starts one headless session and reads only the plugins' paths from its `init` event.
-4. The `live` items of each module document's acceptance table prove the session behaviour, the "pointer leads to a load" among them. Each was run once by hand and is never run again; some date from Claude Code 2.1.251, and the kit's pin is 2.1.282.
+4. The `live` items of each module document's acceptance table prove the session behaviour, the "pointer leads to a load" among them. Each was run once by hand and is never run again. Some date from Claude Code 2.1.251, and the kit's pin is 2.1.282.
 
 The kit has met the failure these leave open. In its own sessions of 2026-09-26, a rule whose only home was a skill drifted while the skill was not loaded, as the context of [dec-0047-decision-shape-printed-at-session-start](dec-0047-decision-shape-printed-at-session-start.md) tells. Nothing in the repository had changed, and nothing re-ran its one live proof.
 
@@ -29,18 +29,24 @@ Facts that settle the mechanism, from experiments on 2026-10-16 on Claude Code 2
 5. In a run with a no-plugin baseline, a `tool_used` grader on `Skill` is shown but not scored; under `--ablation none`, or marked `arm: both`, it is scored.
 6. The run's result JSON names the Claude Code version, the plugin's name and version, and per case its score and pass rate. It names the model only when one is passed with `--model`, as `suite.modelOverride`.
 
-A change to the kit's checks, its CI and its module documents changes the kit's harness, so this is a `process` change under [law 9 of CLAUDE.md](../../CLAUDE.md#law-9). A model's behaviour can never be a deterministic gate under [law 5 of CLAUDE.md](../../CLAUDE.md#law-5). So the decider was asked, in chat on 2026-10-16, how to enforce it without a credential in CI. The options were a run on the decider's own login with a receipt that CI checks, a subscription token kept as a secret of the repository, or a local hook alone. The decider chose the receipt. Asked then whether the change owes a research comparison, the decider chose none, in chat on 2026-10-16, as the session recommended: the facts above, from the platform's own documentation and two probes, settle questions 1 to 7 below. The record answers twelve questions, in the order the decider was asked them; questions 8 to 11 came from the first runs, and question 12 from a case that failed and the carry audit that followed.
+A change to the kit's checks, its CI and its module documents changes the kit's harness. This is a `process` change under [law 9 of CLAUDE.md](../../CLAUDE.md#law-9). A model's behaviour can never be a deterministic gate under [law 5 of CLAUDE.md](../../CLAUDE.md#law-5). So the decider was asked, in chat on 2026-10-16, how to enforce it without a credential in CI. The options were a run on the decider's own login with a receipt that CI checks, a subscription token kept as a secret of the repository, or a local hook alone. The decider chose the receipt. Asked then whether the change owes a research comparison, the decider chose none, in chat on 2026-10-16, as the session recommended: the facts above, from the platform's own documentation and two probes, settle questions 1 to 7 below. The record answers twelve questions, in the order the decider was asked them. Questions 8 to 11 came from the first runs, and question 12 from a case that failed and the carry audit that followed.
 
 ## 1. Where the eval cases live
 
 ### Options
 
 - **A. In the kit, not shipped.** The cases sit at `evals/<module>/` in the kit; the runner puts them into a copy of the module in the scratch folder.
-  - **Pros:** the plugins ship nothing new; the template, the portability check and the coverage map stay as they are; a case may name kit details, since it is kit tooling.
+  - **Pros:**
+    - **the plugins ship nothing new**;
+    - **the template, the portability check and the coverage map stay as they are**;
+    - **a case may name kit details**, since it is kit tooling.
   - **Cons:** a consumer cannot run the cases on their own setup; the runner must build the copy first.
 - **B. In each module, shipped.** The cases sit at `modules/<module>/evals/`, the platform's own layout.
   - **Pros:** `claude plugin eval` runs on the module's folder as it is; a consumer can run the same proof in their project.
-  - **Cons:** a new component in every plugin, so the template, the portability check, `scripts/check-gate-lists.py` and the coverage map change; the results are written inside the plugin's folder; the guide's rule against machinery for failures no consumer has hit must be answered.
+  - **Cons:**
+    - **a new component in every plugin**, so the template, the portability check, `scripts/check-gate-lists.py` and the coverage map change;
+    - **the results are written inside the plugin's folder**;
+    - **the guide's rule against machinery for failures no consumer has hit must be answered**.
 
 ### Recommendation
 
@@ -58,9 +64,13 @@ In every option the receipt binds a hash of the module's files, the pinned Claud
 
 - **A. One file per module, in its `evals/` folder, shipped.**
   - **Pros:** the proof sits beside its cases; a consumer sees the version and model the kit's run passed on.
-  - **Cons:** each new receipt changes the module's files, so once a module is published every eval run forces a version bump; the plugin carries kit state.
+  - **Cons:**
+    - **each new receipt changes the module's files**, so once a module is published every eval run forces a version bump;
+    - **the plugin carries kit state**.
 - **B. One file in the kit, not shipped.** One entry per module.
-  - **Pros:** a receipt never touches a module, so no version bump and nothing kit-specific ships; one file for CI to read and one diff to review.
+  - **Pros:**
+    - **a receipt never touches a module**, so no version bump and nothing kit-specific ships;
+    - **one file for CI to read and one diff to review**.
   - **Cons:** the proof sits away from its cases; two branches that each renew a different module conflict on the one file.
 - **C. A commit trailer**, `Eval-Receipt: <module> <hash> <score>`, on a commit of the branch.
   - **Pros:** no file at all; it follows a receipt the kit already has.
@@ -79,7 +89,10 @@ B, by the decider in chat on 2026-10-16.
 ### Options
 
 - **A. The tool's default: 3 runs, threshold 1.0.** A case passes only when all 3 runs pass.
-  - **Pros:** strict and plain; a rule that reaches the model 2 times in 3 is a finding about its wording, fixed at its cause; no number of the kit's own to defend.
+  - **Pros:**
+    - **strict and plain**;
+    - **a rule that reaches the model 2 times in 3 is a finding about its wording**, fixed at its cause;
+    - **no number of the kit's own to defend**.
   - **Cons:** the model's variance can block a receipt for a rule that mostly works; a receipt alone cannot show the runs before it.
 - **B. 3 runs, a case passing at 2 of 3.**
   - **Pros:** one noisy run is absorbed.
@@ -161,7 +174,9 @@ B and C, by the decider in chat on 2026-10-16.
 The result names no model unless one is passed, so in every option the runner passes `--model` from one kit file.
 
 - **A. One pinned model, `claude-opus-5-5`**, the model of the kit's own sessions.
-  - **Pros:** the rules are proven on the model that works in the kit; a failure points at a rule's wording, not at a smaller model's limits.
+  - **Pros:**
+    - **the rules are proven on the model that works in the kit**;
+    - **a failure points at a rule's wording**, not at a smaller model's limits.
   - **Cons:** the costliest model per run; a consumer on a smaller model gets no proof for it.
 - **B. One pinned model, `claude-haiku-5-5`**, the smallest.
   - **Pros:** the cheapest and fastest.
@@ -228,7 +243,7 @@ The decider then chose C in chat: the session moved the plugin links out of `~/.
 
 ## 9. How a case that needs Bash is isolated
 
-The cases that need `Bash` prove what a module's rules make mandatory, so they cannot lose it; and a run with `Bash` needs a sandbox that keeps the person's secrets out of reach. The decider set one more rule that day: no run is billed by usage, never an API key.
+The cases that need `Bash` prove what a module's rules make mandatory, so they cannot lose it. A run with `Bash` needs a sandbox that keeps the person's secrets out of reach. The decider set one more rule that day: no run is billed by usage, never an API key.
 
 ### Options
 
@@ -237,7 +252,10 @@ The cases that need `Bash` prove what a module's rules make mandatory, so they c
   - **Cons:** unverified whether the eval counts a narrowed grant as a `Bash` grant.
 - **B. A throwaway container** holding nothing secret, logged in with a subscription token from `claude setup-token`.
   - **Pros:** even a gap in the eval's sandbox finds no secret to read; the token bills the plan, not usage.
-  - **Cons:** unverified whether the token reaches the eval's runs; Docker is needed; the token is a long-lived credential of the decider's, kept in a file.
+  - **Cons:**
+    - **unverified whether the token reaches the eval's runs**;
+    - **Docker is needed**;
+    - **the token is a long-lived credential of the decider's**, kept in a file.
 - **C. A cloud session** of the repository.
   - **Pros:** clean infrastructure.
   - **Cons:** nothing tells the session that asked when it ends; every stale receipt of those modules needs another.
@@ -261,7 +279,10 @@ After question 9, seven modules had receipts made on the decider's Mac and four 
 
 - **A. The container for every module, the host mode removed.**
   - **Pros:** one environment and full isolation for every receipt; one rule to remember, for every machine.
-  - **Cons:** no eval run without Docker and a subscription token in a file; the seven host-made receipts made again; a change to the record before its yes, with one more audit round.
+  - **Cons:**
+    - **no eval run without Docker and a subscription token in a file**;
+    - **the seven host-made receipts made again**;
+    - **a change to the record before its yes**, with one more audit round.
 - **B. The container as the default, the host mode kept behind a flag.**
   - **Pros:** the same default; a machine without Docker can still run.
   - **Cons:** two modes to keep working and tested; receipts may again come from different environments.
@@ -295,7 +316,10 @@ The traces the runner kept showed that, under Docker's default settings, every `
 
 ### Recommendation
 
-A, recommended by the session: the container exists to keep the decider's files and credentials out of reach, which A keeps; what it turns off is an inner layer of Docker's hardening, in exchange for the eval's own sandbox, the layer made for exactly this.
+A, recommended by the session:
+
+- **the container exists to keep the decider's files and credentials out of reach**, which A keeps;
+- **what it turns off is an inner layer of Docker's hardening**, in exchange for the eval's own sandbox, the layer made for exactly this.
 
 ### Choice
 
@@ -303,12 +327,15 @@ A, by the decider in chat on 2026-10-17. Every module's receipt is made again af
 
 ## 12. The moment of rule T-c, and its requirement row
 
-On the image with Vale and lychee, the case `commit-before-edit` of module [`const-task-close`](../requirements.md#const-task-close) failed one run in three. Asked to rename a function across two folders, the model loaded the skill only after its edits. The start rule named the moment "before a batch of edits", and a rename that starts with one edit is not seen as a batch. On 2026-10-17 the decider chose to fix the cause in the module. Its start rule and the skill's description now name the moment "before the first edit of any change, such as a rename, a refactor or an edit of more than one file", and its rule T-c "before the first edit of any change"; the case passed every run after it. [Requirement A4.7](../requirements.md#a4-7) still said "dirty tree committed before a batch of edits". A fix of the carry audit's regression pass then amended the row with no record, and a confirming reader found it; this question records that amendment. Amending a row is a `process` decision under [rule 2 of plc-0007-requirements](../policies/plc-0007-requirements.md#r2).
+On the image with Vale and lychee, the case `commit-before-edit` of module [`const-task-close`](../requirements.md#const-task-close) failed one run in three. Asked to rename a function across two folders, the model loaded the skill only after its edits. The start rule named the moment "before a batch of edits", and a rename that starts with one edit is not seen as a batch. On 2026-10-17 the decider chose to fix the cause in the module. Its start rule and the skill's description now name the moment "before the first edit of any change, such as a rename, a refactor or an edit of more than one file", and its rule T-c "before the first edit of any change". The case passed every run after it. [Requirement A4.7](../requirements.md#a4-7) still said "dirty tree committed before a batch of edits". A fix of the carry audit's regression pass then amended the row with no record, and a confirming reader found it. This question records that amendment. Amending a row is a `process` decision under [rule 2 of plc-0007-requirements](../policies/plc-0007-requirements.md#r2).
 
 ### Options
 
 - **A. Amend the row in this record,** to "dirty tree committed before the first edit of any change", so that the merge that accepts this record accepts the row too.
-  - **Pros:** the row and the module's rule say the same words, so that whether the module implements exactly its row, as [law 4 of CLAUDE.md](../../CLAUDE.md#law-4) asks, needs no reading; the change is reviewed at the one yes already due; nothing rests on reading a single edit as a batch.
+  - **Pros:**
+    - **the row and the module's rule say the same words**, so that whether the module implements exactly its row, as [law 4 of CLAUDE.md](../../CLAUDE.md#law-4) asks, needs no reading;
+    - **the change is reviewed at the one yes already due**;
+    - **nothing rests on reading a single edit as a batch**.
   - **Cons:** a record about evals gains a ruling on another module's row; one more confirming round before the merge.
 - **B. Keep the row,** and read a change's first edit as the start of its batch.
   - **Pros:** no row is amended, so no record is needed.
@@ -329,7 +356,7 @@ A, by the decider in chat on 2026-10-18.
 
 <a id="r1"></a>**R1.** Every module ships its eval cases in `evals/` at its root, one folder per case holding a `case.yaml`, in the form `claude plugin eval` reads. The results a run writes under `evals/results/` are ignored by git and never committed.
 
-<a id="r2"></a>**R2.** Every module ships at least one case. A module has one case per skill, which holds by `tool_used` that the model calls `Skill` with the skill's name, by a `regex` on the run's trace that no `Write` or `Edit` comes before the call that names this skill, and by a grader on the work's result where the work leaves one, a file made or a line written; a `tool_order` on one tool would miss the same change made through `Bash`, and the `regex` does not see a change made through `Bash` before the call either, which the result grader covers where the work leaves one. A case whose moment is a command also holds by `tool_order` that the skill comes before that command. It has one case per command a rule of the module makes mandatory, a script the module ships, which holds by `tool_used` on `Bash` that the command is called and by a grader on what it did, a file it made or the line it printed, that it ran; where a skill makes the command mandatory at the skill's own moment, one case holds both, the skill before the command. It has one case per start rule that carries a rule of its own, not a pointer to a skill, graded by `regex` where a pattern can see the rule and by `llm` only where none can. A case that needs files seeds them by its `scaffold_script`.
+<a id="r2"></a>**R2.** Every module ships at least one case. A module has one case per skill, which holds by `tool_used` that the model calls `Skill` with the skill's name, by a `regex` on the run's trace that no `Write` or `Edit` comes before the call that names this skill, and by a grader on the work's result where the work leaves one, a file made or a line written. A `tool_order` on one tool would miss the same change made through `Bash`, and the `regex` does not see a change made through `Bash` before the call either, which the result grader covers where the work leaves one. A case whose moment is a command also holds by `tool_order` that the skill comes before that command. It has one case per command a rule of the module makes mandatory, a script the module ships, which holds by `tool_used` on `Bash` that the command is called and by a grader on what it did, a file it made or the line it printed, that it ran. Where a skill makes the command mandatory at the skill's own moment, one case holds both, the skill before the command. It has one case per start rule that carries a rule of its own, not a pointer to a skill, graded by `regex` where a pattern can see the rule and by `llm` only where none can. A case that needs files seeds them by its `scaffold_script`.
 
 <a id="r3"></a>**R3.** Every case runs 3 times, the tool's default; the runner passes the count and the threshold, so they hold whatever a case sets. A case passes when every grader passes in every run, the threshold 1.0. The runs take `--ablation none`, so that a grader on `Skill` is scored.
 
@@ -337,25 +364,30 @@ A, by the decider in chat on 2026-10-18.
 
 <a id="r5"></a>**R5.** A module's eval hash is taken over every file git tracks in the module's folder, links followed, save `MODULE.md`, `README.md`, `INSTALL.md`, the folder `tests/` and the folder `evals/results/`; and over the kit's `scripts/eval-container/Dockerfile`, so that a change to the image every case runs in makes every receipt stale.
 
-<a id="r6"></a>**R6.** The receipts stand in one kit file, `scripts/eval-receipts.json`, never shipped, one entry per module. An entry names the module's eval hash, the Claude Code version of `scripts/claude-code.version`, the model of `scripts/eval-model`, and every attempt made for that hash, each with its time and its scores; a later hash starts a new entry.
+<a id="r6"></a>**R6.** The receipts stand in one kit file, `scripts/eval-receipts.json`, never shipped, one entry per module. An entry names the module's eval hash, the Claude Code version of `scripts/claude-code.version`, the model of `scripts/eval-model`, and every attempt made for that hash, each with its time and its scores. A later hash starts a new entry.
 
 <a id="r7"></a>**R7.** The kit's `scripts/run-evals.py` runs the evals of one module, or of every module, on the subscription of the person who runs it, never billed by usage: every variable Claude Code would prefer over a subscription login, an API key, an auth token and the cloud providers' switches, is dropped from the environment of its `docker` commands and unset in each container, and each container refuses to run its case unless `claude auth status` reports a subscription login. It runs them on a link-followed copy of the module, on the pinned Claude Code, and writes each attempt into the receipts file. It is kit tooling, never shipped, and no check.
 
 <a id="r8"></a>**R8.** The kit's `scripts/check-eval-receipts.py`, an entry of the gate group with `--self-test` as its fixture, turns red for a module whose entry is missing; whose hash differs from the module's current eval hash; whose version or model differs from the pinned ones; or whose last attempt did not pass. It holds that a passing run was declared for the current files, not that it was run, as the receipt of [rule 5 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r5) does for an audit.
 
-<a id="r9"></a>**R9.** A module document's acceptance table gains the kind `eval`: one item per case, naming the rows it proves, its status derived by `scripts/check-aspects.py` from the receipt. An `eval` item counts as run when its module's receipt is current, green when its last attempt passes and red when it does not, a run declared and not one the kit sees; this narrows R1 and R10 of [dec-0054-acceptance-items-name-their-rows](dec-0054-acceptance-items-name-their-rows.md#r1). Its date, platform version and model are its receipt's, which widens [rule 10 of plc-0006-module-documents](../policies/plc-0006-module-documents.md#r10). A `live` item that proves a session's behaviour alone, and whose proof does not run in a consumer project, becomes an `eval` item where a case covers it whole: the `eval` item replaces it, and the proof it asks for is owed no more. Every other `live` item stays `live`, and the proof it asks for stays owed: one that no case covers whole, one that proves a scan over the kit's tree, and one whose proof runs in a consumer project, deferred or not. A scan item and a consumer-project item stay `live` because an eval runs in an empty folder, which a scaffold seeds where a case needs a project: it proves no scan over the kit's tree, and it runs in no consumer project.
+<a id="r9"></a>**R9.** A module document's acceptance table gains the kind `eval`: one item per case, naming the rows it proves, its status derived by `scripts/check-aspects.py` from the receipt. An `eval` item counts as run when its module's receipt is current, green when its last attempt passes and red when it does not, a run declared and not one the kit sees. This narrows R1 and R10 of [dec-0054-acceptance-items-name-their-rows](dec-0054-acceptance-items-name-their-rows.md#r1). Its date, platform version and model are its receipt's, which widens [rule 10 of plc-0006-module-documents](../policies/plc-0006-module-documents.md#r10). A `live` item that proves a session's behaviour alone, and whose proof does not run in a consumer project, becomes an `eval` item where a case covers it whole: the `eval` item replaces it, and the proof it asks for is owed no more. Every other `live` item stays `live`, and the proof it asks for stays owed: one that no case covers whole, one that proves a scan over the kit's tree, and one whose proof runs in a consumer project, deferred or not. A scan item and a consumer-project item stay `live` because an eval runs in an empty folder, which a scaffold seeds where a case needs a project: it proves no scan over the kit's tree, and it runs in no consumer project.
 
 <a id="r10"></a>**R10.** The kit's `scripts/check-session-load.py`, an entry of the gate group in each module's job with `--self-test` as its fixture, installs the module as `scripts/check-bare-install.py` does, the shared steps in one place. It then starts one headless session with no login in the bare repository and holds two things. The `init` event lists every skill under the module's `skills/`. Every `SessionStart` hook of the module has a `hook_response` with exit 0 and output that is not empty.
 
-<a id="r11"></a>**R11.** A change that makes a module's receipt stale is merged only with a new passing receipt, made by a local run before the merge; this narrows the guide's "No local run is required" to the gate list.
+<a id="r11"></a>**R11.** A change that makes a module's receipt stale is merged only with a new passing receipt, made by a local run before the merge. This narrows the guide's "No local run is required" to the gate list.
 
-<a id="r12"></a>**R12.** A case lists the tools a session at its moment would have, so that the model can follow the module's skill as written: a skill or command case `Read`, `Glob`, `Grep`, `Write`, `Edit`, `Skill` and `Bash`; a start-rule case only what its rule needs. The runner runs each case on its own and grants it only the tools of `Bash`, `Write` and `Edit` that the case lists.
+<a id="r12"></a>**R12.** A case lists the tools a session at its moment would have, so that the model can follow the module's skill as written:
 
-<a id="r13"></a>**R13.** Every case runs in a throwaway container of the image `scripts/eval-container/Dockerfile` defines, one container per case. The image holds the Claude Code version the kit pins, a Python at or above the kit's floor, and the Vale and lychee the kit's CI installs, which the modules' scripts call. The image's tag names the pinned Claude Code version and the Dockerfile's hash, so that a changed file is built again; no case runs on the host, so every receipt comes from one environment. The runner takes `--token-file <file>`: a subscription token from `claude setup-token`, which the runner never opens, refuses unless its owner alone can read it, judges before it asks docker for the image, and hands the container as Docker's `--env-file`. The module's copy is mounted read-only, and a results folder of the run's own writable. The container runs with Docker's seccomp filter and its `/proc` mask lifted, `--security-opt seccomp=unconfined --security-opt systempaths=unconfined`, which the eval's own sandbox needs to start. Inside, the usage-billing variables of R7 are unset, and the case runs only when `claude --version` is the pinned version and `claude auth status` reports a subscription login.
+- **a skill or command case** `Read`, `Glob`, `Grep`, `Write`, `Edit`, `Skill` and `Bash`;
+- **a start-rule case only what its rule needs**.
+
+The runner runs each case on its own and grants it only the tools of `Bash`, `Write` and `Edit` that the case lists.
+
+<a id="r13"></a>**R13.** Every case runs in a throwaway container of the image `scripts/eval-container/Dockerfile` defines, one container per case. The image holds the Claude Code version the kit pins, a Python at or above the kit's floor, and the Vale and lychee the kit's CI installs, which the modules' scripts call. The image's tag names the pinned Claude Code version and the Dockerfile's hash, so that a changed file is built again. No case runs on the host, so every receipt comes from one environment. The runner takes `--token-file <file>`: a subscription token from `claude setup-token`, which the runner never opens, refuses unless its owner alone can read it, judges before it asks docker for the image, and hands the container as Docker's `--env-file`. The module's copy is mounted read-only, and a results folder of the run's own writable. The container runs with Docker's seccomp filter and its `/proc` mask lifted, `--security-opt seccomp=unconfined --security-opt systempaths=unconfined`, which the eval's own sandbox needs to start. Inside, the usage-billing variables of R7 are unset, and the case runs only when `claude --version` is the pinned version and `claude auth status` reports a subscription login.
 
 <a id="r14"></a>**R14.** The session-load check of R10 runs on the pinned Claude Code like the install check, and reads the same install source. So the gate list puts the pinned version first on `PATH` for the `session-<module>` entries too, which widens R4 of [dec-0075-install-checks-read-the-init-event-keep-plugin-variables-and-run-locally-on-the-pin](dec-0075-install-checks-read-the-init-event-keep-plugin-variables-and-run-locally-on-the-pin.md#r4); and a module's job carries the install source for its session entry too, which widens R5 of [dec-0061-ci-runs-one-job-per-module](dec-0061-ci-runs-one-job-per-module.md#r5).
 
-<a id="r15"></a>**R15.** [Requirement A4.7](../requirements.md#a4-7) has a dirty tree committed before the first edit of any change, not before a batch of edits. Rule T-c of module [`const-task-close`](../requirements.md#const-task-close), the description of its skill `commit-before-edit` and its start rule name the same moment; the description and the start rule give a rename, a refactor and an edit of more than one file as its examples.
+<a id="r15"></a>**R15.** [Requirement A4.7](../requirements.md#a4-7) has a dirty tree committed before the first edit of any change, not before a batch of edits. Rule T-c of module [`const-task-close`](../requirements.md#const-task-close), the description of its skill `commit-before-edit` and its start rule name the same moment. The description and the start rule give a rename, a refactor and an edit of more than one file as its examples.
 
 ## Carry list
 
