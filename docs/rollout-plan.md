@@ -27,12 +27,12 @@ status: active
 | [s6](#s6) | Decision record #1 | B | ✅ | 1 | 0 | 0 | 100% |
 | [s7](#s7) | Commit each step with honest messages | B | ✅ | 1 | 0 | 0 | 100% |
 | [s8](#s8) | [`const-locations`](requirements.md#const-locations) and [`const-task-close`](requirements.md#const-task-close) | C | ✅ | 2 | 0 | 0 | 100% |
-| [s9](#s9) | The other remaining modules, and the kit work logged beside them | C | 🔄 | 42 | 3 | 4 | 93% |
+| [s9](#s9) | The other remaining modules, and the kit work logged beside them | C | 🔄 | 43 | 3 | 3 | 93% |
 | [s10](#s10) | Publish: the remote, the marketplace and CI, then `0.1.0` | D | 🔄 | 10 | 3 | 0 | 76% |
 | [s10a](#s10a) | The first release of the shared package | D | ✅ | 1 | 0 | 0 | 100% |
 | [s10b](#s10b) | The release 2.0.0 of the shared package | D | ✅ | 1 | 0 | 0 | 100% |
 | [s11](#s11) | Switch the project from path load to marketplace install | D | ⏳ | 0 | 1 | 0 | 0% |
-| all | the whole plan | all | 🔄 | 75 | 7 | 8 | 91% |
+| all | the whole plan | all | 🔄 | 76 | 7 | 7 | 91% |
 
 <a id="phase-a"></a>
 ## Phase A — Kit as consumer zero: the document-shaped accumulating modules (~1 week)
@@ -120,7 +120,7 @@ status: active
    - <a id="s9-24a"></a>**9.24a** ✅ Logged with 9.24 on 2026-10-12: the self-test totals of `scripts/check-aspects.py` and `scripts/check-gate-lists.py` were hand-kept sums. Done 2026-10-14, record [dec-0090-complexity-marks-split-away](decisions/dec-0090-complexity-marks-split-away.md), the yes given: neither keeps a hand-kept sum now, [scripts/check-aspects.py](../scripts/check-aspects.py) and [scripts/check-gate-lists.py](../scripts/check-gate-lists.py).
    - <a id="s9-25"></a>**9.25** 💤 Logged 2026-10-13, a work item of its own when its signal recurs. The turn-end hook of [`const-task-close`](requirements.md#const-task-close) reports a dirty tree at the end of each turn, also while the session's subagents still work in the tree and will commit their own files. The hook reads only the tree, so it does not tell their files from the session's own. A session that ran six implementer agents ended about eight turns in a row on this one report while it waited, and each turn end sent a note to the session that started it.
    - <a id="s9-26"></a>**9.26** ✅ R6 of [dec-0087-module-metrics-report](decisions/dec-0087-module-metrics-report.md#r6): the test coverage and the mutation score of each module, a work item of their own. Done 2026-10-13 for the coverage, record [dec-0089-module-coverage-report](decisions/dec-0089-module-coverage-report.md), the yes given.
-   - <a id="s9-27"></a>**9.27** 💤 Pending, a work item of its own when the decider asks for it: the mutation score of each module, in a scheduled workflow, since it takes minutes per module.
+   - <a id="s9-27"></a>**9.27** ✅ The mutation score of each module, measured on a sample on every change and reported by [the mutation report](../scripts/module-mutation.py), a report and never a check. Done 2026-11-11, record [dec-0122-module-mutation-report](decisions/dec-0122-module-mutation-report.md), the yes given; the decider asked for it that day.
    - <a id="s9-28"></a>**9.28** ✅ Done 2026-10-18, record [dec-0093-module-evals-with-local-receipts](decisions/dec-0093-module-evals-with-local-receipts.md), the yes given: the module evals.
    - <a id="s9-29"></a>**9.29** ✅ `WHY_FOLDER`, the reason [the portability check](../scripts/check-portability.py) gives for a document folder of the kit, now says what is true in a project. Done 2026-11-11, a routine change.
    - <a id="s9-30"></a>**9.30** ✅ Found the same day by the same audit, older than that change: [the install note of the fixture gate](../scripts/layered-fixture/plugin/INSTALL.md) stands under no ceiling of `const-doc-budgets.ceilings` in `constitution.yaml`, against the comment there that every Markdown file git lists stands under one. A ceiling is set for it by the rule of that dial, or the comment is narrowed. Done 2026-11-08, a routine change: the note added to the paths of the `install-notes` ceiling, by the decider's pick, in the dials of [`const-doc-budgets`](requirements.md#const-doc-budgets).
