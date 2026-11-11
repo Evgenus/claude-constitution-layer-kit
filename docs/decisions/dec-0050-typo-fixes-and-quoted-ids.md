@@ -35,11 +35,14 @@ The full carry audit of [dec-0048-frozen-documents-take-wording-edits](dec-0048-
 
 ## 2. A typo in a frozen comparison
 
-The kernel lets a record's body take a typo fix at any time ([kernel §5](../constitution/CONVENTIONS.md#k5)). A frozen comparison allowed four kinds of edit and no other, and a typo fix was none of them: a wording edit changes no word beyond the plain-word replacements of module [`const-language`](../requirements.md#const-language), and the dated inline note is for a fact found wrong.
+The kernel lets a record's body take a typo fix at any time ([kernel §5](../constitution/CONVENTIONS.md#k5)). A frozen comparison allowed four kinds of edit and no other. A typo fix was none of them: a wording edit changes no word beyond the plain-word replacements of module [`const-language`](../requirements.md#const-language), and the dated inline note is for a fact found wrong.
 
-- **A. A fifth kind: the typo fix.** It corrects a misspelt word, a doubled word or a wrong punctuation mark, and changes no fact, number, link, anchor, code span, handle or word of a quotation; the commit names it.
+- **A. A fifth kind: the typo fix.** It corrects a misspelt word, a doubled word or a wrong punctuation mark, and changes no fact, number, link, anchor, code span, handle or word of a quotation. The commit names it.
   - **Pros:** the same treatment as a record; the narrow definition keeps it near mechanical; a small fix stays small.
-  - **Cons:** whether something is a typo is judgment, held by review; one more kind in a closed list; it widens a freeze [dec-0048-frozen-documents-take-wording-edits](dec-0048-frozen-documents-take-wording-edits.md) set with care.
+  - **Cons:**
+    - **whether something is a typo is judgment**, held by review;
+    - **one more kind in a closed list**;
+    - **it widens a freeze** [dec-0048-frozen-documents-take-wording-edits](dec-0048-frozen-documents-take-wording-edits.md) set with care.
 - **B. No typo kind.** A frozen comparison keeps its typos, and the rule says so.
   - **Pros:** the strictest freeze; nothing to judge.
   - **Cons:** misspellings stay in evidence for good; records and comparisons are treated differently for no reason.
@@ -55,7 +58,7 @@ The kernel lets a record's body take a typo fix at any time ([kernel §5](../con
 
 ## 3. The commit word for a typo fix
 
-Kernel section 5 listed three mechanical edits of a record's body and named the commit word for two: a reference-form migration and a wording edit. A typo carried none, so a claimed typo fix in an accepted record could not be told from an edit the rules do not allow, and a reader of the history had nothing to check it against.
+Kernel section 5 listed three mechanical edits of a record's body and named the commit word for two: a reference-form migration and a wording edit. A typo carried none. A claimed typo fix in an accepted record could not be told from an edit the rules do not allow. A reader of the history had nothing to check it against.
 
 - **A. Name it in the kernel.** Kernel section 5 says the commit names a typo fix, and the kit's policies refer to it.
   - **Pros:** the kernel's list becomes whole; every consumer gets the rule with the kernel.
@@ -71,7 +74,7 @@ Kernel section 5 listed three mechanical edits of a record's body and named the 
 
 **Choice:** A, chosen by the decider in chat on 2026-09-28.
 
-<a id="r3"></a>**R3.** A typo fix in a record's body is named a typo fix in its commit, as a reference-form migration and a wording edit are named, and the commit names the records it edits. For a record it is the same narrow kind R2 defines for a comparison, and it changes no ruling either.
+<a id="r3"></a>**R3.** A typo fix in a record's body is named a typo fix in its commit, as a reference-form migration and a wording edit are named. The commit names the records it edits. For a record it is the same narrow kind R2 defines for a comparison, and it changes no ruling either.
 
 ## 4. The earlier ruling R1 narrows
 
@@ -81,7 +84,14 @@ R1 narrows a promise of an accepted record, which rule 13 of plc-0004-decision-r
 
 ## Applied
 
-The commit that creates this record states R1 in rule 7 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r7), R2 in rule 7 of [plc-0005-research](../policies/plc-0005-research.md#r7), and R3 in [kernel §5](../constitution/CONVENTIONS.md#k5) and in boundary example 9 of the module document of [`const-decision-records`](../requirements.md#const-decision-records). The fix rounds of its carry audit corrected it in place before its yes: R1 keeps only what is quoted in a record or a frozen comparison and names what is removed everywhere else — outside Markdown as the `mentions` scan of module [`const-referencing`](../requirements.md#const-referencing) already asked, in Markdown by review; R3 gives a record's typo fix the definition R2 gives a comparison's, stated in rule 14 of plc-0004 and restated for a comparison in rule 7 of plc-0005; R4 names the item of dec-0027 that R1 narrows; the record-decision skill names the three commit words. The record is born `inactive`.
+The commit that creates this record states R1 in rule 7 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r7), R2 in rule 7 of [plc-0005-research](../policies/plc-0005-research.md#r7), and R3 in [kernel §5](../constitution/CONVENTIONS.md#k5) and in boundary example 9 of the module document of [`const-decision-records`](../requirements.md#const-decision-records). The fix rounds of its carry audit corrected it in place before its yes:
+
+- R1 keeps only what is quoted in a record or a frozen comparison and names what is removed everywhere else — outside Markdown as the `mentions` scan of module [`const-referencing`](../requirements.md#const-referencing) already asked, in Markdown by review;
+- R3 gives a record's typo fix the definition R2 gives a comparison's, stated in rule 14 of plc-0004 and restated for a comparison in rule 7 of plc-0005;
+- R4 names the item of dec-0027 that R1 narrows;
+- **the record-decision skill** names the three commit words.
+
+The record is born `inactive`.
 
 ## Carry list
 
