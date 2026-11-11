@@ -26,7 +26,7 @@ from constitution_layer_kit import messages as shared
 from constitution_layer_kit.envelope import yaml_error_line
 from constitution_layer_kit.model import EnvelopeState
 from constitution_layer_kit.testing.acceptance import broken_first_line, check_case, expect, item
-from constitution_layer_kit.testing.consumer import Consumer, envelope
+from constitution_layer_kit.testing.consumer import BASE_MARKDOWN, Consumer, envelope
 from constitution_layer_kit.testing.harness import Case, Edit, Harness, Result, Write, event_json, red_lines
 from constitution_layer_kit.testing.items import (
     NO_ENVELOPE,
@@ -478,7 +478,7 @@ def test_policy_named_twice() -> None:
     consumer.write("constitution.yaml", dials_text({NAMESPACE: {"record_policies": [RECORDS_POLICY] * 2}}))
     consumer.write(POLICY_DOCUMENT.target, POLICY_DOCUMENT.text)
     result = H.run_gate("", args=["--scan", str(consumer.root)])
-    expect(result, 0, messages.f9_scan_tail(0, 4, 1), "stdout")
+    expect(result, 0, messages.f9_scan_tail(0, BASE_MARKDOWN + 1, 1), "stdout")
 
 
 @item(22, "C5: record_policies that is not a list")
@@ -536,7 +536,7 @@ def test_scan_red() -> None:
 
 @item(26, "scan: green with counts; a governed non-record is never examined")
 def test_scan_green() -> None:
-    tail = messages.f9_scan_tail(records=2, scanned=7, record_policies=1)
+    tail = messages.f9_scan_tail(records=2, scanned=BASE_MARKDOWN + 4, record_policies=1)
     expect(_scan(bad=False), 0, shared.g1_green_scan(tail), "stdout")
 
 
@@ -565,7 +565,31 @@ def test_scan_with_deleted_file() -> None:
     consumer = H.fresh_consumer((*SETUP, VALID, Write("docs/decisions/b.md", record("record-b"))))
     (consumer.root / RECORD_A).unlink()
     result = H.run_gate("", args=["--scan", str(consumer.root)])
-    expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(1, 5, 1)), "stdout")
+    expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(1, BASE_MARKDOWN + 2, 1)), "stdout")
+
+
+ONE_MORE = "ONE-MORE.md"  # a Markdown file no item writes, at the top of the consumer, in no territory
+
+
+@item(49, "the counts follow the shared consumer: one more Markdown file in it turns no computed count red")
+def test_counts_follow_the_consumer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The scan items compute their counts from the shared consumer's base, `BASE_MARKDOWN`, so a file added
+    to that consumer, with its export, turns none of them red. Here every consumer is built with one more
+    Markdown file, the base says so, and the items that compute a count run again. Items 25 and 27 type their
+    count lines whole: those lines are golden and change by hand."""
+    build = Consumer.build
+
+    def with_one_more(consumer: Consumer) -> Consumer:
+        consumer.write(ONE_MORE, "# One more\n")
+        return build(consumer)
+
+    monkeypatch.setattr(Consumer, "build", with_one_more)
+    monkeypatch.setitem(globals(), "BASE_MARKDOWN", BASE_MARKDOWN + 1)
+    built = (H.fresh_consumer().root / ONE_MORE).is_file()
+    assert built, "the consumer was built without the added file: the item proves nothing"
+    test_policy_named_twice()
+    test_scan_green()
+    test_scan_with_deleted_file()
 
 
 # What every R1 fix says the block carries, typed by hand once for its three shapes.
