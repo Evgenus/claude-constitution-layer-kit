@@ -1532,7 +1532,8 @@ def test_t33() -> None:
     it, still above the ceiling, is exit 0 with the note N4, typed by hand, and the green line — before
     the write and after it, by a Write and by an Edit. The note is the hook's alone and the grade's
     alone: the scan stays red on the same document; a document the commit does not hold, and one it
-    holds at or under the ceiling, are L1; the grade at warning keeps its own note, N2; a departure
+    holds at or under the ceiling, are L1; the grade at warning keeps its own note, N2; under
+    `severity: warn` the note is the same; a departure
     for the grade leaves no note; another finding in the document is red, the note with it. The copy
     the commit holds is prepared as the written one is: an envelope of long words there is no prose,
     and a Vale comment there switches nothing off. The copy is the last commit's, not the index's: a
@@ -1540,8 +1541,8 @@ def test_t33() -> None:
     hook's cap, and not at all where the grade cannot be a finding — at warning, under a departure —
     nor in the scan, nor before the binary's preflight: with no vale on PATH the line is C2 and git was
     not asked for the copy. Of the copy's hits only the grade counts: a copy that also holds a word with
-    a plain replacement gives its own grade to the note. A copy that is not UTF-8 is read as the file on
-    disk is, its bad byte replaced. A git that never answers the read is the shared C12.12, typed by
+    a plain replacement gives its own grade to the note. A copy that is not UTF-8 is decoded as the file
+    on disk is, its bad byte replaced. A git that never answers the read is the shared C12.12, typed by
     hand, exit 1: the write gets no verdict."""
     note = (
         f"note: {DOC}:1: the document reads at grade 33.04 by Flesch–Kincaid, above the ceiling of 10 and"
@@ -1568,6 +1569,7 @@ def test_t33() -> None:
     was_plain = write_over({DOC: PLAIN}, Write(DOC, GRADE_LOWER))
     # the grade at warning; a departure for the grade; another finding beside the falling grade
     warned = write_over({DOC: GRADE_RED}, Write(DOC, GRADE_LOWER), own(levels={"grade": "warning"}))
+    under_warn = write_over({DOC: GRADE_RED}, Write(DOC, GRADE_LOWER), own(severity="warn"))
     departed = write_over(
         {DOC: GRADE_RED},
         Write(DOC, GRADE_LOWER),
@@ -1648,7 +1650,11 @@ def test_t33() -> None:
     expect(same, 2, count, "stderr")
     assert "note:" not in same.stderr + same.stdout, "a grade that did not fall has no note"
     expect(higher, 2, messages.l1_grade(DOC, GRADE_HIGHER_VALUE, 10.0).render(), "stderr")
-    for name, result in (("before the write", lower), ("after the write", lower_after)):
+    for name, result in (
+        ("before the write", lower),
+        ("after the write", lower_after),
+        ("under severity warn", under_warn),
+    ):
         said = context(result)
         assert said.code == 0 and said.stdout.splitlines() == [note, green_hook()], (
             f"{name}: exit {said.code}, {said.stdout.splitlines()} {said.stderr.strip()}"

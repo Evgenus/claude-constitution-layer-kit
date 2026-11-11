@@ -76,7 +76,8 @@ def _hook_waits() -> vale.Waits:
 
 
 def _committed(root: Path, rel: str) -> str | None:
-    """The document as the last commit holds it, read as the file on disk is read; None where that
+    """The document as the last commit holds it, decoded as the file on disk is — UTF-8, a bad byte
+    replaced — with its line endings as git stores them and no filter applied; None where that
     commit holds no such file — a new document, a repository with no commit — or git does not give it."""
     done = git(["cat-file", "blob", f"HEAD:{rel}"], root)
     return done.stdout.decode("utf-8", errors="replace") if done.returncode == 0 else None
