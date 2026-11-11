@@ -2112,9 +2112,10 @@ def test_fences_close_at_their_depth() -> None:
     for char in NO_LINE_END:
         inside = f"# F\n\n```\nshown{char}```\nREQ-9 is code\n```\n\nAfter REQ-7.\n"
         only_red(f"U+{ord(char):04X} in a fenced line", inside, [r1_line(15)])
-    # A lone carriage return does end a line: the run after it closes the fence. The whole text is line 8
-    # for the finding, which counts line feeds: REQ-9 is code, REQ-7 stands after the closer.
-    only_red("a lone carriage return", "# F\r\r```\rREQ-9 is code\r```\r\rAfter REQ-7.\r", [r1_line(8)])
+    # A lone carriage return does end a line: the run after it opens the fence, and the next one closes it.
+    # The whole text is line 8 for the finding, which counts line feeds: REQ-9 is code, REQ-7 stands after
+    # the closer. The fence is of tildes, since a run of ticks would also read as a code span within one line.
+    only_red("a lone carriage return", "# F\r\r~~~\rREQ-9 is code\r~~~\r\rAfter REQ-7.\r", [r1_line(8)])
 
 
 NO_LINE_END = "\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029"  # where `str.splitlines()` breaks and Markdown does not
