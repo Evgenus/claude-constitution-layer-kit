@@ -21,16 +21,16 @@ A line that starts `BROKEN: const-meta-types needs the Python package constituti
    - The pointer to the skill: a hook at session start prints one pointer line, 182 characters,
      advisory, naming the skill `/const-meta-types:choose-meta-type` and its moment. A hook at each
      subagent's start gives the same line to that subagent.
-   - The pointer to the governing policy: the first write of a session that passes for a document of
-     a policy adds one advisory line to the model's context, naming the policy's path and, where the
-     policy has a rule named Enforcement, that rule's anchor — a rule written
-     `<a id="<anchor>"></a>**Enforcement.**`, the full stop optional, the first such rule in the
-     policy; a policy without one earns the path alone. Once per session, repository and policy,
-     remembered in the memo of step 5. With no log location, or an event that names no session, there
-     is no memo entry and nothing is pointed.
+   - The pointer to the governing policy: one advisory line in the model's context. The first write
+     of a session that passes for a document of a policy adds it. The line names the policy's path
+     and, where the policy has a rule named Enforcement, that rule's anchor. Such a rule is written
+     `<a id="<anchor>"></a>**Enforcement.**`, the full stop optional, and the first such rule in the
+     policy is named. A policy without one earns the path alone. The line is said once per session,
+     repository and policy, remembered in the memo of step 5. With no log location, or an event that
+     names no session, there is no memo entry and nothing is pointed.
    - The skill `choose-meta-type`, which helps to pick the type of a document.
-2. Optional calibration in the project's `constitution.yaml`; defaults apply otherwise —
-   the module works with zero configuration (with no `constitution.yaml`, or no
+2. Optional calibration in the project's `constitution.yaml`; defaults apply otherwise.
+   The module works with zero configuration (with no `constitution.yaml`, or no
    `root_policy` in one that names `module_prefix`, nothing is claimed and nothing is checked):
    ```yaml
    const-meta-types:
@@ -40,31 +40,32 @@ A line that starts `BROKEN: const-meta-types needs the Python package constituti
 3. Adoption: on a repository with documents written before the module, set `severity: warn`. The
    gate then reports each finding and lets the write through, while the old documents are fixed;
    `block` is the default.
-4. Backstop for writes the hook cannot see (shell edits, other tools, other people): run the
+4. Backstop for writes the hook cannot see (shell edits, other tools, other people). Run the
    scan on demand and in CI and before a merge, from anywhere in the repository:
    ```bash
    sh <plugin root>/scripts/check-governed-document.sh --scan
    ```
    Exit 0 green, 2 findings, 1 the checker could not run. The scan ignores `severity`.
-5. Output log: everything the gate prints is also appended, one JSON line per print (timestamp,
-   module, gate, mode, session, stream, text), to `const-meta-types.jsonl` — blocked writes,
+5. Output log: everything the gate prints is also appended to `const-meta-types.jsonl`, one JSON
+   line per print (timestamp, module, gate, mode, session, stream, text). Blocked writes,
    warnings and configuration failures leave no trace in git, so this is where they
    survive. By default it lives in the platform's per-plugin data directory, outside the
    repository. Set `log_dir` to keep it inside the repository instead; the directory must
    be git-ignored, and the gate refuses to run otherwise. The log rotates at 1 MiB.
-   Beside the log lives `const-meta-types.pointed`, the memo of the pointers above: one line per
-   pointer, the session, the repository and the policy, its last 200 lines kept.
-6. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the
+   Beside the log lives `const-meta-types.pointed`, the memo of the pointers above. It holds one line
+   per pointer: the session, the repository and the policy. Its last 200 lines are kept.
+6. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the
    commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`),
    `python3 -m pytest <kit clone>/modules/const-meta-types/tests -p no:cacheprovider` — all green.
 7. CLAUDE.md line: none. The session-start hook already names the skill in every session and
    every subagent, so no line in the project's `CLAUDE.md` is needed.
 
 What this module does not check: a Markdown file written by a shell command, a script or
-another person is seen only by the scan; a file outside every territory that declares no policy
-is left alone; whether a document's type is the right one of the three, which the skill helps
-with; whether a `policy:` declaration in an envelope is still needed; an id reused in the past, since only
-the present files are compared.
+another person is seen only by the scan. A file outside every territory that declares no policy
+is left alone. The module does not check whether a document's type is the right one of the three,
+which the skill helps with. Nor does it check whether a `policy:` declaration in an envelope is
+still needed. It does not check an id reused in the past either, since only the present files are
+compared.
 
 Uninstall: remove the plugin; remove the `const-meta-types:` namespace from
 `constitution.yaml` if present.
