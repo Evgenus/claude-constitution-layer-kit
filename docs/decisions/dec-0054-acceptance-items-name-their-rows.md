@@ -66,7 +66,7 @@ The session recommended A. <a id="r3"></a>**R3.** A, chosen by the decider in ch
 
 ## 4. The shared acceptance items
 
-The shared items of [kit-shared-gate-code §5](../../shared/ITEMS.md#g5) run through one entry point of a module. They prove the shared machinery, not the text of a row.
+The shared items of [kit-shared-gate-code §5](../../shared/ITEMS.md#g5) run through one entry point of a module and prove the shared machinery, not the text of a row.
 
 - **A. They carry the rows of the gate they run through.**
   - **Pros:** a gate that fails open does not hold its row, and the row says so.
