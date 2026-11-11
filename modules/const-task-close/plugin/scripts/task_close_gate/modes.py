@@ -16,7 +16,7 @@ from constitution_layer_kit.output import Output
 from constitution_layer_kit.pipeline import ScanTarget, Skip
 from constitution_layer_kit.territory import Matcher
 
-from . import checks, history, messages
+from . import checks, history, messages, tasks
 from . import dials as own_dials
 from .model import Declaration, Range, TaskCloseDials
 
@@ -24,7 +24,7 @@ SINCE, CHANGE, BODY_FLAG = "--since", "--change", "--body"
 
 
 def hook_mode(output: Output, stdin: TextIO) -> int:
-    payload = stdin.read()  # read once: the shared reader takes the event, the module its task list
+    payload = stdin.read()  # read once: the shared reader takes the event, `tasks` the task list
     target = pipeline.locate_event(output, io.StringIO(payload))
     if isinstance(target, Skip):
         return pipeline.skip(output, target.reason)
@@ -36,7 +36,7 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
         return pipeline.green_event(output, messages.g1_clean())
     if target.stop_hook_active:
         return pipeline.green_event(output, messages.g1_second_stop(len(lines)))
-    running = checks.agents_running(payload)
+    running = checks.agents_running(tasks.in_flight(payload))
     if running:  # their files may be among the dirty ones, and they commit their own: the report waits
         return pipeline.green_event(output, messages.g1_held(len(lines), running))
     return pipeline.report_hook(

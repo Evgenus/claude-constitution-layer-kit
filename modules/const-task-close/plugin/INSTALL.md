@@ -105,6 +105,8 @@ true; whether a file is a working file (a `working_files` match is a note); a ch
 the trunk without the scan, until the next scan of the trunk; a commit inside a change that touched
 code without its document, when a later commit of the same change updated it; a turn ended by an
 interrupt, or a subagent's own turn end; a tree in a session that has not loaded the plugin.
+Nor does it check whose the dirty files are while an agent of the session runs: your own
+uncommitted work waits with that agent's, and a session closed while its agents run gets no report.
 
 Uninstall: remove the plugin; remove the `const-task-close:` namespace from `constitution.yaml`.
 The trailers stay in history and mean what they said.

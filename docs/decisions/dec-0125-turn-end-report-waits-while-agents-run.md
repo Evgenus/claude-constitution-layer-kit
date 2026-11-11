@@ -1,5 +1,5 @@
 ---
-id: dec-0124-turn-end-report-waits-while-agents-run
+id: dec-0125-turn-end-report-waits-while-agents-run
 type: task-record
 title: The turn-end report of const-task-close waits while an agent of the session still runs
 status: inactive
@@ -31,7 +31,7 @@ The matrix's row, [requirement A4.7](../requirements.md#a4-7), asks that a tree 
 
 ## Recommendation
 
-Option A, recommended by the session. It is the only option that stops the repeated report with a fact the platform states, and its cost is a delay of the report, never a lost one.
+Option A, recommended by the session. It is the only option that stops the repeated report with a fact the platform states, and its cost is a delay of the report in a session that goes on. Only a session that is closed while its agents run loses it.
 
 ## Choice
 
@@ -53,7 +53,7 @@ Option A, chosen by the decider in chat on 2026-11-11, with the session's defaul
 
 <a id="r7"></a>**R7.** The platform fact the hold relies on stands in the module's document with its source, its date and what breaks: the field, its entry's shape, the types of an agent's task, and that no field names a task's files.
 
-<a id="r8"></a>**R8.** The module reads the list from the event's text itself and hands the same text to the shared reader. No shared code changes. A shared reader that carries the list is deferred. Its signal: a second module whose hook needs the session's tasks in flight.
+<a id="r8"></a>**R8.** The module reads the list from the event's text itself, parsed once into typed entries, and hands the same text to the shared reader. No shared code carries the list. A shared reader that carries it is deferred. Its signal: a second module whose hook needs the session's tasks in flight.
 
 <a id="r9"></a>**R9.** The hold has its fixture of [law 7 of CLAUDE.md](../../CLAUDE.md#law-7): one item that is red without the hold and green with it, the held line typed by hand, with the cases of R2, R4 and R5.
 

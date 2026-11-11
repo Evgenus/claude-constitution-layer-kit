@@ -465,10 +465,15 @@ def test_held_while_agents_run() -> None:
         "a list that is no list": "subagent",
         "an entry that is no object": ["subagent"],
         "a type that is no text": [task(kind=None)],  # type: ignore[arg-type]
+        "a type that is a list": [{**task(), "type": ["subagent"]}],
+        "a type that is an object": [{**task(), "type": {"name": "subagent"}}],
+        "a status that is a list": [{**task(), "status": ["running"]}],
     }
     for name, tasks in reported.items():
         result = H.run_gate(stop_with(r.root, tasks))
         assert result.code == 2 and red in result.stderr, f"{name}: {result}"
+    # an event without the list, as a platform that sends none writes it
+    expect(hook(r.root), 2, red, "stderr")
     # the second stop of a turn keeps its own line, agents or not
     second = H.run_gate(stop_with(r.root, [task()], active=True))
     expect(second, 0, shared.g1_green_event(messages.g1_second_stop(1)), "stdout")

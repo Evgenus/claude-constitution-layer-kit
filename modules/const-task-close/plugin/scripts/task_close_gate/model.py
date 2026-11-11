@@ -36,6 +36,14 @@ class Key(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class Task:
+    """One entry of the Stop event's `background_tasks`, as far as this gate reads it."""
+
+    kind: str  # the entry's `type`: subagent, teammate, workflow, shell, monitor, …
+    status: str
+
+
+@dataclass(frozen=True, slots=True)
 class Pair:
     """One entry of the coverage map: the code these documents describe."""
 
