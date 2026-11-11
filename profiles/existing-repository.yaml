@@ -17,8 +17,10 @@
 # `severity` lines: the kernel-owned keys, the territory of the first three policies, and two
 # dials that switch a check on, `record_policies` and `catalogs`. The order is the one of the
 # kit's install guide, INSTALL.md: step 4 writes the lines marked "step 4" below, and step 6
-# writes each further policy, and after it the lines marked with that policy. The file names no
-# style guide: the skill /const-styling:style-defaults writes those lines in step 6.
+# writes each further policy, and after it the lines marked with that policy. A comment marks the
+# step of each part: a kernel-owned key, a policy's namespace, a dial, a catalog entry. The lines
+# under a marked line go with it. The file names no style guide: the skill
+# /const-styling:style-defaults writes those lines in step 6.
 #
 # What a project adds later, each as its module's own INSTALL.md says: `coverage` of
 # const-task-close, the third dial that switches a check on, which pairs the project's own code
