@@ -10,8 +10,11 @@ a mirror of the rules instead. This check runs the real schemas (through the jso
 library, a development dependency of the kit only) and the mirror over one corpus and
 compares verdicts. The enum and length cases come from the schemas and the mirrors, never from
 a list in this script: every value either side holds, plus one value neither may hold, and the
-limit of each side with one past it. Each schema is checked against its own draft first and
-validated under it. Run from anywhere: python3 scripts/check-schema-mirror.py
+limit of each side with one past it; a record's `type` cases are the envelope's meta-types, taken
+the same way. Each schema is checked against its own draft first and validated under it: a schema
+whose `$schema` names no draft the validator knows, or names none, is a failure to run, never a
+run under the validator's latest draft; so are an envelope schema with no `$id` and a `$ref` that
+finds no schema the check holds. Run from anywhere: python3 scripts/check-schema-mirror.py
 
 An exemption is held too: a case listed as another reader's must still be one the mirror
 accepts and the schema rejects, and a case listed as stricter on purpose one the schema
@@ -28,9 +31,12 @@ Modes:  no arguments   compare the mirrors with the kit's schemas;
                        schema's enum, a value added to or removed from a mirror's values, a
                        schema limit moved past the mirror's and a schema pattern of the prefix
                        narrowed past the mirror's are each red with the line that names the value
-                       and both verdicts; so are a mirror that does not require the prefix and
-                       one that holds its pattern loosely; the untouched inputs are green; a schema
-                       that breaks its own draft is a BROKEN line.
+                       and both verdicts; so are a mirror that does not require the prefix,
+                       one that holds its pattern loosely and a record mirror that lets through a
+                       type neither side lists; the untouched inputs are green; a schema that
+                       breaks its own draft, one whose `$schema` is unknown, absent or no string,
+                       an envelope schema with no `$id` and a `$ref` that finds no schema are
+                       each a BROKEN line.
 Exit: 0 green; 2 the mirror and a schema disagree, or an exemption no longer holds; 1 the
 check could not run, or a schema breaks its own draft.
 """
@@ -44,6 +50,7 @@ import json
 import re
 import sys
 import tempfile
+import typing
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, replace
 from enum import StrEnum
@@ -87,6 +94,7 @@ ENVELOPE_SCHEMA = "docs/constitution/schemas/document-frontmatter.schema.json"
 RECORD_SCHEMA = "docs/constitution/schemas/decision-record.schema.json"
 DIALS_SCHEMA = "docs/constitution/schemas/constitution.schema.json"
 COULD_NOT_RUN = "BROKEN: the check could not run — 0 cases examined"
+KNOWN_DRAFT = "https://json-schema.org/draft/2020-12/schema"  # the draft the fix of an unknown one shows
 THIS_FILE = "scripts/check-schema-mirror.py"
 WHY_MIRROR = "the module's mirror is the only copy of the kernel schema a consumer has"
 WHY_EXEMPTION = "an exemption that no longer holds would hide the next real disagreement on its case"
@@ -195,9 +203,15 @@ RECORD = {**GOOD, "id": "record-a", "type": "task-record", "stakes": "process", 
 STRICTER_ON_PURPOSE = {"decider of blanks"}  # the schema's minLength 1 lets blanks through
 
 
-def record_corpus(schema: dict[str, Any], mirror: Mirror) -> list[EnvelopeCase]:
-    """The envelope's own four fields stay valid throughout: only what a record adds varies."""
+def record_corpus(
+    schema: dict[str, Any], envelope_schema: dict[str, Any], mirror: Mirror
+) -> list[EnvelopeCase]:
+    """The envelope's own four fields stay valid throughout: only what a record adds varies. Its `type`
+    takes every meta-type the envelope schema or the mirror holds, and the value neither may hold."""
     cases = [EnvelopeCase("valid record", dict(RECORD))]
+    cases += vocabulary_cases(
+        RECORD, "type", enum_of(envelope_schema, ENVELOPE_SCHEMA, "type"), mirror.meta_types
+    )
     cases += vocabulary_cases(RECORD, "stakes", enum_of(schema, RECORD_SCHEMA, "stakes"), mirror.stakes)
     cases.append(EnvelopeCase("stakes ''", {**RECORD, "stakes": ""}))
     for key in ("stakes", "decider"):
@@ -207,8 +221,6 @@ def record_corpus(schema: dict[str, Any], mirror: Mirror) -> list[EnvelopeCase]:
     cases += [
         EnvelopeCase("decider empty", {**RECORD, "decider": ""}),
         EnvelopeCase("decider of blanks", {**RECORD, "decider": "   "}),
-        EnvelopeCase("type current-state", {**RECORD, "type": "current-state"}),
-        EnvelopeCase("type non-authoritative", {**RECORD, "type": "non-authoritative"}),
         EnvelopeCase("extra field allowed", {**RECORD, "policy": "records-policy"}),
     ]
     return cases
@@ -286,18 +298,45 @@ NOT_THIS_READERS = {
 }
 
 
+def shown(value: object) -> str:
+    """A value of a schema as a message quotes it: its repr on one line, at most 80 characters."""
+    text = repr(value)
+    return text if len(text) <= 80 else text[:80] + "…"
+
+
 def validator_of(schema: dict[str, Any], label: str, **options: Any) -> jsonschema.Validator:
-    """The validator of the draft the schema declares, after the schema is checked against that draft."""
-    draft = jsonschema.validators.validator_for(schema)
+    """The validator of the draft the schema declares, after the schema is checked against that draft. A
+    schema whose `$schema` is absent, no string, or the address of no draft the library knows is a Broken:
+    the library would otherwise validate it under its latest draft, with a warning, a draft the schema
+    never named, or raise an error of its own for the envelope schema the record schema refers to."""
+    declared = schema.get("$schema")
+    draft: Any = None
+    if isinstance(declared, str):
+        draft = jsonschema.validators.validator_for(schema, default=typing.cast(Any, None))
+    if draft is None:
+        found = "it holds none" if "$schema" not in schema else shown(declared)
+        raise Broken(
+            f"{label} names no draft the validator knows at `$schema` ({found}) — fix: write there the"
+            f" address of the draft the schema is written in, as the kit's schemas do ({KNOWN_DRAFT}),"
+            " or, where the draft is newer than the installed jsonschema, update the library"
+        )
     try:
         draft.check_schema(schema)
     except jsonschema.SchemaError as bad:
         raise Broken(f"{label} breaks its own draft ({bad.message}) — fix: repair the schema") from bad
-    return draft(schema, **options)
+    validator: jsonschema.Validator = draft(schema, **options)
+    return validator
 
 
-def schema_accepts(validator: jsonschema.Validator, instance: Any) -> bool:
-    return not list(validator.iter_errors(instance))
+def schema_accepts(validator: jsonschema.Validator, instance: Any, label: str) -> bool:
+    """Whether the schema takes the instance; a `$ref` of it that finds no schema is a Broken naming it."""
+    try:
+        return not list(validator.iter_errors(instance))
+    except referencing.exceptions.Unresolvable as bad:
+        raise Broken(
+            f"{label} holds a `$ref` that finds no schema the check holds ({shown(bad.ref)}) — fix: make the"
+            f" `$ref` the `$id` of the schema it extends; the check holds {ENVELOPE_SCHEMA} alone for it"
+        ) from bad
 
 
 def dials_cases() -> list[tuple[str, object, str | None]]:
@@ -333,9 +372,16 @@ def mirror_accepts_dials(instance: object, reader: str | None = None) -> bool:
 
 
 def record_validator(record_schema: dict[str, Any], envelope_schema: dict[str, Any]) -> jsonschema.Validator:
-    """The record schema extends the envelope schema by reference; resolve it from the kit's files."""
+    """The record schema extends the envelope schema by reference; resolve it from the kit's files. The
+    envelope schema has passed `validator_of`, so its draft is known; one with no `$id` is a Broken."""
+    name = envelope_schema.get("$id")
+    if not isinstance(name, str) or not name:
+        raise Broken(
+            f"{ENVELOPE_SCHEMA} holds no `$id`, the name the `$ref` of {RECORD_SCHEMA} finds it by — fix:"
+            " restore the `$id` at the top of the schema"
+        )
     resource = referencing.Resource.from_contents(envelope_schema)
-    registry = referencing.Registry().with_resource(str(envelope_schema["$id"]), resource)
+    registry = referencing.Registry().with_resource(name, resource)
     return validator_of(record_schema, RECORD_SCHEMA, registry=registry)
 
 
@@ -444,12 +490,12 @@ def compare(
     record_check = record_validator(record_schema, envelope_schema)
     dials_validator = validator_of(dials_schema, DIALS_SCHEMA)
     corpus = envelope_corpus(envelope_schema, mirror)
-    records = record_corpus(record_schema, mirror)
+    records = record_corpus(record_schema, envelope_schema, mirror)
     disagreements: list[Disagreement] = []
     with applied(mirror):
         for case in corpus:
             mirror_says = not envelope_errors(parse_envelope(frontmatter(case.fields)))
-            schema_says = schema_accepts(envelope_validator, case.fields)
+            schema_says = schema_accepts(envelope_validator, case.fields, ENVELOPE_SCHEMA)
             if mirror_says != schema_says:
                 disagreements.append(
                     Disagreement(
@@ -461,13 +507,13 @@ def compare(
         for name, instance, reader in dials_cases():
             mirror_says, schema_says = (
                 mirror_accepts_dials(instance, reader),
-                schema_accepts(dials_validator, instance),
+                schema_accepts(dials_validator, instance, DIALS_SCHEMA),
             )
             found = dials_disagreement(name, mirror_says, schema_says)
             disagreements += [found] if found else []
         for case in records:
             mirror_says = not check_record("record.md", parse_envelope(frontmatter(case.fields)))
-            schema_says = schema_accepts(record_check, case.fields)
+            schema_says = schema_accepts(record_check, case.fields, RECORD_SCHEMA)
             found = record_disagreement(case.name, mirror_says, schema_says)
             disagreements += [found] if found else []
     for listed, names, corpus_names in (
@@ -588,12 +634,39 @@ def mirror_with_a_loose_prefix_pattern() -> Iterator[None]:
         yield
 
 
+@contextlib.contextmanager
+def record_mirror_accepting_any_type() -> Iterator[None]:
+    """A record mirror whose type check lets through the value no side holds, `OUTSIDE`: it reads such a
+    record as a task-record. No list of this script names that value, so only the case `vocabulary_cases`
+    adds for it can show the mirror to be looser than the schema."""
+    real = check_record
+    record_type = parse_envelope(frontmatter(dict(RECORD))).fields["type"]  # as a valid record holds it
+
+    def lenient(rel: str, envelope: Any) -> Any:
+        if envelope.text("type") == OUTSIDE:
+            envelope = replace(envelope, fields={**envelope.fields, "type": record_type})
+        return real(rel, envelope)
+
+    with mock.patch.dict(globals(), {"check_record": lenient}):
+        yield
+
+
+def with_top_key(schema: dict[str, Any], key: str, value: object) -> dict[str, Any]:
+    return {**copy.deepcopy(schema), key: value}
+
+
+def without_top_key(schema: dict[str, Any], key: str) -> dict[str, Any]:
+    return {name: value for name, value in copy.deepcopy(schema).items() if name != key}
+
+
 def self_test() -> int:
     """Red→green on mutated copies held in memory: each mutation is red with the line that names the
     value and both verdicts, the untouched inputs are green, a schema that breaks its draft is BROKEN."""
     envelope, record, dials = load_schemas()
     real = mirror_values()
     drafted = "breaks its own draft ("
+    undrafted = "names no draft the validator knows at `$schema`"  # typed by hand, as the lines below are
+    unknown = "https://example.invalid/draft-99"
     cases: list[
         tuple[str, tuple[dict[str, Any], dict[str, Any], dict[str, Any], Mirror], int, tuple[str, ...]]
     ] = [
@@ -675,11 +748,72 @@ def self_test() -> int:
             EXIT_BROKEN,
             (f"BROKEN: {ENVELOPE_SCHEMA} {drafted}", ") — fix: repair the schema"),
         ),
+        (
+            "a record mirror that accepts a type neither side lists is red",
+            (envelope, record, dials, real),
+            EXIT_RED,
+            (f"RED: record 'type '{OUTSIDE}'': schema accepts=False, mirror accepts=True",),
+        ),
+        (
+            "a meta-type added to the schema's enum is a record case too, which both sides refuse",
+            (with_enum_value(envelope, "type", "draft"), record, dials, real),
+            EXIT_RED,
+            ("RED: 1 disagreement(s) — ", f" {len(record_corpus(record, envelope, real)) + 1} record cases "),
+        ),
+        *(
+            (
+                f"an unknown `$schema` in the {name} schema is a teaching BROKEN line, never another draft",
+                inputs,
+                EXIT_BROKEN,
+                (f"BROKEN: {label} {undrafted} ('{unknown}') — fix: write there the address of the draft",),
+            )
+            for name, label, inputs in (
+                (
+                    "envelope",
+                    ENVELOPE_SCHEMA,
+                    (with_top_key(envelope, "$schema", unknown), record, dials, real),
+                ),
+                ("record", RECORD_SCHEMA, (envelope, with_top_key(record, "$schema", unknown), dials, real)),
+                ("dials", DIALS_SCHEMA, (envelope, record, with_top_key(dials, "$schema", unknown), real)),
+            )
+        ),
+        (
+            "a schema with no `$schema` is a teaching BROKEN line",
+            (without_top_key(envelope, "$schema"), record, dials, real),
+            EXIT_BROKEN,
+            (f"BROKEN: {ENVELOPE_SCHEMA} {undrafted} (it holds none) — fix: write there the address of",),
+        ),
+        (
+            "a `$schema` that is a list is a teaching BROKEN line",
+            (envelope, record, with_top_key(dials, "$schema", ["draft"]), real),
+            EXIT_BROKEN,
+            (f"BROKEN: {DIALS_SCHEMA} {undrafted} (['draft']) — fix: write there the address of",),
+        ),
+        (
+            "an envelope schema with no `$id` is a teaching BROKEN line",
+            (without_top_key(envelope, "$id"), record, dials, real),
+            EXIT_BROKEN,
+            (
+                f"BROKEN: {ENVELOPE_SCHEMA} holds no `$id`, the name the `$ref` of {RECORD_SCHEMA} finds it"
+                " by — fix: restore the `$id` at the top of the schema",
+            ),
+        ),
+        (
+            "a record schema whose `$ref` finds no schema is a teaching BROKEN line",
+            (with_top_key(envelope, "$id", "constitution-kernel/renamed"), record, dials, real),
+            EXIT_BROKEN,
+            (
+                f"BROKEN: {RECORD_SCHEMA} holds a `$ref` that finds no schema the check holds"
+                " ('constitution-kernel/document-frontmatter') — fix: make the `$ref` the `$id` of the"
+                f" schema it extends; the check holds {ENVELOPE_SCHEMA} alone for it",
+            ),
+        ),
     ]
     under: dict[str, Callable[[], contextlib.AbstractContextManager[None]]] = {
         "a mirror that accepts a status neither side lists is red": mirror_accepting_any_status,
         "a mirror that does not require the prefix is red": mirror_defaulting_the_prefix,
         "a mirror that holds the prefix's pattern loosely is red": mirror_with_a_loose_prefix_pattern,
+        "a record mirror that accepts a type neither side lists is red": record_mirror_accepting_any_type,
     }
     failed = 0
     for name, inputs, wanted_code, wanted in cases:
