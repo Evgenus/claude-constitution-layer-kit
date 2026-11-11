@@ -219,7 +219,7 @@ jobs:
     if: ${{ !cancelled() && needs.list.result == 'success' }}
     name: mutation ${{ matrix.module }}
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 70 # above the sum of the steps' own limits, so that a step's limit ends a hang and the job's never does
     strategy:
       fail-fast: false
       matrix:
@@ -249,6 +249,13 @@ jobs:
           curl -fsSL https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz \
             | tar -xz -C "$HOME/.local/bin" --strip-components=1 lychee-x86_64-unknown-linux-gnu/lychee
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Node, for the tests that run npm
+        # the version of the job check
+        uses: actions/setup-node@v7
+        continue-on-error: true
+        timeout-minutes: 5
+        with:
+          node-version: "22"
       - name: Git identity for the tests' throwaway repositories
         continue-on-error: true
         timeout-minutes: 5
@@ -288,7 +295,7 @@ jobs:
       - mutation-sample
     if: ${{ !cancelled() && needs.list.result == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 35 # above the sum of the steps' own limits
     steps:
       - uses: actions/checkout@v7
         continue-on-error: true

@@ -103,7 +103,7 @@ commands() {
         bare-install) echo "python3 scripts/check-bare-install.py --self-test" ;;
         session-load) echo "python3 scripts/check-session-load.py --self-test" ;;
         run-evals) echo "python3 scripts/run-evals.py --self-test" ;;
-        # the mutation report's own fixture; the report itself is a step of the workflow and no entry, since it judges nothing
+        # the mutation report's own fixture; the report itself runs in jobs of the workflow and is no entry, since it judges nothing
         module-mutation) echo "python3 scripts/module-mutation.py --self-test" ;;
         guide)
             echo "python3 scripts/check-install-guide.py"
