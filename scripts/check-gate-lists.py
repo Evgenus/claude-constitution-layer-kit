@@ -350,7 +350,10 @@ WHY_GUIDE = (
     "the guide's scan block is what a project runs to verify an install, so a scan it leaves out is never"
     " run there and a path no module declares fails there"
 )
-COVERAGE_OWNER = "const-task-close"  # the dials namespace whose `coverage` key is the range check's map
+# The dials namespace whose `coverage` key is the range check's map. The plain run passes it to `run`; the
+# self-test passes `TEST_OWNER`, a key no module bears, so that its throwaway trees need no module folder
+# named for the owner. The key is an argument from `main` down, and no state of the module holds it.
+COVERAGE_OWNER = "const-task-close"
 COVERAGE_KEY = "coverage"
 COVERAGE_FOLDERS = (  # the folders that carry code, as paths below a module folder: the plugin's three, then
     "plugin/scripts",  # the module's own `tests` and `evals`, which stay outside the plugin folder
@@ -363,28 +366,6 @@ WHY_COVERAGE = (
     "the range check of module const-task-close asks a change for a module's document only through the"
     " module's pair, so a module with no pair, or code outside its pair, is never asked"
 )
-
-
-@dataclass
-class Dial:
-    """Where the coverage map stands. The self-test points `owner` at a key no module bears, so that its
-    throwaway trees need no module folder named for the owner; the plain run reads the real one."""
-
-    owner: str = COVERAGE_OWNER
-
-
-COVERAGE = Dial()
-
-
-@contextlib.contextmanager
-def coverage_owner(key: str) -> Iterator[None]:
-    """For the code inside, the coverage map is read under the dials key `key`. Restored on leaving."""
-    saved = COVERAGE.owner
-    COVERAGE.owner = key
-    try:
-        yield
-    finally:
-        COVERAGE.owner = saved
 
 
 def coverage_entry(module: str, folders: tuple[str, ...]) -> str:
@@ -1391,11 +1372,10 @@ class Pair:
     docs: list[str]
 
 
-def coverage_pairs_of(root: Path) -> list[Pair]:
+def coverage_pairs_of(root: Path, owner: str) -> list[Pair]:
     """The entries of the coverage map, `<owner>.coverage` of the dials file. A map that is absent or no
     list, or an entry that is no mapping with a string `name` and two lists of strings, `code` and `docs`,
     is BROKEN: the check cannot read what it holds."""
-    owner = COVERAGE.owner
     namespace = read_dials(root).get(owner)
     declared = namespace.get(COVERAGE_KEY) if isinstance(namespace, dict) else None
     if not isinstance(declared, list):
@@ -1424,7 +1404,7 @@ def coverage_pairs_of(root: Path) -> list[Pair]:
     return pairs
 
 
-def coverage_pairs(root: Path, modules: list[str]) -> list[Finding]:
+def coverage_pairs(root: Path, modules: list[str], owner: str) -> list[Finding]:
     """Each module folder has its pair in the coverage map of the range check: exactly one entry named for
     the folder, whose `docs` are the one path `modules/<m>/MODULE.md`, whose `code` patterns all open with
     `modules/<m>/`, and which lists `modules/<m>/<path>/**` for each of `COVERAGE_FOLDERS`, the paths
@@ -1432,8 +1412,8 @@ def coverage_pairs(root: Path, modules: list[str]) -> list[Finding]:
     module's folder; a pattern for a path that does not exist is allowed, and a folder of one of those
     names at another place is none of them. A module with two entries is judged by that finding alone.
     Entries named for no module folder are not judged. The findings come by module, then docs, patterns
-    outside, folders in the order above."""
-    owner, pairs = COVERAGE.owner, coverage_pairs_of(root)
+    outside, folders in the order above. The map is read under the dials key `owner`."""
+    pairs = coverage_pairs_of(root, owner)
     findings: list[Finding] = []
     for module in modules:
         folders = tuple(path for path in COVERAGE_FOLDERS if (root / "modules" / module / path).is_dir())
@@ -1458,7 +1438,9 @@ def coverage_pairs(root: Path, modules: list[str]) -> list[Finding]:
     return findings
 
 
-def check_kit(root: Path) -> tuple[list[Finding], int, int, int, int, int]:
+def check_kit(root: Path, owner: str) -> tuple[list[Finding], int, int, int, int, int]:
+    """The findings of the kit at `root` and what was examined; `owner` is the dials key the coverage map
+    is read under, `COVERAGE_OWNER` for the kit itself."""
     try:
         modules = [folder.name for folder in module_folders(root)]
     except DocumentError as bad:
@@ -1484,7 +1466,7 @@ def check_kit(root: Path) -> tuple[list[Finding], int, int, int, int, int]:
     findings += dials_namespaces(root, modules)
     findings += types_path(root)
     findings += guide_scans(root, declared)
-    findings += coverage_pairs(root, modules)
+    findings += coverage_pairs(root, modules, owner)
     return findings, len(modules), scans, len(checks), plugins, enabled
 
 
@@ -1515,10 +1497,11 @@ def broken_report(broken: Broken) -> int:
     return EXIT_BROKEN
 
 
-def run(root: Path) -> int:
-    """The plain run on `root`: its report, or the two BROKEN lines."""
+def run(root: Path, owner: str) -> int:
+    """The plain run on `root`, the coverage map read under the dials key `owner`: its report, or the two
+    BROKEN lines."""
     try:
-        return report(*check_kit(root))
+        return report(*check_kit(root, owner))
     except Broken as broken:
         return broken_report(broken)
 
@@ -3227,8 +3210,7 @@ def findings_of(case: Case) -> list[Finding]:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         build(root, case)
-        with coverage_owner(case.owner or COVERAGE.owner):
-            return check_kit(root)[0]
+        return check_kit(root, case.owner or TEST_OWNER)[0]
 
 
 NEW_CHECK = "scripts/check-new.py"
@@ -3680,8 +3662,7 @@ def cases_selections(tally: Tally) -> None:
             build(root, Case({"x": SCAN}))
             (root / config).parent.mkdir(parents=True, exist_ok=True)
             (root / config).write_text(text, encoding="utf-8")
-            with coverage_owner(COVERAGE.owner):
-                found = check_kit(root)[0]
+            found = check_kit(root, TEST_OWNER)[0]
         got = [(f.module, f.entry, f.line) for f in found]
         ok = got == ([(config, "addopts", wanted_line)] if wanted_line else [])
         tally.judge(ok, f"{config} {'with' if wanted_line else 'without'} an addopts line read")
@@ -3696,8 +3677,7 @@ def cases_selections(tally: Tally) -> None:
         root = Path(tmp).resolve()
         build(root, Case({"x": SCAN}))
         (root / "pytest.ini").write_text("[pytest]\naddopts = -ra\n", encoding="utf-8")
-        with coverage_owner(COVERAGE.owner):
-            found = check_kit(root)[0]
+        found = check_kit(root, TEST_OWNER)[0]
     tally.judge(
         [line for f in found for line in f.render().splitlines()] == addopts_lines,
         "the report of an addopts line is its literal text",
@@ -3874,7 +3854,7 @@ def cases_scan_readers(tally: Tally) -> None:
     with tempfile.TemporaryDirectory() as tmp:  # a scan declared by its Python file, run by python3
         root = Path(tmp).resolve()
         build(root, guide_case(SCAN, MODULE_TEXT, ""))  # const-p declares `check-p.py --scan`
-        ok = check_kit(root)[0] == []
+        ok = check_kit(root, TEST_OWNER)[0] == []
     tally.judge(ok, "a scan declared as `<entry>.py --scan` is held by its python3 line")
     ok = scans_of(MODULE_TEXT) == ["check-x"] and scans_of(QUIET_TEXT) == []
     taught = 'runs `PYTHONPATH="$PWD/shared" python3 modules/const-y/plugin/scripts/check-y.py --scan`'
@@ -4118,8 +4098,8 @@ def reports_by_kind(tally: Tally) -> None:
             root = Path(tmp).resolve()
             build(root, case)
             printed = io.StringIO()
-            with contextlib.redirect_stdout(printed), coverage_owner(case.owner or COVERAGE.owner):
-                code = report(*check_kit(root))
+            with contextlib.redirect_stdout(printed):
+                code = report(*check_kit(root, case.owner or TEST_OWNER))
         ok = code == EXIT_RED and printed.getvalue().splitlines() == lines
         tally.judge(ok, f"the report of {name} is its literal text, exit 2")
         if not ok:
@@ -4190,7 +4170,7 @@ def report_of_a_green_kit(tally: Tally) -> None:
         build(root, Case({"x": SCAN, "new": RUN_NEW}, scripts=TRACKED, files=green_files))
         printed = io.StringIO()
         with contextlib.redirect_stdout(printed):
-            code = report(*check_kit(root))
+            code = report(*check_kit(root, TEST_OWNER))
     green_line = (
         "GREEN: every declared scan stands in the gate list, the CI list and its module's job and runs with "
         "the kit's shared/ first on PYTHONPATH, the list's "
@@ -4500,7 +4480,7 @@ def reports_in_order(tally: Tally) -> None:
             build(root, case)
             printed = io.StringIO()
             with contextlib.redirect_stdout(printed), listed_in_reverse():
-                code = report(*check_kit(root))
+                code = report(*check_kit(root, TEST_OWNER))
         ok = code == EXIT_RED and printed.getvalue().splitlines() == lines
         tally.judge(ok, f"the report of {name} is its literal text, exit 2")
         if not ok:
@@ -4531,7 +4511,7 @@ def sections_out_of_order(tally: Tally) -> None:
         root = Path(tmp).resolve()
         build(root, Case({"x": SCAN}, document=swapped, guide=guide_text(GUIDE_X)))
         try:
-            check_kit(root)
+            check_kit(root, TEST_OWNER)
             before = None
         except Broken as bad:
             before = str(bad)
@@ -4539,7 +4519,7 @@ def sections_out_of_order(tally: Tally) -> None:
         build_text = "".join("".join(block) for block in blocks)
         (root / "modules/const-x/MODULE.md").write_text(build_text, encoding="utf-8")
         ok = before is not None and "the anchor after" in before
-        ok = ok and build_text == MODULE_TEXT and check_kit(root)[0] == []
+        ok = ok and build_text == MODULE_TEXT and check_kit(root, TEST_OWNER)[0] == []
     tally.judge(
         ok,
         "a document whose t11 section stands before t10, put in the"
@@ -4652,7 +4632,7 @@ def broken_lines(tally: Tally) -> None:
             if change == "NO-GIT":
                 os.environ["PATH"] = ""
             try:
-                tracked_checks(root) if change == "NO-GIT" else check_kit(root)
+                tracked_checks(root) if change == "NO-GIT" else check_kit(root, TEST_OWNER)
                 ok = False
             except Broken as broken:
                 ok = said in str(broken) and "fix:" in str(broken)
@@ -4669,8 +4649,8 @@ def unreadable_files(tally: Tally) -> None:
             root = Path(tmp).resolve()
             build(root, case)
             printed = io.StringIO()
-            with contextlib.redirect_stdout(printed), coverage_owner(case.owner or COVERAGE.owner):
-                code = run(root)
+            with contextlib.redirect_stdout(printed):
+                code = run(root, case.owner or TEST_OWNER)
         lines = [f"BROKEN: {line}", "BROKEN: the check could not run — 0 module documents examined"]
         ok = code == EXIT_BROKEN and printed.getvalue().splitlines() == lines
         tally.judge(ok, f"{name} is its literal BROKEN line, exit 1")
@@ -4724,6 +4704,27 @@ def failing_list_script(tally: Tally) -> None:
             print(f"        got: {got}")
 
 
+def coverage_key_as_argument(tally: Tally) -> None:
+    """The dials key of the coverage map is the caller's argument: one tree whose dials file holds a whole
+    map under one key and a map short of a pair under another is judged under each key by its own map, in
+    one process, and a run under one key leaves nothing behind for the next."""
+    other = "another-key"  # no module's name and no `const-` key: no namespace to judge
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        build(root, coverage_case(SCAN, [full_pair("const-x"), full_pair("const-quiet")]))
+        short = coverage_text(other, full_pair("const-quiet")).split("\n", 1)[1]  # without its root_policy
+        with (root / DIALS).open("a", encoding="utf-8") as dials:
+            dials.write(short)
+        runs = [check_kit(root, key)[0] for key in (TEST_OWNER, other, TEST_OWNER)]
+    found = [(f.module, f.where, f.owner) for f in runs[1]]
+    tally.judge(
+        runs[0] == [] and found == [("const-x", Where.COVERAGE_MISSING, other)] and runs[2] == [],
+        "one tree read under two dials keys in turn: each run judges the map under the key it is given",
+    )
+    if found != [("const-x", Where.COVERAGE_MISSING, other)]:
+        print(f"        got: {runs}")
+
+
 def self_test() -> int:
     """Red→green on a throwaway tree: a scan missing from the gate group, and one in a kit whose
     workflow does not read the list or names it only in a comment line or a trailing comment, are red
@@ -4753,6 +4754,7 @@ def self_test() -> int:
     reports_by_kind(tally)
     fixes_of_the_guide(tally)
     fixes_of_the_coverage(tally)
+    coverage_key_as_argument(tally)
     report_of_a_green_kit(tally)
     reports_in_order(tally)
     report_of_no_source(tally)
@@ -4775,10 +4777,9 @@ def main(argv: list[str]) -> int:
         print("BROKEN: the check could not run — 0 module documents examined")
         return EXIT_BROKEN
     if not args.self_test:
-        return run(KIT)
+        return run(KIT, COVERAGE_OWNER)
     try:
-        with coverage_owner(TEST_OWNER):
-            return self_test()
+        return self_test()
     except Broken as broken:
         return broken_report(broken)
 
