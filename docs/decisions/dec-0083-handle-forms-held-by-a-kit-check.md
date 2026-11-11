@@ -16,7 +16,7 @@ A handle audit on 2026-10-11 found handles that collide or name nothing, and the
 
 - **A citation of a ruling.** [Rule 2 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r2) asks a citation of a ruling from another document to link the ruling's anchor. Its rule 6 left that to review, as R3 of [dec-0081-rulings-carry-anchors](dec-0081-rulings-carry-anchors.md#r3) ruled. Twelve such citations were missed by hand in two rounds.
 - **A module's message keys.** Modules reused keys of the shared message table of [§3 of the shared gate code](../../shared/MESSAGES.md#g3) with a meaning of their own: F10, N1, H1 and S1.
-- **One prefix per kind.** [Rule 8 of plc-0006-module-documents](../policies/plc-0006-module-documents.md#r8) asks one prefix per kind of handle in a module document; a message key L1 stood beside a live item L1. Its rule 12 left handles to review.
+- **One prefix per kind.** [Rule 8 of plc-0006-module-documents](../policies/plc-0006-module-documents.md#r8) asks one prefix per kind of handle in a module document. A message key L1 stood beside a live item L1. Its rule 12 left handles to review.
 - **A record's order and its table keys.** [Rule 10 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r10) asks handles in order, contiguous and unique, tables included, from [dec-0039-policies-state-their-kinds](dec-0039-policies-state-their-kinds.md) on, as R1 of [dec-0082-handle-migration-in-records](dec-0082-handle-migration-in-records.md#r1) set. `scripts/check-carry-lists.py` held only that no bold ruling handle opens two items.
 
 Each check changes what a policy says is review, so each is a `process` change. No check finds anything in the tree today: each guards against the next slip.
@@ -41,7 +41,13 @@ The session recommended A: the four checks share the same two enforcement rules,
 
 What each check reads and holds followed from the rule it serves; no real choice was left. The session ruled the details below, and the decider sees them at the yes. The list of R6 grew from six keys to nine while the check was built: three modules state their own closing clause under C1, C14 and C15, a part the shared rows name.
 
-<a id="r2"></a>**R2.** The kit's `scripts/check-handle-forms.py` holds that a citation of a ruling from another document links the ruling's anchor, a list or a range of rulings linking the first. It reads every Markdown file git lists, save a research comparison under `docs/research/`, frozen or not, a section titled "Carry list", fenced and indented code, code spans and HTML comments. A frozen comparison keeps the form it was frozen with; in one not yet frozen, review holds the anchor. It reads three forms: rulings followed by " of " and a link to a record; a link to a record followed by a ruling; a ruling followed by " of " and a record's bare id. A handle after the word "key", "message" or "row", singular or plural, is a qualified key of another kind and no ruling. A handle with a suffix letter, a record's own ruling and a citation that names its record indirectly, "that record's R3", are review.
+<a id="r2"></a>**R2.** The kit's `scripts/check-handle-forms.py` holds that a citation of a ruling from another document links the ruling's anchor, a list or a range of rulings linking the first. It reads every Markdown file git lists, save a research comparison under `docs/research/`, frozen or not, a section titled "Carry list", fenced and indented code, code spans and HTML comments. A frozen comparison keeps the form it was frozen with; in one not yet frozen, review holds the anchor. It reads three forms:
+
+- **rulings followed by** " of " and a link to a record;
+- **a link to a record** followed by a ruling;
+- **a ruling followed by** " of " and a record's bare id.
+
+A handle after the word "key", "message" or "row", singular or plural, is a qualified key of another kind and no ruling. A handle with a suffix letter, a record's own ruling and a citation that names its record indirectly, "that record's R3", are review.
 
 <a id="r3"></a>**R3.** R2 reverses the part of R3 of [dec-0081-rulings-carry-anchors](dec-0081-rulings-carry-anchors.md#r3) that left a citation's anchor to review.
 

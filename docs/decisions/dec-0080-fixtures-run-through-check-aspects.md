@@ -11,14 +11,16 @@ decider: Eugene Chernyshov
 
 ## Context
 
-[dec-0054-acceptance-items-name-their-rows](dec-0054-acceptance-items-name-their-rows.md) gave `scripts/check-aspects.py` two runs. The plain run is a gate over the module documents and the matrix and runs no runner. The full run, `--run`, also runs each module's runner, and in it two more things are findings: a runner item that no row of the module's acceptance table names, and a fixture item a table names that the runner did not print. The record's R7 chose the plain run as the gate and kept the full run on request, since option C, "the full run a gate", cost minutes on every commit.
+[dec-0054-acceptance-items-name-their-rows](dec-0054-acceptance-items-name-their-rows.md) gave `scripts/check-aspects.py` two runs. The plain run is a gate over the module documents and the matrix and runs no runner. The full run, `--run`, also runs each module's runner. In it two more things are findings: a runner item that no row of the module's acceptance table names, and a fixture item a table names that the runner did not print. The record's R7 chose the plain run as the gate and kept the full run on request, since option C, "the full run a gate", cost minutes on every commit.
 
 So the kit's CI ran the plain run, and each module's job ran its runner alone. Nothing held a runner's items against its table before a merge. A handle audit on 2026-10-11 ran the full run by hand and found one such gap on `main`: the acceptance table of module [`const-referencing`](../requirements.md#const-referencing) did not name shared item 166, which its runner runs. The kit's CI took 137 seconds for its last green run on `main`, its longest job, `const-referencing`, 117 seconds. The full run over all eleven runners, one after another, took several minutes on the session's machine.
 
 ## Options
 
 - **A. Each module's job runs its fixtures through `check-aspects --run --module <name>`,** in place of calling the runner directly.
-  - **Pros:** the table check rides on a runner run CI already pays for, so it adds almost no time; every pull request holds the gap for every module.
+  - **Pros:**
+    - **the table check rides on a runner run CI already pays for**, so it adds almost no time;
+    - **every pull request holds the gap** for every module.
   - **Cons:** it changes the gate list; a red item shows as the check's report unless the check is taught to print the runner's own lines.
 - **B. One more entry in the `kit` job runs the full `check-aspects --run`.**
   - **Pros:** one line in the gate list.
