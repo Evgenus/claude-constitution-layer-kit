@@ -73,8 +73,8 @@ so the first document is written from it.
 ## From zero
 
 A repository with no `constitution.yaml` governs nothing, and the command refuses until it
-exists. Bootstrap by hand, once — this is the only time a governed document is written
-without the command; the paths below are an example, any layout inside the repository works:
+exists. Bootstrap by hand, once — this is the only time a policy is written without the
+command; the paths below are an example, any layout inside the repository works:
 
 1. `constitution.yaml` at the repository root:
    ```yaml
