@@ -39,7 +39,7 @@ A, by the session: it is the amendment the plan's item names, and it states what
 
 ## Choice
 
-B, by the decider, in chat on 2026-11-11. The decider gave the letter and no reason. The session keeps no objection: B leaves no hash of the tree against the row, which A did not.
+B, by the decider, in chat on 2026-11-11. The decider gave the letter and no reason. The session keeps no objection: B leaves no hash of the tree against the row, which A did not. The pick did not name R6. The session added it after the carry audit, which found its sentence in this record's context alone.
 
 ## Ruling
 
@@ -53,7 +53,7 @@ B, by the decider, in chat on 2026-11-11. The decider gave the letter and no rea
 
 <a id="r5"></a>**R5.** Two narrower rules stand as they are. [Rule 12 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r12) lets a hash stand in the body of one of the kit's decision records for two uses only. Rule 3 of plc-0005-research asks a comparison to name the commit of the kit's tree that verified a fact.
 
-<a id="r6"></a>**R6.** A hash shown as an example of the form is no reference, and R1 does not reach it. The session added this item after the carry audit, which found the sentence in this record's context alone; the decider's pick of B did not name it.
+<a id="r6"></a>**R6.** A hash shown as an example of the form is no reference, and stands outside the rule of R1.
 
 <a id="r7"></a>**R7.** R1 widens an earlier ruling: the item on commit hashes, R13 in the line of unchanged forms of [dec-0005-reference-forms](dec-0005-reference-forms.md#r12), which reads "commit messages, record bodies, chat only". That record is not touched.
 
