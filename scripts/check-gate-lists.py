@@ -79,7 +79,10 @@ No code line of the list script or of the workflow, comments aside, names pytest
 the gate list and CI never run pytest themselves and so never select some tests only: a module's tests run
 through `python3 scripts/check-aspects.py --run --module <module>` (decision
 dec-0080-fixtures-run-through-check-aspects), which builds the pytest command and runs it whole. That the
-lists run them that way is held by review; this check holds the names. A word names pytest when it is `pytest`
+lists run them that way is held by review; this check holds the names. The rule is of the runs that give a
+verdict: the mutation report, jobs of the workflow that hold no entry of the list and give none, runs chosen
+tests for each mutant through `scripts/module-mutation.py`, which this check does not read (decision
+dec-0122-module-mutation-report). A word names pytest when it is `pytest`
 or `py.test` standing as a word, after a path, `~/.venv/bin/pytest`, or stuck to `-m`, `-mpytest`; a name that
 goes on, `pytest-xdist`, `pytest_plugins`, `pytest.ini`, one with another name before it, `allure-pytest`, and
 an exact pin, `pytest==9.1.1`, name none, while an unpinned install and a range pin do. No code line passes
@@ -272,7 +275,8 @@ PYTEST_CONFIGS = (
 )
 ADDOPTS = re.compile(r"^\s*addopts\s*[=:]")  # an ini file takes `addopts =` and `addopts:`
 EVERY_RUN = "through which any option, a selection included, reaches every pytest run"
-ASPECTS_RUN = "python3 scripts/check-aspects.py --run --module <module>"  # the one way a module's tests run
+# the one way the lists run a module's tests
+ASPECTS_RUN = "python3 scripts/check-aspects.py --run --module <module>"
 WHY_FILTER = "the gate list and CI run every item of every runner, so that their green is a full pass"
 WHY_FORM = "a scan the check cannot read is never held in the gate list and CI"
 KIT_CHECK = re.compile(

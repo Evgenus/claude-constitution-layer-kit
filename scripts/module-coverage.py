@@ -8,7 +8,8 @@ under coverage.py when CONSTITUTION_KIT_COVERAGE names a folder, and writes `<fo
 (scripts/kit_coverage.py says how, and what the file holds). The kit's CI sets it in each module's job
 on every pull request and on main, and the job `gates`, after its verdict, runs this report over the
 files of every module job (decision dec-0089-module-coverage-report). Mutation score is no metric of
-this report: it stays a work item of its own, pending at step 9 of the rollout plan.
+this report: scripts/module-mutation.py reports it, beside this one (decision
+dec-0122-module-mutation-report).
 
 The measured code is the module's own Python under modules/<module>/plugin/scripts (`own`) and the shared
 constitution_layer_kit its fixtures' gates import, read at shared/constitution_layer_kit (`shared`): a
