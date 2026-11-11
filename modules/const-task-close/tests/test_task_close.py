@@ -429,6 +429,72 @@ def test_cwd_below_root() -> None:
     expect(result, 2, messages.t1_dirty_tree(RED_LINES).render(), "stderr")
 
 
+def task(kind: str = "subagent", status: str = "running", **more: object) -> dict[str, object]:
+    """One entry of the Stop event's `background_tasks`, as the platform's hooks reference shows it."""
+    return {"id": "task-1", "type": kind, "status": status, "description": "work", **more}
+
+
+def stop_with(root: Path, tasks: object, active: bool = False) -> str:
+    """A Stop payload that carries `background_tasks`, the session's tasks still in flight."""
+    return json.dumps({**json.loads(stop_json(root, active)), "background_tasks": tasks})
+
+
+# typed by hand: the held line is not built by the message function
+HELD_ONE = (
+    "GREEN: const-task-close: the working tree examined — 1 path(s) dirty; 1 agent task(s) of this session"
+    " still running, so the report waits for the first turn end with none\n"
+)
+HELD_THREE = HELD_ONE.replace("; 1 agent task(s)", "; 3 agent task(s)")
+
+
+@item(47, "a dirty tree while the session's agents still run is held, green; with none running it is red")
+def test_held_while_agents_run() -> None:
+    """The Stop event lists the session's tasks still in flight. While one of them is an agent that
+    runs — a subagent, a teammate, a workflow — the dirty tree may hold that agent's files, which it
+    will commit itself: the report waits, under either severity, and the line says so. Everything
+    else is the report as ever: no such task, a task that is no agent, an agent that no longer runs,
+    a list the hook cannot read."""
+    r = repo(own())
+    r.write("scratch.txt", "x\n")
+    for kind in ("subagent", "teammate", "workflow"):
+        held = H.run_gate(stop_with(r.root, [task(kind)]))
+        assert (held.code, held.stdout, held.stderr) == (0, HELD_ONE, ""), f"{kind}: {held}"
+    shell = task("shell", command="sleep 40")
+    several = [task(agent_type="implementer"), shell, task("teammate"), task("workflow")]
+    counted = H.run_gate(stop_with(r.root, several))
+    assert (counted.code, counted.stdout, counted.stderr) == (0, HELD_THREE, ""), f"three agents: {counted}"
+    red = messages.t1_dirty_tree(RED_LINES).render()
+    reported: dict[str, object] = {
+        "an empty list": [],
+        "a shell task alone": [task("shell", command="sleep 40")],
+        "a monitor alone": [task("monitor")],
+        "a subagent that no longer runs": [task(status="completed")],
+        "a subagent with no status": [{"id": "task-1", "type": "subagent"}],
+        "a list that is no list": "subagent",
+        "an entry that is no object": ["subagent"],
+        "a type that is no text": [task(kind=None)],  # type: ignore[arg-type]
+        "a type that is a list": [{**task(), "type": ["subagent"]}],
+        "a type that is an object": [{**task(), "type": {"name": "subagent"}}],
+        "a status that is a list": [{**task(), "status": ["running"]}],
+    }
+    for name, tasks in reported.items():
+        result = H.run_gate(stop_with(r.root, tasks))
+        assert result.code == 2 and red in result.stderr, f"{name}: {result}"
+    # an event without the list, as a platform that sends none writes it
+    expect(hook(r.root), 2, red, "stderr")
+    # the second stop of a turn keeps its own line, agents or not
+    second = H.run_gate(stop_with(r.root, [task()], active=True))
+    expect(second, 0, shared.g1_green_event(messages.g1_second_stop(1)), "stdout")
+    # under warn the user's notice waits too: the same green line, and no JSON
+    quiet = repo(own(severity="warn"))
+    quiet.write("scratch.txt", "x\n")
+    warned = H.run_gate(stop_with(quiet.root, [task()]))
+    assert (warned.code, warned.stdout, warned.stderr) == (0, HELD_ONE, ""), f"warn: {warned}"
+    # a clean tree is clean, whoever runs
+    (r.root / "scratch.txt").unlink()
+    expect(H.run_gate(stop_with(r.root, [task()])), 0, shared.g1_green_event(messages.g1_clean()), "stdout")
+
+
 @item(9, "a tool event is a configuration failure: the gate is wired to Stop")
 def test_tool_event_is_not_wired() -> None:
     r = repo(own())

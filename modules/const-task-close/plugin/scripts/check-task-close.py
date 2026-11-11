@@ -6,6 +6,9 @@ Modes:    no arguments  read one Stop event on stdin and judge the working tree 
                         repository the event's cwd lies in: a dirty tree — any line of
                         git status --porcelain — is a finding on the turn's first stop;
                         on a later stop of the same turn (stop_hook_active) the turn ends;
+                        while the event lists an agent of the session that still runs, a
+                        dirty tree is not a finding: the report waits, green, for the first
+                        turn end with none;
           --scan [DIR] [--since <ref> | --change <commit>] [--body <file>]
                         judge one change of the repository containing DIR (default: the
                         current directory) against the coverage map: --since names the base
@@ -17,7 +20,8 @@ Modes:    no arguments  read one Stop event on stdin and judge the working tree 
                         itself, the last landed change. --body gives the pull request's
                         description as a file, read for declarations beside the commits'
                         trailers. The check for CI on a pull request, and before a merge.
-Reads:    from the event: hook_event_name, cwd, session_id, stop_hook_active. From
+Reads:    from the event: hook_event_name, cwd, session_id, stop_hook_active, and of each
+          entry of background_tasks its type and status. From
           constitution.yaml: this module's dials const-task-close.coverage (a list of
           {name, code, docs}), .trunk (a branch name; default main), .trunk_remote (a
           remote's name; default origin), .declaration_key (a trailer key; default
@@ -29,7 +33,9 @@ The check: in the scan, every pair whose code patterns match a path of the range
           declaration — the trailer "<key>: <pair> — <reason>" on a commit of the range, or
           the same line in the body — naming it; a declaration naming no pair, or carrying
           no reason, is a finding of its own; a document the map names must exist in the
-          repository's HEAD unless the range touched it. In hook mode, the working tree is clean.
+          repository's HEAD unless the range touched it. In hook mode, the working tree is clean,
+          or an agent of the session still runs: an entry of background_tasks whose type is
+          subagent, teammate or workflow and whose status is running.
 Exit:     0 green, or nothing to examine (the count line says which);
           2 finding — in hook mode this continues the turn once, the message reaching the
             model; with severity warn it is exit 0 with the finding in a systemMessage for

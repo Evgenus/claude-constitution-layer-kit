@@ -19,7 +19,9 @@ A line that starts `BROKEN: const-task-close needs the Python package constituti
    examined, and a dirty tree — any tracked change or untracked file git does not ignore — is
    reported once: under the default `severity: block` the model receives the finding and the
    turn continues once, for the commit; under `warn` the user is shown the finding as a notice
-   and the model sees nothing. The second stop of a turn always lets it end. The scan, step 5,
+   and the model sees nothing. The second stop of a turn always lets it end. While a subagent,
+   a teammate or a workflow of the session still runs, the report waits, since the tree may hold
+   that agent's files: the first turn end with none running reports the tree. The scan, step 5,
    examines a change before a merge.
 2. **Zero configuration works** in a repository whose `constitution.yaml` has `module_prefix`,
    whatever else it says: the turn-end hook judges the tree, and the range check examines zero pairs and says so.
@@ -103,6 +105,8 @@ true; whether a file is a working file (a `working_files` match is a note); a ch
 the trunk without the scan, until the next scan of the trunk; a commit inside a change that touched
 code without its document, when a later commit of the same change updated it; a turn ended by an
 interrupt, or a subagent's own turn end; a tree in a session that has not loaded the plugin.
+Nor does it check whose the dirty files are while an agent of the session runs: your own
+uncommitted work waits with that agent's, and a session closed while its agents run gets no report.
 
 Uninstall: remove the plugin; remove the `const-task-close:` namespace from `constitution.yaml`.
 The trailers stay in history and mean what they said.
