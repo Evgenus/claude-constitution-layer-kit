@@ -1,5 +1,5 @@
 ---
-id: dec-0120-falling-grade-after-a-write-is-a-note
+id: dec-0121-falling-grade-after-a-write-is-a-note
 type: task-record
 title: After a write, a grade above the ceiling that is below the grade of the last commit is a note, not a finding
 status: inactive

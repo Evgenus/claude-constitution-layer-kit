@@ -51,7 +51,7 @@ Rows another place homes: [A10.2](../../docs/requirements.md#a10-2) is module `c
 15. [dec-0053-drafts-keep-their-versions](../../docs/decisions/dec-0053-drafts-keep-their-versions.md) — a finding of the consumer-live proof is a fix, with a version bump once the module is published.
 16. [dec-0069-kit-checks-hold-module-lists-floor-clauses-shared-numbers-and-kit-names](../../docs/decisions/dec-0069-kit-checks-hold-module-lists-floor-clauses-shared-numbers-and-kit-names.md) — a kit document's name in an installed component is held by the kit's portability check, so item T16 holds no list of kit words.
 17. [dec-0079-skills-named-at-their-moment](../../docs/decisions/dec-0079-skills-named-at-their-moment.md) — every red names the skill after its count line, and a pointer line names it at session start and at each subagent's start.
-18. [dec-0120-falling-grade-after-a-write-is-a-note](../../docs/decisions/dec-0120-falling-grade-after-a-write-is-a-note.md) — after a write, a grade above the ceiling and below the document's grade in the last commit is the note N4, not L1; the scan reads no commit and stays red.
+18. [dec-0121-falling-grade-after-a-write-is-a-note](../../docs/decisions/dec-0121-falling-grade-after-a-write-is-a-note.md) — after a write, a grade above the ceiling and below the document's grade in the last commit is the note N4, not L1; the scan reads no commit and stays red.
 
 <a id="t5"></a>
 ## 5. Invariant
