@@ -464,7 +464,7 @@ ENTRY = Path(__file__).resolve().parent.parent / "plugin" / "scripts" / "entry.p
 
 
 def test_over():
-    assert calc.over(5) and not calc.over(1)
+    assert calc.over(4) and not calc.over(1)
 
 
 def test_count():
@@ -491,7 +491,9 @@ OUTCOMES = {
     "entry.py:12:15:str": "killed",
     "entry.py:13:4:call-del": "killed",
     # the package: over and count run in the pytest process, label in the child alone
-    "x_gate/calc.py:3:8:num": "survived",  # a module-level line: every test runs, and none holds the limit
+    # a module-level line, run at import and in the child: test_over, which the line's coverage does not
+    # name, kills it
+    "x_gate/calc.py:3:8:num": "killed",
     "x_gate/calc.py:7:11:cmp-boundary": "survived",
     "x_gate/calc.py:7:11:cmp-negate": "killed",
     "x_gate/calc.py:7:11:return": "killed",
@@ -649,6 +651,20 @@ def self_test() -> int:  # noqa: C901 — one flat list of cases, each a few lin
             seen == OUTCOMES,
             f"{len(seen)} mutants; (got, expected) where they differ: {wrong};"
             f" unexpected {sorted(set(seen) - set(OUTCOMES))}",
+        )
+        chosen = {
+            str(row["id"]).removeprefix(SCRIPTS + "/"): row["tests"]
+            for row in (whole["results"] if isinstance(whole["results"], list) else [])
+        }
+        picked = [
+            chosen.get(k)
+            for k in ("x_gate/calc.py:19:11:return", "x_gate/calc.py:3:8:num", "x_gate/calc.py:23:15:num")
+        ]
+        case(
+            "a mutant meets the tests that reach it alone: one for a line of count, every test for a"
+            " module-level line, none where no test reaches",
+            picked == [1, 3, 0],
+            f"tests chosen: {picked}",
         )
         case(
             "the kit measured is only read: every file as it was",

@@ -44,7 +44,7 @@ MODULES="const-catalogs const-change-cost const-decision-records const-doc-budge
 const-locations const-meta-types const-questions const-referencing const-styling const-task-close"
 GATES="references meta-types catalogs decision-records open-questions style language budgets
 list-handles carry-lists shared-links shared-package yaml-style module-links handle-forms aspects portability gate-lists
-schema-mirror copies dials-schema profiles resolved-paths layered-items eval-receipts rollout-status run-evals bare-install session-load guide $(for m in $MODULES; do printf 'install-%s session-%s ' "$m" "$m"; done)task-close"
+schema-mirror copies dials-schema profiles resolved-paths layered-items eval-receipts rollout-status run-evals module-mutation bare-install session-load guide $(for m in $MODULES; do printf 'install-%s session-%s ' "$m" "$m"; done)task-close"
 EXTRAS="branch-gate setup-claude $(for m in $MODULES; do printf 'fixtures-%s lint-%s types-%s ' "$m" "$m" "$m"; done)lint types layered-fixture"
 
 job() {
@@ -101,6 +101,8 @@ commands() {
         bare-install) echo "python3 scripts/check-bare-install.py --self-test" ;;
         session-load) echo "python3 scripts/check-session-load.py --self-test" ;;
         run-evals) echo "python3 scripts/run-evals.py --self-test" ;;
+        # the mutation report's own fixture; the report itself is a step of the workflow and no entry, since it judges nothing
+        module-mutation) echo "python3 scripts/module-mutation.py --self-test" ;;
         guide)
             echo "python3 scripts/check-install-guide.py"
             echo "python3 scripts/check-install-guide.py --self-test" ;;

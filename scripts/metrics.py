@@ -7,8 +7,9 @@ kit's CI runs it, the default mode and --complexity, in the job `gates`, after t
 every pull request and on main, where its failure never changes the verdict (decision
 dec-0087-module-metrics-report). Test coverage is no metric of this report: each module's fixtures
 entry measures it in the module's own job, and scripts/module-coverage.py reports it (decision
-dec-0089-module-coverage-report). Nor is mutation score: it takes minutes per module, too slow for a
-step that runs on every change.
+dec-0089-module-coverage-report). Nor is mutation score: a whole measure takes from minutes to hours
+per module, so each module's job measures a sample of its mutants in a step of its own, and
+scripts/module-mutation.py reports it (decision dec-0122-module-mutation-report).
 
 Per module folder (the kit's one listing, `module_folders` of scripts/kit_module_doc.py), one row of
 these keys, the JSON keys as written:

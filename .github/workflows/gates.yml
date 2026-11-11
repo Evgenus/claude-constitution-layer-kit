@@ -10,7 +10,11 @@
 # changes that verdict. A module's job runs its fixtures one by one under coverage.py, which writes the module's
 # coverage file, uploaded as `coverage-<module>`; the job "gates", after its verdict, reads every such
 # file into the fixture coverage report, uploaded as `coverage` — a report, whose numbers no check holds
-# (decision dec-0089-module-coverage-report).
+# (decision dec-0089-module-coverage-report). After its entries, a module's job measures a sample of the module's
+# mutants, small changes to its code that its tests should notice, for a fixed time and with the commit as
+# the seed, and uploads the module's mutation file as `mutation-<module>`; the job "gates", after its verdict,
+# reads every such file into the mutation report, uploaded as `mutation` — a report too, whose numbers no
+# check holds and whose failure changes no verdict (decision dec-0122-module-mutation-report).
 name: gates
 
 on:
@@ -109,6 +113,35 @@ jobs:
           path: ${{ runner.temp }}/coverage
           if-no-files-found: warn
           retention-days: 5 # read by the job gates of the same run; the merged report keeps the default
+      # The mutation sample of the module, a report and never a check (scripts/module-mutation.py, decision
+      # dec-0122-module-mutation-report): after the job's entries, whatever their verdict, save on a cancelled
+      # run; continue-on-error keeps a failure of the step from turning the job red, and the timeout bounds a
+      # hang. For 150 seconds, in three copies of the kit side by side, it runs mutants drawn in an order the
+      # commit seeds, each against the tests that reach it, and writes the module's mutation file; the line
+      # map before them is one more run of the module's tests.
+      - name: Mutation sample of ${{ matrix.job }}, a report
+        if: ${{ !cancelled() && startsWith(matrix.job, 'const-') }}
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          JOB: ${{ matrix.job }}
+          OUT: ${{ runner.temp }}/mutation
+        run: |
+          # the table, the survivors and the notes, a BROKEN line with its fix included, reach the log before
+          # the step exits with the report's code
+          status=0
+          python3 scripts/module-mutation.py --module "$JOB" --budget 150 --copies 3 --seed "$GITHUB_SHA" --out "$OUT" > mutation.txt 2> mutation-notes.txt || status=$?
+          cat mutation.txt mutation-notes.txt
+          exit "$status"
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() && startsWith(matrix.job, 'const-') }}
+        continue-on-error: true
+        timeout-minutes: 5
+        with:
+          name: mutation-${{ matrix.job }}
+          path: ${{ runner.temp }}/mutation
+          if-no-files-found: warn
+          retention-days: 5 # read by the job gates of the same run; the merged report keeps the default
 
   gates:
     needs:
@@ -124,8 +157,8 @@ jobs:
         run: |
           echo "list: $LIST, checks: $CHECKS"
           test "$LIST" = success && test "$CHECKS" = success
-      # The module metrics and the fixture coverage, reports and never checks (scripts/metrics.py,
-      # scripts/module-coverage.py): the steps below run after the verdict above, whatever it was, save on
+      # The module metrics, the fixture coverage and the mutation score, reports and never checks
+      # (scripts/metrics.py, scripts/module-coverage.py, scripts/module-mutation.py): the steps below run after the verdict above, whatever it was, save on
       # a cancelled run, whose newer push or stop wants no report (always() would run them there too);
       # continue-on-error keeps a failure of theirs from turning the job red, and the verdict step's own
       # red stands, since it carries no such flag; each step's timeout bounds a hang at 5 minutes, where
@@ -193,4 +226,32 @@ jobs:
         with:
           name: coverage
           path: coverage.json
+          if-no-files-found: warn
+      - uses: actions/download-artifact@v8
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 5
+        with:
+          pattern: mutation-*
+          merge-multiple: true
+          path: mutation-files
+      - name: Mutation score, a report
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 5
+        run: |
+          # the files the module jobs wrote; the table, the survivors, the notes, a BROKEN line with its fix,
+          # reach the log and the summary before the step exits with the report's code
+          status=0
+          python3 scripts/module-mutation.py --from mutation-files --json mutation.json > mutation.txt 2> mutation-notes.txt || status=$?
+          cat mutation.txt mutation-notes.txt
+          { echo '```'; cat mutation.txt mutation-notes.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 5
+        with:
+          name: mutation
+          path: mutation.json
           if-no-files-found: warn
