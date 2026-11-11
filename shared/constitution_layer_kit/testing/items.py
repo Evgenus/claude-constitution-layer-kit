@@ -911,12 +911,15 @@ class SharedItems:
             f" declares and LEFT_FOR_THE_REST ({identity.LEFT_FOR_THE_REST:g} s)",
         )
 
-    def declared_budget(self, plugin: Path) -> Callable[[Sequence[str]], float | str]:
+    def declared_budget(
+        self, plugin: Path, bound: float = HANG_BOUND
+    ) -> Callable[[Sequence[str]], float | str]:
         """How the tie learns the hook budget of a handler: it starts the handler as the platform does, in a
         fresh consumer and on empty input, under the patch that logs the `hook_seconds` the entry point
         declares itself with and ends the process there, so that nothing of the run happens. The budget
-        logged is the handler's. A handler that could not be started, or that ended without declaring
-        itself, has no budget the tie could hold, said in words. A command line is started once."""
+        logged is the handler's. A handler that could not be started, that did not reach its declaration
+        within `bound` seconds, or that ended without declaring itself, has no budget the tie could hold,
+        each said in its own words. A command line is started once."""
         known: dict[tuple[str, ...], float | str] = {}
 
         def measured(argv: Sequence[str]) -> float | str:
@@ -934,9 +937,12 @@ class SharedItems:
                     check=False,
                     env=self.h.environment(env),
                     cwd=self.h.fresh_consumer().root,
-                    timeout=HANG_BOUND,
+                    timeout=bound,
                 )
-            except (OSError, subprocess.TimeoutExpired) as error:
+            except subprocess.TimeoutExpired:
+                known[key] = f"did not reach its declaration within the {bound:g} s the item gives it"
+                return known[key]
+            except OSError as error:
                 known[key] = f"could not be started to read its hook budget ({type(error).__name__})"
                 return known[key]
             declared = declared_hook_seconds(log)
@@ -955,8 +961,10 @@ class SharedItems:
         that declares 10 s and a printer that declares 40 s, each a script that opens a scope of
         `identity.declared`. Both at their own floor are green. The printer one second under its floor is
         red, and so is the printer at 30 s, which the gate's budget alone would let pass. A handler that
-        names python3 and never declares itself is red, since the tie has no number to hold it to. The
-        handlers are started only as far as their declaration: none leaves the mark its run would write."""
+        names python3 and never declares itself is red, since the tie has no number to hold it to. One that
+        never ends is red in the words of its own, here within a bound of half a second, with no other
+        handler beside it that the bound could cut. The handlers are started only as far as their
+        declaration: none leaves the mark its run would write."""
         plugin = self.h.scratch_dir()
         (plugin / "hooks").mkdir()
         scripts = plugin / "scripts"
@@ -978,6 +986,9 @@ class SharedItems:
             line = f"exec python3 {entry} {budget} {shlex.quote(str(mark))}\n"
             (scripts / f"{name}.sh").write_text(line, encoding="utf-8")
         (scripts / "silent.sh").write_text("exec python3 -c pass\n", encoding="utf-8")
+        (scripts / "endless.sh").write_text(
+            'exec python3 -c "import time; time.sleep(600)"\n', encoding="utf-8"
+        )
         margin = identity.LEFT_FOR_THE_REST
 
         def handler(name: str, timeout: float) -> dict[str, object]:
@@ -1000,7 +1011,12 @@ class SharedItems:
             ("the printer at 30 s, above the gate's floor", False, holds(gate, handler("printer.sh", 30))),
             ("a handler that never declares itself", False, holds(gate, handler("silent.sh", 600))),
         ]
-        ok = all(got[0] == expected for _, expected, got in cases) and not mark.exists()
+        spec = {"hooks": {"SessionStart": [{"hooks": [handler("endless.sh", 600)]}]}}
+        (plugin / "hooks" / "hooks.json").write_text(json.dumps(spec), encoding="utf-8")
+        endless = self.handlers_outlive_git(plugin, self.declared_budget(plugin, bound=0.5))
+        cases.append(("a handler that never ends, within a bound of 0.5 s", False, endless))
+        in_its_words = "did not reach its declaration within the 0.5 s the item gives it" in endless[1]
+        ok = all(got[0] == expected for _, expected, got in cases) and not mark.exists() and in_its_words
         said = "; ".join(
             f"{label}: {'green' if got[0] else 'red'} (wanted {'green' if expected else 'red'}: {got[1]})"
             for label, expected, got in cases

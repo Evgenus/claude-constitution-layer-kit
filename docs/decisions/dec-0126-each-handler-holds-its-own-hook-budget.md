@@ -49,7 +49,7 @@ Option A, chosen by the decider in chat on 2026-11-11. The session had asked how
 
 <a id="r4"></a>**R4.** The tie runs in every module, whatever kind its gate is. A gate with a hook run must have at least one handler to hold, so there a hooks file that is missing, or that holds no handler that names `python3`, is red. Any other module owes none: with no hooks file, or with handlers that all name no `python3`, it is green.
 
-<a id="r5"></a>**R5.** The tie has its fixture of [law 7 of CLAUDE.md](../../CLAUDE.md#law-7) inside S165, on a plugin made for the purpose. Its gate declares 10 s and its printer 40 s. Both at their own floor are green. The printer one second under its floor is red. The printer at 30 s is red, though the gate's budget alone would let it pass. A handler that never declares itself is red. No handler runs past its declaration. The earlier negative control, on hooks files made for the purpose, stays, with the budget given to it.
+<a id="r5"></a>**R5.** The tie has its fixture of [law 7 of CLAUDE.md](../../CLAUDE.md#law-7) inside S165, on a plugin made for the purpose. Its gate declares 10 s and its printer 40 s. Both at their own floor are green. The printer one second under its floor is red. The printer at 30 s is red, though the gate's budget alone would let it pass. A handler that never declares itself is red. A handler that never ends is red, in words of its own. No handler runs past its declaration. The earlier negative control, on hooks files made for the purpose, stays, with the budget given to it.
 
 <a id="r6"></a>**R6.** No hooks file and no identity changes with this record. Every handler that names `python3` holds the tie as it stands on 2026-11-11.
 
