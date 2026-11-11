@@ -39,7 +39,7 @@ the recommendation, why; an objection the session keeps stands here.>
 ## Ruling
 
 <a id="r1"></a>**R1.** <What now holds. Every item that binds after the yes opens with a bold handle, right
-after the anchor of its own key, wherever it stands — a deferred trigger, a fallback, an exception and a default left open to
+after the anchor of its own key, wherever it stands. A deferred trigger, a fallback, an exception and a default left open to
 override are items too.>
 
 <a id="r2"></a>**R2.** <…>
