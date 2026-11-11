@@ -13,7 +13,7 @@ decider: Eugene Chernyshov
 
 The rollout plan authored the first module inside an existing consumer project and read every module's "enters when" line as its authoring moment. Two facts broke that reading on 2026-09-17. First, the intended first consumer is a greenfield project, which has no documents to author against on its first day. Second, for an accumulating failure the entry moment is by definition too late: every artifact written before the gate exists is retrofit debt, and [INTENT.md](../../INTENT.md) already places the guards against accumulating failures in the day-one install set, as does [template §2](../../module-template/MODULE.md#t2). This repository shows the debt in miniature: five decision records written before [`const-catalogs`](../requirements.md#const-catalogs) exists, all unnumbered.
 
-The plan also held that the kit is never a consumer, while its [`const-referencing`](../requirements.md#const-referencing) spec already makes the kit adopt that module's lint and [aspect A12](../requirements.md#a12) puts kit CI on kernel gates. The kit's own records, intent page, and module documents carry the kernel envelope and are governed by nobody.
+The plan also held that the kit is never a consumer. Its [`const-referencing`](../requirements.md#const-referencing) spec already makes the kit adopt that module's lint and [aspect A12](../requirements.md#a12) puts kit CI on kernel gates. The kit's own records, intent page, and module documents carry the kernel envelope and are governed by nobody.
 
 ## Options
 
@@ -29,9 +29,13 @@ The plan also held that the kit is never a consumer, while its [`const-referenci
 - **D. A plus the kit as consumer zero for document-shaped modules.** The kit claims its own documents; the modules whose objects exist here are proven here first; the rest wait for the project's trigger.
   - **Pros:** the first module has a live test with no project dependency; the project starts now.
   - **Cons:** still reads "enters when" as "wait" for the two modules that need the project, which is the accumulating failure again.
-- **E. Accumulating set first, kit as consumer zero, project born governed.** As D for the four document-shaped modules; the remaining two are authored in the project's first week, before their objects multiply; self-limiting modules wait for friction, with a copy of the kit's session-conduct block in the project's `CLAUDE.md` as the interim carrier.
+- **E. Accumulating set first, kit as consumer zero, project born governed.** As D for the four document-shaped modules. The remaining two are authored in the project's first week, before their objects multiply. Self-limiting modules wait for friction, with a copy of the kit's session-conduct block in the project's `CLAUDE.md` as the interim carrier.
   - **Pros:** no accumulating failure is ever unguarded in the project; nothing is designed against imagined content; the kit's own records stop rotting.
-  - **Cons:** one to two weeks of kit work before the project's first feature; the plan's phase text and "enters when" wording must be corrected; two consumers to keep green; a hook loaded in the repository that develops it can block its own fix, mitigated by per-session `--plugin-dir` and the `process` fast lane.
+  - **Cons:**
+    - **one to two weeks of kit work** before the project's first feature;
+    - **the plan's phase text** and "enters when" wording must be corrected;
+    - **two consumers to keep green**;
+    - **a hook loaded in the repository that develops it** can block its own fix, mitigated by per-session `--plugin-dir` and the `process` fast lane.
 
 ## Recommendation
 
@@ -43,7 +47,7 @@ E, chosen by the decider in chat on 2026-09-17.
 
 ## Rulings carried
 
-1. **"Enters when" means two different things.** For an accumulating module it names the first moment an object for the module exists; the module is authored before that moment, and for a greenfield consumer the whole accumulating set is the day-one install set. For a self-limiting module it names the friction signal that earns authoring. Stated in the matrix introduction of `docs/rollout-plan.md`.
+1. **"Enters when" means two different things.** For an accumulating module it names the first moment an object for the module exists. The module is authored before that moment, and for a greenfield consumer the whole accumulating set is the day-one install set. For a self-limiting module it names the friction signal that earns authoring. Stated in the matrix introduction of `docs/rollout-plan.md`.
 2. **Modules are authored up front; dials follow the project.** Every module installs with zero configuration ([kernel §6](../constitution/CONVENTIONS.md#k6)); territory and coverage maps grow with the consumer. A module never waits for calibration.
 3. **The kit is consumer zero for document-shaped modules.** A `constitution.yaml` at the kit root claims the kit's own governed documents, with the kernel as their policy; `kernel/CONVENTIONS.md` carries its own envelope. This is calibration of the kit, not project content: [law 2 of CLAUDE.md](../../CLAUDE.md#law-2) governs files inside modules, and the dials file is outside every module. [`const-meta-types`](../requirements.md#const-meta-types), [`const-decision-records`](../requirements.md#const-decision-records), [`const-catalogs`](../requirements.md#const-catalogs), and [`const-referencing`](../requirements.md#const-referencing) are authored and proven live here first.
 4. **Sequence.** Kernel ruling on the territory declaration shape (its own record) → the four modules here → consumer bootstrap with the four loaded from the first commit → [`const-locations`](../requirements.md#const-locations) and [`const-task-close`](../requirements.md#const-task-close) in the consumer's first week → publication → self-limiting modules on friction.
@@ -51,7 +55,10 @@ E, chosen by the decider in chat on 2026-09-17.
 
 ## Applied in the same commit
 
-- `docs/rollout-plan.md`: phases rewritten as A (kit as consumer zero), B (consumer bootstrap), C (consumer's first week), D (publish), E (steady state); the "enters when" definition added to the matrix introduction; phase references in the [`const-meta-types`](../requirements.md#const-meta-types) and [`const-questions`](../requirements.md#const-questions) headings updated.
+- `docs/rollout-plan.md`:
+  - **phases rewritten** as A (kit as consumer zero), B (consumer bootstrap), C (consumer's first week), D (publish), E (steady state);
+  - **the "enters when" definition** added to the matrix introduction;
+  - **phase references** in the [`const-meta-types`](../requirements.md#const-meta-types) and [`const-questions`](../requirements.md#const-questions) headings updated.
 - `kernel/CONVENTIONS.md`: envelope frontmatter added; no semantic change.
 - [INTENT.md](../../INTENT.md): the "not a project" bullet names the kit as consumer zero.
 - `CLAUDE.md`: module step 4 proves document-shaped modules live in this repository as well.
