@@ -25,13 +25,26 @@ One rule kept the tests inside the installed folder. The second sentence of R11 
   - **Cons:** the cache stays at 670 files, tests and eval cases included.
 - **C. A slim release branch.** The kit's CI writes a built `release` branch without tests and eval cases, and projects add the marketplace at `#release`.
   - **Pros:** 399 cached files; the kit's module layout stays as it is.
-  - **Cons:** a branch written by a machine, a new workflow and ruleset, and a built form to install and test on every pull request; a `process` record.
+  - **Cons:**
+    - **a branch written by a machine**, a new workflow and ruleset, and a built form to install and test on every pull request;
+    - **a `process` record**.
 - **D. Link mode.** Each marketplace entry becomes a `command` source that links into the platform's marketplace clone.
   - **Pros:** no copies at all.
-  - **Cons:** not the standard use of that source; the code changes under a fixed version; each person accepts the command by hand, and in the session's test `--yes` did not accept it without a terminal, which blocks the kit's CI.
+  - **Cons:**
+    - **not the standard use of that source**;
+    - **the code changes under a fixed version**;
+    - **each person accepts the command by hand**, and in the session's test `--yes` did not accept it without a terminal, which blocks the kit's CI.
 - **E. The plugin as a subfolder.** Only `modules/<m>/plugin/` installs, and tests, eval cases, `MODULE.md` and `README.md` stay beside it.
-  - **Pros:** 377 cached files; a standard install from the main branch, a plugin in a subfolder being the platform's own example; no branch written by a machine; the kit's install checks keep testing exactly what installs; an eval case outside its plugin was tried and works.
-  - **Cons:** a one-time move that touches every module, at least six of the kit's checks and the module template; an install from GitHub with the shared-code link one level deeper had not been run; a `process` record.
+  - **Pros:**
+    - 377 cached files;
+    - **a standard install from the main branch**, a plugin in a subfolder being the platform's own example;
+    - **no branch written by a machine**;
+    - **the kit's install checks keep testing exactly what installs**;
+    - **an eval case outside its plugin was tried and works**.
+  - **Cons:**
+    - **a one-time move that touches every module**, at least six of the kit's checks and the module template;
+    - **an install from GitHub with the shared-code link one level deeper had not been run**;
+    - **a `process` record**.
 
 The session recommended E. It gives the same slim install as C without a branch written by a machine and without a second form to test: its cost comes once, while C's comes back with every change. B stays open beside any option; its stakes would be priced when it is proposed. The decider chose E in chat on 2026-10-21.
 
@@ -56,10 +69,12 @@ The session recommended E. It gives the same slim install as C without a branch 
 
 ## 2. A project's fixtures
 
-C and E drop the tests from the install, so each needs an answer to the consumer's verification in R11 of [dec-0091-module-fixtures-run-as-pytest](dec-0091-module-fixtures-run-as-pytest.md#r11). The fixtures catch one thing that nothing else catches: a difference on the project's machine, another OS or another version of git, Python or Vale, that breaks a gate's logic while the gate still starts. Everything else is covered without them. The kit's CI runs every module's fixtures on every pull request, and the decider runs them on macOS. Each gate stops with exit 1, never with a silent pass, when a tool it needs or its shared code is missing. Step 8 of the install guide's bootstrap runs every scan on the project itself.
+C and E drop the tests from the install. Each needs an answer to the consumer's verification in R11 of [dec-0091-module-fixtures-run-as-pytest](dec-0091-module-fixtures-run-as-pytest.md#r11). The fixtures catch one thing that nothing else catches: a difference on the project's machine, another OS or another version of git, Python or Vale, that breaks a gate's logic while the gate still starts. Everything else is covered without them. The kit's CI runs every module's fixtures on every pull request, and the decider runs them on macOS. Each gate stops with exit 1, never with a silent pass, when a tool it needs or its shared code is missing. Step 8 of the install guide's bootstrap runs every scan on the project itself.
 
 - **A. Optional, from a kit clone.** The install guide keeps one step: a project that wants the fixtures runs them from its kit clone, checked out at the commit its install records, and pytest becomes an optional prerequisite.
-  - **Pros:** the one check that catches a break on the project's machine stays within reach; the platform records the installed commit, so the tests match the installed code exactly.
+  - **Pros:**
+    - **the one check that catches a break on the project's machine stays within reach**;
+    - **the platform records the installed commit**, so the tests match the installed code exactly.
   - **Cons:** the guide keeps a step that most projects will skip.
 - **B. Gone.** That step goes too, and a project checks its install with the plugin list, the skills and the scans alone.
   - **Pros:** the shortest guide.
@@ -67,11 +82,11 @@ C and E drop the tests from the install, so each needs an answer to the consumer
 
 The session recommended A: it costs one step and keeps the check within reach. The decider chose it with E in chat on 2026-10-21, whose text named the fixtures optional from a kit clone.
 
-<a id="r5"></a>**R5.** A project need not run a module's fixtures, which its install no longer holds. A project that wants to runs them from a clone of the kit, checked out at the commit its install records, `gitCommitSha` in the platform's `installed_plugins.json`, with pytest installed; for a project that loads the modules from its clone, that clone as it is. This replaces the consumer's verification in the second sentence of R11 of [dec-0091-module-fixtures-run-as-pytest](dec-0091-module-fixtures-run-as-pytest.md#r11); its pins, and its clause that a module's `requirements.txt` names neither pytest nor pytest-xdist, stand.
+<a id="r5"></a>**R5.** A project need not run a module's fixtures, which its install no longer holds. A project that wants to runs them from a clone of the kit, checked out at the commit its install records, `gitCommitSha` in the platform's `installed_plugins.json`, with pytest installed. For a project that loads the modules from its clone, that clone as it is. This replaces the consumer's verification in the second sentence of R11 of [dec-0091-module-fixtures-run-as-pytest](dec-0091-module-fixtures-run-as-pytest.md#r11). Its pins, and its clause that a module's `requirements.txt` names neither pytest nor pytest-xdist, stand.
 
 ## Applied
 
-The commits of this change before the one that creates this record apply every ruling. The first moved the parts of R1 with `git mv`, pointed the 22 links at their old targets again, repaired the links into the moved parts, rewrote the path texts outside records and comparisons, gave each eval case its `plugins:` line, and pointed the marketplace's sources at `plugin/`. The next ones taught each kit check, report and fixture the layout, one commit per check. The last before the record edited the current-state documents: the kit guide, the install guide, the shared-code page, the module template and its page, and each module's document, install note and page. The record is born `inactive`. The carry audit's first round corrected R1, R4 and R5 in place before the yes, with the documents they name.
+The commits of this change before the one that creates this record apply every ruling. The first moved the parts of R1 with `git mv`. It pointed the 22 links at their old targets again. It repaired the links into the moved parts. It rewrote the path texts outside records and comparisons. It gave each eval case its `plugins:` line. It pointed the marketplace's sources at `plugin/`. The next ones taught each kit check, report and fixture the layout, one commit per check. The last before the record edited the current-state documents: the kit guide, the install guide, the shared-code page, the module template and its page, and each module's document, install note and page. The record is born `inactive`. The carry audit's first round corrected R1, R4 and R5 in place before the yes, with the documents they name.
 
 ## Carry list
 
