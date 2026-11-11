@@ -80,14 +80,14 @@
   "const-locations": {
     "attempts": [
       {
-        "at": "2026-11-10T03:33:54Z",
+        "at": "2026-11-10T22:58:09Z",
         "cases": 2,
         "passed": 2,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:3cd0609cf640608ffa71f1d9db622f17aa7a4f171714991f06956f73af6911b9",
+    "hash": "sha256:9ec136a11169eede3c0adc8751e61d4797cd5838a789f715faeb90b2f100166e",
     "model": "claude-opus-5-5"
   },
   "const-meta-types": {
