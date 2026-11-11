@@ -18,6 +18,10 @@ DEFAULT_KEY = "No-Doc-Impact"
 BODY = "the body"  # where a declaration read from the --body file stands
 SHOWN_PATHS = 3  # how many of the paths a finding lists before "…"
 SHOWN_LINES = 5  # how many of git status's lines the turn-end finding lists before "…"
+# The Stop event's `background_tasks`: the task types that are agents, which write and commit files of their
+# own in the session's tree, and the status of one that still works. A shell command or a monitor is no agent.
+AGENT_TASKS = frozenset({"subagent", "teammate", "workflow"})
+RUNNING = "running"
 
 
 class Key(StrEnum):

@@ -134,6 +134,13 @@ def g1_second_stop(dirty: int) -> str:
     )
 
 
+def g1_held(dirty: int, agents: int) -> str:
+    return (
+        f"the working tree examined — {dirty} path(s) dirty; {agents} agent task(s) of this session"
+        " still running, so the report waits for the first turn end with none"
+    )
+
+
 def f9_count_hook(dirty: int) -> str:
     return f"RED: 1 finding — the working tree examined ({dirty} path(s) dirty)"
 

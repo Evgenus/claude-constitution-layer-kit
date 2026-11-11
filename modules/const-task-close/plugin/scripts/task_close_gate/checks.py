@@ -1,15 +1,17 @@
 """The checks: each pair against the range's paths, each declaration against the pairs, the
-working tree's lines. Functions of typed inputs; git is asked elsewhere."""
+working tree's lines, the agents the Stop event lists as running. Functions of typed inputs; git
+is asked elsewhere."""
 
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 
 from constitution_layer_kit.model import Finding
 from constitution_layer_kit.territory import Matcher
 
 from . import messages
-from .model import Declaration, Pair, PairVerdict, Range
+from .model import AGENT_TASKS, RUNNING, Declaration, Pair, PairVerdict, Range
 
 
 def judge_pairs(matcher: Matcher, pairs: Sequence[Pair], rng: Range) -> list[PairVerdict]:
@@ -56,3 +58,23 @@ def working_files_note(matcher: Matcher, patterns: Sequence[str], tracked: Seque
 
 def tree_finding(lines: Sequence[str]) -> Finding:
     return messages.t1_dirty_tree(lines)
+
+
+def agents_running(payload: str) -> int:
+    """How many agents of the session the Stop event lists as running: the entries of its
+    `background_tasks` whose `type` is an agent's and whose `status` is `running`. The list says
+    that agents work in the tree, never whose the dirty files are. An event without the list, a
+    list the hook cannot read and an entry of another shape count none, so the tree is reported
+    as before: the field is the platform's to send, and the hook fails towards the report."""
+    try:
+        event: object = json.loads(payload)
+    except ValueError:  # the shared reader has refused such an event before this is asked
+        return 0
+    tasks = event.get("background_tasks") if isinstance(event, dict) else None
+    if not isinstance(tasks, list):
+        return 0
+    return sum(
+        1
+        for task in tasks
+        if isinstance(task, dict) and task.get("type") in AGENT_TASKS and task.get("status") == RUNNING
+    )
