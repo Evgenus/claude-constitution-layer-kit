@@ -1,5 +1,5 @@
 ---
-id: dec-0118-two-profiles-taken-in-the-guides-order
+id: dec-0120-two-profiles-taken-in-the-guides-order
 type: task-record
 title: The kit ships two profiles, a project takes their lines in the guide's order, and a kit check holds them
 status: inactive
