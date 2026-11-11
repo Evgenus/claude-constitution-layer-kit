@@ -9,9 +9,8 @@
 # changes reaches the project with no edit here.
 #
 # The order is the guide's. Step 4 writes the lines marked "step 4" below. Step 6 writes each
-# further policy, and after it the lines marked with that policy. A comment marks the step of each
-# part: a kernel-owned key, a policy's namespace, a dial, a catalog entry. The lines under a marked
-# line go with it.
+# further policy, and after it the lines marked with that policy. A comment marks the step that
+# writes a line. A line with no mark goes with the nearest marked line above it.
 #
 # The file names no style guide. A project that keeps one loads the skill
 # /const-styling:style-defaults in step 6, which writes the guide's policy and its lines here.
@@ -43,11 +42,11 @@ plc-0003-decision-records:            # step 6, after this policy: the decision 
 
 # --- module namespaces: a module reads only its own ---
 
-const-decision-records:
+const-decision-records:               # step 6, after the policy for decision records
   record_policies:                    # step 6, after the policy for decision records: the gate examines nothing until this names it
     - plc-0003-decision-records
 
-const-catalogs:
+const-catalogs:                       # step 4
   catalogs:                           # step 4, with its plc entry: the gate examines nothing until a catalog is listed
     - prefix: dec                     # step 6, after the policy for decision records: a record is dec-<nnnn>-<slug>
       territory:
