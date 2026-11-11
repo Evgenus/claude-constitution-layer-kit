@@ -3,9 +3,9 @@
 <a id="a1"></a>
 ## What it gives you
 
-Documents born in their canonical home: a command derives the home from the policy's territory, proves it resolves to exactly that policy, and writes the document from the kind's template with a valid envelope; a skill for creating documents through it and one for introducing a new kind — policy first, then territory, then document.
+Documents born in their canonical home. A command derives the home from the policy's territory and proves it resolves to exactly that policy. It writes the document from the kind's template with a valid envelope. It comes with a skill for creating documents through it, and one for introducing a new kind — policy first, then territory, then document.
 
-In plain words: a new document is created through a command, and a skill asks the session to use it instead of writing by hand. A kind is one sort of document, such as notes or records. A policy is the document that holds the rules for one kind. Its territory is the set of paths it claims, and the canonical home is the one place in that territory where a new document of the kind belongs. The command works that place out and puts the file there. It fills the file's envelope, the block of fields at the top (id, type, title, status), from the kind's template, the model file the project keeps for that kind. The other skill says what to do when no policy covers the new kind yet.
+In plain words: a new document is created through a command, and a skill asks the session to use it instead of writing by hand. A kind is one sort of document, such as notes or records. A policy is the document that holds the rules for one kind. Its territory is the set of paths it claims. The canonical home is the one place in that territory where a new document of the kind belongs. The command works that place out and puts the file there. It fills the file's envelope from the kind's template, the model file the project keeps for that kind. The envelope is the block of fields at the top (id, type, title, status). The other skill says what to do when no policy covers the new kind yet.
 
 <a id="a2"></a>
 ## Why use it
@@ -24,7 +24,7 @@ BROKEN: 'plc-nope' is not a policy: no document in the root policy's territory c
 BROKEN: the document could not be created — nothing was written
 ```
 
-Outside plan mode, no session needs a permission rule for the skills or the command, not even one that cannot ask the user, such as a headless run. In plan mode the command is asked for, since no hook may approve a command that writes there. The module's hook approves its own command when the session runs it alone, with plain or single-quoted values. A command chained to another, or written another way, is asked for as any other.
+Outside plan mode, no session needs a permission rule for the skills or the command. That holds even for a session that cannot ask the user, such as a headless run. In plan mode the command is asked for, since no hook may approve a command that writes there. The module's hook approves its own command when the session runs it alone, with plain or single-quoted values. A command chained to another, or written another way, is asked for as any other.
 
 <a id="a4"></a>
 ## How it works
@@ -35,9 +35,9 @@ Outside plan mode, no session needs a permission rule for the skills or the comm
 
 **The grant.** A hook that runs before each shell command that starts with `sh `. It approves one command: the module's own script, run alone, with values that are plain or in single quotes. For every other command it says nothing, and Claude Code asks as usual. It judges nothing and blocks nothing. A rule of yours that denies or asks for the command still wins over it. It reads no settings and no repository.
 
-**The skill `new-document`.** A procedure in prose, loaded when a document is about to be created. It has the session name the kind, take the stem from where it is owned, run the command, and then fill the body from the template's placeholders. It reads the project's `constitution.yaml` and its policy documents. It cannot make a session follow it: the model may still write the file by hand.
+**The skill `new-document`.** A procedure in prose, loaded when a document is about to be created. It has the session name the kind and take the stem from where it is owned. The session runs the command, and then fills the body from the template's placeholders. It reads the project's `constitution.yaml` and its policy documents. It cannot make a session follow it: the model may still write the file by hand.
 
-**The skill `new-kind`.** A procedure in prose, loaded when a document is asked for that no policy covers, or when a repository has no `constitution.yaml` yet. It has the session price the new kind, create its policy through the command, add the territory line to the dials file by hand, and only then create the first document. It never edits the dials file for the session.
+**The skill `new-kind`.** A procedure in prose, loaded when a document is asked for that no policy covers, or when a repository has no `constitution.yaml` yet. It has the session price the new kind and create its policy through the command. The session adds the territory line to the dials file by hand, and only then creates the first document. It never edits the dials file for the session.
 
 **Settings.** The module works with no configuration. Every kind whose territory has one of the three shapes gets its documents created with the envelope alone. One dial names the kinds that have a template, as pairs of a policy id and a path. The other names where the log goes. There is no loudness dial, since the module blocks nothing. A line that would mean nothing here is refused rather than kept in silence.
 
