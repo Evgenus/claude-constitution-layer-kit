@@ -18,35 +18,40 @@ HEAD`, `git branch --show-current` and `git status --short` at the start and at 
 must not change. The message names the kit root; run every command from there.
 
 The list is `scripts/gate-list.sh`, the one list the kit's CI runs as well. Its gate group,
-`sh scripts/gate-list.sh --names gate`, is the gate list, in order; run each entry with
-`sh scripts/gate-list.sh --run <entry>`, which runs the entry's commands in turn — a kit check and
+`sh scripts/gate-list.sh --names gate`, is the gate list, in order. Run each entry with
+`sh scripts/gate-list.sh --run <entry>`. This runs the entry's commands in turn — a kit check and
 its `--self-test` where it has one — and prints each command's exit. `--show <entry>` prints an entry's commands.
-CI runs the same entries grouped by job, one job per module, one `install-guide` and one `kit`; `--names <job>` lists a
-job's entries and `--run <job>` runs them all, when the message asks for a job by name.
-The entry `task-close` runs the range check with a bare `--scan`: on a work branch it examines the
-branch, on the trunk the last landed change; when the message names a landed merge, run
+CI runs the same entries grouped by job, one job per module, one `install-guide` and one `kit`. When the message asks for a job by name,
+`--names <job>` lists a job's entries and `--run <job>` runs them all.
+The entry `task-close` runs the range check with a bare `--scan`. On a work branch it examines the
+branch, on the trunk the last landed change. When the message names a landed merge, run
 `sh modules/const-task-close/plugin/scripts/check-task-close.sh --scan --change <merge>` instead.
 `language` needs `vale` 3.23.0 or newer on PATH, `references` `lychee` 0.24.2 or newer, and the
-install and session entries and `guide` the `claude` that `scripts/claude-code.version` pins. When `sh scripts/setup-claude.sh`
-has run in the clone, the list puts the clone's `.claude-code-pinned/` copy first on PATH for those entries alone; when it
-has not, they run on the `claude` already on PATH, and a version other than the pin gives the `BROKEN` line whose fix names that
-script. You never run it: it installs, and you change nothing; report the line verbatim. A `BROKEN` line naming
-any, a `claude` of another version included, is reported as such, never skipped. You never set
-`CONSTITUTION_KIT_ANY_CLAUDE` on your own: only when the message asks, and then say in the report that the
+install and session entries and `guide` the `claude` that `scripts/claude-code.version` pins.
+When `sh scripts/setup-claude.sh` has run in the clone, the list puts the clone's
+`.claude-code-pinned/` copy first on PATH for those entries alone. When it has not, they run on
+the `claude` already on PATH. A version other than the pin gives the `BROKEN` line whose fix names that
+script. You never run it: it installs, and you change nothing. Report the line verbatim.
+A `BROKEN` line naming any of them, a `claude` of another version included, is reported as such, never skipped.
+You never set `CONSTITUTION_KIT_ANY_CLAUDE` on your own. Set it only when the message asks. Then say in the report that the
 run was made with it, and keep the note that ends each headline line.
 
-When the message asks, run the extra group too, `sh scripts/gate-list.sh --names extra`: the
-branch gate's fixture, the fixture of `scripts/setup-claude.sh`, each module's fixtures — its tests under pytest, one by one as CI runs them, with no `CONSTITUTION_KIT_JOBS`, run through
+When the message asks, run the extra group too, `sh scripts/gate-list.sh --names extra`. It holds the branch gate's fixture and the fixture of
+`scripts/setup-claude.sh`. It holds each module's fixtures, its tests under pytest, one by one as CI runs them, with no `CONSTITUTION_KIT_JOBS`.
+They run through
 `python3 scripts/check-aspects.py --run --module <module>`, which also holds their items against the module's
-acceptance table (the tests write temporary repositories in the system's temporary directory, never in the kit) —
-the lint and the type commands. And, only when
-asked, `python3 scripts/check-aspects.py --run`, the per-row report over the whole matrix, which runs
-every module's tests — a second time when the extra group ran too.
+acceptance table. The tests write temporary repositories in the system's temporary directory, never in the kit.
+It holds also the lint and the type commands.
+
+Only when asked, run `python3 scripts/check-aspects.py --run`, the per-row report over the whole matrix. It runs
+every module's tests, a second time when the extra group ran too.
 
 Run each entry on its own, capture its exit code and its whole output, and never chain one
 into another. A command that cannot start — a missing interpreter, a missing file — is reported
 as such, with its exit code; it is never skipped in silence.
 
-Report: the git readings; a table with one row per entry — its name, its exit code, its last
-line verbatim; then, grouped by gate, every line beginning `RED:`, `BROKEN:` or `NOTE:` verbatim,
-and for the fixtures every failure block pytest prints, whole, and its summary line, `N failed, M passed`. Nothing else: no summary of what the findings mean, no fix, no advice.
+Report in this order. First the git readings. Then a table with one row per entry: its name, its exit code, its last line verbatim.
+Then, grouped by gate, every line beginning `RED:`, `BROKEN:` or `NOTE:` verbatim.
+For the fixtures, give every failure block pytest prints, whole, and its summary line, `N failed, M passed`.
+
+Nothing else: no summary of what the findings mean, no fix, no advice.
