@@ -50,7 +50,7 @@ The session keeps one objection. Two of the nine gates are not about documents w
 
 <a id="r3"></a>**R3.** The kit's `scripts/check-profiles.py` holds the profiles. It is the entry `profiles` of the gate list, with `--self-test` as its fixture. For every file of `profiles/` it holds that the file is a profile by its name, that it is YAML, that it is valid against the kernel's dials schema, that it is in block style, and that every key with the module prefix names a module folder. It then holds that every scan a module document declares exits 0 and prints no note on a throwaway repository, which holds the profile as its dials file and one policy for each namespace that claims a territory. It holds that the folder has a profile at all. Before the profiles, it runs every scan on a repository whose dials file is the module prefix alone, and a scan that is not green there stops the check as one that could not run. Four things stay review: that a profile writes no dial at its default, that two profiles agree where they should, that the second profile names every module whose gate runs in a hook, and the dials of a module that has no scan.
 
-<a id="r4"></a>**R4.** In the kit's own dials file, the `plc-` entry of the dial `mentions` of module [`const-referencing`](../requirements.md#const-referencing) reads every file but the profiles. A profile names the policies of the project that takes it, and the kit holds none of them.
+<a id="r4"></a>**R4.** In the kit's own dials file, the `plc-` entry of the dial `mentions` of module [`const-referencing`](../requirements.md#const-referencing) reads every file but the profiles. A profile names the policies of the project that takes it, and the kit holds none of them. This narrows R2 of [dec-0034-research-and-policies-numbered](dec-0034-research-and-policies-numbered.md#r2), which had the scan report every `plc-` name outside Markdown that no document carries. Rule 6 of [plc-0001-root-policy](../policies/plc-0001-root-policy.md#r6) states the exception.
 
 <a id="r5"></a>**R5.** This change does not touch the kernel. Its three names of profiles are examples, and the kit ships none of them today.
 
@@ -71,13 +71,13 @@ The session recommended A, since the order was the point of the earlier ruling. 
 
 ## Applied
 
-The change that creates this record applies every ruling. It adds the two profiles and the check, joins the check to the gate list, changes the `mentions` entry of the kit's dials file, and rewrites step 4 and the last section of the install guide. It adds a row for `profiles/` to the map of the root README, which binds nothing. The record is born `inactive`.
+The change that creates this record applies every ruling. It adds the two profiles and the check, joins the check to the gate list, changes the `mentions` entry of the kit's dials file, states that exception in rule 6 of the root policy, and rewrites step 4 and the last section of the install guide. It adds a row for `profiles/` to the map of the root README, which binds nothing. The record is born `inactive`.
 
 ## Carry list
 
 1. R1 — [the install guide](../../INSTALL.md#s2), step 4 of section 2; [the first profile](../../profiles/new-project.yaml) and [the second profile](../../profiles/existing-repository.yaml), which names the nine modules.
 2. R2 — [the install guide](../../INSTALL.md#s2), step 4 of section 2, and [its last section](../../INSTALL.md#s6); [the check](../../scripts/check-profiles.py), its docstring, for the name and the folder; [the first profile](../../profiles/new-project.yaml) and [the second profile](../../profiles/existing-repository.yaml), their opening comments.
 3. R3 — [the check](../../scripts/check-profiles.py), its docstring; [the list script](../../scripts/gate-list.sh), its gate group; [the install guide](../../INSTALL.md#s6), its last section.
-4. R4 — [the kit's dials file](../../constitution.yaml), the `mentions` dial of `const-referencing`.
+4. R4 — [the kit's dials file](../../constitution.yaml), the `mentions` dial of `const-referencing`; [the root policy](../policies/plc-0001-root-policy.md#r6), rule 6. What it narrows is history.
 5. R5 — history only: what this change left as it was.
 6. R6 — [the install guide](../../INSTALL.md#s2), step 4 of section 2; [the first profile](../../profiles/new-project.yaml) and [the second profile](../../profiles/existing-repository.yaml), their comments.
