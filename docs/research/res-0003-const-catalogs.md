@@ -26,12 +26,18 @@ The surveyed tools, keyed once for the whole document:
 
 The check: in catalog territory, the filename stem matches `<prefix>-<nnnn>-<slug>` — the declared prefix, exactly `width` digits, a lowercase kebab slug — and the envelope's `id` has the same form. The envelope schema already holds every `id` to `^[a-z0-9]+(-[a-z0-9]+)*$` ([kernel §1](../constitution/CONVENTIONS.md#k1)), and the dials schema holds a prefix to `^[a-z0-9]+$` — no hyphen — so the first hyphen of a stem always ends the prefix and the form parses without ambiguity.
 
-- **A. `PreToolUse` command hook, matcher `Write|Edit`, exit 2.** Class: platform hook, deterministic. Maturity: documented and re-verified today (section 7): exit 2 "Blocks the tool call"; `Write` carries `file_path` and `content`, so stem and `id` are both in the event; `Edit` carries `file_path`, `old_string`, `new_string`, `replace_all`, so the stem is fixed and only the `id` can change, judged on the reconstructed document as the shared code already does ([hooks reference](https://code.claude.com/docs/en/hooks)). Cost: one Python process per matched write — about 58 ms of interpreter start with the shared imports (E10), a third parallel process when both earlier modules are installed (section 7, item f). Cannot see a rename: `git mv` and `mv` run through `Bash`, which is no `Write` — the scan covers it.
-- **B. `PostToolUse` hook.** Exit 2 there "Shows stderr to Claude; the tool already ran" ([hooks reference](https://code.claude.com/docs/en/hooks)). Cannot block a wrongly named file from existing; a wrong stem already written is a rename to undo, where A is a name not yet taken.
+- **A. `PreToolUse` command hook, matcher `Write|Edit`, exit 2.** Class: platform hook, deterministic. Maturity: documented and re-verified today (section 7):
+
+  - **exit 2** "Blocks the tool call";
+  - `Write` carries `file_path` and `content`, so stem and `id` are both in the event;
+  - `Edit` carries `file_path`, `old_string`, `new_string`, `replace_all`, so the stem is fixed and only the `id` can change, judged on the reconstructed document as the shared code already does ([hooks reference](https://code.claude.com/docs/en/hooks)).
+
+  Cost: one Python process per matched write — about 58 ms of interpreter start with the shared imports (E10), a third parallel process when both earlier modules are installed (section 7, item f). Cannot see a rename: `git mv` and `mv` run through `Bash`, which is no `Write` — the scan covers it.
+- **B. `PostToolUse` hook.** Exit 2 there "Shows stderr to Claude; the tool already ran" ([hooks reference](https://code.claude.com/docs/en/hooks)). Cannot block a wrongly named file from existing. A wrong stem already written is a rename to undo, where A is a name not yet taken.
 - **C. git `pre-commit`.** t4 ships two [pre-commit hook definitions](https://github.com/opinionated-digital-center/pyadr/blob/main/.pre-commit-hooks.yaml), `generate-toc` and `check-adr`, both keyed on `files: \d{4}-.*\.md$`. Cost: a per-clone install no plugin can perform; fires at commit; `--no-verify` bypasses it.
 - **D. CI only.** The `--scan` mode in one consumer workflow line (section 3): the backstop, never the teacher — by then the provisional number may already be cited.
 - **E. Filename linters.**
-  - t11 ls-lint: rules `lowercase`, `camelcase`, `pascalcase`, `snakecase`, `screamingsnakecase`, `kebabcase`, `regex` ("Matches regex pattern: ^{pattern}$") and `exists`, configured per directory and extension in `.ls-lint.yml` ([the rules](https://ls-lint.org/2.3/configuration/the-rules.html)). A `regex` rule can express the stem form for one directory. Cannot read the envelope, so `id` equal to stem is out of reach; cannot read territories or a declared width from the dials file; a Go binary the consumer installs.
+  - t11 ls-lint: rules `lowercase`, `camelcase`, `pascalcase`, `snakecase`, `screamingsnakecase`, `kebabcase`, `regex` ("Matches regex pattern: ^{pattern}$") and `exists`, configured per directory and extension in `.ls-lint.yml` ([the rules](https://ls-lint.org/2.3/configuration/the-rules.html)). A `regex` rule can express the stem form for one directory. Cannot read the envelope, so `id` equal to stem is out of reach. Cannot read territories or a declared width from the dials file; a Go binary the consumer installs.
   - t12 markdownlint: the [rules document](https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md) lists 53 rules, none about a file's name.
   - t13 remark-lint: six file-name rules — `file-extension`, `no-file-name-articles`, `no-file-name-consecutive-dashes`, `no-file-name-irregular-characters`, `no-file-name-mixed-case`, `no-file-name-outer-dashes` ([readme](https://github.com/remarkjs/remark-lint)). None takes a pattern with a number; Node.
   - t14 check-jsonschema: validates the content of JSON and YAML instance files against a schema ([usage](https://check-jsonschema.readthedocs.io/en/latest/usage.html)); a file's name is no input.
@@ -46,9 +52,9 @@ The check: in catalog territory, the filename stem matches `<prefix>-<nnnn>-<slu
 
   No surveyed tool knows a prefix per kind, a width read from configuration, an envelope, or a territory. Every one assumes a single directory and a bare `NNNN-` stem; t4 and t6 are the only validators, and both run at commit or in CI.
 
-**Must `id` equal the stem? Yes — recommended as part of the gate.** [Requirement A13.6](../requirements.md#a13-6) makes the full stem canonical in frontmatter and lets either reference form resolve by one glob over file names; an item whose `id` and stem differ would be cited by an id no glob finds. The two surveyed precedents that tie a name to content agree in direction (t4: stem equals the title's slug; t8: header number "matches your filename"). Every record of the kit already satisfies it. Cost: one string comparison on a document the gate has parsed.
+**Must `id` equal the stem? Yes — recommended as part of the gate.** [Requirement A13.6](../requirements.md#a13-6) makes the full stem canonical in frontmatter and lets either reference form resolve by one glob over file names. An item whose `id` and stem differ would be cited by an id no glob finds. The two surveyed precedents that tie a name to content agree in direction (t4: stem equals the title's slug; t8: header number "matches your filename"). Every record of the kit already satisfies it. Cost: one string comparison on a document the gate has parsed.
 
-**Recommendation: A, with D as the consumer's wiring — the matrix's enforcement is CONFIRMED** (gate, write-time hook in catalog territory, teaching error). A is the native platform component, so there is no step down. B cannot block; C and D are late; E checks a name without the envelope, the dials file or the territory; F's validators assume one directory and an unprefixed stem. A file in catalog territory that is no item — MADR keeps `adr-template.md` and `index.md` beside its decisions — is red under one kind per policy ([kernel §3](../constitution/CONVENTIONS.md#k3)): a territory defect, not a false positive.
+**Recommendation: A, with D as the consumer's wiring — the matrix's enforcement is CONFIRMED** (gate, write-time hook in catalog territory, teaching error). A is the native platform component, so there is no step down. B cannot block; C and D are late; E checks a name without the envelope, the dials file or the territory. F's validators assume one directory and an unprefixed stem. A file in catalog territory that is no item — MADR keeps `adr-template.md` and `index.md` beside its decisions — is red under one kind per policy ([kernel §3](../constitution/CONVENTIONS.md#k3)): a territory defect, not a false positive.
 
 ## 2. Number allocation ([requirement A13.3](../requirements.md#a13-3))
 
@@ -61,7 +67,15 @@ How real projects allocate, by mechanism class:
 - **E. Counter file.** No surveyed tool keeps one. Ruled out by the same record: every parallel branch edits one line, so every pair conflicts.
 - **F. Sequence kept, order moved elsewhere.** m1 Django: two developers' migrations end up "with the same number", and "the numbers are just there for developers' reference, Django just cares that each migration has a different name"; the order lives in declared dependencies, and Django offers "to automatically linearize the two migrations" ([migrations topic](https://docs.djangoproject.com/en/5.2/topics/migrations/)). m3 Flyway refuses duplicates outright — its resolver raises "Found more than one migration with version %s" ([`CompositeMigrationResolver.java`](https://github.com/flyway/flyway/blob/main/flyway-core/src/main/java/org/flywaydb/core/internal/resolver/CompositeMigrationResolver.java)). A catalog item has no dependency graph to carry the order; the number is the citation.
 
-**Computing "highest on the branch" deterministically — E1.** A scratch repository: items 1, 2, 3 and 9 committed; item 9 then deleted with `git rm` and committed; item 4 written and staged; item 5 written, untracked; item 6 written under a directory `.gitignore` excludes. The highest number by source:
+**Computing "highest on the branch" deterministically — E1.** A scratch repository:
+
+- **items 1, 2, 3 and 9** committed;
+- **item 9** then deleted with `git rm` and committed;
+- **item 4** written and staged;
+- **item 5** written, untracked;
+- **item 6** written under a directory `.gitignore` excludes.
+
+The highest number by source:
 
 | source | command | highest |
 |---|---|---|
@@ -84,11 +98,11 @@ How the number reaches the skill:
 
 ## 3. Uniqueness gate ([requirement A13.4](../requirements.md#a13-4))
 
-**What git does — E2, E3.** E2: from a base holding `dec-0006-base.md`, branch `older` adds `dec-0007-a.md`, branch `younger` adds `dec-0007-b.md`; `git merge --no-ff older`, then `git merge --no-ff younger` → both exit 0, "Merge made by the 'ort' strategy", and the directory holds both files. Different paths never conflict. E3: the same two branches each adding a slug-less `pep-0007.rst` → `CONFLICT (add/add)`, exit 1. A slug-less name makes git the uniqueness gate — t8's shape; the slug of [requirement A13.1](../requirements.md#a13-1) buys readable names and gives that protection up, which is why this row needs a check at all.
+**What git does — E2, E3.** E2: from a base holding `dec-0006-base.md`, branch `older` adds `dec-0007-a.md`, branch `younger` adds `dec-0007-b.md`; `git merge --no-ff older`, then `git merge --no-ff younger` → both exit 0, "Merge made by the 'ort' strategy", and the directory holds both files. Different paths never conflict. E3: the same two branches each adding a slug-less `pep-0007.rst` → `CONFLICT (add/add)`, exit 1. A slug-less name makes git the uniqueness gate — t8's shape. The slug of [requirement A13.1](../requirements.md#a13-1) buys readable names and gives that protection up, which is why this row needs a check at all.
 
 **What the surveyed tools do.** t1, t2, t3, t5: no duplicate detection — t1's resolver takes the first match of `adr-list | grep "$1" | head -1` ([`_adr_file`](https://github.com/npryce/adr-tools/blob/master/src/_adr_file)), so a duplicate is silently shadowed. t4: `check-adr-repo` has the scenario "Check all ADR files have a unique number" ([feature file](https://github.com/opinionated-digital-center/pyadr/blob/main/features/pyadr/check-adr-repo.feature)), offered as the pre-commit hook `check-adr`, described as "sanity checks typically required on ADR files before merging a Pull Request". t6: `madr/no-duplicate-numbering`, a project rule — it "reads the leading four digits (`^(\d{4})-`) from each basename, groups files by number, and emits a diagnostic on every member of any duplicate group", message "ADR number <number> is used by multiple files: <paths>"; its sibling `madr/no-numbering-gap` is `off` by default ([rule page](https://knktkc.github.io/madr-lint/rules/no-duplicate-numbering/)) — the same stance as [requirement A13.5](../requirements.md#a13-5). m3 Flyway fails at resolution. None names which file should move.
 
-**What "on PR" means mechanically.** For the `pull_request` event GitHub sets `GITHUB_SHA` to the "Last merge commit on the `GITHUB_REF` branch" and `GITHUB_REF` to "PR merge branch `refs/pull/PULL_REQUEST_NUMBER/merge`" ([events that trigger workflows](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows)); [actions/checkout](https://github.com/actions/checkout) "defaults to the reference or SHA for that event". So a scan of the checked-out tree sees the branch's items and the base's together, and E2's pair is found with no history at all. Three limits, each verified:
+**What "on PR" means mechanically.** For the `pull_request` event GitHub sets `GITHUB_SHA` to the "Last merge commit on the `GITHUB_REF` branch" and `GITHUB_REF` to "PR merge branch `refs/pull/PULL_REQUEST_NUMBER/merge`" ([events that trigger workflows](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows)). [actions/checkout](https://github.com/actions/checkout) "defaults to the reference or SHA for that event". So a scan of the checked-out tree sees the branch's items and the base's together. E2's pair is found with no history at all. Three limits, each verified:
 
 - u1. "Only a single commit is fetched by default" ([actions/checkout](https://github.com/actions/checkout)). E5: a `--depth 1` clone of E2's merge commit still yields the duplicate from `git ls-files`, but `git cat-file -e HEAD^1` exits 128 and `git log --diff-filter=A` attributes every file to the grafted commit. The gate needs no history; naming the younger does.
 - u2. The merge commit is computed against the base as it was. With "loose" required checks "The branch does not have to be up to date with the base branch before merging" and "Status checks may fail after you merge your branch" ([about protected branches](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches)): two pull requests, each green alone, can both land. Backstops a consumer has: "strict" checks, or the same scan on pushes to the main branch.
@@ -101,22 +115,29 @@ Candidates:
 - **A. The script's `--scan` mode groups items by catalog and number; any group of two is a finding; exit 2.** Class: deterministic script, run by the consumer's CI on the merge commit and by hand. Cost: E8 — listing a 1,000-item catalog with s3 takes 21.7 ms, listing plus grouping 22.8 ms (medians of 20 runs). Cannot run itself, and cannot see u2's race unless the consumer also scans the main branch.
 - **B. The same grouping inside the `PreToolUse` hook:** a `Write` of a new item whose number some other file of the catalog already carries is blocked. Catches a hand-typed number and a second item made before the first is committed, at the moment the name is cheapest to change; cost one `git ls-files` in a process that already runs (about 22 ms at 1,000 items). Cannot see another branch — the collision this row is named for — so it never replaces A. It must not fire on an `Edit` or an overwrite of the item itself, nor on the second half of a renumbering.
 - **C. A `pre-commit` hook** (t4's shape). Per-clone install no plugin can perform; sees one branch only, like B, and later than B.
-- **D. An existing validator** — t6's rule or t4's check. Both assume an unprefixed four-digit stem in one directory; neither reads a prefix, a width or a territory; Node 22 or a second Python package for one grouping loop.
+- **D. An existing validator** — t6's rule or t4's check. Both assume an unprefixed four-digit stem in one directory. Neither reads a prefix, a width or a territory; Node 22 or a second Python package for one grouping loop.
 
 **Who is younger — E4, E5, E6.**
 
 - y1. *First-commit date through `--follow`.* E4: `git log --diff-filter=A --follow --format='%cI %h' -- docs/decisions/dec-0007-b.md` printed nothing. With `--name-status` the creating commit shows `C051 docs/decisions/dec-0006-base.md docs/decisions/dec-0007-b.md`: items written from one template are similar enough that `--follow` reads a new item as a copy of a sibling, and the `A` filter drops it. `--follow` "works only for a single file" ([git-log](https://git-scm.com/docs/git-log)), so it is also one process per item.
 - y2. *First-commit date without `--follow`.* E4: the same command without the flag → `2026-09-10T10:00:00+03:00 63b3f21`, correct. After a renumbering it dates the rename — acceptable, since the branch that renamed is the younger. E5: in the default shallow checkout it dates everything to the one fetched commit — wrong exactly where the check runs.
 - y3. *"Whichever is not on the base."* E6: on branch `younger`, `git cat-file -e <base>:<path>` exits 0 for `dec-0007-a.md` and 128 for `dec-0007-b.md`. Deterministic, no dates, and it is the row's own meaning: frozen once on main. Needs the base commit present — `fetch-depth: 0` or a fetch of the base ref — and its name passed in; GitHub offers `GITHUB_BASE_REF`, "The name of the base ref or target branch of the pull request" ([variables](https://docs.github.com/en/actions/reference/workflows-and-actions/variables)), which a portable script takes as an argument, never reads itself.
-- y4. *Do not decide in the gate.* The finding names every file of the group; the renumber procedure (advisory, in the skill) says the branch's own item moves. When neither item is on the base — two items of one pull request — either may move; when both are, the collision has landed and is a human call.
+- y4. *Do not decide in the gate.* The finding names every file of the group; the renumber procedure (advisory, in the skill) says the branch's own item moves. When neither item is on the base — two items of one pull request — either may move. When both are, the collision has landed and is a human call.
 
 **Recommendation: A as the gate — the matrix's enforcement is CONFIRMED** (CI script on the pull request, red = fix; renumber procedure advisory), **with y4 as the default and y3 as an optional `--base <ref>` refinement** that lets the finding say which item is already frozen. y1 is wrong for templated items and y2 is wrong in a shallow checkout. B is recommended as the same check at an earlier moment, and is the decider's call: the row's enforcement column names CI only ([law 4 of CLAUDE.md](../../CLAUDE.md#law-4)); the case for it is no new code path and 22 ms, against an `Edit`-and-rename exemption to get right. Honest limit to state: u2.
 
 ## 4. Listing on demand ([requirement A13.2](../requirements.md#a13-2))
 
-What the surveyed tools offer: t1 `adr list` prints paths (`find $adr_dir | grep -E … | sort`) and `adr generate toc` prints a Markdown list of `* [title](file)` lines to stdout, for the user to redirect into a file ([`_adr_generate_toc`](https://github.com/npryce/adr-tools/blob/master/src/_adr_generate_toc)); t4 `pyadr toc` writes "a table of content (in format `index.md`)" and ships a pre-commit hook to regenerate it; t2 renders a static site, sorted "By Date field, in the markdown file (if present)", then "By Git creation date (does not follow renames)", then file date, then slug ([its ADR 20201016](https://github.com/thomvaill/log4brains/blob/develop/docs/adr/20201016-use-the-adr-slug-as-its-unique-id.md)); t3's own repository keeps an `index.md` beside its decisions. Generated index files are the common answer — and the shape [dec-0004-catalogs-module](../decisions/dec-0004-catalogs-module.md) ruled out: a derived file drifts, and conflicts on every parallel branch like the counter file of section 2.
+What the surveyed tools offer:
 
-- **A. A `--list [<prefix>]` mode of the module's script**, printing stem, title and status per item, from the declared catalogs. Class: script, advisory assist. Cost, E8, 1,000 items of about 900 characters each: 298 ms with each envelope parsed by `yaml.safe_load` (median of 5 runs), 46 ms with a `title:` regular expression instead; zero always-on characters. Cannot run itself; output goes to the terminal or the agent's context — 1,000 lines of about 70 characters is 70,000 characters, so a prefix filter and a tail limit matter more than speed.
+- **t1** `adr list` prints paths (`find $adr_dir | grep -E … | sort`) and `adr generate toc` prints a Markdown list of `* [title](file)` lines to stdout, for the user to redirect into a file ([`_adr_generate_toc`](https://github.com/npryce/adr-tools/blob/master/src/_adr_generate_toc));
+- **t4** `pyadr toc` writes "a table of content (in format `index.md`)" and ships a pre-commit hook to regenerate it;
+- **t2 renders a static site**, sorted "By Date field, in the markdown file (if present)", then "By Git creation date (does not follow renames)", then file date, then slug ([its ADR 20201016](https://github.com/thomvaill/log4brains/blob/develop/docs/adr/20201016-use-the-adr-slug-as-its-unique-id.md));
+- **t3's own repository** keeps an `index.md` beside its decisions.
+
+Generated index files are the common answer — and the shape [dec-0004-catalogs-module](../decisions/dec-0004-catalogs-module.md) ruled out: a derived file drifts, and conflicts on every parallel branch like the counter file of section 2.
+
+- **A. A `--list [<prefix>]` mode of the module's script**, printing stem, title and status per item, from the declared catalogs. Class: script, advisory assist. Cost, E8, 1,000 items of about 900 characters each: 298 ms with each envelope parsed by `yaml.safe_load` (median of 5 runs), 46 ms with a `title:` regular expression instead; zero always-on characters. Cannot run itself. Output goes to the terminal or the agent's context. 1,000 lines of about 70 characters is 70,000 characters, so a prefix filter and a tail limit matter more than speed.
 - **B. A one-line command the skill names** — `git ls-files ':(icase)<territory>/<prefix>-*'`. 22 ms (E8); paths only. Titles by a shell loop over `sed`: 3.6 s for the same catalog (one run, E8) — a process per file. The territory and prefix are dials, so the agent must first read the dials file itself.
 - **C. The platform's own `Glob` tool** — fields `pattern` and `path` ([hooks reference](https://code.claude.com/docs/en/hooks)). Zero code, zero install. Cannot know which catalogs are declared or where, and prints no titles.
 - **D. A generated index file.** Ruled out by the row.
@@ -141,9 +162,9 @@ How communities cite a numbered item:
 
 So "either resolves by one glob" holds when the resolver lowercases first or uses `:(icase)`; a plain shell or Python glob does not honour it. A glob matching two files is the uniqueness defect of section 3 seen from the citing side.
 
-Candidates: **A.** advisory text — the forms, where each is allowed, and the one resolving command — carried by the module's skill. **B.** a lint of reference syntax inside this module's gate — the row gives that to [`const-referencing`](../requirements.md#const-referencing) when installed, and a second owner would be the coupling [law 3 of CLAUDE.md](../../CLAUDE.md#law-3) forbids. **C.** a `--resolve <reference>` mode of the script, a fourth mode beside scan, next and list: deterministic, reuses the declared prefix and width to normalise `DEC-7`, `dec-0007` and the full stem alike.
+Candidates: **A.** advisory text — the forms, where each is allowed, and the one resolving command — carried by the module's skill. **B.** a lint of reference syntax inside this module's gate — the row gives that to [`const-referencing`](../requirements.md#const-referencing) when installed. A second owner would be the coupling [law 3 of CLAUDE.md](../../CLAUDE.md#law-3) forbids. **C.** a `--resolve <reference>` mode of the script, a fourth mode beside scan, next and list: deterministic, reuses the declared prefix and width to normalise `DEC-7`, `dec-0007` and the full stem alike.
 
-**Recommendation: A, naming the `:(icase)` command as the resolver — the matrix's enforcement is CONFIRMED** (advisory; syntax lint only with the sibling installed). A plugin cannot place a policy in a consumer's territory, so the "policy" of the row's destination is text the module ships and a consumer's policy may adopt. C is not recommended now: no consumer has reported a resolution failure, and one git command already does it. Step down from nothing: prose is the native carrier here.
+**Recommendation: A, naming the `:(icase)` command as the resolver — the matrix's enforcement is CONFIRMED** (advisory; syntax lint only with the sibling installed). A plugin cannot place a policy in a consumer's territory. The "policy" of the row's destination is text the module ships and a consumer's policy may adopt. C is not recommended now: no consumer has reported a resolution failure, and one git command already does it. Step down from nothing: prose is the native carrier here.
 
 ## 6. Catalog declaration and its validation ([requirement A13.7](../requirements.md#a13-7))
 
@@ -163,7 +184,7 @@ Candidates: **A.** advisory text — the forms, where each is allowed, and the o
 
 with the description "Declares the policy's kind as numbered: ids and stems are <prefix>-<nnnn>-<slug>. One prefix is declared once." Four observations:
 
-- o1. The schema cannot tell a policy's namespace from a module's, so the shape applies to a `catalog` key in either; the namespace itself stays open (`additionalProperties: true`), which is where the module's own `catalogs` list lives.
+- o1. The schema cannot tell a policy's namespace from a module's, so the shape applies to a `catalog` key in either. The namespace itself stays open (`additionalProperties: true`), which is where the module's own `catalogs` list lives.
 - o2. "One prefix is declared once" is a description, not a constraint: JSON Schema cannot express uniqueness across sibling namespaces, so the double-declaration check is code whichever validator is used.
 - o3. No code of the kit reads `catalog` today: the shared dials reader keeps only `territory` of a policy namespace, and [`const-decision-records`](../requirements.md#const-decision-records) states it reads no `catalog` key. The kit's own dials file already declares one — prefix `dec`, width 4, under its decision-record policy.
 - o4. The prefix pattern admits digits-only and mixed prefixes and excludes the hyphen (section 1); nothing bounds `width` above.
@@ -181,7 +202,7 @@ Candidates for validation, at each read ([kernel §6](../constitution/CONVENTION
 
 - **V1. Hand-coded checks with PyYAML only, mirroring the schema** — the two keys of `catalog`, the three of a `catalogs` entry — proven equal to the real schema by kit fixtures, as the [first comparison](res-0001-const-meta-types.md) recommends in its section 5 and for its reason: a consumer installs the module without the kit's schema files.
 - **V2. Python `jsonschema` against a copy in the plugin** — a second install command and a compiled dependency for five keys; and o2 shows it could not find a double declaration anyway.
-- **Double declaration** is a dictionary keyed by prefix over both sources: the same prefix under two policies, under a policy and in `catalogs`, or twice in `catalogs`. Deterministic, a few lines. **Which exit?** As a configuration failure it is exit 1 — and in hook mode "Claude Code treats exit code 1 as a non-blocking error and proceeds with the action" ([hooks reference](https://code.claude.com/docs/en/hooks)): writes pass until the scan turns CI red. As a finding it is exit 2 and blocks every write in both territories until the dials file is repaired. The specification's acceptance line says such a prefix "fails load", and every malformed-dials case of the shared code is a configuration failure with the same honest limit ([kit-shared-gate-code §4](../../shared/GATE.md#g4), item 2).
+- **Double declaration** is a dictionary keyed by prefix over both sources: the same prefix under two policies, under a policy and in `catalogs`, or twice in `catalogs`. Deterministic, a few lines. **Which exit?** As a configuration failure it is exit 1 — and in hook mode "Claude Code treats exit code 1 as a non-blocking error and proceeds with the action" ([hooks reference](https://code.claude.com/docs/en/hooks)): writes pass until the scan turns CI red. As a finding it is exit 2 and blocks every write in both territories until the dials file is repaired. The specification's acceptance line says such a prefix "fails load". Every malformed-dials case of the shared code is a configuration failure with the same honest limit ([kit-shared-gate-code §4](../../shared/GATE.md#g4), item 2).
 
 **Recommendation: C with V1 — the matrix's enforcement is CONFIRMED** on both counts (configuration validated at each read, gate; double declaration, gate), the double declaration reported as a configuration failure, consistent with every other unusable dials file. No native platform component reads a project's YAML, so there is no step down to name. For the author: o3 means the declaration reader is new code; whether it belongs in the module or in the shared reader is settled by the admission rule of [kit-shared-gate-code §1](../../shared/GATE.md#g1) — one module needs it today.
 
@@ -227,17 +248,46 @@ Each in a scratch directory outside any repository of the kit; git 2.54.0, Pytho
 - E5. `git clone --depth 1` of E2's merged repository through a local URL: `git cat-file -e HEAD^1` → exit 128; `uniq -d` still prints `dec-0007`; `git log --diff-filter=A` on an item → the single fetched commit and its date.
 - E6. On branch `younger` before its merge: `git cat-file -e <base>:docs/decisions/dec-0007-a.md` → exit 0; the same for `dec-0007-b.md` → exit 128.
 - E7. Case-insensitive resolution — the commands and results of section 5.
-- E8. A 1,000-item catalog, each file an envelope of six fields and 40 body lines, one commit. Medians: `git ls-files --cached --others --exclude-standard -z -- docs/decisions` 21.7 ms (20 runs); the same plus grouping by number in Python 22.8 ms (20 runs); listing with `yaml.safe_load` per envelope 297.9 ms (5 runs); listing with a `title:` regular expression 46.4 ms (5 runs); `git log --format= --name-only --diff-filter=A -- docs/decisions` 22.5 ms (20 runs, one commit of history); a shell loop of `basename` and `sed` per file 3.6 s (one run).
+- E8. A 1,000-item catalog, each file an envelope of six fields and 40 body lines, one commit. Medians:
+
+  - `git ls-files --cached --others --exclude-standard -z -- docs/decisions` 21.7 ms (20 runs);
+  - **the same plus grouping** by number in Python 22.8 ms (20 runs);
+  - **listing with** `yaml.safe_load` per envelope 297.9 ms (5 runs);
+  - **listing with a** `title:` regular expression 46.4 ms (5 runs);
+  - `git log --format= --name-only --diff-filter=A -- docs/decisions` 22.5 ms (20 runs, one commit of history);
+  - **a shell loop** of `basename` and `sed` per file 3.6 s (one run).
 - E9. Territory matching — the command and result of section 7, p12.
 - E10. `python3 -c "import yaml, json, argparse, logging"`, 20 runs: median 57.8 ms, minimum 56.7, maximum 64.2.
 
 ## Recommendations summary
 
-1. [Requirement A13.1](../requirements.md#a13-1) — **CONFIRMED**: gate at `PreToolUse` on `Write|Edit`, exit 2 with the teaching error, in catalog territory; the stem matches the declared prefix, width and a kebab slug, and `id` equals the stem; `--scan` for renames and CI. No filename linter or ADR tool reads a prefix, a width, an envelope or a territory.
+1. [Requirement A13.1](../requirements.md#a13-1) — **CONFIRMED**:
+
+   - **gate at** `PreToolUse` on `Write|Edit`, exit 2 with the teaching error, in catalog territory;
+   - **the stem matches** the declared prefix, width and a kebab slug, and `id` equals the stem;
+   - `--scan` for renames and CI.
+
+   No filename linter or ADR tool reads a prefix, a width, an envelope or a territory.
 2. [Requirement A13.3](../requirements.md#a13-3) — **CONFIRMED**: advisory; the creation skill takes highest + 1 from a `--next` mode of the module's script over tracked plus untracked-not-ignored files (source s3), written with the `${CLAUDE_PLUGIN_ROOT}` placeholder. For the decider: "highest existing" re-issues a deleted top number; `max` with the history's added paths (s5) repairs it where history is present.
-3. [Requirement A13.4](../requirements.md#a13-4) — **CONFIRMED**: the scan groups by catalog and number, exit 2; it reaches CI as one consumer workflow line, and on GitHub the `pull_request` checkout is the merge commit, so both items are in the tree. The finding names every file of the group; an optional `--base <ref>` says which is frozen; first-commit dates are rejected (E4, E5). The same check at write time is recommended and is the decider's call. Honest limit: two pull requests green apart can both land under loose checks.
+3. [Requirement A13.4](../requirements.md#a13-4) — **CONFIRMED**:
+
+   - **the scan groups** by catalog and number, exit 2;
+   - **it reaches CI** as one consumer workflow line, and on GitHub the `pull_request` checkout is the merge commit, so both items are in the tree.
+
+   The finding names every file of the group; an optional `--base <ref>` says which is frozen; first-commit dates are rejected (E4, E5). The same check at write time is recommended and is the decider's call. Honest limit: two pull requests green apart can both land under loose checks.
 4. [Requirement A13.2](../requirements.md#a13-2) — **CONFIRMED**: advisory; a `--list` mode of the same script; no index file. The native `Glob` tool and a named git command cannot read the declarations, and shell title extraction costs a process per file.
 5. [Requirement A13.5](../requirements.md#a13-5) — definitional, nothing to enforce: confirmed by the one tool with a gap rule, which ships it `off` (t6). The interaction with allocation is item 2's finding.
-6. [Requirement A13.6](../requirements.md#a13-6) — **CONFIRMED**: advisory text in the skill, naming `git ls-files ':(icase,glob)**/<prefix>-<nnnn>-*'` as the resolver of both forms (E7); plain shell and Python globs are case-sensitive even on a case-insensitive file system. No lint here; no `--resolve` mode until a consumer reports the need.
-7. [Requirement A13.7](../requirements.md#a13-7) — **CONFIRMED**: policy-declared `catalog` first, the module's `catalogs` list as the fallback, never both for one prefix; validated by a PyYAML-only mirror of the schema at each read; a double declaration is a configuration failure. The kernel schema declares `catalog` — `prefix` required and matching `^[a-z0-9]+$`, `width` an integer of at least 1 defaulting to 4, no other key — and no code of the kit reads it yet.
+6. [Requirement A13.6](../requirements.md#a13-6) — **CONFIRMED**:
+
+   - **advisory text in the skill**, naming `git ls-files ':(icase,glob)**/<prefix>-<nnnn>-*'` as the resolver of both forms (E7);
+   - **plain shell and Python globs** are case-sensitive even on a case-insensitive file system.
+
+   No lint here; no `--resolve` mode until a consumer reports the need.
+7. [Requirement A13.7](../requirements.md#a13-7) — **CONFIRMED**:
+
+   - **policy-declared** `catalog` first, the module's `catalogs` list as the fallback, never both for one prefix;
+   - **validated by a PyYAML-only mirror** of the schema at each read;
+   - **a double declaration** is a configuration failure.
+
+   The kernel schema declares `catalog` — `prefix` required and matching `^[a-z0-9]+$`, `width` an integer of at least 1 defaulting to 4, no other key — and no code of the kit reads it yet.
 8. Platform facts — p1 to p12 confirmed; eleven items (a–k) stale, imprecise, missing or restated in the earlier comparisons, none reversing a recommendation: three new input fields, the cap's new wording, the four-case exit rule with the v2.1.248 change, three more plugin components, two more loading routes, the documented symlink rule against the kit's `--plugin-dir` observation, and no component a plugin can ship into CI.
