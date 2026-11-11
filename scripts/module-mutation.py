@@ -53,8 +53,8 @@ Modes:  --from <folder>   read the files in <folder>, one per module, and print 
         --module <name>   with no --from, that module alone, the option repeatable;
         --budget <seconds>
                           with no --from, per module: no new mutant starts once that many seconds of
-                          wall-clock time have passed since its first mutant's run began; absent, every
-                          mutant runs;
+                          wall-clock time have passed since the copies started on its mutants; absent,
+                          every mutant runs;
         --seed <text>     with no --from, the seed of the mutants' order, `0` when absent;
         --copies <n>      with no --from, that many copies of the kit run mutants side by side, 1 when
                           absent; with more than one, a kill by a failed test is confirmed on the
@@ -73,8 +73,8 @@ Exit:   0 whenever the files could be read or made, whatever they measure; 1, wi
         are not green, coverage.py or pytest not installed, the folder that is missing or cannot be read,
         a file that does not parse or lacks a key, the module folders that cannot be listed, a module
         named that is no module folder, the arguments misused, or the JSON file that cannot be written. The
-        self-test exits 0 when every case is green, 2 when one is not, and 1 with a BROKEN line when a
-        measure of its own cannot be made, as where coverage.py or pytest is not installed.
+        self-test exits 0 when every case is green, 2 when one is not, and 1 with a BROKEN line where
+        coverage.py or pytest is not installed.
 Its name is module-mutation, never check-: the kit's check-gate-lists holds every scripts/check-*.py to
 the gate group as a check, and this script is none. Its self-test is the entry `module-mutation` of the
 gate group, which holds the report's code and judges no module.
@@ -616,6 +616,18 @@ def confirmed(scratch: Path, exits: list[int]) -> str:
     return str(result["status"]) + (f", {len(left)} run not made" if left else "")
 
 
+def counting(calls: list[int]) -> kit_mutation.Run:
+    """The run of a process, each call counted in `calls`."""
+
+    def run(
+        command: list[str], cwd: Path, env: dict[str, str], limit: float
+    ) -> tuple[int | None, str, float]:
+        calls.append(1)
+        return kit_mutation.run_process(command, cwd, env, limit)
+
+    return run
+
+
 def self_test() -> int:  # noqa: C901 — one flat list of cases, each a few lines; no branch to follow
     ok = 0
     total = 0
@@ -650,7 +662,8 @@ def self_test() -> int:  # noqa: C901 — one flat list of cases, each a few lin
         kit = base / "kit"
         fixture_kit(kit)
         before = digest(kit)
-        whole = kit_mutation.measure(kit, "const-x", base / "whole", limits=limits)
+        runs_alone: list[int] = []
+        whole = kit_mutation.measure(kit, "const-x", base / "whole", limits=limits, run=counting(runs_alone))
         seen = outcomes(whole)
         wrong = {k: (seen.get(k), v) for k, v in OUTCOMES.items() if seen.get(k) != v}
         case(
@@ -698,13 +711,20 @@ def self_test() -> int:  # noqa: C901 — one flat list of cases, each a few lin
             f"{none['mutants']} mutants, {len(outcomes(none))} run",
         )
 
-        two = kit_mutation.measure(kit, "const-x", base / "two", seed="another", copies=2, limits=limits)
+        runs_two: list[int] = []
+        two = kit_mutation.measure(
+            kit, "const-x", base / "two", seed="another", copies=2, limits=limits, run=counting(runs_two)
+        )
+        rows = two["results"] if isinstance(two["results"], list) else []
+        by_test = sum(1 for row in rows if row["status"] == "killed" and row["killer"] is not None)
         order = [str(row["id"]) for row in two["results"]] if isinstance(two["results"], list) else []
         first = [str(row["id"]) for row in whole["results"]] if isinstance(whole["results"], list) else []
         case(
-            "two copies side by side give the same outcomes, each kill confirmed on the unmutated file",
-            outcomes(two) == OUTCOMES,
-            f"{len(outcomes(two))} mutants",
+            "two copies side by side give the same outcomes, and each kill by a failed test costs one run"
+            " more, on the unmutated file",
+            outcomes(two) == OUTCOMES and by_test > 0 and len(runs_two) - len(runs_alone) == by_test,
+            f"{len(outcomes(two))} mutants; {len(runs_alone)} runs alone, {len(runs_two)} in two copies,"
+            f" {by_test} kills by a failed test",
         )
         case(
             "the seed sets the order the mutants run in",
@@ -721,7 +741,7 @@ def self_test() -> int:  # noqa: C901 — one flat list of cases, each a few lin
             "tests that could not be collected are a kill that is not run again, and any other exit of"
             " pytest is an error",
             (confirmed(base, [2, 0]), confirmed(base, [3])) == ("killed, 1 run not made", "error"),
-            f"pytest's exits 2 and 3: {confirmed(base / 'again', [2, 0])}; {confirmed(base / 'again', [3])}",
+            "pytest's exits 2, with a second run offered and not made, and 3",
         )
 
         (kit / "modules" / "const-x" / "tests" / "test_red.py").write_text(
@@ -811,10 +831,11 @@ def main(argv: list[str]) -> int:
         return BROKEN
     if args.self_test:
         try:
-            return self_test()
+            kit_mutation.preflight()
         except kit_mutation.MutationError as bad:
-            print(f"BROKEN: the self-test could not measure its own kit: {bad}")
+            print(f"BROKEN: {bad}")
             return BROKEN
+        return self_test()
     notes: list[str] = []
     try:
         if args.source is not None:

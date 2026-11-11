@@ -67,9 +67,9 @@ test may depend on it. The file is restored after the run, whatever happened. Th
   error         any other exit of pytest. Left out of the score.
 Copies. Each worker owns a copy of the kit, made from the files git lists, or from the whole folder
 where git lists none, and takes mutants from one queue, in an order shuffled by the seed. With a budget
-in seconds, wall-clock time from the start of the first mutant's run, after the line map, no worker
-takes a new mutant once the budget is spent; a mutant begun is finished. The
-mutants not begun are not run, and the score is then an estimate from a sample.
+in seconds, wall-clock time counted from the moment the copies start on the mutants, after the line map,
+no worker takes a new mutant once the budget is spent; a mutant begun is finished. The mutants not begun
+are not run, and the score is then an estimate from a sample.
 
 The file of one module, the JSON keys as written:
   module        the module folder's name;
