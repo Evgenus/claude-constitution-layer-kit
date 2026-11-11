@@ -4,7 +4,9 @@ that opens the file, fenced and indented code, HTML comments, code spans.
 Masking keeps every offset: a masked character becomes a space and a line break stays, so a
 position found in the masked text is the same position in the document. It is line-based and
 knows no more Markdown than that — an unclosed fence masks to the end of the file, as it
-renders.
+renders. A line ends where the shared reader ends one, at a line feed, a carriage return or
+both: a form feed or another character that only `str.splitlines()` breaks at stays inside its
+line, so a run of ticks after one closes no fence.
 """
 
 from __future__ import annotations
@@ -14,7 +16,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
-from constitution_layer_kit.envelope import Bounds, envelope_bounds
+from constitution_layer_kit.envelope import Bounds, envelope_bounds, envelope_lines
 
 _FENCE = re.compile(r" {0,3}(`{3,}|~{3,})")
 _FENCE_IN_LIST = re.compile(r"[ \t]*(`{3,}|~{3,})")  # a list item's content is indented with it
@@ -100,14 +102,11 @@ def _block_regions(document: str, bounds: Bounds | None) -> list[Span]:
     """The block-level regions in reading order. Where the YAML block stands is the helper's `bounds`: a
     block that opens the file is the first region, from offset 0 to the end of its closing line. A block
     no line closes is this module's own rule, not the helper's: it masks to the end of the file. The
-    rest — fences, indented code — is read line by line here; the block's end falls on a line break
-    that `splitlines` also breaks at, so the loop resumes at the line after the block."""
+    rest — fences, indented code — is read line by line here, the lines cut by the helper's own splitter,
+    so the block's end falls on a line break of this loop, which resumes at the line after the block."""
     blocks = _Blocks(bounds, in_envelope=bounds is not None)
-    offset = 0
-    for line in document.splitlines(keepends=True):
-        end = offset + len(line)
-        blocks.read(line.rstrip("\r\n"), offset, end)
-        offset = end
+    for offset, bare, end in envelope_lines(document, 0, len(document)):
+        blocks.read(bare, offset, end)
     if blocks.in_envelope or blocks.fence is not None:  # never closed: it renders as one block to the end
         blocks.regions.append(Span(0 if blocks.in_envelope else blocks.block_start, len(document)))
     return blocks.regions
