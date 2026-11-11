@@ -67,14 +67,14 @@
   "const-language": {
     "attempts": [
       {
-        "at": "2026-11-10T03:29:01Z",
+        "at": "2026-11-11T00:28:11Z",
         "cases": 1,
         "passed": 1,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:895313dafbc5e7dff7e793186278e7761279ca461723420d6a412b14281e58e9",
+    "hash": "sha256:c1ef8deb8dfe9b9b12e7246a63caf588b89e6bea18c7b9dcbb5917c10369f03e",
     "model": "claude-opus-5-5"
   },
   "const-locations": {

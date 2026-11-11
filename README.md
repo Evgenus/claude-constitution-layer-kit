@@ -79,6 +79,7 @@ The [install guide](INSTALL.md) bootstraps a new project step by step: the prere
 | 5 | `docs/` | the requirements matrix, the rollout plan, the kit's policies, decision records, research and style guide |
 | 6 | `templates/` | the templates of the kit's own document kinds |
 | 7 | `scripts/` | the kit's own checks and hooks, never shipped in a module |
+| 8 | `profiles/` | prewritten dials files, which a project takes at its bootstrap ([install guide](INSTALL.md#s2)) |
 
 ## License
 

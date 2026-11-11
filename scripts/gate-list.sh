@@ -21,7 +21,8 @@
 # The jobs are read from the entries, never listed apart, so no entry is left out of CI. A module's
 # scan reads the whole tree, or for task-close the change's whole range, so a red scan on a module's
 # job means the tree, or the change, breaks that module's rule, not that the module's code is broken;
-# the annotation names the entry.
+# the annotation names the entry. The entry `profiles` of `kit` runs every module's scan too, on throwaway
+# repositories that hold a profile: a module's scan red there means a profile breaks that module's rule.
 # The install-<module> and session-<module> gates and the guide gate need the `claude` that scripts/claude-code.version pins on
 # PATH and no Claude account login: on any other version they fail to run, unless CONSTITUTION_KIT_ANY_CLAUDE=1,
 # when they run with a note naming both versions on every headline line of their report after the version
@@ -43,7 +44,7 @@ MODULES="const-catalogs const-change-cost const-decision-records const-doc-budge
 const-locations const-meta-types const-questions const-referencing const-styling const-task-close"
 GATES="references meta-types catalogs decision-records open-questions style language budgets
 list-handles carry-lists shared-links shared-package yaml-style module-links handle-forms aspects portability gate-lists
-schema-mirror copies dials-schema resolved-paths layered-items eval-receipts rollout-status run-evals bare-install session-load guide $(for m in $MODULES; do printf 'install-%s session-%s ' "$m" "$m"; done)task-close"
+schema-mirror copies dials-schema profiles resolved-paths layered-items eval-receipts rollout-status run-evals bare-install session-load guide $(for m in $MODULES; do printf 'install-%s session-%s ' "$m" "$m"; done)task-close"
 EXTRAS="branch-gate setup-claude $(for m in $MODULES; do printf 'fixtures-%s lint-%s types-%s ' "$m" "$m" "$m"; done)lint types layered-fixture"
 
 job() {
@@ -94,7 +95,7 @@ commands() {
         language) scan sh modules/const-language/plugin/scripts/check-language.sh --scan ;;
         budgets) scan sh modules/const-doc-budgets/plugin/scripts/check-budgets.sh --scan ;;
         list-handles) scan sh modules/const-interaction/plugin/scripts/check-list-handles.sh --scan ;;
-        carry-lists | shared-links | shared-package | yaml-style | module-links | handle-forms | aspects | portability | gate-lists | copies | schema-mirror | dials-schema | resolved-paths | layered-items | eval-receipts | rollout-status)
+        carry-lists | shared-links | shared-package | yaml-style | module-links | handle-forms | aspects | portability | gate-lists | copies | schema-mirror | dials-schema | profiles | resolved-paths | layered-items | eval-receipts | rollout-status)
             echo "python3 scripts/check-$1.py"
             echo "python3 scripts/check-$1.py --self-test" ;;
         bare-install) echo "python3 scripts/check-bare-install.py --self-test" ;;
