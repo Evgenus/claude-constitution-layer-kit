@@ -49,8 +49,8 @@ judgment, and the rest of this page.
    range points at today's text and at something else tomorrow: use one only in a sentence
    about a diff.
 6. A commit hash belongs in a commit message, a record of what was decided, a dated comparison,
-   a statement of evidence or of done work that carries its date, or chat — not in a sentence
-   that describes how things are: a rebuilt history leaves it pointing at nothing.
+   a dated statement of evidence or of done work, or chat — not in a sentence that describes
+   how things are: a rebuilt history leaves it pointing at nothing.
 7. A pull request is cited with its repository — `owner/repo#n`, never a bare `#n`: a bare
    number names another pull request in every other repository.
 

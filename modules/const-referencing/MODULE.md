@@ -62,7 +62,7 @@ The advisory rules beside it:
 1. **F-a** — advisory. Cite a governed document by its id as link text wherever it has one.
 2. **F-b** — advisory. Give every citable unit an explicit anchor with a short fixed key, never rely on a heading's generated name, never change a key once cited.
 3. **F-c** — advisory. Cite code by symbol name, file-qualified — a line range only as a pointer that is not meant to last.
-4. **F-d** — advisory. A commit hash belongs in a commit message, a record's body, a dated comparison, a statement of evidence or of done work that carries its date, or chat, never in a sentence that states how things are; a pull request is cited by its repository-qualified number, `owner/repo#n`, never a bare `#n`.
+4. **F-d** — advisory. A commit hash belongs in a commit message, a record's body, a dated comparison, a dated statement of evidence or of done work, or chat, never in a sentence that states how things are; a pull request is cited by its repository-qualified number, `owner/repo#n`, never a bare `#n`.
 5. **F-e** — advisory. Move a document with the module's move act, never by hand, and never rewrite a prose mention without reading it.
 6. **F-f** — advisory. In chat, every reference to a file is a link and a local handle names its scope when it crosses it.
 
@@ -185,7 +185,7 @@ The lint, resolution and R7 are deterministic; the fixtures are their pairs. The
 - **7.** "Fixed in 70b7c39" in a commit message → fine / in a policy → *not*: a rebuilt history leaves it pointing at nothing.
 - **7a.** A record of a decision says "applied in the commit that creates this record" → fine, it is a record's body / a current-state page says "since 70b7c39 the gate reads code" → *not*: say what the gate does.
 - **7b.** Chat: "that is 1de11cd on the branch" → fine / the same sentence copied into the install note → *not*.
-- **7c.** A proof that carries its date says "the workflow cloned the repository at 3752e6a" → fine, it is evidence of that day, as is a dated comparison that names the tree it read / a sentence beside it with no date says "the scan runs in CI since 3752e6a" → *not*: say what runs.
+- **7c.** A dated proof says "the workflow cloned the repository at 4f2c9d1" → fine, it is evidence of that day, as is a dated comparison that names the tree it read, or a dated line of done work that names the commit a tag was made on / a sentence of the same page that states how things are says "the scan runs in CI since 4f2c9d1" → *not*: say what runs.
 
 **F-e** — moving:
 
