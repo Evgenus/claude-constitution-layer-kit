@@ -119,14 +119,14 @@
   "const-referencing": {
     "attempts": [
       {
-        "at": "2026-11-11T14:10:35Z",
+        "at": "2026-11-11T13:49:40Z",
         "cases": 2,
         "passed": 2,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:a4269ea2b8f27f1a3d18ac781d947379a9c6c28d4fa40a80d2a56953cfb1d292",
+    "hash": "sha256:b4d084bdfdf0bfa6b5e674897693c045855fd7e774351b98ba84e5d0f9e75217",
     "model": "claude-opus-5-5"
   },
   "const-styling": {
