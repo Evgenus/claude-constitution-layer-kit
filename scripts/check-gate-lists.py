@@ -275,7 +275,8 @@ PYTEST_CONFIGS = (
 )
 ADDOPTS = re.compile(r"^\s*addopts\s*[=:]")  # an ini file takes `addopts =` and `addopts:`
 EVERY_RUN = "through which any option, a selection included, reaches every pytest run"
-ASPECTS_RUN = "python3 scripts/check-aspects.py --run --module <module>"  # the one way a module's tests run
+# the one way the lists run a module's tests
+ASPECTS_RUN = "python3 scripts/check-aspects.py --run --module <module>"
 WHY_FILTER = "the gate list and CI run every item of every runner, so that their green is a full pass"
 WHY_FORM = "a scan the check cannot read is never held in the gate list and CI"
 KIT_CHECK = re.compile(

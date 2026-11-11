@@ -2,15 +2,17 @@
 """Kit report, never a gate: the mutation score of each module — the share of small changes to its code
 that its tests notice.
 
-Advisory in the sense of law 5 of CLAUDE.md: it judges nothing and blocks nothing. Its numbers are read
+Kit tooling, never shipped in a module, and advisory in the sense of law 5 of CLAUDE.md: it judges
+nothing and blocks nothing. Its numbers are read
 by a person, who decides what they mean; no number here is a threshold, and none is held anywhere
 (decision dec-0122-module-mutation-report). A mutant is the module's code with one small change;
 `scripts/kit_mutation.py` says how the mutants are made, which tests run for each, and what each outcome
 means, and its docstring defines the file of one module that this report reads. The kit's CI runs the
 report in each module's job on every pull request and on main, after the job's entries, on a sample:
-`--budget` stops the run after a fixed time, `--seed` is the commit, so that each change draws mutants of
-its own. The job `gates`, after its verdict, reads every module's file with `--from` and prints one table
-beside the fixture coverage. A failure of the report never changes a verdict.
+`--budget` stops the run after a fixed time, `--seed` is the commit the run checked out, on a pull
+request its merge with the base, so that each change draws mutants of its own. The job `gates`, after
+its verdict, reads every module's file with `--from` and prints one table beside the fixture coverage.
+A failure of the report never changes a verdict.
 
 What the score is not. Some mutants change no behaviour, and no test can kill them; the tests build some
 expected texts with the gate's own functions, so a mutant there changes both sides alike; the operators
@@ -50,12 +52,15 @@ Modes:  --from <folder>   read the files in <folder>, one per module, and print 
                           from minutes to hours per module;
         --module <name>   with no --from, that module alone, the option repeatable;
         --budget <seconds>
-                          with no --from, per module: no new mutant starts once that many seconds of its
-                          mutants' runs are spent; absent, every mutant runs;
+                          with no --from, per module: no new mutant starts once that many seconds of
+                          wall-clock time have passed since its first mutant's run began; absent, every
+                          mutant runs;
         --seed <text>     with no --from, the seed of the mutants' order, `0` when absent;
         --copies <n>      with no --from, that many copies of the kit run mutants side by side, 1 when
-                          absent; with more than one, each kill is confirmed on the unmutated file;
-        --out <folder>    with no --from, keep each module's file there, as `<module>.json`;
+                          absent; with more than one, a kill by a failed test is confirmed on the
+                          unmutated file;
+        --out <folder>    with no --from, keep each module's file there, as `<module>.json`; the table
+                          then reads every module's file that folder holds;
         --json <path>     the table on stdout and the same numbers as one JSON object in <path>;
         --json -          the JSON object on stdout, and no table;
         --self-test       prove the report on a small kit of its own: the mutants of each operator, the
@@ -63,12 +68,13 @@ Modes:  --from <folder>   read the files in <folder>, one per module, and print 
                           budget, the copies, and the table.
 Notes on stderr: with --from, a module folder with no file, which the table leaves out; each module's
 measure, as it starts.
-Exit:   0 whenever the files could be read or made, whatever they measure; 1, with a BROKEN line that
-        says what failed, why and the fix, when they cannot: a module whose unmutated tests are not
-        green, coverage.py or pytest not installed, the folder that is missing or cannot be read, a file
-        that does not parse or lacks a key, the module folders that cannot be listed, a module named that
-        is no module folder, the arguments misused, or the JSON file that cannot be written. The
-        self-test exits 0 when every case is green and 2 when one is not.
+Exit:   0 whenever the files could be read or made, whatever they measure; 1, with a BROKEN line on
+        stdout that says what failed, why and the fix, when they cannot: a module whose unmutated tests
+        are not green, coverage.py or pytest not installed, the folder that is missing or cannot be read,
+        a file that does not parse or lacks a key, the module folders that cannot be listed, a module
+        named that is no module folder, the arguments misused, or the JSON file that cannot be written. The
+        self-test exits 0 when every case is green, 2 when one is not, and 1 with a BROKEN line when a
+        measure of its own cannot be made, as where coverage.py or pytest is not installed.
 Its name is module-mutation, never check-: the kit's check-gate-lists holds every scripts/check-*.py to
 the gate group as a check, and this script is none. Its self-test is the entry `module-mutation` of the
 gate group, which holds the report's code and judges no module.
@@ -573,9 +579,10 @@ def result_file(folder: Path, name: str, mutants: int, statuses: dict[str, int],
 
 
 def confirmed(scratch: Path, exits: list[int]) -> str:
-    """The outcome of one mutant when pytest's exits are `exits`, one per run, each run naming the one
-    test as failed: the path a kill takes where more than one copy runs."""
-    copy = scratch / f"confirm-{len(exits)}-{exits[-1]}"
+    """The outcome of one mutant when pytest's exits are `exits`, one per run, a run that exits 1 naming
+    the one test as failed: the path a kill takes where more than one copy runs. An exit left unused
+    is a run that was never made, and the outcome then says so."""
+    copy = scratch / f"confirm-{'-'.join(map(str, exits))}"
     (copy / "run").mkdir(parents=True)
     target = copy / "g.py"
     target.write_text("N = 1\n", encoding="utf-8")
@@ -585,10 +592,11 @@ def confirmed(scratch: Path, exits: list[int]) -> str:
         command: list[str], cwd: Path, env: dict[str, str], limit: float
     ) -> tuple[int | None, str, float]:
         code = left.pop(0)
-        outcome = "passed" if code == 0 else "failed"
-        Path(env[kit_mutation.SEEN_ENV]).write_text(
-            json.dumps({"t::a": {"outcome": outcome, "seconds": 0.1}}), encoding="utf-8"
-        )
+        if code in (0, 1):  # at any other exit no test ended, and the plugin wrote nothing
+            Path(env[kit_mutation.SEEN_ENV]).write_text(
+                json.dumps({"t::a": {"outcome": "passed" if code == 0 else "failed", "seconds": 0.1}}),
+                encoding="utf-8",
+            )
         return code, "", 0.1
 
     worker = kit_mutation.Worker(
@@ -605,7 +613,7 @@ def confirmed(scratch: Path, exits: list[int]) -> str:
     mutant = kit_mutation.Mutant("g.py:1:4:num", "g.py", 1, 1, "num", "1", "2", "N = (2)\n")
     result = worker.one(mutant)
     assert target.read_text(encoding="utf-8") == "N = 1\n"
-    return str(result["status"])
+    return str(result["status"]) + (f", {len(left)} run not made" if left else "")
 
 
 def self_test() -> int:  # noqa: C901 — one flat list of cases, each a few lines; no branch to follow
@@ -709,6 +717,12 @@ def self_test() -> int:  # noqa: C901 — one flat list of cases, each a few lin
             (confirmed(base, [1, 1]), confirmed(base, [1, 0])) == ("unsure", "killed"),
             "pytest's exits 1, 1 and 1, 0",
         )
+        case(
+            "tests that could not be collected are a kill that is not run again, and any other exit of"
+            " pytest is an error",
+            (confirmed(base, [2, 0]), confirmed(base, [3])) == ("killed, 1 run not made", "error"),
+            f"pytest's exits 2 and 3: {confirmed(base / 'again', [2, 0])}; {confirmed(base / 'again', [3])}",
+        )
 
         (kit / "modules" / "const-x" / "tests" / "test_red.py").write_text(
             "def test_red():\n    assert False\n", encoding="utf-8"
@@ -796,7 +810,11 @@ def main(argv: list[str]) -> int:
         )
         return BROKEN
     if args.self_test:
-        return self_test()
+        try:
+            return self_test()
+        except kit_mutation.MutationError as bad:
+            print(f"BROKEN: the self-test could not measure its own kit: {bad}")
+            return BROKEN
     notes: list[str] = []
     try:
         if args.source is not None:

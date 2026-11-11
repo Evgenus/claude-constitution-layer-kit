@@ -18,6 +18,8 @@
 # module's acceptance table both ways (decision dec-0080-fixtures-run-through-check-aspects).
 # A CI job is a module — its scan, its install, its session-load check, its fixtures, its lint and its types — or `install-guide`,
 # the run of the install guide, or `kit`, every other entry no module holds; an entry is in exactly one job, and one no line of job() maps falls into `kit`.
+# In CI a module's job also measures a sample of the module's mutants after its entries, a step of the workflow
+# and no entry of this list, since it judges nothing (scripts/module-mutation.py).
 # The jobs are read from the entries, never listed apart, so no entry is left out of CI. A module's
 # scan reads the whole tree, or for task-close the change's whole range, so a red scan on a module's
 # job means the tree, or the change, breaks that module's rule, not that the module's code is broken;

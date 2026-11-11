@@ -20,7 +20,7 @@ The operators, the key `op` of a mutant:
   cond-negate   the test of an if, a while, a conditional expression, a comprehension's if or an assert,
                 when it is no comparison of one operator and no `not`: test -> not (test);
   arith         + <-> -, * -> /, / -> *, // -> *, % -> *, ** -> *, | <-> &, never where an operand is a
-                string literal or an f-string;
+                string or bytes literal or an f-string;
   aug           += <-> -=;
   num           a number n -> n + 1;
   bool-const    True <-> False;
@@ -30,7 +30,8 @@ The operators, the key `op` of a mutant:
   loop-jump     break <-> continue;
   for-zero      for … in xs -> for … in ().
 The operators are the kit's own choice, and the score is a property of them as much as of the tests: a
-change of this list moves every score with no change in any test.
+change of this list moves every score with no change in any test. No outside mutation tool is used or
+pinned: this file makes the mutants and runs them.
 
 The line map. One run of the module's tests under coverage.py, one by one, gives for each line the
 tests that run it. The pytest process switches coverage's context to each test's node id, through
@@ -51,19 +52,23 @@ quickest first; when one of those lines also runs outside any test, every other 
 test may depend on it. The file is restored after the run, whatever happened. The outcome, the key
 `status`:
   killed        pytest exited 1, a test failed, or 2, the tests could not be collected;
-  timeout       the run passed its limit, four times the chosen tests' own time and never less than the
-                floor, and was stopped; counted with the killed, as a run that does not end does not pass;
+  timeout       the run passed its limit and was stopped: four times the chosen tests' own time and 15
+                seconds more, and never less than 30 seconds; counted with the killed, as a run that
+                does not end does not pass;
   survived      pytest exited 0;
   not covered   no test reaches a line of the mutant; nothing is run, and no test can kill it. A child
                 started with an environment of its own, without coverage's variable, is not measured, so
                 this count can be too high and the score too low, never too high;
   unsure        with more than one copy alone: the test that failed with the mutant was run again at
                 once on the unmutated file in the same copy, and failed there too, so the load and not
-                the mutant may have failed it. Left out of the score;
+                the mutant may have failed it. Left out of the score. A kill at collection, where no
+                test ran, and a timeout are not run again: neither names a test that failed, and the
+                limit already allows four times the tests' own time;
   error         any other exit of pytest. Left out of the score.
 Copies. Each worker owns a copy of the kit, made from the files git lists, or from the whole folder
 where git lists none, and takes mutants from one queue, in an order shuffled by the seed. With a budget
-in seconds, no worker takes a new mutant once the budget is spent; a mutant begun is finished. The
+in seconds, wall-clock time from the start of the first mutant's run, after the line map, no worker
+takes a new mutant once the budget is spent; a mutant begun is finished. The
 mutants not begun are not run, and the score is then an estimate from a sample.
 
 The file of one module, the JSON keys as written:

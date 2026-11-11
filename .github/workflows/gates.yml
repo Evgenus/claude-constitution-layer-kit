@@ -14,7 +14,8 @@
 # mutants, small changes to its code that its tests should notice, for a fixed time and with the commit as
 # the seed, and uploads the module's mutation file as `mutation-<module>`; the job "gates", after its verdict,
 # reads every such file into the mutation report, uploaded as `mutation` — a report too, whose numbers no
-# check holds and whose failure changes no verdict (decision dec-0122-module-mutation-report).
+# check holds and whose failure changes no verdict; no workflow runs on a schedule for it, and none measures
+# every mutant of a module (decision dec-0122-module-mutation-report).
 name: gates
 
 on:
@@ -101,8 +102,10 @@ jobs:
           # there (scripts/kit_coverage.py); a coverage failure is a BROKEN line of that entry, and so turns
           # the module's job red, the price decision dec-0089-module-coverage-report chose
           CONSTITUTION_KIT_COVERAGE: ${{ startsWith(matrix.job, 'const-') && format('{0}/coverage', runner.temp) || '' }}
-          # no CONSTITUTION_KIT_JOBS: a module's tests run one by one, never side by side, which would add load to
-          # the runner the gates' own time limits are measured on (decision dec-0091-module-fixtures-run-as-pytest)
+          # no CONSTITUTION_KIT_JOBS: the fixtures entry runs a module's tests one by one, never side by side, which
+          # would add load to the runner the gates' own time limits are measured on (decision
+          # dec-0091-module-fixtures-run-as-pytest); the mutation sample below runs after the entries, so the load
+          # of its copies reaches no verdict
         run: sh scripts/gate-list.sh --run "$JOB"
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() && startsWith(matrix.job, 'const-') }}
@@ -117,8 +120,9 @@ jobs:
       # dec-0122-module-mutation-report): after the job's entries, whatever their verdict, save on a cancelled
       # run; continue-on-error keeps a failure of the step from turning the job red, and the timeout bounds a
       # hang. For 150 seconds, in three copies of the kit side by side, it runs mutants drawn in an order the
-      # commit seeds, each against the tests that reach it, and writes the module's mutation file; the line
-      # map before them is one more run of the module's tests.
+      # commit seeds — GITHUB_SHA, the commit the run checks out, on a pull request its merge with the base —
+      # each against the tests that reach it, and writes the module's mutation file; the line map before
+      # them is one more run of the module's tests.
       - name: Mutation sample of ${{ matrix.job }}, a report
         if: ${{ !cancelled() && startsWith(matrix.job, 'const-') }}
         continue-on-error: true
