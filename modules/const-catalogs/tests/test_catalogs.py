@@ -37,6 +37,7 @@ from constitution_layer_kit.testing.acceptance import broken_first_line, check_c
 from constitution_layer_kit.testing.acceptance import item as acceptance_item
 from constitution_layer_kit.testing.consumer import BASE_MARKDOWN, ROOT_POLICY, Consumer
 from constitution_layer_kit.testing.harness import (
+    SIGNER,
     Case,
     Edit,
     Harness,
@@ -44,6 +45,7 @@ from constitution_layer_kit.testing.harness import (
     Write,
     event_json,
     fake_program,
+    fake_signer,
 )
 from constitution_layer_kit.testing.items import (
     NO_ENVELOPE,
@@ -748,39 +750,6 @@ def test_deleted_number_is_not_refused() -> None:
     expect(result, 0, shared.g1_green_hook(messages.g1_item_of(CATALOG)), "stdout")
 
 
-def fake_gpg(root: Path) -> None:
-    """Signs every later commit of the repository through a fake `gpg.program` and turns
-    `log.showSignature` on; the fake logs each call to a file and, to verify, says its human text on
-    stderr as gpg does, which git log prints before the formatted line."""
-    folder = H.scratch_dir()
-    log = folder / "gpg.log"
-    program = folder / "gpg"
-    program.write_text(
-        "#!/bin/sh\n"
-        f"printf '%s\\n' \"$*\" >> {shlex.quote(str(log))}\n"
-        "cat > /dev/null\n"
-        'case "$*" in\n'
-        "  *--verify*)\n"
-        "    printf 'gpg: Good signature from \"fake signer\"\\n' >&2\n"
-        "    printf '[GNUPG:] GOODSIG 0123456789ABCDEF fake signer\\n'\n"
-        "    printf '[GNUPG:] VALIDSIG 0123456789ABCDEF 2026-10-06 1 0 4 0 1 8 00 0123456789ABCDEF\\n';;\n"
-        "  *)\n"
-        "    printf '[GNUPG:] SIG_CREATED D 1 8 00 1 0123456789ABCDEF 1\\n' >&2\n"
-        "    printf -- '-----BEGIN PGP SIGNATURE-----\\n\\nZmFrZQ==\\n-----END PGP SIGNATURE-----\\n';;\n"
-        "esac\n",
-        encoding="utf-8",
-    )
-    program.chmod(0o755)
-    for key, value in (
-        ("gpg.format", "openpgp"),
-        ("gpg.program", str(program)),
-        ("user.signingkey", "FIXTURE"),
-        ("commit.gpgsign", "true"),
-        ("log.showSignature", "true"),
-    ):
-        subprocess.run(["git", "config", key, value], cwd=root, check=True)
-
-
 TOP_LEVEL = Catalog("itm", 4, ("itm-*.md",))  # a catalog whose items stand in the repository's top folder
 
 
@@ -790,7 +759,7 @@ def top_level_deleted(signed: bool) -> Consumer:
     `gpg.program`, with `log.showSignature` on, so the repository's own `git log` prints the check."""
     consumer = Consumer(H.scratch_dir()).build()
     if signed:
-        fake_gpg(consumer.root)
+        fake_signer(H.scratch_dir(), consumer.root)
     consumer.write("constitution.yaml", dials_text(catalogs(entry(territory=list(TOP_LEVEL.territory)))))
     consumer.write("itm-0001-first.md", item("itm-0001-first"))
     consumer.commit()
@@ -814,7 +783,7 @@ def test_scan_names_history() -> None:
     shown = subprocess.run(
         ["git", "log", "-1", "--format=%h"], cwd=signed.root, capture_output=True, text=True, check=False
     )
-    if "fake signer" not in shown.stdout + shown.stderr:  # the case cannot pass for want of a check
+    if SIGNER not in shown.stdout + shown.stderr:  # the case cannot pass for want of a check
         pytest.fail(f"git log did not print the check: {shown.stdout}{shown.stderr}")
     plain = H.run_gate("", args=["--scan", str(top_level_deleted(signed=False).root)])
     after = H.run_gate("", args=["--scan", str(signed.root)])
