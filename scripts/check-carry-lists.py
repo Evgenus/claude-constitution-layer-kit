@@ -49,7 +49,8 @@ Records numbered below the threshold were written before the rule, and only thei
 examined. The records' folder and the width of their numbers are read from the `dec` entry of
 `const-catalogs.catalogs` in constitution.yaml at the kit root: its territory must be exactly one
 pattern `<folder>/**`, its width (absent is 4) a whole number from 1 to 9 that can number the
-threshold, and the entry stands once. A dials file, an entry or a folder that cannot be read, a width
+threshold, and the entry stands once. A dials file, an entry or a folder that cannot be read, the file's
+brackets nested past the depth the YAML parser reads included, a width
 or a territory that is off, and a file of `*.md` in that folder that does not have the form
 `dec-<width digits>-<slug>` — never skipped — are each a failure to run, with the fix; so is a kit whose
 shared/ has lost the shared package the check imports, which names what to restore.
@@ -63,7 +64,9 @@ Modes:  no arguments            check the lists, the anchors and the receipts;
                                 the catalog's folder and width over their whole sets, a stray file,
                                 a receipt whose record stood in another folder, the scope in each
                                 layout and a decisions section that ends at the next anchor, with
-                                that anchor gone a failure to run.
+                                that anchor gone a failure to run; an envelope whose brackets nest
+                                past the depth the YAML parser reads, read as one that does not
+                                load, and a dials file nested so, a failure to run with the fix.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -161,6 +164,9 @@ class Finding:
         return f"RED: {self.headline}\n  why: {self.why}\n  fix: {self.fix}"
 
 
+NESTED_TOO_DEEPLY = "its brackets are nested past the depth the YAML parser reads"
+
+
 class CouldNotRun(Exception):
     """The check cannot give a verdict: no git, a shallow clone, no records folder, no readable catalog."""
 
@@ -206,6 +212,11 @@ def load_catalog(kit: Path) -> Catalog:
     except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
         raise CouldNotRun(
             f"{DIALS} cannot be read ({exc}) — fix: restore the dials file at the kit root, "
+            "which declares where the records are and how they are numbered"
+        ) from exc
+    except RecursionError as exc:  # brackets nested past the parser's depth: unreadable, never a crash
+        raise CouldNotRun(
+            f"{DIALS} cannot be read ({NESTED_TOO_DEEPLY}) — fix: restore the dials file at the kit root, "
             "which declares where the records are and how they are numbered"
         ) from exc
     namespace = dials.get(NAMESPACE) if isinstance(dials, dict) else None
@@ -279,14 +290,15 @@ def gated_records(kit: Path, catalog: Catalog) -> list[Path]:
 def split_frontmatter(text: str) -> tuple[dict[str, object], str]:
     """The envelope's mapping and the text after it, where the shared reader says the envelope stands
     (limit 8 of shared/GATE.md section 4); `({}, text)` when none opens or closes, and `{}` when the YAML
-    does not load or is no mapping."""
+    does not load, its brackets nested past the parser's depth included, as the shared reader reads such an
+    envelope as an invalid one, or is no mapping."""
     bounds = envelope_bounds(text)
     if bounds is None or bounds.yaml_end is None or bounds.end is None:
         return {}, text
     block = "\n".join(content for _, content, _ in envelope_lines(text, bounds.yaml_start, bounds.yaml_end))
     try:
         loaded = yaml.safe_load(block)
-    except yaml.YAMLError:
+    except (yaml.YAMLError, RecursionError):
         return {}, text[bounds.end :]
     return (loaded if isinstance(loaded, dict) else {}), text[bounds.end :]
 
@@ -1988,6 +2000,53 @@ def run_envelope_reads(t: Tally) -> None:
     }
     for source, read in gone.items():
         t.judge(split_frontmatter(source) == read, f"an envelope read from {source!r} is {read!r}")
+    deep = "[" * sys.getrecursionlimit()  # past the depth the YAML parser reads, whatever the limit is set to
+    try:
+        deep_read: object = split_frontmatter(f"---\nid: {deep}\n---\nbody\n")
+    except RecursionError:
+        deep_read = "RecursionError"
+    t.judge(
+        deep_read == ({}, "body\n"),
+        "an envelope whose brackets nest past the parser's depth is read as no mapping, never a traceback",
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        (root / DIALS).write_text(f"{NAMESPACE}: {deep}\n", encoding="utf-8")
+        try:
+            load_catalog(root)
+            deep_said = "no failure"
+        except CouldNotRun as bad:
+            deep_said = str(bad)
+        except RecursionError:
+            deep_said = "RecursionError"
+    t.judge(
+        deep_said
+        == "constitution.yaml cannot be read (its brackets are nested past the depth the YAML parser reads)"
+        " — fix: restore the dials file at the kit root, which declares where the records are and how they"
+        " are numbered",
+        "a dials file whose brackets nest past the parser's depth cannot be checked: the literal line, never"
+        " a traceback",
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        deep_record = sample_kit(root)
+        home = (deep_record.parent / HOME).resolve()
+        found: dict[str, list[str]] = {}
+        for name, extra in (("nested past the depth", deep), ("that does not load", "[")):
+            home.write_text(f"---\nid: p\ntype: current-state\nstatus: active\nextra: {extra}\n---\nmore\n")
+            try:
+                found[name] = [f.headline for f in lists(root, deep_record)[0]]
+            except RecursionError:
+                found[name] = ["RecursionError"]
+    unbound = (  # typed by hand
+        f"{DEFAULT_LAYOUT.folder}/{SAMPLE}.md: R1 is carried nowhere that binds — docs/policies/p.md is not a"
+        " governed document and holds no rules"
+    )
+    t.judge(
+        found["nested past the depth"] == [unbound] == found["that does not load"],
+        "a home whose envelope nests past the parser's depth is refused as one whose envelope does not load:"
+        " the one literal finding, never a traceback",
+    )
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         crlf_record = sample_kit(root, GOOD_RECORD.replace("\n", "\r\n"))
