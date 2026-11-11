@@ -145,14 +145,14 @@
   "const-task-close": {
     "attempts": [
       {
-        "at": "2026-11-11T15:42:10Z",
+        "at": "2026-11-11T17:10:33Z",
         "cases": 2,
         "passed": 2,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:4933cea1a2ac3110874a25c2db43d01ac24d338930d386dca0fd68f16f493bbf",
+    "hash": "sha256:2b695a59789ffa9f0f8376f8b6dbcb6b7a62ab0b6bfb0b5d8e97223008dfdf80",
     "model": "claude-opus-5-5"
   }
 }
