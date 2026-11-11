@@ -8,11 +8,12 @@ by a person, who decides what they mean; no number here is a threshold, and none
 (decision dec-0122-module-mutation-report). A mutant is the module's code with one small change;
 `scripts/kit_mutation.py` says how the mutants are made, which tests run for each, and what each outcome
 means, and its docstring defines the file of one module that this report reads. The kit's CI runs the
-report in each module's job on every pull request and on main, after the job's entries, on a sample:
+report on every pull request and on main, on a sample, in one job per module that starts once the check
+jobs have ended and that the job `gates` does not wait for:
 `--budget` stops the run after a fixed time, `--seed` is the commit the run checked out, on a pull
-request its merge with the base, so that each change draws mutants of its own. The job `gates`, after
-its verdict, reads every module's file with `--from` and prints one table beside the fixture coverage.
-A failure of the report never changes a verdict.
+request its merge with the base, so that each change draws mutants of its own. The job `mutation`
+then reads every module's file with `--from` and prints one table on the run's summary page, where the
+fixture coverage stands too. A failure of the report changes no verdict and turns no job red.
 
 What the score is not. Some mutants change no behaviour, and no test can kill them; the tests build some
 expected texts with the gate's own functions, so a mutant there changes both sides alike; the operators
