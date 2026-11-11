@@ -11,14 +11,17 @@ decider: Eugene Chernyshov
 
 ## Context
 
-The fourth module, [`const-referencing`](../requirements.md#const-referencing), was authored on 2026-09-21 and 2026-09-22 from its research comparison ([res-0004-const-referencing](../research/res-0004-const-referencing.md)) and the rows of [aspect A5](../requirements.md#a5) homed in it. Ten questions were put to the decider in chat, one per message, each with lettered options; the rest was derived by the authoring session, or found by its validations, and is listed in section 11 for the decider to override before the yes. One answer went against the session's recommendation (section 4), four overturn what the matrix or the module's specification said (sections 2, 5, 9, 10), and one adds a row (section 1). The module is the first gate of the kit wired to two tool events, the first that calls a third-party binary, and the first with a second entry point.
+The fourth module, [`const-referencing`](../requirements.md#const-referencing), was authored on 2026-09-21 and 2026-09-22 from its research comparison ([res-0004-const-referencing](../research/res-0004-const-referencing.md)) and the rows of [aspect A5](../requirements.md#a5) homed in it. Ten questions were put to the decider in chat, one per message, each with lettered options. The rest was derived by the authoring session, or found by its validations. It is listed in section 11 for the decider to override before the yes. One answer went against the session's recommendation (section 4). Four overturn what the matrix or the module's specification said (sections 2, 5, 9, 10), and one adds a row (section 1). The module is the first gate of the kit wired to two tool events, the first that calls a third-party binary, and the first with a second entry point.
 
 ## 1. Whether "repaired by tooling on a move" becomes a row
 
-The specification said an id cite is "repaired by tooling on a move", in one clause and with no row, so shipping the repair would have been scope creep and not shipping it left the clause unmet ([law 4 of CLAUDE.md](../../CLAUDE.md#law-4)). The kit had paid for the absence four times: a catalogued item's renumbering, a record's deletion, the template's links re-levelled in every copied module, and its largest rename done by hand. The comparison found no scriptable tool that moves a Markdown file and repairs the links to it.
+The specification said an id cite is "repaired by tooling on a move", in one clause and with no row. Shipping the repair would have been scope creep and not shipping it left the clause unmet ([law 4 of CLAUDE.md](../../CLAUDE.md#law-4)). The kit had paid for the absence four times: a catalogued item's renumbering, a record's deletion, the template's links re-levelled in every copied module, and its largest rename done by hand. The comparison found no scriptable tool that moves a Markdown file and repairs the links to it.
 
 - **A. A new row, with a move act in the module's script.**
-  - **Pros:** the friction is earned; nothing can be adopted; the move's test of correctness — no reference is broken — is this module's invariant, so its gate is the move's proof.
+  - **Pros:**
+    - **the friction is earned**;
+    - **nothing can be adopted**;
+    - **the move's test of correctness** — no reference is broken — is this module's invariant, so its gate is the move's proof.
   - **Cons:** the largest single piece of the module; it needs a command line beyond the gate's two modes.
 - **B. A new row, carried by a skill procedure only.**
   - **Pros:** no code beyond the gate.
@@ -27,17 +30,27 @@ The specification said an id cite is "repaired by tooling on a move", in one cla
   - **Pros:** the smallest module.
   - **Cons:** the friction signal has already fired four times.
 
-<a id="r1"></a>**R1.** The decider chose A and widened it in their own words: "move/rename as feature (might be script or command) + repair after manual move + check for consistency". [Requirement A5.8](../requirements.md#a5-8) is added: one act moves a document and rewrites the inbound links and the moved file's own relative links; after a move made by hand the same repair runs from the two paths, or from the envelope alone where a link's text is a governed id; links inside code are not rewritten, and mentions in prose are listed for a human, never rewritten; changing an `id` is not a move. The rewrite is advisory — a generator; its completeness is a gate: each act ends with the scan of the whole tree and exits with its verdict.
+<a id="r1"></a>**R1.** The decider chose A and widened it in their own words: "move/rename as feature (might be script or command) + repair after manual move + check for consistency". [Requirement A5.8](../requirements.md#a5-8) is added:
+
+- **one act moves a document** and rewrites the inbound links and the moved file's own relative links;
+- **after a move made by hand** the same repair runs from the two paths, or from the envelope alone where a link's text is a governed id;
+- **links inside code are not rewritten**, and mentions in prose are listed for a human, never rewritten;
+- **changing an `id` is not a move**.
+
+The rewrite is advisory — a generator. Its completeness is a gate: each act ends with the scan of the whole tree and exits with its verdict.
 
 ## 2. Where the check of resolution runs at write time
 
-The matrix said "CI on PR". The comparison found that a document not yet on disk cannot be shown to lychee faithfully — on standard input a same-document link is reported broken — and that a `PostToolUse` hook exiting 2 cannot block, while its stderr reaches the model word for word; and it measured lychee at about 52 ms for the kit's whole tree.
+The matrix said "CI on PR". The comparison found that a document not yet on disk cannot be shown to lychee faithfully — on standard input a same-document link is reported broken — and that a `PostToolUse` hook exiting 2 cannot block, while its stderr reaches the model word for word. It measured lychee at about 52 ms for the kit's whole tree.
 
 - **A. The scan only.**
   - **Pros:** what the matrix says; one handler.
   - **Cons:** a break is found one commit later, or at the pull request; until the kit has CI, only when someone remembers.
 - **B. The scan as the gate, and the same whole-tree check after each write as feedback.**
-  - **Pros:** a break in *another* document — the kind an own-document check never sees — is reported in the turn that causes it; one code path; the cost of an interpreter's start.
+  - **Pros:**
+    - **a break in *another* document** — the kind an own-document check never sees — is reported in the turn that causes it;
+    - **one code path**;
+    - **the cost of an interpreter's start**.
   - **Cons:** a second event in the shared code; `block` where nothing can be blocked; a move through the shell is still unseen.
 - **C. A blocking `PreToolUse` check of the written document's own links by a resolver of the module's own.**
   - **Pros:** it blocks.
@@ -53,18 +66,25 @@ The matrix said "CI on PR". The comparison found that a document not yet on disk
   - **Pros:** one entry point, one guard.
   - **Cons:** a generic mechanism with one user; a checker with a flag that edits the tree.
 - **B. A second entry point in the module, the shared guard split from the gate's parser.**
-  - **Pros:** a file named for moving that rewrites, beside a file named for checking that never does ([law 5 of CLAUDE.md](../../CLAUDE.md#law-5)); gate-script rule 1 of the template foresees a second entry point; the gate's interface stays two modes.
+  - **Pros:**
+    - **a file named for moving that rewrites**, beside a file named for checking that never does ([law 5 of CLAUDE.md](../../CLAUDE.md#law-5));
+    - **gate-script rule 1 of the template** foresees a second entry point;
+    - **the gate's interface stays two modes**.
   - **Cons:** the shared code is touched; two entry files carry the floor check.
 - **C. A standalone script with a guard of its own.**
   - **Pros:** nothing shared changes.
   - **Cons:** the guard, the exit codes and the log written twice — what [dec-0025-shared-gate-code-linked](dec-0025-shared-gate-code-linked.md) exists to prevent.
 
-<a id="r3"></a>**R3.** B. The mover is `move-document`, a second entry point; the shared code offers the single guard to any entry point — `cli.guarded` — and `cli.run` is a gate's way into it, unchanged for the three shipped gates.
+<a id="r3"></a>**R3.** B. The mover is `move-document`, a second entry point. The shared code offers the single guard to any entry point — `cli.guarded` — and `cli.run` is a gate's way into it, unchanged for the three shipped gates.
 
 ## 4. What decides which documents the gate covers
 
 - **A. The module's own dial, independent of policies** — `territories`, default every Markdown file git lists.
-  - **Pros:** a broken link is broken whether or not a policy governs the file; works with no configuration; no index per write; the module reads only its own namespace.
+  - **Pros:**
+    - **a broken link is broken** whether or not a policy governs the file;
+    - **works with no configuration**;
+    - **no index per write**;
+    - **the module reads only its own namespace**.
   - **Cons:** a consumer who wants only governed documents restates their territories.
 - **B. Policy resolution.**
   - **Pros:** one declaration of territory for all gates.
@@ -89,7 +109,7 @@ The matrix had [requirement A5.2](../requirements.md#a5-2) as advisory. The comp
   - **Pros:** nothing to build.
   - **Cons:** the drift is silent until a heading is reworded — the failure the row names.
 
-<a id="r5"></a>**R5.** A. A link whose fragment is not among the explicit anchors of a covered Markdown target is a finding of the whole-tree check; the dial `heading_anchors: allow` switches it off — the adoption path. An anchor cited in another case than it is written is a finding whatever the dial says. [Requirement A5.2](../requirements.md#a5-2) says so.
+<a id="r5"></a>**R5.** A. A link whose fragment is not among the explicit anchors of a covered Markdown target is a finding of the whole-tree check. The dial `heading_anchors: allow` switches it off — the adoption path. An anchor cited in another case than it is written is a finding whatever the dial says. [Requirement A5.2](../requirements.md#a5-2) says so.
 
 ## 6. How the syntax lint gets its vocabulary
 
@@ -105,7 +125,11 @@ The kit's bare forms — a module's number, a requirement row, a kernel section,
   - **Pros:** the most flexible.
   - **Cons:** why a rule exists becomes configuration.
 
-<a id="r6"></a>**R6.** A. With it, as the session proposed and the decider accepted: the regions masked are the YAML block that opens the file, fenced and indented code, HTML comments and code spans, so a document may show a retired form inside code; the dial `bare_ids: allow` switches the id-in-backticks check off, for a project whose ids are everyday words; the preference half of [requirement A5.1](../requirements.md#a5-1) — an id where one exists — stays advisory.
+<a id="r6"></a>**R6.** A. With it, as the session proposed and the decider accepted:
+
+- **the regions masked** are the YAML block that opens the file, fenced and indented code, HTML comments and code spans, so a document may show a retired form inside code;
+- **the dial `bare_ids: allow`** switches the id-in-backticks check off, for a project whose ids are everyday words;
+- **the preference half** of [requirement A5.1](../requirements.md#a5-1) — an id where one exists — stays advisory.
 
 ## 7. What `severity` means where nothing can be blocked
 
@@ -126,7 +150,10 @@ The kit's bare forms — a module's number, a requirement row, a kernel section,
 `scripts/check-references.sh` did four things: the kit's bare forms, the path on one machine, lychee over every Markdown file, and one check with no counterpart — a file that is not Markdown naming a decision record that does not exist, which no link checker follows.
 
 - **A. The module replaces the script whole; the fourth check becomes an optional, scan-only dial.**
-  - **Pros:** one reference gate; the kit's live proof exercises every part of the module; the friction was earned here, by the carry audit of 2026-09-19.
+  - **Pros:**
+    - **one reference gate**;
+    - **the kit's live proof exercises every part** of the module;
+    - **the friction was earned here**, by the carry audit of 2026-09-19.
   - **Cons:** it generalizes from one consumer; a pattern also matches examples; deleting a script needs a spoken yes.
 - **B. The module replaces the Markdown half; a small kit-only script stays.**
   - **Pros:** the module stays about Markdown.
@@ -135,7 +162,7 @@ The kit's bare forms — a module's number, a requirement row, a kernel section,
   - **Pros:** a second opinion.
   - **Cons:** two sets of texts drifting; the kit is then not consumer zero of its own module.
 
-<a id="r8"></a>**R8.** A. The dial `mentions` — a list of `{pattern, files}` — declares how a document's id looks outside Markdown; in the scan every match in a file git lists that is no Markdown, no link and not binary must be a covered document's id. The module reads [requirement A5.3](../requirements.md#a5-3) so: a governed id named outside Markdown is a reference where the project declares its form.
+<a id="r8"></a>**R8.** A. The dial `mentions` — a list of `{pattern, files}` — declares how a document's id looks outside Markdown. In the scan every match in a file git lists that is no Markdown, no link and not binary must be a covered document's id. The module reads [requirement A5.3](../requirements.md#a5-3) so: a governed id named outside Markdown is a reference where the project declares its form.
 
 <a id="r9"></a>**R9.** The interim script stays the gate of [requirement A5.6](../requirements.md#a5-6), and the baseline the module's scan is compared with, until the module is proven live in this repository. It is then deleted on the decider's spoken yes, given for that act, and the texts that name it are amended in the same change. The proof was made on 2026-09-22 — the scan and the script agreeing on every kind of break they share, and on the one gap the decider's question found, closed by R21 — and the yes was given in chat the same day: "yes, delete it and amend the texts".
 
@@ -169,7 +196,7 @@ The specification listed "lychee config" as a dial. The comparison found, and th
   - **Pros:** nothing to build.
   - **Cons:** the silent false green, and a verdict read from outside the module's namespace ([kernel §6](../constitution/CONVENTIONS.md#k6)).
 
-<a id="r11"></a>**R11.** A. lychee, 0.24.2 or newer, is found and its version read at each run, started in an empty scratch directory with the module's own configuration file and its inputs on standard input; exit 2 is a finding only with a parsed report. None of its options is a dial. A named dial for one option is deferred with its signal.
+<a id="r11"></a>**R11.** A. lychee, 0.24.2 or newer, is found and its version read at each run, started in an empty scratch directory with the module's own configuration file and its inputs on standard input. Exit 2 is a finding only with a parsed report. None of its options is a dial. A named dial for one option is deferred with its signal.
 
 ## 11. Rulings taken by the authoring session
 
@@ -179,15 +206,21 @@ No real choice was put to the decider on these; each is the session's derivation
 
 <a id="r13"></a>**R13.** The lint runs before the write and nowhere else at write time; the whole-tree check runs after it and in the scan. An event the gate is not wired to is a configuration failure.
 
-<a id="r14"></a>**R14.** A document whose envelope nobody can read carries no id here and is judged on its references all the same; saying that the envelope is unreadable is another gate's.
+<a id="r14"></a>**R14.** A document whose envelope nobody can read carries no id here and is judged on its references all the same. Saying that the envelope is unreadable is another gate's.
 
-<a id="r15"></a>**R15.** The mover repairs the covered documents and no others; it refuses, changing nothing, when the target exists, the source is not a file git lists, a path leaves the repository, or no dials file exists — without one the scan that proves a move cannot run; the id repair leaves alone an id two documents carry; it does not stage its rewrites; what names the old path outside a link's destination — in a covered document or in any other text file git lists — is listed and never changed.
+<a id="r15"></a>**R15.** The mover repairs the covered documents and no others. It refuses, changing nothing, when the target exists, the source is not a file git lists, a path leaves the repository, or no dials file exists — without one the scan that proves a move cannot run. The id repair leaves alone an id two documents carry. It does not stage its rewrites. What names the old path outside a link's destination — in a covered document or in any other text file git lists — is listed and never changed.
 
 <a id="r16"></a>**R16.** No command and no agent: a move is asked for in words and the skill carries it. The mover's message keys are V1 to V5, since the letter a module's number is written with would trip the kit's own lane.
 
 <a id="r17"></a>**R17.** A negated pattern takes a tree out of `territories` as `!dir/**`; `!dir/` names the directory alone, and the files inside still match. Found by experiment while the install note was written, against what the session had told the decider under section 4.
 
-<a id="r21"></a>**R21.** A path on one machine is read in code and comments too; only the YAML block that opens the file is left out. Put to the decider on 2026-09-22, when they asked whether the module covers all the interim script gave: it did not — the session had stretched the masking accepted under section 6 from bare forms to this check without asking, and a probe showed the script red and the scan green on a home-directory path inside a code span. Options: A, the check reads code; B, the mask stays, and the kit's rule against local paths is held by review inside backticks; C, a dial. The decider chose A: a bare form in code is an illustration, a local path leaks a machine's layout however it is set.
+<a id="r21"></a>**R21.** A path on one machine is read in code and comments too; only the YAML block that opens the file is left out. Put to the decider on 2026-09-22, when they asked whether the module covers all the interim script gave: it did not — the session had stretched the masking accepted under section 6 from bare forms to this check without asking, and a probe showed the script red and the scan green on a home-directory path inside a code span. Options:
+
+- **A**, the check reads code;
+- **B**, the mask stays, and the kit's rule against local paths is held by review inside backticks;
+- **C**, a dial.
+
+The decider chose A: a bare form in code is an illustration, a local path leaks a machine's layout however it is set.
 
 <a id="r22"></a>**R22.** Two rows gain the words their checks already stood under, so that neither check is content beyond its row ([law 4 of CLAUDE.md](../../CLAUDE.md#law-4)): [requirement A5.1](../requirements.md#a5-1) now says that a reference never names a path on one machine, and [requirement A5.3](../requirements.md#a5-3) that a governed id named outside Markdown is a reference where the project declares its form. Found by the first fresh-context validation; both checks were ruled by the decider (R21, R8), the rows had not followed.
 
@@ -212,9 +245,9 @@ No real choice was put to the decider on these; each is the session's derivation
 - **the mover** refuses a new path that names a directory, that drops the `.md` ending, or whose source is a symbolic link, allows a rename in case alone, and repairs a document moved out of coverage;
 - **the cost of code spans** is linear.
 
-<a id="r24"></a>**R24.** The handler after the write is a `gate` in kind — deterministic, red means fix — at a moment that cannot block, and is declared so; it is not `advisory`, since nothing in it shapes judgment. The validation had found "deterministic feedback" to be a third kind beside the two [law 5 of CLAUDE.md](../../CLAUDE.md#law-5) names.
+<a id="r24"></a>**R24.** The handler after the write is a `gate` in kind — deterministic, red means fix — at a moment that cannot block, and is declared so. It is not `advisory`, since nothing in it shapes judgment. The validation had found "deterministic feedback" to be a third kind beside the two [law 5 of CLAUDE.md](../../CLAUDE.md#law-5) names.
 
-<a id="r27"></a>**R27.** The admission rule of the shared gate code gains a clause: a part already shared may be widened for one module where the widening keeps a rule the part carries for all — one guard, one pipeline, one fixture subject — and defaults to what the other modules pass, so they change nothing. That is what R18–R20 did, and the carry audit's confirming reader found the clause stated in the shared-code document alone, which its own policy governs and which cannot widen that policy: the clause now stands in rule 2 of the policy and in CLAUDE.md, and the document echoes it.
+<a id="r27"></a>**R27.** The admission rule of the shared gate code gains a clause: a part already shared may be widened for one module where the widening keeps a rule the part carries for all — one guard, one pipeline, one fixture subject — and defaults to what the other modules pass, so they change nothing. That is what R18–R20 did. The carry audit's confirming reader found the clause stated in the shared-code document alone, which its own policy governs and which cannot widen that policy: the clause now stands in rule 2 of the policy and in CLAUDE.md, and the document echoes it.
 
 ## 12. The shared gate code, met by a fourth consumer
 
@@ -228,7 +261,14 @@ Each seam was fixed at the source with the fixtures of all four modules green.
 
 ## Applied
 
-On the branch `work/const-referencing`, in the commits before this record and the one that creates it: the module's [MODULE.md](../../modules/const-referencing/MODULE.md), its scripts, hooks, skill, install note and fixtures; [requirement A5.8](../requirements.md#a5-8) added, the enforcement cells of [A5.2](../requirements.md#a5-2), [A5.3](../requirements.md#a5-3) and [A5.7](../requirements.md#a5-7) amended, the module's specification replaced by its stub; the shared gate code and [its document](../../shared/GATE.md); the research comparison. The interim script was deleted after the live proof, on the yes of R9, and the texts that named it as the gate were amended in that commit.
+On the branch `work/const-referencing`, in the commits before this record and the one that creates it:
+
+- **the module's [MODULE.md](../../modules/const-referencing/MODULE.md)**, its scripts, hooks, skill, install note and fixtures;
+- [requirement A5.8](../requirements.md#a5-8) added, the enforcement cells of [A5.2](../requirements.md#a5-2), [A5.3](../requirements.md#a5-3) and [A5.7](../requirements.md#a5-7) amended, the module's specification replaced by its stub;
+- **the shared gate code** and [its document](../../shared/GATE.md);
+- **the research comparison**.
+
+The interim script was deleted after the live proof, on the yes of R9. The texts that named it as the gate were amended in that commit.
 
 ## Carry list
 
