@@ -22,7 +22,14 @@ from constitution_layer_kit import messages as shared
 from constitution_layer_kit.envelope import parse_envelope, yaml_error_line
 from constitution_layer_kit.model import Match, MetaType
 from constitution_layer_kit.testing.acceptance import broken_first_line, check_case, expect, item
-from constitution_layer_kit.testing.consumer import ROOT_POLICY, document, envelope
+from constitution_layer_kit.testing.consumer import (
+    BASE_MARKDOWN,
+    POLICIES,
+    ROOT_POLICY,
+    Consumer,
+    document,
+    envelope,
+)
 from constitution_layer_kit.testing.harness import Case, Edit, Harness, Result, Write, event_json, red_lines
 from constitution_layer_kit.testing.items import (
     NO_ENVELOPE,
@@ -411,7 +418,8 @@ def test_scan_red() -> None:
 @item(24, "scan: green with counts, and a note per void namespace")
 def test_scan_green() -> None:
     result = _scan(bad=False)
-    expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(4, 4, 3)), "stdout")
+    counts = messages.f9_scan_tail(len(POLICIES) + 1, BASE_MARKDOWN + 1, len(POLICIES))
+    expect(result, 0, shared.g1_green_scan(counts), "stdout")
     note = messages.n2_note_void_namespace("ghost")
     # a namespace key with a line break and 103 characters: the note names it cut at 80 and escaped,
     # each time on the one line — typed by hand
@@ -452,7 +460,33 @@ def test_scan_with_deleted_file() -> None:
     consumer = H.fresh_consumer([Write(NOTE_A, envelope("note-a"))])
     (consumer.root / NOTE_A).unlink()
     result = H.run_gate("", args=["--scan", str(consumer.root)])
-    expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(3, 3, 3)), "stdout")
+    counts = messages.f9_scan_tail(len(POLICIES), BASE_MARKDOWN, len(POLICIES))
+    expect(result, 0, shared.g1_green_scan(counts), "stdout")
+
+
+ONE_MORE = "ONE-MORE.md"  # a Markdown file no item writes, at the top of the consumer, in no territory
+
+
+@item(46, "the counts follow the shared consumer: one more Markdown file in it turns no computed count red")
+def test_counts_follow_the_consumer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The scan items compute their counts from the shared consumer's base, `BASE_MARKDOWN` and `POLICIES`,
+    so a file added to that consumer, with its export, turns none of them red. Here every consumer is built
+    with one more Markdown file, the base says so, and the items that compute a count run again. The added
+    file lies in no territory, so the governed documents and the policies stay as they were and only the
+    files scanned grow. Items 23 and 25 type their count lines whole: those lines are golden and change by
+    hand."""
+    build = Consumer.build
+
+    def with_one_more(consumer: Consumer) -> Consumer:
+        consumer.write(ONE_MORE, "# One more\n")
+        return build(consumer)
+
+    monkeypatch.setattr(Consumer, "build", with_one_more)
+    monkeypatch.setitem(globals(), "BASE_MARKDOWN", BASE_MARKDOWN + 1)
+    built = (H.fresh_consumer().root / ONE_MORE).is_file()
+    assert built, "the consumer was built without the added file: the item proves nothing"
+    test_scan_green()
+    test_scan_with_deleted_file()
 
 
 @item(32, "the fix of F4 names only the field that failed")

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Kit check: every decision record names a home for each thing it rules, every ruling carries
-its anchor, the rulings run in order from dec-0039 on, and every accepted record has the receipt
+its anchor, the rulings run in order from record 39 on, and every accepted record has the receipt
 of its carry audit.
 
 A ruling that is recorded and approved but never written into a current-state document is
