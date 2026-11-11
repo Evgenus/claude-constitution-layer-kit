@@ -37,7 +37,7 @@ Recommendation B. Chosen B by the decider in chat on 2026-09-18. Applied: [CLAUD
 
 ## 2. The meta-types/locations boundary and the shared territory lookup
 
-[`const-meta-types`](../requirements.md#const-meta-types) and [`const-locations`](../requirements.md#const-locations) fired on the same hook, at the same moment, over the same territory, and both needed the [kernel §3](../constitution/CONVENTIONS.md#k3) lookup — root policy, documents in its territory, union of their territories. [Law 3 of CLAUDE.md](../../CLAUDE.md#law-3) forbids sharing code and the kernel ships no machinery. The matrix flagged the boundary with †.
+[`const-meta-types`](../requirements.md#const-meta-types) and [`const-locations`](../requirements.md#const-locations) fired on the same hook, at the same moment, over the same territory. Both needed the [kernel §3](../constitution/CONVENTIONS.md#k3) lookup — root policy, documents in its territory, union of their territories. [Law 3 of CLAUDE.md](../../CLAUDE.md#law-3) forbids sharing code and the kernel ships no machinery. The matrix flagged the boundary with †.
 
 - **A. Move [A2.3](../requirements.md#a2-3) into [`const-meta-types`](../requirements.md#const-meta-types).** One write-time guard of claimed territory: valid envelope and exactly one policy. [`const-locations`](../requirements.md#const-locations) keeps creation and the new-kind procedure, advisory.
   - **Pros:** the lookup is written once for write time; both modules pass the three boundary tests; kernel plus [`const-locations`](../requirements.md#const-locations) alone still works.
@@ -56,7 +56,10 @@ Recommendation B. Chosen B by the decider in chat on 2026-09-18. Applied: [CLAUD
   - **Cons:** [`const-meta-types`](../requirements.md#const-meta-types)'s resolver written twice.
 - **F. Kernel library as a pip package into system Python.**
   - **Pros:** one install, PyYAML included.
-  - **Cons:** gate logic depends on machine state, so two developers can get different verdicts on one file; version skew across modules and machines; PEP 668 blocks the system install on Debian, Ubuntu and Homebrew.
+  - **Cons:**
+    - **gate logic depends on machine state**, so two developers can get different verdicts on one file;
+    - **version skew across modules and machines**;
+    - **PEP 668 blocks the system install** on Debian, Ubuntu and Homebrew.
 - **G. Keep the plan, each module reimplements the lookup by hand.**
   - **Pros:** nothing new before [`const-meta-types`](../requirements.md#const-meta-types).
   - **Cons:** three drifting copies.
@@ -66,14 +69,17 @@ Recommendation B. Chosen B by the decider in chat on 2026-09-18. Applied: [CLAUD
 
 Recommendation A with E's terms: A and H are symmetric, and A keeps the undesigned piece in the module authored later. Chosen A with E by the decider in chat on 2026-09-18.
 
-Rulings: (a) [A2.3](../requirements.md#a2-3) is [`const-meta-types`](../requirements.md#const-meta-types)'s; [`const-meta-types`](../requirements.md#const-meta-types) guards claimed territory at write time, envelope and resolution in one script, with a repository-scan mode as backstop; [`const-locations`](../requirements.md#const-locations) is advisory creation and claims no gate. (b) No shared library before a second reader exists. When [`const-catalogs`](../requirements.md#const-catalogs) needs the lookup, a kernel reference implementation is extracted, vendored into each module with a kit gate on copy equality, admitted only for functions that implement a kernel section literally and that two or more modules need; [INTENT.md](../../INTENT.md) is amended then. A pip package is the delivery for readers outside plugins, if one appears. Applied: matrix intro and row [A2.3](../requirements.md#a2-3); [`const-meta-types`](../requirements.md#const-meta-types) and [`const-locations`](../requirements.md#const-locations) spec text.
+Rulings: (a) [A2.3](../requirements.md#a2-3) is [`const-meta-types`](../requirements.md#const-meta-types)'s; [`const-meta-types`](../requirements.md#const-meta-types) guards claimed territory at write time, envelope and resolution in one script, with a repository-scan mode as backstop; [`const-locations`](../requirements.md#const-locations) is advisory creation and claims no gate. (b) No shared library before a second reader exists. When [`const-catalogs`](../requirements.md#const-catalogs) needs the lookup, a kernel reference implementation is extracted, vendored into each module with a kit gate on copy equality, admitted only for functions that implement a kernel section literally and that two or more modules need. [INTENT.md](../../INTENT.md) is amended then. A pip package is the delivery for readers outside plugins, if one appears. Applied: matrix intro and row [A2.3](../requirements.md#a2-3); [`const-meta-types`](../requirements.md#const-meta-types) and [`const-locations`](../requirements.md#const-locations) spec text.
 
 ## 3. Live proof in a consumer project before a consumer exists
 
-[CLAUDE.md](../guide/developing-a-module.md#s5) step 5 requires two live proofs before the yes, in this repository and in a consumer project; the consumer is born in Phase B, after the four Phase A modules.
+[CLAUDE.md](../guide/developing-a-module.md#s5) step 5 requires two live proofs before the yes, in this repository and in a consumer project. The consumer is born in Phase B, after the four Phase A modules.
 
-- **A. Two-stage proof, one yes.** The record and the yes follow the kit-live proof; the consumer-live proof is a named step of Phase B, and a finding there is a fix with a version bump.
-  - **Pros:** matches the sequence of [dec-0006-accumulating-set-first](dec-0006-accumulating-set-first.md); drafts stay `0.0.x` until Phase D, so the yes accepts a draft; the consumer proof still precedes publication.
+- **A. Two-stage proof, one yes.** The record and the yes follow the kit-live proof. The consumer-live proof is a named step of Phase B, and a finding there is a fix with a version bump.
+  - **Pros:**
+    - **matches the sequence of [dec-0006-accumulating-set-first](dec-0006-accumulating-set-first.md)**;
+    - **drafts stay `0.0.x` until Phase D**, so the yes accepts a draft;
+    - **the consumer proof** still precedes publication.
   - **Cons:** a yes can be followed by a rework.
 - **B. Hold every yes until Phase B.**
   - **Pros:** one yes covers both proofs.
@@ -89,7 +95,7 @@ Recommendation A. Chosen A by the decider in chat on 2026-09-18. Applied: [CLAUD
 
 ## 4. Where a module's description lives after it moves into `MODULE.md`
 
-[dec-0003-module-spec-kind](dec-0003-module-spec-kind.md) moves each plan description into the module's draft `MODULE.md`; reference form R7 of [dec-0005-reference-forms](dec-0005-reference-forms.md#r7) sends every module cite to the plan's anchor, and eleven records link there.
+[dec-0003-module-spec-kind](dec-0003-module-spec-kind.md) moves each plan description into the module's draft `MODULE.md`. Reference form R7 of [dec-0005-reference-forms](dec-0005-reference-forms.md#r7) sends every module cite to the plan's anchor, and eleven records link there.
 
 - **A. The plan keeps a one-line stub per module under the same anchor**, linking the module's `MODULE.md`; the anchor stays the canonical handle, authored or not.
   - **Pros:** no link migration ever; one stable handle per module; authored and unauthored modules cited alike.
@@ -108,7 +114,7 @@ Recommendation A. Chosen A by the decider in chat on 2026-09-18. Applied: the mo
 
 ## 5. The rollout plan was ungoverned and mixed
 
-`docs/rollout-plan.md` was the requirements source of every module by [law 4 of CLAUDE.md](../../CLAUDE.md#law-4), yet carried no envelope, sat in no territory, and mixed normative content (the matrix, the module specifications) with intent not yet real (the phases), which [kernel §2](../constitution/CONVENTIONS.md#k2) keeps out of standing documents.
+`docs/rollout-plan.md` was the requirements source of every module by [law 4 of CLAUDE.md](../../CLAUDE.md#law-4), yet carried no envelope, sat in no territory. It mixed normative content (the matrix, the module specifications) with intent not yet real (the phases), which [kernel §2](../constitution/CONVENTIONS.md#k2) keeps out of standing documents.
 
 - **A. Claim it whole as `current-state`, phases tolerated as a roadmap section.**
   - **Pros:** one policy, no move.
@@ -123,11 +129,21 @@ Recommendation A. Chosen A by the decider in chat on 2026-09-18. Applied: the mo
   - **Pros:** no rollout-plan policy.
   - **Cons:** a schedule is not a ruling; a record with no choice is the manufactured shape the kernel forbids.
 
-Recommendation C. Chosen C by the decider in chat on 2026-09-18. Applied: the split; policies [plc-0007-requirements](../policies/plc-0007-requirements.md) and [plc-0008-rollout-plan](../policies/plc-0008-rollout-plan.md), their territories in `constitution.yaml`; every anchored link migrated from `rollout-plan.md#` to `requirements.md#` across records, `CLAUDE.md`, `INTENT.md`, `README.md`, the template, and `scripts/check-references.sh`, whose `M<n>` exemption follows the specifications; bare mentions of the old path in inactive records are left as evidence of their moment, since nothing resolves through them. Found in passing and repaired in the preceding commit: the intent policy had reused the id of [INTENT.md](../../INTENT.md); it is now [plc-0003-intent-page](../policies/plc-0003-intent-page.md).
+Recommendation C. Chosen C by the decider in chat on 2026-09-18. Applied:
+
+- **the split**;
+- **policies [plc-0007-requirements](../policies/plc-0007-requirements.md) and [plc-0008-rollout-plan](../policies/plc-0008-rollout-plan.md)**, their territories in `constitution.yaml`;
+- **every anchored link migrated** from `rollout-plan.md#` to `requirements.md#` across records, `CLAUDE.md`, `INTENT.md`, `README.md`, the template, and `scripts/check-references.sh`, whose `M<n>` exemption follows the specifications;
+- **bare mentions of the old path** in inactive records are left as evidence of their moment, since nothing resolves through them.
+
+Found in passing and repaired in the preceding commit:
+
+- **the intent policy had reused the id** of [INTENT.md](../../INTENT.md);
+- **it is now** [plc-0003-intent-page](../policies/plc-0003-intent-page.md).
 
 ## 6. What the portability grep looks for
 
-[Requirement A12.1](../requirements.md#a12-1) named a project-reference grep as half of the portability gate without defining a project reference; a list of consumer names cannot be the definition, being project content by [law 2 of CLAUDE.md](../../CLAUDE.md#law-2). The check arrives with CI in Phase D, but [CLAUDE.md](../guide/developing-a-module.md#s5) step 5 runs it by hand from the first module on.
+[Requirement A12.1](../requirements.md#a12-1) named a project-reference grep as half of the portability gate without defining a project reference. A list of consumer names cannot be the definition, being project content by [law 2 of CLAUDE.md](../../CLAUDE.md#law-2). The check arrives with CI in Phase D, but [CLAUDE.md](../guide/developing-a-module.md#s5) step 5 runs it by hand from the first module on.
 
 - **A. Absolute paths and links only**, as `scripts/check-references.sh` already does for kit documents.
   - **Pros:** zero false positives; implemented.
@@ -135,9 +151,14 @@ Recommendation C. Chosen C by the decider in chat on 2026-09-18. Applied: the sp
 - **B. Drop the grep; the bare-repo defaults-only run is the whole gate.**
   - **Pros:** no heuristic.
   - **Cons:** a hardcoded path that only acts when it exists passes a bare repo untouched.
-- **C. Literal-path heuristic, no denylist.** Any absolute path, `file:` link, `~/`, or repository-relative path literal not prefixed by `${CLAUDE_PLUGIN_ROOT}` and not a public URL is a finding; the one repository path a module may name is `constitution.yaml`; no exemption marker.
+- **C. Literal-path heuristic, no denylist.**
+  - **Any absolute path**, `file:` link, `~/`, or repository-relative path literal not prefixed by `${CLAUDE_PLUGIN_ROOT}` and not a public URL is a finding;
+  - **the one repository path a module may name** is `constitution.yaml`;
+  - **no exemption marker**.
   - **Pros:** targets the real leak class without naming any project; enforces the discipline the kernel's portability rule states.
-  - **Cons:** noise on in-plugin paths in prose, resolved by writing them `${CLAUDE_PLUGIN_ROOT}`-relative or in words; a heuristic, so the bare-repo run stays the gate of record.
+  - **Cons:**
+    - **noise on in-plugin paths in prose**, resolved by writing them `${CLAUDE_PLUGIN_ROOT}`-relative or in words;
+    - **a heuristic**, so the bare-repo run stays the gate of record.
 - **D. C plus an allowlist of kit-defined names.**
   - **Pros:** less noise.
   - **Cons:** the allowlist becomes the exemption marker C refuses.
@@ -146,7 +167,7 @@ Recommendation C. Chosen C by the decider in chat on 2026-09-18. Applied: [requi
 
 ## 7. Severity posture of write-time gates
 
-[`const-catalogs`](../requirements.md#const-catalogs) declared a block-or-warn dial for its write-time hook; [`const-meta-types`](../requirements.md#const-meta-types) declared none. A consumer adopting on a repository with legacy documents needs to see findings before every write is blocked, and only one of the two write-time gates offered it.
+[`const-catalogs`](../requirements.md#const-catalogs) declared a block-or-warn dial for its write-time hook; [`const-meta-types`](../requirements.md#const-meta-types) declared none. A consumer adopting on a repository with legacy documents needs to see findings before every write is blocked. Only one of the two write-time gates offered it.
 
 - **A. Template convention: every write-time gate exposes `severity`, `block` or `warn`, default `block`**; the scan mode ignores it.
   - **Pros:** one word, one meaning; an adoption path from the first module; the default keeps the gate a gate.
