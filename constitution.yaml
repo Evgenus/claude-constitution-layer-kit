@@ -122,25 +122,25 @@ const-referencing:                    # the kit's own reference forms (requireme
   heading_anchors: refuse             # values: refuse | allow — allow switches R7 off
   bare_ids: refuse                    # values: refuse | allow — allow switches R2 off — for a project whose ids are everyday words
   local_paths: refuse                 # values: refuse | allow — allow switches R4 off — for a project whose documents must show a machine's home directory
-  lanes:                              # a bare form is the local alias inside its home document, a link everywhere else
+  lanes:                              # a bare form is the local alias inside its home document, a link everywhere else; a fix is printed as written, so a name in angle brackets — <n>, <m>, <name>, <path to> — is a place the writer fills, and each fix says with what
     - pattern: '\bM[0-9]+\b'
       names: a module by its number
-      fix: '[`const-<name>`](<path to>/docs/requirements.md#const-<name>) — a module number resolves only inside the requirements document'
+      fix: '[`const-<name>`](<path to>/docs/requirements.md#const-<name>) — <name> is the name the requirements document gives the module of that number, and <path to> is the path from this document''s folder to the repository''s top folder'
       home:
         - "/docs/requirements.md"
     - pattern: '\bA[0-9]+\.[0-9]+'
       names: a requirement row
-      fix: '[requirement A5.3](<path to>/docs/requirements.md#a5-3)'
+      fix: '[requirement A<n>.<m>](<path to>/docs/requirements.md#a<n>-<m>) — A<n>.<m> is the row cited, and <path to> is the path from this document''s folder to the repository''s top folder'
       home:
         - "/docs/requirements.md"
-    - pattern: '§ ?[1-7](?![0-9])'
+    - pattern: '§ ?[1-9](?![0-9])'      # any one digit, so the pattern holds no count of the kernel's sections; a link to a section the kernel lacks fails as a missing anchor
       names: a kernel section
-      fix: '[kernel §4](<path to>/docs/constitution/CONVENTIONS.md#k4)'
+      fix: '[kernel §<n>](<path to>/docs/constitution/CONVENTIONS.md#k<n>) — <n> is the number of the section cited, and <path to> is the path from this document''s folder to the repository''s top folder'
       home:
         - "/docs/constitution/CONVENTIONS.md"
     - pattern: '(?i)\blaws? [0-9]'
       names: a law
-      fix: '[law <n> of CLAUDE.md](<path to>/CLAUDE.md#law-<n>) — <n> is the number of the law cited'
+      fix: '[law <n> of CLAUDE.md](<path to>/CLAUDE.md#law-<n>) — <n> is the number of the law cited, and <path to> is the path from this document''s folder to the repository''s top folder'
       home:
         - "/CLAUDE.md"
   mentions:                           # a catalogued item named in a script or a configuration file must exist: no link checker reads those
