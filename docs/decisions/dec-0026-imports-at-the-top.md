@@ -17,7 +17,7 @@ decider: Eugene Chernyshov
 
 1. **Rule 16.** Every import stands at the top of its module. An import inside a function or a method is allowed only when it is explicitly necessary, and then the reason is written at the import.
 2. **The check is the standard tool's.** `ruff` rule `PLC0415` (import outside the top level) is selected in the kit's `pyproject.toml`; a necessary exception carries `# noqa: PLC0415` with its reason in a comment beside it. The rule is deterministic, so it is held by a tool and not by review.
-3. **The code as it stands has one necessary case,** twice: `load_modes` in each module's `start`, which imports the module's two modes after the shared preflight. At the top of the file the import would pull in the declared libraries before the preflight has run, and a missing library would reach the user as a traceback instead of the designed configuration failure. Both are marked and reasoned. No other import inside a function exists in `shared/`, `modules/` or `scripts/`.
+3. **The code as it stands has one necessary case,** twice: `load_modes` in each module's `start`, which imports the module's two modes after the shared preflight. At the top of the file the import would pull in the declared libraries before the preflight has run. A missing library would reach the user as a traceback instead of the designed configuration failure. Both are marked and reasoned. No other import inside a function exists in `shared/`, `modules/` or `scripts/`.
 
 ## Reasoning
 
@@ -27,4 +27,13 @@ Not covered by the tool, and left to review: `importlib.import_module` called on
 
 ## Applied
 
-In the commit that creates this record: rule 16 in [template §6](../../module-template/gate-script-rules.md#r16); the count and the list in step 4 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s4); `PLC0415` in `pyproject.toml`; the two marked imports; the decisions sections of both module documents; item 2 of [kit-shared-gate-code §2](../../shared/GATE.md#g2). The record is born `inactive`.
+In the commit that creates this record:
+
+- **rule 16** in [template §6](../../module-template/gate-script-rules.md#r16);
+- **the count and the list** in step 4 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s4);
+- **`PLC0415` in `pyproject.toml`**;
+- **the two marked imports**;
+- **the decisions sections of both module documents**;
+- **item 2** of [kit-shared-gate-code §2](../../shared/GATE.md#g2).
+
+The record is born `inactive`.
