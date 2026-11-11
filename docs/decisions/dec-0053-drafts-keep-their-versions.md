@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-The carry audit of [dec-0052-doc-budgets-module-rulings](dec-0052-doc-budgets-module-rulings.md) found three texts that disagreed on versions. Step 4 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s4) said "a fix in shared code bumps the version of every module that links it", and rule 7 of [plc-0009-shared-code](../policies/plc-0009-shared-code.md#r7) said a change to the shared code bumps the version of every module that links the code, neither with a condition; step 7 said "Version bump on every change once published". Three changes to the shared code had bumped nothing, every module being a draft at `0.0.x`. The audit justified the tension and left it to the decider, who asked for it as a decision on 2026-09-29. The two questions below were put in chat, one per message, each with lettered options; the pick was the letter.
+The carry audit of [dec-0052-doc-budgets-module-rulings](dec-0052-doc-budgets-module-rulings.md) found three texts that disagreed on versions. Step 4 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s4) said "a fix in shared code bumps the version of every module that links it", and rule 7 of [plc-0009-shared-code](../policies/plc-0009-shared-code.md#r7) said a change to the shared code bumps the version of every module that links the code, neither with a condition. Step 7 said "Version bump on every change once published". Three changes to the shared code had bumped nothing, every module being a draft at `0.0.x`. The audit justified the tension and left it to the decider, who asked for it as a decision on 2026-09-29. The two questions below were put in chat, one per message, each with lettered options; the pick was the letter.
 
 ## 1. When a fix to shared code bumps a module's version
 
@@ -38,7 +38,12 @@ Step 5 of "Developing a module" said a finding in the consumer-live proof "is a 
   - **Pros:** a smaller change; dec-0015 unchanged.
   - **Cons:** two bump rules with different conditions.
 
-The session recommended A. <a id="r2"></a>**R2.** A, chosen by the decider in chat on 2026-09-29: a consumer-live finding is a fix, with a version bump once the module is published; step 7 states the whole rule — a draft, at `0.0.x`, need not be bumped, for a change of its own, a change to the shared code or a consumer-live finding alike. "Need not": a draft may still be bumped within `0.0.x`, as four were before this record.
+The session recommended A. <a id="r2"></a>**R2.** A, chosen by the decider in chat on 2026-09-29:
+
+- **a consumer-live finding is a fix**, with a version bump once the module is published;
+- **step 7 states the whole rule** — a draft, at `0.0.x`, need not be bumped, for a change of its own, a change to the shared code or a consumer-live finding alike.
+
+"Need not": a draft may still be bumped within `0.0.x`, as four were before this record.
 
 ## 3. What this record narrows
 
