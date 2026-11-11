@@ -41,13 +41,13 @@ Option A, chosen by the decider in chat on 2026-11-11. The session had asked how
 
 ## Ruling
 
-<a id="r1"></a>**R1.** Every handler of a module's hooks file whose `command` names `python3`, or whose script names it, has a timeout of at least the `hook_seconds` its own entry point declares plus `LEFT_FOR_THE_REST`. The shared item S165 holds it. What counts as a handler's script stays as it was.
+<a id="r1"></a>**R1.** Every handler of a module's hooks file whose `command` names `python3`, or whose script names it, has a timeout of at least the `hook_seconds` its own entry point declares plus `LEFT_FOR_THE_REST`. This holds for every kind of entry point a handler starts — a gate, a printer, a grant, a hook that counts — and whatever mode its scope opens in: an entry point whose run has no deadline, an act, is held to the number it declares all the same. The shared item S165 holds it. What counts as a handler's script stays as it was.
 
 <a id="r2"></a>**R2.** S165 reads that budget from a run. It starts the handler as the platform does, on empty input, in a fresh consumer. A patch of the test logs the `hook_seconds` the entry point declares itself with and ends the process there, before the scope opens. So nothing of the run happens.
 
-<a id="r3"></a>**R3.** A handler that names `python3` and whose entry point declares no budget is red. Its run has no deadline that a timeout could stand above.
+<a id="r3"></a>**R3.** A handler that names `python3` and whose entry point never declares itself, opening no scope of `identity.declared`, is red: the tie has no number to hold it to. So is one that cannot be started, or that does not get that far within the item's bound. An identity that names no `hook_seconds` declares the default, and is held to it.
 
-<a id="r4"></a>**R4.** The tie runs for every module that has a hooks file, whatever kind its gate is. A gate with a hook run must have at least one handler to hold. A module whose handlers all name no `python3`, or that has no hooks file, owes none.
+<a id="r4"></a>**R4.** The tie runs in every module, whatever kind its gate is. A gate with a hook run must have at least one handler to hold, so there a hooks file that is missing, or that holds no handler that names `python3`, is red. Any other module owes none: with no hooks file, or with handlers that all name no `python3`, it is green.
 
 <a id="r5"></a>**R5.** The tie has its fixture of [law 7 of CLAUDE.md](../../CLAUDE.md#law-7) inside S165, on a plugin made for the purpose. Its gate declares 10 s and its printer 40 s. Both at their own floor are green. The printer one second under its floor is red. The printer at 30 s is red, though the gate's budget alone would let it pass. A handler that declares nothing is red. No handler runs past its declaration. The earlier negative control, on hooks files made for the purpose, stays, with the budget given to it.
 

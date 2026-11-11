@@ -944,7 +944,7 @@ class SharedItems:
                 float(declared[0])
                 if declared
                 else "declares no hook budget: its entry point opened no scope of `identity.declared`, so"
-                " its run has no deadline for the tie to hold"
+                " the tie has no number to hold it to"
             )
             return known[key]
 
@@ -955,8 +955,8 @@ class SharedItems:
         that declares 10 s and a printer that declares 40 s, each a script that opens a scope of
         `identity.declared`. Both at their own floor are green. The printer one second under its floor is
         red, and so is the printer at 30 s, which the gate's budget alone would let pass. A handler that
-        names python3 and declares nothing is red, since it has no deadline to hold. The handlers are
-        started only as far as their declaration: none leaves the mark its run would write."""
+        names python3 and never declares itself is red, since the tie has no number to hold it to. The
+        handlers are started only as far as their declaration: none leaves the mark its run would write."""
         plugin = self.h.scratch_dir()
         (plugin / "hooks").mkdir()
         scripts = plugin / "scripts"
@@ -2668,14 +2668,14 @@ def test_envelope_delimiters(subject: Subject) -> None:
 @item(
     165,
     "C12.12, C12.13: a git that gives no answer in a hook ends in a shared line within the budget,"
-    " a scan and an act give git no clock, and the hook's handlers hold its budget and the margin",
+    " a scan and an act give git no clock, and each handler holds its own hook budget and the margin",
 )
 def test_git_has_a_budget_in_a_hook(subject: Subject) -> None:
     """N22: the shared `git` gives a call `GIT_SECONDS` in a hook and no clock in a scan or an act. In a
     hook a git that never answers — at the file list, at the scratch repository, at the repository's
     root — ends in the shared line `C12.12` with the count line after it; a git that answers is
-    unchanged; and the plugin's handlers hold the hook's budget and `LEFT_FOR_THE_REST`, so that the
-    line is the hook's last word."""
+    unchanged; and each handler of the plugin's hooks file holds the hook budget its own entry point
+    declares and `LEFT_FOR_THE_REST`, so that the line is the hook's last word."""
     it = shared(subject, "git_has_a_budget_in_a_hook")
     results: list[tuple[bool, str]] = [
         it.attempted(check)
