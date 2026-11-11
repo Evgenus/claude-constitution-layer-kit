@@ -4,7 +4,7 @@ package's messages module.
 
 Error messages are a teaching surface: a finding states what failed, why the rule exists (one
 clause), and the exact fix; a configuration failure is one self-sufficient line. Every function
-name starts with the stable key of its text (l1_ to l6_, n2_, f9_, g1_, c2_, c5_, c12_), so a text
+name starts with the stable key of its text (l1_ to l6_, n2_ to n4_, f9_, g1_, c2_, c5_, c12_), so a text
 can be cited, reviewed and asserted by key. A reader must be able to act on a message without
 holding any other document: no text here cites one.
 """
@@ -124,7 +124,7 @@ def l6_vale_comment(rel: str, line: int, text: str) -> Finding:
     )
 
 
-# ---------------------------------------------------------------- notes: a rule at warning
+# ---------------------------------------------------------------- notes: a rule at warning, a falling grade
 
 
 def n2_warning(rel: str, rule: Rule, found: Finding) -> str:
@@ -139,6 +139,17 @@ def n3_stale_departure(index: int, departure: Departure) -> str:
     return (
         f"note: {_ns()}.departures entry {index} ({echoed(', '.join(departure.paths))}) matches no covered"
         " document; the documents it allowed were deleted or moved, or the pattern is wrong"
+    )
+
+
+def n4_falling(rel: str, grade: float, ceiling: float, before: float) -> str:
+    """After a write, a grade above the ceiling and below the document's grade in the last commit: a
+    note in place of L1, so that a long document comes down one edit at a time with no red between."""
+    return (
+        f"note: {escaped(rel)}:1: the document reads at grade {grade:g} by Flesch–Kincaid, above the"
+        f" ceiling of {ceiling:g} and below the {before:g} of its last commit — reported, not red, while"
+        f" the grade falls: split the long sentences and prefer short words until it is at or under"
+        f" {ceiling:g}; the scan stays red until then"
     )
 
 

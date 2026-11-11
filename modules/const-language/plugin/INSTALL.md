@@ -27,11 +27,14 @@ A line that starts `BROKEN: const-language needs the Python package constitution
    Vale from the dials on every run: the document's Flesch–Kincaid grade against a ceiling; each
    sentence's words against a limit; a list of idioms and formal phrases plain language avoids;
    a list of words with one plain replacement, named in the finding; passive voice, reported as
-   a note by default. A Vale comment in a document — `<!-- vale … -->` — outside a fence or a code
-   span is blanked before the check reads and reported as a finding: nothing in a document
-   switches a rule off. The check reads only the configuration it generates (`--config`,
-   `--no-global`) and never a `.vale.ini` or a `StylesPath` of the repository, so Vale run by
-   hand beside it sees a second configuration.
+   a note by default. After a write, a grade above the ceiling is a note and not a finding
+   while it is below the grade of the same document in the last commit, so a long document comes
+   down one edit at a time; the scan reads no commit and stays red until the document is at or
+   under the ceiling, so run it green before the change is merged (step 4). A Vale comment in a
+   document — `<!-- vale … -->` — outside a fence or a code span is blanked before the check
+   reads and reported as a finding: nothing in a document switches a rule off. The check reads
+   only the configuration it generates (`--config`, `--no-global`) and never a `.vale.ini` or a
+   `StylesPath` of the repository, so Vale run by hand beside it sees a second configuration.
 2. **Zero configuration works** in a repository whose `constitution.yaml` has `module_prefix`
    and no key of this namespace: every Markdown file git lists is covered, the ceiling is grade 10,
    the limit 25 words, the four rules red and the passive a note. Without that file every run is a
@@ -41,7 +44,7 @@ A line that starts `BROKEN: const-language needs the Python package constitution
    const-language:
      severity: block                              # block: the findings reach the model as a block after the write; warn: as context
      territories: ["*.md", "!docs/archive/**"]    # gitignore syntax; the documents checked; default ["*.md"]
-     grade_ceiling: 10                            # Flesch–Kincaid; a document above it is a finding; default 10
+     grade_ceiling: 10                            # Flesch–Kincaid; a document above it is a finding, or after a write a note while its grade falls; default 10
      sentence_words: 25                           # words; a sentence over it is a finding; default 25
      levels:                                      # per rule: error (a finding, red), warning (a note), off; defaults below
        grade: error
