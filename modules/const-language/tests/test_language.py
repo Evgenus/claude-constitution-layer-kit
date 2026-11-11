@@ -32,7 +32,7 @@ import yaml
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.history import read_transcript
 from constitution_layer_kit.model import Finding
-from constitution_layer_kit.repository import list_markdown
+from constitution_layer_kit.repository import GIT_SECONDS, list_markdown
 from constitution_layer_kit.testing.acceptance import broken_first_line, check_case, expect, failure_of, item
 from constitution_layer_kit.testing.consumer import Consumer
 from constitution_layer_kit.testing.harness import (
@@ -47,6 +47,8 @@ from constitution_layer_kit.testing.harness import (
     stop_json,
 )
 from constitution_layer_kit.testing.items import (
+    HANG_BOUND,
+    HANG_SECONDS,
     PatternDial,
     Subject,
     fake_claude,
@@ -87,6 +89,17 @@ GRADE_RED = (
     " implementation.\n"
 )
 GRADE_RED_VALUE = 43.54
+# the same prose with shorter words in places: above the ceiling still, and below GRADE_RED
+GRADE_LOWER = (
+    "# T\n\nOrganizational responsibilities necessitate documentation. Institutional accountability"
+    " presupposes verification. We went home.\n"
+)
+GRADE_LOWER_VALUE = 33.04
+# GRADE_RED and one more sentence of long words: above GRADE_RED
+GRADE_HIGHER = (
+    GRADE_RED.rstrip("\n") + " Organizational responsibilities necessitate comprehensive documentation.\n"
+)
+GRADE_HIGHER_VALUE = 44.02
 PLAIN = "# T\n\nThe cat sat on the mat. It was warm. We went home.\n"
 LONG_SENTENCE = (
     "The cat sat on the mat and the dog ran to the door and the bird flew up to the roof and the fish"
@@ -1227,7 +1240,8 @@ def pointer_wiring(hooks: dict[str, list[dict[str, object]]]) -> None:
 def test_t16() -> None:
     """The skill's description is under the platform's cap; the hook is wired after the write, and
     besides it only the two pointer events (the pointer's own item proves what they print), with an
-    integer timeout; the version probe and then the run, both read from the module's own code, fit the
+    integer timeout; the version probe, the one git call that reads the last commit's copy, under the
+    shared cap, and then the run, the two waits read from the module's own code, fit the
     hook's budget the gate declares (`GATE.hook_seconds`), which the handler's timeout holds with
     `LEFT_FOR_THE_REST` (the shared item S165); the manifest names the plugin at a draft version; the
     install note's calibration example is accepted."""
@@ -1245,7 +1259,7 @@ def test_t16() -> None:
         r"a description of (\d+) characters", (MODULE_ROOT / "MODULE.md").read_text(encoding="utf-8")
     )
     timeout = entry["hooks"][0].get("timeout")
-    needed = vale.VERSION_SECONDS + vale.HOOK_SECONDS
+    needed = vale.VERSION_SECONDS + GIT_SECONDS + vale.HOOK_SECONDS
     budget = start.GATE.hook_seconds
     assert len(description) < 1536, f"description of {len(description)} characters"
     assert stated is not None and int(stated.group(1)) == len(description), (
@@ -1258,13 +1272,14 @@ def test_t16() -> None:
     ), "PostToolUse on Write|Edit through the plugin root, and the two pointer events, no other"
     pointer_wiring(hooks)
     assert isinstance(timeout, int) and needed <= budget, (
-        f"the version probe's {vale.VERSION_SECONDS} s and the run's {vale.HOOK_SECONDS} s, {needed} s in"
-        f" all, fit the hook's budget of {budget:g} s"
+        f"the version probe's {vale.VERSION_SECONDS} s, the {GIT_SECONDS} s of the read of the last commit"
+        f" and the run's {vale.HOOK_SECONDS} s, {needed} s in all, fit the hook's budget of {budget:g} s"
         if isinstance(timeout, int) and needed <= budget
         else f"timeout {timeout!r} is no integer"
         if not isinstance(timeout, int)
-        else f"the version probe's {vale.VERSION_SECONDS} s and the run's {vale.HOOK_SECONDS} s,"
-        f" {needed} s in all, are over the hook's budget of {budget:g} s"
+        else f"the version probe's {vale.VERSION_SECONDS} s, the {GIT_SECONDS} s of the read of the last"
+        f" commit and the run's {vale.HOOK_SECONDS} s, {needed} s in all, are over the hook's budget of"
+        f" {budget:g} s"
     )
     assert manifest["name"] == NAMESPACE and manifest["version"].startswith("0.0."), (
         f"manifest {manifest['version']}"
@@ -1478,6 +1493,233 @@ CASES = [
 )
 def test_case(case: Case) -> None:
     check_case(H, case)
+
+
+def committed(files: dict[str, str], dials_patch: dict[str, object] | None = None) -> Path:
+    """A consumer whose last commit holds `files` and the patched dials."""
+    consumer = H.fresh_consumer()
+    consumer.write("constitution.yaml", dials_text(dials_patch))
+    for rel, text in files.items():
+        consumer.write(rel, text)
+    consumer.git("add", "-A")
+    consumer.git(  # a commit of its own even where nothing changed: the last commit is this one
+        "-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid", "commit", "-qm", "fixture",
+        "--allow-empty",
+    )  # fmt: skip
+    return consumer.root
+
+
+def git_asked(log: Path) -> list[str]:
+    """The lines of a `git_patch` log: for each git call, its timeout and its arguments."""
+    return log.read_text(encoding="utf-8").splitlines() if log.exists() else []
+
+
+def write_over(
+    before: dict[str, str], action: Write | Edit, dials_patch: dict[str, object] | None = None
+) -> Result:
+    """The gate on a write over a consumer whose last commit holds `before`."""
+    return H.run_gate(event_json(committed(before, dials_patch), action))
+
+
+@item(
+    33,
+    "red→green: a committed document over the ceiling — a write that does not lower its grade is L1,"
+    " the write that lowers it is green with the note N4",
+)
+def test_t33() -> None:
+    """The grade of a document the last commit holds, after a write. Red: a write that leaves the grade
+    as the commit has it, or raises it, is L1 whole, and the count line. Green: the write that lowers
+    it, still above the ceiling, is exit 0 with the note N4, typed by hand, and the green line — before
+    the write and after it, by a Write and by an Edit. The note is the hook's alone and the grade's
+    alone: the scan stays red on the same document; a document the commit does not hold, and one it
+    holds at or under the ceiling, are L1; the grade at warning keeps its own note, N2; under
+    `severity: warn` the note is the same; a departure
+    for the grade leaves no note; another finding in the document is red, the note with it. The copy
+    the commit holds is prepared as the written one is: an envelope of long words there is no prose,
+    and a Vale comment there switches nothing off. The copy is the last commit's, not the index's: a
+    lower text staged and written again is the note. The gate asks git for the copy once, under a
+    hook's cap, and not at all where the grade cannot be a finding — at warning, under a departure —
+    nor in the scan, nor before the binary's preflight: with no vale on PATH the line is C2 and git was
+    not asked for the copy. Of the copy's hits only the grade counts: a copy that also holds a word with
+    a plain replacement gives its own grade to the note. A copy that is not UTF-8 is decoded as the file
+    on disk is, its bad byte replaced. A git that never answers the read is the shared C12.12, typed by
+    hand, exit 1: the write gets no verdict."""
+    note = (
+        f"note: {DOC}:1: the document reads at grade 33.04 by Flesch–Kincaid, above the ceiling of 10 and"
+        " below the 43.54 of its last commit — reported, not red, while the grade falls: split the long"
+        " sentences and prefer short words until it is at or under 10; the scan stays red until then"
+    )
+    lower_found = messages.l1_grade(DOC, GRADE_LOWER_VALUE, 10.0)
+    count = f"RED: 1 finding(s) — 1 document examined ({DOC})"
+    # red: the grade as the commit has it, under another heading; and a higher one
+    same = write_over({DOC: GRADE_RED}, Write(DOC, GRADE_RED.replace("# T", "# Another heading")))
+    higher = write_over({DOC: GRADE_RED}, Write(DOC, GRADE_HIGHER))
+    # green: the lower grade, before the write, after it, and by an Edit
+    lower = write_over({DOC: GRADE_RED}, Write(DOC, GRADE_LOWER))
+    root = committed({DOC: GRADE_RED})
+    (root / DOC).write_text(GRADE_LOWER, encoding="utf-8")
+    lower_after = after_write(root, DOC)
+    edited = write_over(
+        {DOC: GRADE_RED}, Edit(DOC, " Methodological considerations determine implementation.", " We went.")
+    )
+    # the hook's alone: the scan over the same tree
+    scanned = H.run_gate("", args=["--scan", str(root)])
+    # the commit holds no such document; it holds one under the ceiling
+    new = write_over({}, Write("docs/notes/new.md", GRADE_LOWER))
+    was_plain = write_over({DOC: PLAIN}, Write(DOC, GRADE_LOWER))
+    # the grade at warning; a departure for the grade; another finding beside the falling grade
+    warned = write_over({DOC: GRADE_RED}, Write(DOC, GRADE_LOWER), own(levels={"grade": "warning"}))
+    under_warn = write_over({DOC: GRADE_RED}, Write(DOC, GRADE_LOWER), own(severity="warn"))
+    departed = write_over(
+        {DOC: GRADE_RED},
+        Write(DOC, GRADE_LOWER),
+        own(departures=[{"paths": ["/" + DOC], "allow": ["grade"], "reason": "stands"}]),
+    )
+    both = write_over({DOC: GRADE_RED}, Write(DOC, GRADE_LOWER + "\nDo it prior to noon.\n"))
+    # the committed copy's envelope is blanked as the written one's is: its long title is no prose, so
+    # the copy reads at the grade of GRADE_LOWER itself, and the same prose written again is not lower
+    enveloped = (
+        "---\ntitle: Organizational responsibilities necessitate comprehensive documentation\n---\n"
+        + GRADE_LOWER
+    )
+    same_under_envelope = write_over({DOC: enveloped}, Write(DOC, GRADE_LOWER))
+    # a Vale comment in the committed copy is blanked as one in the written document is: read as it
+    # stands it would switch every rule off there, and the copy would have no grade to fall from
+    commented = write_over({DOC: "<!-- vale off -->\n" + GRADE_RED}, Write(DOC, GRADE_LOWER))
+    # the last commit, not the index: the lower text staged, then written again
+    staged_root = committed({DOC: GRADE_RED})
+    (staged_root / DOC).write_text(GRADE_LOWER, encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], cwd=staged_root, check=True, capture_output=True)
+    staged = H.run_gate(event_json(staged_root, Write(DOC, GRADE_LOWER)))
+    # what git was asked: the copy once where the grade can be a finding, and never elsewhere
+    ask = ["cat-file", "blob", f"HEAD:{DOC}"]
+    asked_env, asked_log = git_patch(H, unclocked=True)
+    H.run_gate(event_json(committed({DOC: GRADE_RED}), Write(DOC, GRADE_LOWER)), env=asked_env)
+    warned_env, warned_log = git_patch(H, unclocked=True)
+    H.run_gate(
+        event_json(committed({DOC: GRADE_RED}, own(levels={"grade": "warning"})), Write(DOC, GRADE_LOWER)),
+        env=warned_env,
+    )
+    departed_env, departed_log = git_patch(H, unclocked=True)
+    departure = own(departures=[{"paths": ["/" + DOC], "allow": ["grade"], "reason": "stands"}])
+    H.run_gate(event_json(committed({DOC: GRADE_RED}, departure), Write(DOC, GRADE_LOWER)), env=departed_env)
+    scan_env, scan_log = git_patch(H, unclocked=True)
+    H.run_gate("", args=["--scan", str(root)], env=scan_env)
+    # after the binary's preflight: no vale on PATH is C2, and git was not asked for the copy
+    no_vale = H.scratch_dir()
+    for tool in ("python3", "git", "sh", "dirname"):
+        source = os.path.realpath(sys.executable) if tool == "python3" else command_path(tool)
+        os.symlink(source, no_vale / tool)
+    absent_env, absent_log = git_patch(H, unclocked=True)
+    absent = H.run_gate(
+        event_json(committed({DOC: GRADE_RED}), Write(DOC, GRADE_LOWER)),
+        env={**absent_env, "PATH": str(no_vale)},
+    )
+    # the copy holds a hit of another rule too: its grade alone is read, 38.87 as Vale 3.23.0 counts it
+    with_simpler = GRADE_RED.rstrip("\n") + " Organizational responsibilities materialize prior to noon.\n"
+    other_hit = write_over({DOC: with_simpler}, Write(DOC, GRADE_LOWER))
+    # the copy is not UTF-8: one byte no decoder takes, in the prose
+    bytes_root = committed({})
+    (bytes_root / DOC).parent.mkdir(parents=True, exist_ok=True)
+    (bytes_root / DOC).write_bytes(
+        GRADE_RED.encode("utf-8").replace(b"documentation.", b"documentation\xff.")
+    )
+    subprocess.run(["git", "add", "-A"], cwd=bytes_root, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid", "commit", "-qm", "x"],
+        cwd=bytes_root,
+        check=True,
+        capture_output=True,
+    )
+    not_utf8 = H.run_gate(event_json(bytes_root, Write(DOC, GRADE_LOWER)))
+    # a git that never answers the read of the copy: every other call goes to the real git
+    hang_root = committed({DOC: GRADE_RED})
+    stalled = H.scratch_dir()
+    fake_program(
+        stalled / "git",
+        f'for a in "$@"; do\n  if [ "$a" = cat-file ]; then\n    exec {shlex.quote(command_path("tail"))}'
+        f' -f /dev/null\n  fi\ndone\nexec {shlex.quote(command_path("git"))} "$@"\n',
+    )
+    hang_env, _ = git_patch(H, HANG_SECONDS, "cat-file", unclocked=True)
+    hang_env["PATH"] = str(stalled) + os.pathsep + os.environ.get("PATH", os.defpath)
+    with H.bounded(HANG_BOUND):
+        hung = H.run_gate(event_json(hang_root, Write(DOC, GRADE_LOWER)), env=hang_env)
+
+    assert messages.n4_falling(DOC, GRADE_LOWER_VALUE, 10.0, GRADE_RED_VALUE) == note, "N4 typed whole"
+    expect(same, 2, messages.l1_grade(DOC, GRADE_RED_VALUE, 10.0).render(), "stderr")
+    expect(same, 2, count, "stderr")
+    assert "note:" not in same.stderr + same.stdout, "a grade that did not fall has no note"
+    expect(higher, 2, messages.l1_grade(DOC, GRADE_HIGHER_VALUE, 10.0).render(), "stderr")
+    for name, result in (
+        ("before the write", lower),
+        ("after the write", lower_after),
+        ("under severity warn", under_warn),
+    ):
+        said = context(result)
+        assert said.code == 0 and said.stdout.splitlines() == [note, green_hook()], (
+            f"{name}: exit {said.code}, {said.stdout.splitlines()} {said.stderr.strip()}"
+        )
+        assert not red_lines(result.stdout + result.stderr), f"{name}: no RED line on either stream"
+    said = context(edited)
+    assert said.code == 0 and said.stdout.splitlines()[-1] == green_hook(), f"an Edit: exit {said.code}"
+    assert said.stdout.startswith(f"note: {DOC}:1: the document reads at grade ") and (
+        " and below the 43.54 of its last commit — " in said.stdout
+    ), f"an Edit that lowers the grade is the note: {said.stdout}"
+    expect(scanned, 2, lower_found.render(), "stdout")
+    assert "note:" not in scanned.stdout, "the scan has no such note"
+    expect(new, 2, messages.l1_grade("docs/notes/new.md", GRADE_LOWER_VALUE, 10.0).headline, "stderr")
+    expect(was_plain, 2, lower_found.headline, "stderr")
+    said = context(warned)
+    assert said.code == 0 and said.stdout.splitlines() == [
+        messages.n2_warning(DOC, Rule.GRADE, lower_found),
+        green_hook(),
+    ], f"the grade at warning keeps N2: {said.stdout}"
+    expect(departed, 0, green_hook(), "stdout")
+    assert "note:" not in departed.stdout, "a departure for the grade leaves no note"
+    # the added short sentence lowers the grade further, to 22.85 as Vale 3.23.0 counts it
+    expect(both, 2, messages.n4_falling(DOC, 22.85, 10.0, GRADE_RED_VALUE), "stderr")
+    assert headlines(both) == [f"RED: {messages.l4_simpler(DOC, 5, 'prior to', 'before').headline}"], (
+        f"the other finding is the only RED: {headlines(both)}"
+    )
+    expect(same_under_envelope, 2, lower_found.headline, "stderr")
+    for name, result in (("a Vale comment in the committed copy", commented), ("a staged text", staged)):
+        said = context(result)
+        assert said.code == 0 and said.stdout.splitlines() == [note, green_hook()], (
+            f"{name}: exit {said.code}, {said.stdout.splitlines()} {said.stderr.strip()}"
+        )
+    asked = [line for line in git_asked(asked_log) if line.endswith(repr(ask))]
+    assert len(asked) == 1 and asked[0].split(" ", 1)[0] == repr(GIT_SECONDS), (
+        f"the copy is asked for once, under a hook's cap of {GIT_SECONDS} s: {asked}"
+    )
+    broken_first_line(absent, messages.c2_vale_missing().render())
+    said = context(other_hit)
+    assert said.code == 0 and said.stdout.splitlines() == [
+        messages.n4_falling(DOC, GRADE_LOWER_VALUE, 10.0, 38.87),
+        green_hook(),
+    ], f"a copy with another rule's hit gives its grade alone: {said.stdout} {said.stderr.strip()}"
+    said = context(not_utf8)
+    assert said.code == 0 and said.stdout.splitlines() == [note, green_hook()], (
+        f"a copy that is not UTF-8: exit {said.code}, {said.stdout} {said.stderr.strip()}"
+    )
+    where = shlex.quote(str(hang_root))
+    broken_first_line(
+        hung,
+        f"BROKEN: git gave no answer in {HANG_SECONDS:g} s to git cat-file in {hang_root} — fix: a git that"
+        " hangs is a stalled file system or, for a call that reads the index, a core.fsmonitor hook, set in"
+        " the repository's or in your own configuration: find the setting with"
+        f" git -C {where} config --show-origin --get core.fsmonitor (no output means none is set), repair or"
+        f" unset it or the file system, and run git -C {where} cat-file blob HEAD:{DOC} by hand until it"
+        " answers; the scan, which gives git as long as it takes, checks the same tree",
+    )
+    for name, log in (
+        ("at warning", warned_log),
+        ("under a departure", departed_log),
+        ("the scan", scan_log),
+        ("with no vale", absent_log),
+    ):
+        assert git_asked(log) and not [line for line in git_asked(log) if "cat-file" in line], (
+            f"{name}: git is asked, and never for the committed copy: {git_asked(log)}"
+        )
 
 
 def ran_pointer(*args: str) -> Result:

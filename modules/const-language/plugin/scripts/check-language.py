@@ -10,13 +10,19 @@ Modes:    (hook)          one tool event, JSON on stdin — the written document
                           outside a fence or a code span, blanked with line numbers kept) and
                           checked by Vale with a configuration generated from the dials; a rule at
                           level error is a finding, at warning a note, off unwritten; a Vale comment
-                          outside a fence or a code span is a finding of its own.
+                          outside a fence or a code span is a finding of its own. A grade above the
+                          ceiling at level error is a note, not a finding, while it is below the grade
+                          of the same document as the last commit holds it.
           --scan [DIR]    every covered Markdown file git lists in the repository containing DIR
-                          (default: the current directory), the same way, one Vale run.
+                          (default: the current directory), the same way, one Vale run; the last
+                          commit is not read, and a grade above the ceiling is a finding.
 Reads:    from the event: hook_event_name, tool_name, tool_input.file_path, .content, .old_string,
           .new_string and .replace_all, cwd, session_id. From constitution.yaml: this module's dials
           const-language.severity, .log_dir, .territories, .grade_ceiling, .sentence_words, .levels,
-          .forbidden, .simpler and .exceptions; the file as a whole is validated as every gate does.
+          .forbidden, .simpler, .exceptions and .departures; the file as a whole is validated as every
+          gate does.
+          From git, in the hook alone: the written document as the last commit holds it, where it
+          holds one, by `git cat-file blob HEAD:<path>`, for its grade alone.
           No policy is read; no envelope is judged. The vale binary on PATH, 3.23.0 or newer, is required.
 Exit:     0 green, or nothing to examine (the count line says which);
           2 finding — a document is over the ceiling or the limit, holds a construction the rules
