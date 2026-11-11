@@ -711,8 +711,8 @@ const-language:                       # the prose of covered documents: a grade 
   log_dir: local/gate-logs
   territories:                        # the documents the gate reads among the Markdown files git lists; a negated pattern takes files out, never a frozen document
     - "*.md"                          # every document, the frozen ones included: an accepted record or a frozen comparison meets the thresholds by wording edits, and what no wording edit reaches stands under a departure below (plc-0004 rule 14, plc-0005 rule 7; decision dec-0048-frozen-documents-take-wording-edits)
-  grade_ceiling: 13                   # the module's default is 10: the kit's own descent to it is a work item after this module, 12 then 10, one step per change (decision dec-0046-language-module-rulings)
-  sentence_words: 100                 # the module's default is 25: the same descent, 60 then 40 then 25
+  grade_ceiling: 10                   # the module's default, written out: the kit came down to it from 13 in one pass (decision dec-0046-language-module-rulings; rollout plan item 9.6)
+  sentence_words: 25                  # the module's default, written out: the kit came down to it from 100 in the same pass
   levels:                             # per rule: error (a finding, red), warning (a note), off; the defaults, written out
     grade: error
     sentence: error
