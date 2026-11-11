@@ -19,12 +19,15 @@ On the day [dec-0039-policies-state-their-kinds](dec-0039-policies-state-their-k
 - **rule 7 of the requirements policy** closed the enforcement vocabulary against the qualifiers the rows carry, and its rule 1 read against the module headings' entry triggers, which [dec-0006-accumulating-set-first](dec-0006-accumulating-set-first.md) defines and are no phase;
 - **rule 2 of the rollout-plan policy** forbade stating a ruling in the plan while its rule 6 makes the plan the home of pending intent.
 
-Amending a row of the matrix is `process` under rule 2 of the requirements policy, so even the two rows whose enforcement word lay outside the set could not be touched without a record. A sixth gap was a missing rule: the research policy gave a comparison no change stakes before its freeze, which the policy template asks every policy to give. Before the yes the decider found a seventh: the root policy's rule 3 cited a rule of the decision-record policy for what counts as a routine repair, so the policy where every chain of governance ends depended on a policy it governs.
+Amending a row of the matrix is `process` under rule 2 of the requirements policy. Even the two rows whose enforcement word lay outside the set could not be touched without a record. A sixth gap was a missing rule: the research policy gave a comparison no change stakes before its freeze, which the policy template asks every policy to give. Before the yes the decider found a seventh: the root policy's rule 3 cited a rule of the decision-record policy for what counts as a routine repair, so the policy where every chain of governance ends depended on a policy it governs.
 
 ## Options
 
 - **A. Widen the rules to what the documents keep, and give a comparison its change stakes, in one record.** With it, the two rows and two headings the readers flagged, and two sentences of the plan that restate rules carried elsewhere.
-  - **Pros:** the readers never confused the prefixes or the titles; the rules were the audit's own drafting error; one small record and audit.
+  - **Pros:**
+    - **the readers never confused the prefixes** or the titles;
+    - **the rules were the audit's own drafting error;**
+    - **one small record and audit.**
   - **Cons:** a record following dec-0039 the same day.
 - **B. Repairs only; the rules wait for friction.**
   - **Pros:** no record.
@@ -39,7 +42,7 @@ A, by the session: a rule stricter than its documents' practice, with no reader 
 
 ## Choice
 
-A, chosen by the decider in chat on 2026-09-24; R8, found by the decider before the yes: the rule was chosen over a routine fix of the citation alone and over leaving it, in chat on 2026-09-25; two audit rounds then reworded it, from "relies on no rule of a policy it governs", which caught the root's own rules, to what stands.
+A, chosen by the decider in chat on 2026-09-24. R8, found by the decider before the yes: the rule was chosen over a routine fix of the citation alone and over leaving it, in chat on 2026-09-25; two audit rounds then reworded it, from "relies on no rule of a policy it governs", which caught the root's own rules, to what stands.
 
 ## Ruling
 
@@ -47,21 +50,27 @@ A, chosen by the decider in chat on 2026-09-24; R8, found by the decider before 
 
 <a id="r2"></a>**R2.** A policy's title names its kind in full or by its short name — "Intent policy" for the intent page — and the root's is "Root policy — <clause>".
 
-<a id="r3"></a>**R3.** A policy's Enforcement rule says which module guards which field, at write time, in its scan, or both; the split is named where the two differ — the mentions outside Markdown and a collision between items that exist, which only a scan reads, while a new item's number is checked at write time too; and the code pairing, which the range check alone holds, run before a merge and on the trunk after it.
+<a id="r3"></a>**R3.** A policy's Enforcement rule says which module guards which field, at write time, in its scan, or both. The split is named where the two differ — the mentions outside Markdown and a collision between items that exist, which only a scan reads, while a new item's number is checked at write time too; and the code pairing, which the range check alone holds, run before a merge and on the trunk after it.
 
-<a id="r4"></a>**R4.** The requirements document's enforcement classes may carry a qualifier before or after the class — "advisory procedure", "review judgment", an assist named — and a row may name the template as its destination or beside another; a row's cell is amended under rule 2 of the policy when its rule or its vocabulary changes; a module's entry trigger and a condition inside a rule name no phase. Row [A4.2](../requirements.md#a4-2) reads `gate-lite` for what it called "gate as flag"; row [A13.7](../requirements.md#a13-7) reads `config` for a check validated at each read; the headings of `const-meta-types` and `const-questions` drop their phase, and the first reads "enters with the first governed document" for "authored first", which was sequence.
+<a id="r4"></a>**R4.** The requirements document's enforcement classes may carry a qualifier before or after the class — "advisory procedure", "review judgment", an assist named — and a row may name the template as its destination or beside another. A row's cell is amended under rule 2 of the policy when its rule or its vocabulary changes. A module's entry trigger and a condition inside a rule name no phase. Row [A4.2](../requirements.md#a4-2) reads `gate-lite` for what it called "gate as flag". Row [A13.7](../requirements.md#a13-7) reads `config` for a check validated at each read. The headings of `const-meta-types` and `const-questions` drop their phase, and the first reads "enters with the first governed document" for "authored first", which was sequence.
 
-<a id="r5"></a>**R5.** The rollout plan states no ruling already made, and states the intent not yet real that a pending carry entry points at, in its step, until the step closes. Two sentences of the plan restating the ceremony of a module and of a change, carried in steps 5 and 6 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s5) and in [rule 4 of plc-0006-module-documents](../policies/plc-0006-module-documents.md#r4), are removed; the plan's preamble states its lifecycle by a link to the policy.
+<a id="r5"></a>**R5.** The rollout plan states no ruling already made, and states the intent not yet real that a pending carry entry points at, in its step, until the step closes. Two sentences of the plan restating the ceremony of a module and of a change, carried in steps 5 and 6 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s5) and in [rule 4 of plc-0006-module-documents](../policies/plc-0006-module-documents.md#r4), are removed. The plan's preamble states its lifecycle by a link to the policy.
 
-<a id="r6"></a>**R6.** A research comparison is written as a routine act of a module's development; an edit before its freeze is routine, from the freeze rule 7 of the research policy holds.
+<a id="r6"></a>**R6.** A research comparison is written as a routine act of a module's development. An edit before its freeze is routine, from the freeze rule 7 of the research policy holds.
 
 <a id="r7"></a>**R7.** The document repairs made under dec-0039 in the repair commit, two before this record's — dates and the platform's version on every live item, the `live, deferred` label and the plan's step on every deferred one, dates and breaks on five platform statements, the manifest row, the count tail under F9, two shared keys qualified, one title made one clause, rule 6 of the decision-record policy completed, six facts of the shared page sourced, their dates the audit's later fix, the plan's step 3 given its done line and its Phase E its stakes clause dropped — are routine under the rules dec-0039 accepted.
 
-<a id="r8"></a>**R8.** A policy states its own rules itself; a citation of another policy points at where a rule about the other's kind lives, and a clause the citing policy also states is its own, the link being provenance; the root policy, which governs every policy including itself, relies on no rule of any other policy and cites none. Rule 3 of the root policy states the repair rule in its own words and cites the record that made it as provenance.
+<a id="r8"></a>**R8.** A policy states its own rules itself. A citation of another policy points at where a rule about the other's kind lives, and a clause the citing policy also states is its own, the link being provenance. The root policy, which governs every policy including itself, relies on no rule of any other policy and cites none. Rule 3 of the root policy states the repair rule in its own words and cites the record that made it as provenance.
 
 ## Applied
 
-In the commit before the one that creates this record, which holds only this file: the seven rules of R1 to R6, the two rows, the two headings, the two sentences of the plan; the repairs of R7 in the commit before that; the audit's fixes, and R8 with the two rules of the root policy it changes, in the commits after. The record is born `inactive`.
+In the commit before the one that creates this record, which holds only this file:
+
+- **the seven rules of R1 to R6**, the two rows, the two headings, the two sentences of the plan;
+- **the repairs of R7** in the commit before that;
+- **the audit's fixes**, and R8 with the two rules of the root policy it changes, in the commits after.
+
+The record is born `inactive`.
 
 ## Carry list
 

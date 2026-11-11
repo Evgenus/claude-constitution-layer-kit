@@ -15,7 +15,9 @@ At the yes on the sixth module the decider read the kit's `constitution.yaml` an
 
 ## Options
 
-- **A. A kit gate.** `scripts/check-yaml-style.py`, Python with PyYAML: red with file and line on any non-empty flow collection, the fix naming the block form; wired into the routine list of `pyproject.toml` and the reading-list line of `CLAUDE.md`, run before commits until the kit's CI runs it, with a self-test as its fixture.
+- **A. A kit gate.** `scripts/check-yaml-style.py`, Python with PyYAML:
+  - **red with file and line** on any non-empty flow collection, the fix naming the block form;
+  - **wired into the routine list** of `pyproject.toml` and the reading-list line of `CLAUDE.md`, run before commits until the kit's CI runs it, with a self-test as its fixture.
   - **Pros:** deterministic and teaching; no third-party tool; the shape of the kit's other gates; the rule and its gate land together.
   - **Cons:** one more script to run by hand until CI; it judges the file, not YAML examples inside Markdown fences.
 - **B. A formatter that rewrites the file.**
@@ -31,13 +33,28 @@ A, by the session.
 
 ## Choice
 
-A and B together, chosen by the decider in chat on 2026-09-23: the gate, plus a rewrite of the file's own — a `--fix` mode of the same script, working on the parser's event stream so that every comment, anchor, alias and quote outside a flow collection's span stays as written; for `constitution.yaml` only; folded into the change of the sixth module rather than a change of its own.
+A and B together, chosen by the decider in chat on 2026-09-23:
+
+- **the gate, plus a rewrite of the file's own** — a `--fix` mode of the same script, working on the parser's event stream so that every comment, anchor, alias and quote outside a flow collection's span stays as written;
+- **for `constitution.yaml` only;**
+- **folded into the change of the sixth module** rather than a change of its own.
 
 ## Ruling
 
-<a id="r1"></a>**R1.** The kit's `constitution.yaml` is written in block style: one key or one `- ` item per line; flow style, `[]` or `{}`, only where a list or a mapping is empty. The rule is the kit's own, for its one dials file; the YAML examples inside the kit's Markdown are not under it, and a consumer's file is the consumer's.
+<a id="r1"></a>**R1.** The kit's `constitution.yaml` is written in block style:
 
-<a id="r2"></a>**R2.** The gate is `scripts/check-yaml-style.py`, kit development tooling never shipped in a module: exit 2 with the line and a teaching message on a non-empty flow collection, exit 0 with the count of collections examined otherwise, exit 1 when it could not run; `--fix` rewrites every non-empty flow collection into block style, keeps every comment, anchor, alias and quote as written, refuses a collection spanning several lines, and proves before writing that the file still says what it said; `--self-test` is its fixture. It is run before every commit that touches the file until the kit's CI runs it, and is listed in the routine of `pyproject.toml`.
+- **one key or one `- ` item per line;**
+- **flow style**, `[]` or `{}`, only where a list or a mapping is empty.
+
+The rule is the kit's own, for its one dials file. The YAML examples inside the kit's Markdown are not under it, and a consumer's file is the consumer's.
+
+<a id="r2"></a>**R2.** The gate is `scripts/check-yaml-style.py`, kit development tooling never shipped in a module:
+
+- **exit 2 with the line** and a teaching message on a non-empty flow collection, exit 0 with the count of collections examined otherwise, exit 1 when it could not run;
+- `--fix` rewrites every non-empty flow collection into block style, keeps every comment, anchor, alias and quote as written, refuses a collection spanning several lines, and proves before writing that the file still says what it said;
+- `--self-test` is its fixture.
+
+It is run before every commit that touches the file until the kit's CI runs it, and is listed in the routine of `pyproject.toml`.
 
 <a id="r3"></a>**R3.** The rewrite of the file on 2026-09-23 — thirty-one collections, the data and every comment proven equal before and after — and the folding of this record into the sixth module's change: one-time acts.
 
