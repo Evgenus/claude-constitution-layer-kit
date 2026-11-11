@@ -1,7 +1,8 @@
 """The Stop event's task list, parsed once into typed entries. The shared reader takes the event
 and carries no task list, so this module reads `background_tasks` from the event's text itself.
-The field is the platform's to send: an event without it, a list that is no list and an entry
-whose `type` or `status` is no text give no entry here, and nothing raises."""
+The field is the platform's to send: an event without it, a list that is no list, an entry that
+is no object and an entry whose `type` or `status` is no text give no entry here, and nothing
+raises."""
 
 from __future__ import annotations
 
