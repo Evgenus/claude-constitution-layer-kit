@@ -29,8 +29,9 @@ script can hold, and the anchor and the order every ruling is cited by:
                accepting again, in the merge commit of a new pull request. A record no commit
                accepts yet awaits its yes: a note, never a finding —
                a gate is not red for waiting on a person. An "Accepted:" id that names no record
-               is a note too: deleted since, renumbered or misspelt. A renumbered record is accepted
-               again under its new id, in the merge commit of the change that renumbers it.
+               is a note too: deleted since, renumbered, renamed or misspelt. A renumbered or
+               renamed record is accepted again under its new id, in the merge commit of the change
+               that renumbers or renames it.
 
   the anchor   every ruling handle **R<n>.** stands right after the anchor of its own key,
                <a id="r<n>"></a>, so that a ruling cited from another document is reached by a
@@ -756,9 +757,10 @@ def check_kit(kit: Path) -> tuple[list[Finding], list[str], int, int]:
             if stem not in present:
                 notes.append(
                     f"NOTE: commit {acceptance.commit[:7]} accepts {stem}, which is no record here — "
-                    "deleted since, renumbered or misspelt; when renumbered, accept it again under its "
-                    "new id in the merge commit of the change that renumbers it; when misspelt, accept "
-                    "again in the merge commit of a new pull request, the id spelt right"
+                    "deleted since, renumbered, renamed or misspelt; when renumbered or renamed, accept "
+                    "it again under its new id in the merge commit of the change that renumbers or "
+                    "renames it; when misspelt, accept again in the merge commit of a new pull request, "
+                    "the id spelt right"
                 )
     return findings, notes, len(records), len(records) + len(older)
 
@@ -1313,10 +1315,10 @@ def run_receipts(t: Tally) -> None:
     }
     # the note of an id that names no record, typed by hand, the commit being the case's last
     stranger_note = (
-        "NOTE: commit {last} accepts " + stranger + ", which is no record here — deleted since, renumbered"
-        " or misspelt; when renumbered, accept it again under its new id in the merge commit of the change"
-        " that renumbers it; when misspelt, accept again in the merge commit of a new pull request, the id"
-        " spelt right"
+        "NOTE: commit {last} accepts " + stranger + ", which is no record here — deleted since, renumbered,"
+        " renamed or misspelt; when renumbered or renamed, accept it again under its new id in the merge"
+        " commit of the change that renumbers or renames it; when misspelt, accept again in the merge"
+        " commit of a new pull request, the id spelt right"
     )
     for name, (messages, red_wanted, notes_wanted) in receipts.items():
         with tempfile.TemporaryDirectory() as tmp:
