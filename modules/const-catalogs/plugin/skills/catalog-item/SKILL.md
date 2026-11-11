@@ -14,16 +14,18 @@ description: >
 # A catalogued item
 
 A project cites its decisions, tasks and the like by number. That works only while a number
-means one document, stands in the one name every reference resolves — the file's — and never
-comes to mean another document later. A catalog is nothing but the set of files that carry
-its prefix: there is no index, no register, no counter file to keep in step, and none is ever
-written — a generated list drifts from the files, and the files are the truth.
+means one document, and stands in the one name every reference resolves — the file's. The
+number must also never come to mean another document later. A catalog is nothing but the set
+of files that carry its prefix. There is no index, no register, no counter file to keep in
+step, and none is ever written. A generated list drifts from the files, and the files are the
+truth.
 
 What is checked and what is not. For every catalog listed under `const-catalogs.catalogs` in
 the project's `constitution.yaml`, this plugin's hook blocks a Markdown document in that
-catalog's territory whose file name is not `<prefix>-<number>-<slug>.md`, whose `id` is not
-that name without `.md`, or — for a file that does not exist yet — whose number another item
-already carries; where the project set `severity: warn` it reports and lets the write through.
+catalog's territory in three cases. The first is a file name that is not
+`<prefix>-<number>-<slug>.md`. The second is an `id` that is not that name without its `.md`
+ending. The third, for a file that does not exist yet, is a number another item already
+carries. Where the project set `severity: warn`, the hook reports and lets the write through.
 The scan adds: no two items of one catalog under one number. With no catalog listed, nothing
 is checked, and every run says so. Which number to take, when it is final, who renumbers, how
 to cite: that is judgment, and the rest of this page.
@@ -35,8 +37,8 @@ Read `const-catalogs.catalogs` in `constitution.yaml`. Each entry is one numbere
 many digits, 4 when absent). The document you are writing belongs to the catalog whose
 territory holds its path.
 
-If the kind is not listed and should be numbered, say so to the user before writing anything:
-the prefix is sticky, because an id never changes — numbering a kind that already has
+If the kind is not listed and should be numbered, say so to the user before writing anything.
+The prefix is sticky, because an id never changes. Numbering a kind that already has
 documents means renaming every one of them, once, with every link to them. The entry to add:
 
 ```yaml
@@ -53,20 +55,22 @@ Run the scan and read its last line:
 sh "${CLAUDE_PLUGIN_ROOT}/scripts/check-catalog-item.sh" --scan
 ```
 
-It names every catalog's reach: `<prefix> up to <prefix>-0028`; or `<prefix> up to
-<prefix>-0028, <prefix>-0031 in history` when a higher number was held once — by an item since
-deleted or renamed, or by a file of that name elsewhere in the repository; or `<prefix> none
+It names every catalog's reach in one of three forms. The first is `<prefix> up to <prefix>-0028`.
+The second is `<prefix> up to
+<prefix>-0028, <prefix>-0031 in history`, when a higher number was held once. Such a number was
+held by an item since deleted or renamed, or by a file of that name elsewhere in the
+repository. The third is `<prefix> none
 yet`, which may be followed by `in history` too. **The new number is one more than the highest
-number that line names for the catalog**, history included: a number once held is never given
+number that line names for the catalog**, history included. A number once held is never given
 to another document, because somebody may still cite it. `none yet` with nothing after it
 means number 1. If the line ends in `history incomplete in a shallow clone`, fetch the history
-first (`git fetch --unshallow`); if it ends in `history could not be read`, find out why git
-would not list it — in both cases a deleted top number may be out of sight. If the catalog is
+first (`git fetch --unshallow`). If it ends in `history could not be read`, find out why git
+would not list it. In both cases a deleted top number may be out of sight. If the catalog is
 marked `(full: the width can write no higher number)`, stop and tell the user: a wider width
 renames every item.
 
 The number is **provisional until your branch lands on the main branch, and frozen from then
-on** — but for one case, two landed items under one number (section 4). Another branch may
+on**. There is one exception: two landed items under one number (section 4). Another branch may
 take the same number meanwhile; whoever lands second renumbers (section 4). So cite a new
 item outside your own branch only after it has landed.
 
@@ -96,12 +100,13 @@ decides the steps.
    if your branch is the one not yet landed.
 2. Bring your branch up to date with the main branch, then take the number again as in
    section 2.
-3. Rename the file with `git mv` — which also works where the file system ignores case, as a
-   plain write to the new name does not — and set its `id` to the new name.
-4. Rewrite the references **made on your own branch**, and only those:
+3. Rename the file with `git mv`. It also works where the file system ignores case, as a
+   plain write to the new name does not. Then set its `id` to the new name.
+4. Rewrite the references **made on your own branch**, and only those. The command
    `{ git diff -z --name-only "$(git merge-base <main branch> HEAD)"; git ls-files -z --others --exclude-standard; } | xargs -0 -r git grep -n -i --untracked '<prefix>-<old number>' --`
-   finds both the full name and the bare form, in every file your branch touched — committed,
-   not yet committed, or not yet added. References elsewhere mean the other item.
+   finds both the full name and the bare form, in every file your branch touched. Those files
+   may be committed, not yet committed, or not yet added. References elsewhere mean the other
+   item.
 5. Run the scan again. `git mv` and shell edits are not seen by the hook.
 
 **Both items are on the main branch.** Both numbers are frozen, yet one number cannot name two
@@ -113,9 +118,10 @@ items. The one that landed second gives way, and a reference anywhere in the tre
 2. Take the number again as in section 2: one more than the highest the scan's line names,
    history included.
 3. Rename the file with `git mv` and set its `id` to the new name.
-4. Rewrite the references in the **whole tree**, not only in the files of your branch:
+4. Rewrite the references in the **whole tree**, not only in the files of your branch. The
+   command is:
    `git grep -n -i --untracked '<prefix>-<old number>' --`
-   The full old name, slug included, means the item that renumbers; rewrite it to the new
+   The full old name, slug included, means the item that renumbers. Rewrite it to the new
    name. The bare form, `<PREFIX>-<old number>`, may mean either item: read each place and
    rewrite only what means the item that renumbers. Commit messages stay as they are.
 5. Run the scan again, and run the grep once more: it must find the old number only where it
@@ -130,7 +136,7 @@ items. The one that landed second gives way, and a reference anywhere in the tre
   `git ls-files --cached --others --exclude-standard -- ':(glob)**/<prefix>-[0-9]*-*.md' | sort`
   and, with the titles:
   `git ls-files --cached --others --exclude-standard -z -- ':(glob)**/<prefix>-[0-9]*-*.md' | sort -z | xargs -0 -r grep -m1 -H '^title:'`
-  The list goes by the prefix, wherever a file lies; an item whose name lacks the form is not
+  The list goes by the prefix, wherever a file lies. An item whose name lacks the form is not
   in it — the scan reports those.
 - **Find** an item by its number, however the prefix was capitalized, committed or not:
   `git ls-files --cached --others --exclude-standard -- ':(icase,glob)**/<prefix>-<number>-*'`
