@@ -23,6 +23,7 @@ from __future__ import annotations
 import atexit
 import json
 import os
+import shlex
 import shutil
 import signal
 import subprocess
@@ -99,6 +100,42 @@ def fake_program(path: Path, body: str) -> Path:
     path.chmod(0o755)
     subprocess.run([str(path)], env={WARM: "1"}, capture_output=True, check=False)
     return path
+
+
+SIGNER = "fake signer"  # the name `fake_signer` signs with: git prints it wherever it shows a signature check
+
+
+def fake_signer(folder: Path, root: Path) -> Path:
+    """Signs every later commit of the repository at `root` through a fake `gpg.program`, a file of `folder`
+    made by `fake_program`, and turns `log.showSignature` on, so that the repository's own `git log` prints
+    the signature check. The fake logs each call, one line of its arguments, to the file returned, and to
+    verify it says its human text on stderr as gpg does, `SIGNER` in it, which `git log` prints before the
+    formatted line. A case that proves a gate reads `git log` without that text first holds that git called
+    the fake to verify and printed the check, so that it cannot pass for want of a signature."""
+    log = folder / "gpg.log"
+    program = fake_program(
+        folder / "gpg",
+        f"printf '%s\\n' \"$*\" >> {shlex.quote(str(log))}\n"
+        "cat > /dev/null\n"
+        'case "$*" in\n'
+        "  *--verify*)\n"
+        f"    printf 'gpg: Good signature from \"{SIGNER}\"\\n' >&2\n"
+        f"    printf '[GNUPG:] GOODSIG 0123456789ABCDEF {SIGNER}\\n'\n"
+        "    printf '[GNUPG:] VALIDSIG 0123456789ABCDEF 2026-10-06 1 0 4 0 1 8 00 0123456789ABCDEF\\n';;\n"
+        "  *)\n"
+        "    printf '[GNUPG:] SIG_CREATED D 1 8 00 1 0123456789ABCDEF 1\\n' >&2\n"
+        "    printf -- '-----BEGIN PGP SIGNATURE-----\\n\\nZmFrZQ==\\n-----END PGP SIGNATURE-----\\n';;\n"
+        "esac\n",
+    )
+    for key, value in (
+        ("gpg.format", "openpgp"),
+        ("gpg.program", str(program)),
+        ("user.signingkey", "FIXTURE"),
+        ("commit.gpgsign", "true"),
+        ("log.showSignature", "true"),
+    ):
+        subprocess.run(["git", "config", key, value], cwd=root, check=True, capture_output=True)
+    return log
 
 
 @dataclass(frozen=True)

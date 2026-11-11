@@ -184,7 +184,7 @@ def test_t1() -> None:
     no_finding({"docs/notes/d.md": MERMAID})
     departure = [{"paths": ["/docs/notes/d.md"], "allow": ["plantuml"], "reason": "a timing diagram"}]
     allowed = scan({"docs/notes/d.md": PLANTUML_FENCE}, own(departures=departure))
-    expect(allowed, 0, green(4, 1), "stdout")
+    expect(allowed, 0, green(BASE_MARKDOWN + 1, 1), "stdout")
     assert red_ok, f"differs (exit {result.code}):\n{result.stdout}"
 
 
@@ -457,7 +457,7 @@ def test_t11() -> None:
         {"docs/notes/a.md": PLANTUML_FENCE},
         own(departures=[{"paths": ["docs/notes/**"], "allow": ["formula"], "reason": "none"}]),
     )
-    expect(other, 2, red(1, 4, 1), "stdout")
+    expect(other, 2, red(1, BASE_MARKDOWN + 1, 1), "stdout")
     stale = scan(
         {"docs/notes/a.md": MERMAID},
         own(departures=[{"paths": ["docs/gone/**"], "allow": ["plantuml"], "reason": "was"}]),
@@ -478,7 +478,11 @@ def test_t11() -> None:
         "note: const-styling.departures entry 1 (docs/gone/**) matches no covered document; the documents it"
         " allowed were deleted or moved, or the pattern is wrong"
     )
-    stale_ok = stale.code == 0 and stale.stdout.splitlines()[0] == note and green(4, 1) in stale.stdout
+    stale_ok = (
+        stale.code == 0
+        and stale.stdout.splitlines()[0] == note
+        and green(BASE_MARKDOWN + 1, 1) in stale.stdout
+    )
     long_pattern = "docs\\gone/" + "p" * 100  # 110 characters with a backslash: a pattern only points
     cut = scan(
         {"docs/notes/a.md": MERMAID},
@@ -501,7 +505,7 @@ def test_t12() -> None:
     """Territories: a negated pattern takes a document out and the count drops; the default covers a
     README at the top; the guides dial is validated and changes no verdict."""
     out = scan({"docs/notes/a.md": PLANTUML_FENCE}, own(territories=["*.md", "!docs/notes/**"]))
-    expect(out, 0, green(3, scanned=4), "stdout")
+    expect(out, 0, green(BASE_MARKDOWN, scanned=BASE_MARKDOWN + 1), "stdout")
     one_finding(
         {"README.md": PLANTUML_FENCE},
         "README.md:3: PlantUML, where the shipped default is Mermaid — ```plantuml",
@@ -689,7 +693,11 @@ def test_t15() -> None:
         "RED: docs/notes/g.md:28: a table row with 1 cell(s) under a header of 2",
         "RED: docs/notes/g.md:29: an empty cell in column 2",
     ]
-    ok = result.code == 2 and headlines(result) == wanted and red_lines(result.stdout)[-1] == red(12, 4)
+    ok = (
+        result.code == 2
+        and headlines(result) == wanted
+        and red_lines(result.stdout)[-1] == red(12, BASE_MARKDOWN + 1)
+    )
     no_finding({"docs/notes/g.md": MERMAID})
     long_path = scan(
         {WEIRD: GOLDEN}
@@ -1040,8 +1048,9 @@ def test_hooks_file() -> None:
 
 
 def case(number: int, signature: Signature, red_text: str, line: int, echo: str, green_text: str) -> Case:
-    """One signature: a document carrying it once is red with the finding whole and the count line
-    typed by hand; a document without it is green with the whole tail."""
+    """One signature: a document carrying it once is red with the finding whole and the count line; a
+    document without it is green with the whole tail. Both count the shared consumer's base and this one
+    document."""
     hit = Hit(signature, line, echo)
     return Case(
         number,
@@ -1049,39 +1058,46 @@ def case(number: int, signature: Signature, red_text: str, line: int, echo: str,
         Write("docs/notes/c.md", red_text),
         Write("docs/notes/c.md", green_text),
         messages.finding("docs/notes/c.md", hit),
-        tail(4),
-        count=f"RED: 1 finding(s) — {tail(4)}",
+        tail(BASE_MARKDOWN + 1),
+        count=f"RED: 1 finding(s) — {tail(BASE_MARKDOWN + 1)}",
     )
 
 
-CASES = [
-    case(21, Signature.PLANTUML, PLANTUML_FENCE, 3, "```plantuml", MERMAID),
-    case(22, Signature.FORMULA, "# T\n\n$$ x $$\n", 3, "$$ x $$", "# T\n\n```text\nx = y\n```\n"),
-    case(23, Signature.CALLOUT, "# T\n\n> [!NOTE]\n", 3, "> [!NOTE]", "# T\n\n> quoted\n"),
-    case(24, Signature.DEEP_HEADING, "# T\n\n## A\n\n### B\n\n#### C\n", 7, "4", "# T\n\n## A\n\n### B\n"),
-    case(25, Signature.SKIPPED_LEVEL, "# T\n\n### B\n", 3, "3", "# T\n\n## B\n"),
-    case(26, Signature.SECOND_H1, "# T\n\n# U\n", 3, "U", "# T\n\n## U\n"),
-    case(27, Signature.FENCE_LANGUAGE, "# T\n\n```\nx\n```\n", 3, "", "# T\n\n```text\nx\n```\n"),
-    case(28, Signature.LIST_MARKER, "# T\n\n* a\n", 3, "a", "# T\n\n- a\n"),
-    case(29, Signature.LIST_NUMBERING, "# T\n\n1. a\n3. b\n", 4, "3 after 1", "# T\n\n1. a\n2. b\n"),
-    case(30, Signature.UNDERSCORE_EMPHASIS, "# T\n\n_a_\n", 3, "a", "# T\n\n*a*\n"),
-    case(
-        31,
-        Signature.TABLE_COLUMNS,
-        "# T\n\n| k | v |\n|---|---|\n| a |\n",
-        5,
-        "1 cell(s) under a header of 2",
-        "# T\n\n| k | v |\n|---|---|\n| a | b |\n",
-    ),
-    case(
-        32,
-        Signature.TABLE_EMPTY_CELL,
-        "# T\n\n| k | v |\n|---|---|\n| a | |\n",
-        5,
-        "2",
-        "# T\n\n| k | v |\n|---|---|\n| a | none |\n",
-    ),
-]
+def cases() -> list[Case]:
+    """The twelve cases, built when called: each reads the shared consumer's base as it then stands."""
+    return [
+        case(21, Signature.PLANTUML, PLANTUML_FENCE, 3, "```plantuml", MERMAID),
+        case(22, Signature.FORMULA, "# T\n\n$$ x $$\n", 3, "$$ x $$", "# T\n\n```text\nx = y\n```\n"),
+        case(23, Signature.CALLOUT, "# T\n\n> [!NOTE]\n", 3, "> [!NOTE]", "# T\n\n> quoted\n"),
+        case(
+            24, Signature.DEEP_HEADING, "# T\n\n## A\n\n### B\n\n#### C\n", 7, "4", "# T\n\n## A\n\n### B\n"
+        ),
+        case(25, Signature.SKIPPED_LEVEL, "# T\n\n### B\n", 3, "3", "# T\n\n## B\n"),
+        case(26, Signature.SECOND_H1, "# T\n\n# U\n", 3, "U", "# T\n\n## U\n"),
+        case(27, Signature.FENCE_LANGUAGE, "# T\n\n```\nx\n```\n", 3, "", "# T\n\n```text\nx\n```\n"),
+        case(28, Signature.LIST_MARKER, "# T\n\n* a\n", 3, "a", "# T\n\n- a\n"),
+        case(29, Signature.LIST_NUMBERING, "# T\n\n1. a\n3. b\n", 4, "3 after 1", "# T\n\n1. a\n2. b\n"),
+        case(30, Signature.UNDERSCORE_EMPHASIS, "# T\n\n_a_\n", 3, "a", "# T\n\n*a*\n"),
+        case(
+            31,
+            Signature.TABLE_COLUMNS,
+            "# T\n\n| k | v |\n|---|---|\n| a |\n",
+            5,
+            "1 cell(s) under a header of 2",
+            "# T\n\n| k | v |\n|---|---|\n| a | b |\n",
+        ),
+        case(
+            32,
+            Signature.TABLE_EMPTY_CELL,
+            "# T\n\n| k | v |\n|---|---|\n| a | |\n",
+            5,
+            "2",
+            "# T\n\n| k | v |\n|---|---|\n| a | none |\n",
+        ),
+    ]
+
+
+CASES = cases()
 
 
 @pytest.mark.parametrize(
@@ -1089,6 +1105,35 @@ CASES = [
 )
 def test_case(case: Case) -> None:
     check_case(H, case)
+
+
+ONE_MORE = "ONE-MORE.md"  # a Markdown file no item writes, at the top of the consumer
+
+
+@item(38, "the counts follow the shared consumer: one more Markdown file in it turns no computed count red")
+def test_counts_follow_the_consumer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The items compute their counts from the shared consumer's base, `BASE_MARKDOWN`, so a file added to
+    that consumer, with its export, turns none of them red. Here every consumer is built with one more
+    Markdown file, the base says so, and the items that compute a count run again: the departures, the
+    territories, the golden headlines and the twelve cases. Item 1 types its count line whole: that line is
+    golden and changes by hand."""
+    build = Consumer.build
+
+    def with_one_more(consumer: Consumer) -> Consumer:
+        consumer.write(ONE_MORE, "# One more\n")
+        return build(consumer)
+
+    monkeypatch.setattr(Consumer, "build", with_one_more)
+    monkeypatch.setitem(globals(), "BASE_MARKDOWN", BASE_MARKDOWN + 1)
+    root = prepared()
+    assert (root / ONE_MORE).is_file(), (
+        "the consumer was built without the added file: the item proves nothing"
+    )
+    test_t11()
+    test_t12()
+    test_t15()
+    for case in cases():
+        check_case(H, case)
 
 
 # ---------------------------------------------------------------- the list
@@ -1246,11 +1291,11 @@ SUBJECT = Subject(
     valid=Write("docs/notes/ok.md", "# Ok\n\n- a\n- b\n"),
     red=Write("docs/notes/bad.md", PLANTUML_FENCE),
     red_finding=messages.y1_plantuml("docs/notes/bad.md", 3, "```plantuml"),
-    green=green(4),
+    green=green(BASE_MARKDOWN + 1),
     territory=["docs/notes/**"],
     claim=claim,
     resolves_policies=False,
-    bare_readme=green(4),
+    bare_readme=green(BASE_MARKDOWN + 1),
     judges_envelopes=False,
     long_value=Write("docs/notes/long.md", "# T\n\n* " + "x" * 12000 + "\n"),
     scan_only=True,
