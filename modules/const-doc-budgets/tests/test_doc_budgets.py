@@ -35,7 +35,16 @@ from constitution_layer_kit import messages as shared
 from constitution_layer_kit.model import Finding
 from constitution_layer_kit.testing.acceptance import broken_first_line, check_case, item
 from constitution_layer_kit.testing.consumer import Consumer
-from constitution_layer_kit.testing.harness import Case, Edit, Harness, Result, Write, event_json
+from constitution_layer_kit.testing.harness import (
+    SIGNER,
+    Case,
+    Edit,
+    Harness,
+    Result,
+    Write,
+    event_json,
+    fake_signer,
+)
 from constitution_layer_kit.testing.items import (
     PatternDial,
     Subject,
@@ -651,40 +660,6 @@ class Link:
     target: str
 
 
-def fake_gpg(root: Path) -> Path:
-    """Signs every later commit of the repository through a fake `gpg.program` and turns
-    `log.showSignature` on; the fake logs each call to the returned file and, to verify, says its
-    human text on stderr as gpg does, which git log prints before the formatted line."""
-    folder = H.scratch_dir()
-    log = folder / "gpg.log"
-    program = folder / "gpg"
-    program.write_text(
-        "#!/bin/sh\n"
-        f"printf '%s\\n' \"$*\" >> {shlex.quote(str(log))}\n"
-        "cat > /dev/null\n"
-        'case "$*" in\n'
-        "  *--verify*)\n"
-        "    printf 'gpg: Good signature from \"fake signer\"\\n' >&2\n"
-        "    printf '[GNUPG:] GOODSIG 0123456789ABCDEF fake signer\\n'\n"
-        "    printf '[GNUPG:] VALIDSIG 0123456789ABCDEF 2026-10-06 1 0 4 0 1 8 00 0123456789ABCDEF\\n';;\n"
-        "  *)\n"
-        "    printf '[GNUPG:] SIG_CREATED D 1 8 00 1 0123456789ABCDEF 1\\n' >&2\n"
-        "    printf -- '-----BEGIN PGP SIGNATURE-----\\n\\nZmFrZQ==\\n-----END PGP SIGNATURE-----\\n';;\n"
-        "esac\n",
-        encoding="utf-8",
-    )
-    program.chmod(0o755)
-    for key, value in (
-        ("gpg.format", "openpgp"),
-        ("gpg.program", str(program)),
-        ("user.signingkey", "FIXTURE"),
-        ("commit.gpgsign", "true"),
-        ("log.showSignature", "true"),
-    ):
-        subprocess.run(["git", "config", key, value], cwd=root, check=True)
-    return log
-
-
 def history_repo(dates: Sequence[tuple[str, dict[str, str | Link | None]]], signed: bool = False) -> Path:
     """A repository whose first-parent line is the given commits, each at its date: {path: text}, a
     `Link` making the path a symbolic link, None deleting the file. No other commit, so the report's
@@ -695,7 +670,7 @@ def history_repo(dates: Sequence[tuple[str, dict[str, str | Link | None]]], sign
     consumer.write("constitution.yaml", dials_text())
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
     if signed:
-        fake_gpg(root)
+        fake_signer(H.scratch_dir(), root)
     for stamp, files in dates:
         for rel, text in files.items():
             if text is None:
@@ -775,7 +750,7 @@ def test_t14() -> None:
     shown = subprocess.run(
         ["git", "log", "-1", "--format=%h"], cwd=signed, capture_output=True, text=True, check=False
     )
-    printed = "fake signer" in shown.stdout + shown.stderr  # so the case cannot pass for want of a check
+    printed = SIGNER in shown.stdout + shown.stderr  # so the case cannot pass for want of a check
     assert printed, f"git log did not print the check: {shown.stdout}{shown.stderr}"
     exactly(scan(signed, "--since", "2026-08-11"), 0, wanted)
     exactly(scan(weird, "--since", "2026-08-20"), 0, weird_wanted)
