@@ -1,5 +1,6 @@
 """The checks: each pair against the range's paths, each declaration against the pairs, the
-working tree's lines. Functions of typed inputs; git is asked elsewhere."""
+working tree's lines, the agents the Stop event lists as running. Functions of typed inputs; git
+is asked elsewhere."""
 
 from __future__ import annotations
 
@@ -9,7 +10,7 @@ from constitution_layer_kit.model import Finding
 from constitution_layer_kit.territory import Matcher
 
 from . import messages
-from .model import Declaration, Pair, PairVerdict, Range
+from .model import AGENT_TASKS, RUNNING, Declaration, Pair, PairVerdict, Range, Task
 
 
 def judge_pairs(matcher: Matcher, pairs: Sequence[Pair], rng: Range) -> list[PairVerdict]:
@@ -56,3 +57,11 @@ def working_files_note(matcher: Matcher, patterns: Sequence[str], tracked: Seque
 
 def tree_finding(lines: Sequence[str]) -> Finding:
     return messages.t1_dirty_tree(lines)
+
+
+def agents_running(tasks: Sequence[Task]) -> int:
+    """How many agents of the session the Stop event lists as running: the tasks whose type is an
+    agent's and whose status is `running`. The list says that agents work in the tree, never
+    whose the dirty files are. No such task counts none, and the tree is then reported as before:
+    the hook fails towards the report."""
+    return sum(1 for task in tasks if task.kind in AGENT_TASKS and task.status == RUNNING)

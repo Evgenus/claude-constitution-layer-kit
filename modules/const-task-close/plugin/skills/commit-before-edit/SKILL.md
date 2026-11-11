@@ -21,7 +21,9 @@ What is checked and what is not: this plugin's turn-end hook runs `git status --
 session's repository when a turn ends and reports a dirty tree — any tracked change or untracked
 file git does not ignore — once per turn: under `severity: block` the model is asked to commit and
 the turn continues once; under `warn` the user is shown the notice. The second stop of a turn always
-lets it end. Whether a commit is coherent, and what its message says: yours.
+lets it end. While a subagent, a teammate or a workflow of the session still runs, the report
+waits for the first turn end with none running: the hook cannot tell that agent's files from
+yours, so commit your own work all the same. Whether a commit is coherent, and what its message says: yours.
 
 ## The three moments
 
