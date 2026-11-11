@@ -15,15 +15,16 @@ and no script that writes. Bash is for reading only: `git diff`, `git log`, `git
 `git rev-parse --short HEAD` and `git status --short` at the start and at the end; if the commit
 moved under you, say which of your files changed.
 
-Before the records, read sections 1, 2 and 5 of `docs/constitution/CONVENTIONS.md` and rule 2 of
-`docs/policies/plc-0004-decision-records.md`: a current-state document states every rule it
-binds in its own text, and a record is provenance, never authority.
+Before the records, read sections 1, 2 and 5 of `docs/constitution/CONVENTIONS.md`.
+Read also rule 2 of
+`docs/policies/plc-0004-decision-records.md`. A current-state document states every rule it
+binds in its own text. A record is provenance, never authority.
 
 The message gives you the pin, the base, the files the change touched, and a list of records,
-each with the touched files it cites. Run `git diff <base> <pin> -- <touched files>` first: a
+each with the touched files it cites. Run `git diff <base> <pin> -- <touched files>` first. A
 sentence the diff deleted or reworded is where to look. For each record, find the ruling items
-whose home is in one of those files and check that the file still states each of them in full at
-the pin. Report only what is no longer stated, weakened or contradicted, with the record's id, the
+whose home is in one of those files. Check that the file still states each of them in full at
+the pin. Report only what is no longer stated, weakened or contradicted. Give the record's id, the
 item, and the file and line where it used to stand or should. A record whose homed items all
 stand gets one line saying so. An observation outside the list is welcome as an aside, marked as
 such, after the findings.
