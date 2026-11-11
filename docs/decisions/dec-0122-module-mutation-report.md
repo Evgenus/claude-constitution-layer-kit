@@ -58,7 +58,7 @@ C, by the decider in chat on 2026-11-11, over the session's recommendation. The 
 
 ## 2. Where the sample runs
 
-The first run of the kit's CI with the sample in each module's job was run 43003257222, on 2026-11-11. It measured 898 of 9,884 mutants and scored 80.3%, with a standard error of 1.9 points. The sample step took 233 to 316 seconds in ten modules. It took 437 seconds in [`const-referencing`](../requirements.md#const-referencing) and 668 in [`const-interaction`](../requirements.md#const-interaction), whose tests are slow: a mutant that survives runs every test that reaches it. The check `gates` waits for the slowest job, so the verdict came after about 15 minutes, where it had come after about 5. The session had told the decider of 3 to 5 minutes more in each module's job.
+The first run of the kit's CI with the sample in each module's job was run 43003257222, on 2026-11-11. It measured 898 of 9,884 mutants and scored 80.3%, with a standard error of 1.9 points. By the report's own column `seconds`, the line map and the mutants' runs together took 233 to 316 seconds in ten modules. They took 437 seconds in [`const-referencing`](../requirements.md#const-referencing) and 668 in [`const-interaction`](../requirements.md#const-interaction), whose tests are slow: a mutant that survives runs every test that reaches it. The check `gates` waits for the slowest job, so it ended about 15 minutes after the run was created, where two runs on `main` of the same day took about 5. The session had told the decider of 3 to 5 minutes more in each module's job.
 
 ### Options
 
@@ -106,7 +106,7 @@ B, by the decider in chat on 2026-11-11. The session chose that the sample jobs 
 
 The commits before the one that creates this record wrote the comparison and built `scripts/kit_mutation.py`, `scripts/kit_mutation_plugin.py` and `scripts/module-mutation.py` with its self-test, 17 cases at the branch's end. The commit that creates this record adds the sample to the workflow, as steps of each module's job, and the entry to the gate list. A later commit of the branch moves the sample into jobs of its own, as the second question chose. The branch states the rulings in [the gate-list page](../guide/gate-list-and-ci.md#g2) and in the docstrings of `scripts/metrics.py`, `scripts/module-coverage.py` and `scripts/check-gate-lists.py`. The record is born `inactive`.
 
-The first run of the kit's CI with the sample in jobs of its own, run 43008721936 on 2026-11-11, measured 1,003 of 9,884 mutants and scored 78.2%, with a standard error of 1.7 points. The steps of each sample job took 212 to 353 seconds, and the job `gates` was green about 5 minutes after the run began.
+The first run of the kit's CI with the sample in jobs of its own, run 43008721936 on 2026-11-11, measured 1,003 of 9,884 mutants and scored 78.2%, with a standard error of 1.7 points. By the same column, the line map and the mutants' runs together took 212 to 353 seconds a module, and the job `gates` ended about 6 minutes after the run was created.
 
 On the session's machine, a sample of `const-questions` with the workflow's shape, three copies and a budget of 60 seconds, ran 44 mutants in 71 seconds after a line map of 69 seconds: 29 killed, 8 survived, 7 not covered.
 
