@@ -2,7 +2,7 @@
 # Never shipped to consumers: modules carry no tool configuration of their own.
 #
 # The kit's whole list of checks is scripts/gate-list.sh; CI runs every entry, one job per module, one job
-# `install-guide` and one job `kit`, and a job `gates`, green only when every other job is
+# `install-guide` and one job `kit`, and a job `gates`, green only when every one of those jobs is
 # (.github/workflows/gates.yml):
 #   sh scripts/gate-list.sh --names       sh scripts/gate-list.sh --run <entry>|<job>
 # Run from the kit root before a module's scripts are reviewed:
