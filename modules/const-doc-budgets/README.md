@@ -3,7 +3,7 @@
 <a id="a1"></a>
 ## What it gives you
 
-A character ceiling per group of documents, measured after every write and in a scan: each ceiling names its documents by path patterns, its number and the days of data it was set from, and warns until 30 days of data stand behind it; a history report over git gives those data; a document that must stand over its ceiling is declared as a departure in the dials file. Plus a skill for setting a ceiling and reading a finding.
+A character ceiling per group of documents, measured after every write and in a scan. Each ceiling names its documents by path patterns, its number and the days of data it was set from. It warns until 30 days of data stand behind it. A history report over git gives those data. A document that must stand over its ceiling is declared as a departure in the dials file. Plus a skill for setting a ceiling and reading a finding.
 
 In plain words: a group of documents is the set of files that some path patterns name, such as everything under one folder. A ceiling is the longest length, counted in characters, that a document of the group may have. The number is set from the group's own history, which the history report reads out of git. A scan is a run over all the documents at once, from the command line or in CI. After a write, or in a scan, each document is measured against its ceiling. The days of data are the days of that history that the number was set from. A ceiling warns until 30 days of data stand behind it; then it may block. A departure is a document that must stand over its ceiling. It is declared with its reason in the dials file, which is the project's `constitution.yaml`. The skill is a written procedure that Claude loads when a ceiling is set or a finding is read.
 
