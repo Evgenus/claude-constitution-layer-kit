@@ -2,7 +2,7 @@
 id: dec-0123-commit-hash-stands-in-dated-text
 type: task-record
 title: A commit hash stands only in dated text, never in a sentence that states how things are
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
@@ -55,7 +55,7 @@ B, by the decider, in chat on 2026-11-11. The decider gave the letter and no rea
 
 ## Applied
 
-The commit that creates this record amends the row and adds the sentences of R2 and R3 to the two policies. A later commit of the same branch changes the module's document and skill for R4, makes the new receipt of the module's eval cases, and sets this record `inactive`.
+The commit that creates this record amends the row and adds the sentences of R2 and R3 to the two policies. A second commit of the same branch changes the module's document and skill for R4 and sets this record `inactive`. A third holds the new receipt of the module's eval cases, which the skill's edit made stale.
 
 ## Carry list
 
