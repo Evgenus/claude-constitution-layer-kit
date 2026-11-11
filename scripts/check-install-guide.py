@@ -104,7 +104,15 @@ A missing `git`, met first when the guide is read, "install it and put it on PAT
 `claude` not on PATH when the run starts, "install it; the check runs the guide's commands with it".
 A guide that cannot be read: a folder that is no clone with a commit, "run the check from a clone of the
 kit"; a guide not committed at HEAD, "commit the guide"; a file that cannot be read or written, "make the
-kit's files readable and the system's temporary folder writable". A source the check cannot point at the
+kit's files readable and the system's temporary folder writable". A path of the run that a claim cannot
+look up, and a folder of the run that it cannot list, are each a configuration failure that names the path,
+the same on every Python (`looked`, `walked`): the claims ask neither `Path.is_file` nor `Path.is_dir`,
+which answer False for such a path from release 3.14 of the language on, nor `Path.rglob`, which then lists
+such a folder as an empty one. Its fix names no `chmod`, since the run has removed the folder: "find what
+left a folder there without the owner's read and search permission, the shell's `umask` or a command of the
+guide's blocks". Every BROKEN report ends with one line from one source (`stop_line`), "the check could
+not run — <n> block(s) run", n the blocks that ran before the failure and 0 where none did. A source the
+check cannot point at the
 change: no origin on GitHub, "add one"; a detached HEAD, "check out a branch"; a branch whose origin copy
 is not at HEAD, "push the branch (git push)"; each ends with "or set CONSTITUTION_KIT_INSTALL_FROM=
 <owner>/<repo>#<branch>". A clone whose marketplace.json gives no name, each fault with the fix
@@ -211,6 +219,12 @@ Modes:  no arguments   check the kit's guide;
                        The copies: a reinstall copy that lacks a file of the marketplace, the toy modules'
                        links into a toy shared/ read through on both sides, a reinstall that compares with
                        the clone the run kept, else the one listed.
+                       The paths a claim cannot see: a folder that cannot be listed and a path that cannot
+                       be looked up, each the literal BROKEN line that names it, with the walk and the
+                       lookup mocked and, unless run as root, with real folders of mode 000 and 444 in a
+                       cached copy and in the kernel's copy, never an empty folder, a copy alike or a
+                       missing file; the lookups and the listing unmoved by a `Path.is_file` and a
+                       `Path.is_dir` that answer False.
                        The source and the credentials: the outer credential settings carried into the run
                        as git reads them, includes followed, nothing else of the outer configuration, and
                        the carried helper reaching the run's git; the source taken from the environment,
@@ -290,6 +304,8 @@ Modes:  no arguments   check the kit's guide;
                        The wrong shapes: each wrong shape of a reply, in a run, a BROKEN and never a
                        finding against the guide; one whole report of it through `main`, off the pin and on
                        it, as of a green run, a finding and a file the blocks' run cannot read.
+                       The stop line: the same literal line, "0 block(s) run", after a guide `main` cannot
+                       read and after an option the check does not know.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -297,23 +313,25 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import errno
 import io
 import itertools
 import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from unittest import mock
 
 import yaml
 from kit_install import Broken as InstallBroken
-from kit_install import shared_path
+from kit_install import looked_up, shared_path
 from kit_module_doc import (
     PLUGIN_PLACE_ENV,
     PLUGINS_ROOT_ENV,
@@ -387,9 +405,15 @@ class Broken(Exception):
     ran = 0
 
     def stop(self) -> str:
-        """The could-not-run line of a BROKEN report: no block ran, or how many ran before the failure."""
-        said = "0 blocks run" if not self.ran else f"{self.ran} block(s) run"
-        return f"BROKEN: the check could not run — {said}{self.note}"
+        """The could-not-run line of a BROKEN report, by `stop_line`, with this failure's count and note."""
+        return stop_line(self.ran, self.note)
+
+
+def stop_line(ran: int, note: str = "") -> str:
+    """The could-not-run line that ends every BROKEN report, its one source: the number of blocks that ran
+    before the failure, 0 where none did, in the words of the RED and GREEN lines, then the note of a run
+    on another Claude Code than the pin."""
+    return f"BROKEN: the check could not run — {ran} block(s) run{note}"
 
 
 class Misfit(Exception):
@@ -819,7 +843,7 @@ def platform_clone(state: Run) -> Path:
             f"make the block register the source it is given, {FROM_ENV} or the clone's origin, "
             "and nothing after it",
         )
-    if not Path(location).is_dir():
+    if not folder_at(Path(location)):
         raise Broken(
             f"`claude {' '.join(MARKETPLACES)}` names an installLocation that is no folder ({location})"
             + platform_fix(state.note, SCRIPT, "platform_clone", "a reply")
@@ -939,14 +963,69 @@ def session_paths(state: Run, project: Path) -> tuple[dict[str, str] | None, str
     return None, last_line(said)
 
 
+def unseen(path: Path, verb: str, why: str) -> Broken:
+    """The Broken for a path of the run that cannot be `verb`: looked up, or listed. The fix names no
+    `chmod`: the path lies in the run's throwaway home, removed before the line is read."""
+    return Broken(
+        f"{path} cannot be {verb} ({why}), and a claim reads every file the blocks leave — fix: the path"
+        " is the run's own, in the throwaway home it has removed, so find what left a folder there without"
+        " the owner's read and search permission, the shell's `umask` or a command of the guide's blocks,"
+        " correct that, then run the check again"
+    )
+
+
+def looked(path: Path) -> os.stat_result | None:
+    """What `os.stat` says of a path of the run, by `kit_install.looked_up`: None for a path that is not
+    there, a Broken of this check, `unseen`, for one that cannot be looked up. The claims ask this and
+    never `Path.is_file` or `Path.is_dir`: from release 3.14 of the language on those return False for the
+    error that earlier releases raise, and a path the check cannot look at would read as a missing one."""
+    try:
+        return looked_up(path)
+    except InstallBroken as bad:
+        cause = bad.__cause__
+        why = cause.strerror if isinstance(cause, OSError) and cause.strerror else str(bad)
+        raise unseen(path, "looked up", why) from bad
+
+
+def file_at(path: Path) -> bool:
+    """Whether a regular file (or a link to one) stands at the path; a Broken where it cannot be looked up."""
+    found = looked(path)
+    return found is not None and stat.S_ISREG(found.st_mode)
+
+
+def folder_at(path: Path) -> bool:
+    """Whether a folder (or a link to one) stands at the path; a Broken where it cannot be looked up."""
+    found = looked(path)
+    return found is not None and stat.S_ISDIR(found.st_mode)
+
+
+def walked(folder: Path, through_links: bool) -> Iterator[tuple[Path, list[str], list[str]]]:
+    """`os.walk` over a folder, each folder's path with the names of its folders and of its other entries;
+    links to folders are entered when `through_links`. A folder that is not there lists nothing. One that
+    cannot be listed is a Broken naming it, `unseen`, on every Python: `os.walk` with no handler passes
+    such a folder over as an empty one, and `Path.rglob` raises for it before release 3.14 of the language
+    and lists nothing from it on."""
+
+    def failed(bad: OSError) -> None:
+        if isinstance(bad, FileNotFoundError | NotADirectoryError) or bad.errno == errno.ELOOP:
+            return
+        where = Path(os.fsdecode(bad.filename)) if bad.filename is not None else folder
+        raise unseen(where, "listed", bad.strerror or str(bad))
+
+    for where, folders, files in os.walk(folder, onerror=failed, followlinks=through_links):
+        yield Path(where), folders, files
+
+
 def files_through_links(folder: Path) -> dict[str, Path]:
-    """Every file under a folder by its relative path, links to folders followed, caches left out."""
+    """Every file under a folder by its relative path, links to folders followed, caches left out; a
+    folder below it that cannot be listed, or a file that cannot be looked up, is a Broken (`walked`,
+    `looked`)."""
     found: dict[str, Path] = {}
-    for where, folders, files in os.walk(folder, followlinks=True):
+    for where, folders, files in walked(folder, through_links=True):
         folders[:] = [f for f in folders if f != "__pycache__"]
         for name in files:
-            path = Path(where) / name
-            if path.is_file():
+            path = where / name
+            if file_at(path):
                 found[str(path.relative_to(folder))] = path
     return found
 
@@ -995,7 +1074,7 @@ def cached_copies(state: Run, project: Path) -> tuple[dict[str, Path], str]:
                 f"{module} is not in the plugin cache at {copies[module]} but at {listed_at}",
                 cache_fix(state.note),
             )
-        if not copies[module].is_dir():
+        if not folder_at(copies[module]):
             return copies, f"{module} is not in the plugin cache at {copies[module]}"
         if state.key(module) not in on:
             return copies, f"{module} is not enabled in the project's .claude/settings.json"
@@ -1058,15 +1137,16 @@ def claim_kernel(state: Run, project: Path) -> str:
     tracked = sorted(Path(name).relative_to(KERNEL) for name in said.split("\0") if name)
     for path in tracked:
         copy = project / "docs" / "constitution" / path
-        if not copy.is_file() or copy.read_bytes() != (source / path).read_bytes():
+        if not file_at(copy) or copy.read_bytes() != (source / path).read_bytes():
             return f"docs/constitution/{path} is not the kernel's file"
     for held in LICENSE_FILES:
         copy = project / "docs" / "constitution" / held
-        if not copy.is_file() or copy.read_bytes() != (state.kit / held).read_bytes():
+        if not file_at(copy) or copy.read_bytes() != (state.kit / held).read_bytes():
             return f"docs/constitution/{held} is not the kit's file"
     held_names = set(tracked) | {Path(name) for name in LICENSE_FILES}
     folder = project / "docs" / "constitution"
-    for path in sorted(p.relative_to(folder) for p in folder.rglob("*") if not p.is_dir()):
+    left = [where / name for where, _, files in walked(folder, through_links=False) for name in files]
+    for path in sorted(p.relative_to(folder) for p in left if not folder_at(p)):
         if path not in held_names:
             return f"docs/constitution/{path} is no file git tracks in the kit's kernel"
     return ""
@@ -1409,7 +1489,7 @@ def run_blocks(
                     continue
                 code, said, where = run_block(block, state, Path(scratch), source)
                 ran += 1
-                if where.is_file():
+                if file_at(where):
                     state.cwd = Path(where.read_text(encoding="utf-8").strip())
                 found = after_block(block, state, code, said)
                 if found:
@@ -2393,6 +2473,7 @@ class SelfTestRun:
             self.list_command_cases(toy, unit, texts)
             copies = copies_placed(unit)
             self.reinstall_claim_cases(unit, copies)
+            self.unseen_path_cases(unit, copies)
             self.update_claim_cases(unit, copies)
             person = person_of(unit, toy.four)
             self.plugin_cache_location_cases(unit, texts, copies)
@@ -3406,6 +3487,158 @@ class SelfTestRun:
             got,
         )
 
+    def unseen_path_cases(self, unit: Unit, copies: Copies) -> None:
+        """A folder of the run that cannot be listed and a path of it that cannot be looked up: one Broken
+        naming it, the same on every Python, never an empty folder or a missing file."""
+
+        def fix_of(path: Path, verb: str) -> str:  # typed by hand
+            return (
+                f"{path} cannot be {verb} (Permission denied), and a claim reads every file the blocks leave"
+                " — fix: the path is the run's own, in the throwaway home it has removed, so find what left"
+                " a folder there without the owner's read and search permission, the shell's `umask` or a"
+                " command of the guide's blocks, correct that, then run the check again"
+            )
+
+        def said(ask: Callable[[], object]) -> str:
+            """What the call gives: the Broken's text, or the answer's repr, or another exception's name."""
+            try:
+                return repr(ask())
+            except Broken as bad:
+                return str(bad)
+            except OSError as bad:
+                return f"{type(bad).__name__} raised"
+
+        def denied_walk(
+            top: Path, onerror: Callable[[OSError], None] | None = None, followlinks: bool = False
+        ) -> Iterator[object]:
+            """`os.walk` over a top folder whose one subfolder `shut` cannot be listed: the error goes to
+            the handler, and with none the folder is passed over."""
+            yield str(top), ["shut"], []
+            if onerror is not None:
+                onerror(PermissionError(13, "Permission denied", str(Path(top) / "shut")))
+
+        def denied_lookup(path: Path) -> None:
+            """`kit_install.looked_up` of a path below a folder that cannot be searched."""
+            try:
+                raise PermissionError(13, "Permission denied", str(path))
+            except PermissionError as bad:
+                raise InstallBroken(f"{path} cannot be searched (Permission denied) — fix: another") from bad
+
+        tree = unit.folder / "unseen"
+        (tree / "shut").mkdir(parents=True)
+        (tree / "shut" / "inside.txt").write_text("held\n", encoding="utf-8")
+        (tree / "open.txt").write_text("held\n", encoding="utf-8")
+        with mock.patch.object(os, "walk", denied_walk):
+            got = said(lambda: files_through_links(tree))
+        self.case(
+            "a walk that reports a folder it cannot list (the walk mocked) is the Broken naming the folder",
+            got == fix_of(tree / "shut", "listed"),
+            got,
+        )
+        with mock.patch.dict(globals(), {"looked_up": denied_lookup}):
+            got_file, got_folder = said(lambda: file_at(tree / "open.txt")), said(lambda: folder_at(tree))
+        self.case(
+            "a file and a folder that cannot be looked up (the lookup mocked) are each the Broken naming the"
+            " path, with this check's fix and not the lookup's",
+            got_file == fix_of(tree / "open.txt", "looked up") and got_folder == fix_of(tree, "looked up"),
+            f"{got_file} | {got_folder}",
+        )
+        with (
+            mock.patch.object(Path, "is_file", lambda self: False),
+            mock.patch.object(Path, "is_dir", lambda self: False),
+        ):
+            got = said(
+                lambda: (file_at(tree / "open.txt"), folder_at(tree), sorted(files_through_links(tree)))
+            )
+        self.case(
+            "the lookups and the listing ask no `Path.is_file` or `Path.is_dir`, whose answer differs by"
+            " Python",
+            got == repr((True, True, ["open.txt", "shut/inside.txt"])),
+            got,
+        )
+        got = said(
+            lambda: (
+                file_at(tree / "gone"),
+                folder_at(tree / "open.txt" / "below"),
+                list(walked(tree / "gone", False)),
+            )
+        )
+        self.case(
+            "a path that is not there, and one through a file, are no file and no folder, and list nothing",
+            got == repr((False, False, [])),
+            got,
+        )
+
+        kernel_state = unit.state()
+        kernel_project = unit.folder / "kernel-project"
+        kernel_copy = kernel_project / "docs" / "constitution"
+        kernel_copy.mkdir(parents=True)
+        (kernel_copy / "CONVENTIONS.md").write_bytes((unit.toy.kit / KERNEL / "CONVENTIONS.md").read_bytes())
+        for name in LICENSE_FILES:
+            (kernel_copy / name).write_bytes((unit.toy.kit / name).read_bytes())
+        (kernel_copy / "below").mkdir()
+        (kernel_copy / "below" / "stray.txt").write_text("stray\n", encoding="utf-8")
+        got = said(lambda: claim_kernel(kernel_state, kernel_project))
+        self.case(
+            "the kernel claim names a file below a folder of the copy that git does not track",
+            got == repr("docs/constitution/below/stray.txt is no file git tracks in the kit's kernel"),
+            got,
+        )
+        if (
+            os.geteuid() == 0
+        ):  # root lists and searches any folder: there, the mocked cases above are the proof
+            return
+        alpha = unit.held_copy("const-alpha")
+        (alpha / "shut").mkdir()
+        (alpha / "shut" / "odd.txt").write_text("odd\n", encoding="utf-8")
+        reinstalling = unit.state(FAKE_LIST=unit.reply_file(json.dumps(copies.listed)))
+        reinstalling.project, reinstalling.clone = unit.project, copies.wanted_clone
+        try:
+            (alpha / "shut").chmod(0o000)
+            (tree / "shut").chmod(0o000)
+            (kernel_copy / "below").chmod(0o000)
+            got = said(lambda: files_through_links(tree))
+            self.case(
+                "a real folder that cannot be listed is the Broken naming it, not an empty folder",
+                got == fix_of(tree / "shut", "listed"),
+                got,
+            )
+            got = said(lambda: claim(reinstalling, "reinstall"))
+            self.case(
+                "a reinstall whose cached copy holds a folder that cannot be listed is the Broken naming it,"
+                " not a copy alike in the cache and the marketplace",
+                got == fix_of(alpha / "shut", "listed"),
+                got,
+            )
+            got = said(lambda: claim_kernel(kernel_state, kernel_project))
+            self.case(
+                "the kernel claim over a copy with a folder that cannot be listed is the Broken naming it,"
+                " not a copy with no other file",
+                got == fix_of(kernel_copy / "below", "listed"),
+                got,
+            )
+            (kernel_copy / "below").chmod(0o444)  # listed, and not searched: its entry cannot be looked up
+            got = said(lambda: claim_kernel(kernel_state, kernel_project))
+            self.case(
+                "the kernel claim over a folder that is listed and cannot be searched is the Broken naming"
+                " the entry it cannot look up",
+                got == fix_of(kernel_copy / "below" / "stray.txt", "looked up"),
+                got,
+            )
+            (kernel_copy / "below").chmod(0o755)
+            kernel_copy.chmod(0o000)
+            got = said(lambda: claim_kernel(kernel_state, kernel_project))
+            self.case(
+                "the kernel claim over a copy that cannot be searched is the Broken naming the kernel's file"
+                " it cannot look up, not a file that is not the kernel's",
+                got == fix_of(kernel_copy / "CONVENTIONS.md", "looked up"),
+                got,
+            )
+        finally:
+            for folder in (alpha / "shut", tree / "shut", kernel_copy, kernel_copy / "below"):
+                folder.chmod(0o755)
+            shutil.rmtree(alpha / "shut")
+
     def update_claim_cases(self, unit: Unit, copies: Copies) -> None:
         """The update claim over the copies a project lists: which entries it picks, and an installPath that
         is no folder of the cache."""
@@ -4401,7 +4634,7 @@ class SelfTestRun:
             toy.git,
         )
 
-        stop = "BROKEN: the check could not run — 0 blocks run"  # a failure before any block ran
+        stop = "BROKEN: the check could not run — 0 block(s) run"  # a failure before any block ran
 
         ended, lines = versions.whole_run(versions.says_env(texts.too_old, 0, None))
         self.case(
@@ -4610,7 +4843,7 @@ class SelfTestRun:
         unreadable_wanted = (  # typed by hand
             "BROKEN: a file could not be read or written ([Errno 13] Permission denied: '/the/file')"
             " — fix: make the kit's files readable and the system's temporary folder writable{}",
-            "BROKEN: the check could not run — 0 blocks run{}",
+            "BROKEN: the check could not run — 0 block(s) run{}",
         )
         for name, env, note_wanted in (
             ("off the pin", versions.says_env(texts.too_old, 0, "1"), texts.noted.format("2.1.286")),
@@ -4649,6 +4882,36 @@ class SelfTestRun:
                 ],
                 f"{ended} {lines}",
             )
+
+        def unreadable_guide(*args: object, **kwargs: object) -> object:
+            """A guide `main` cannot read, before the run and its count begin."""
+            raise PermissionError(13, "Permission denied", "/the/guide")
+
+        no_block = "BROKEN: the check could not run — 0 block(s) run"  # typed by hand
+        with mock.patch.dict(globals(), {"committed_guide": unreadable_guide}):
+            ended, lines = versions.whole_run(toy.base)
+        self.case(
+            "a guide `main` cannot read: the two BROKEN lines, the second in the stop line's one grammar",
+            ended == EXIT_BROKEN
+            and lines
+            == [
+                "BROKEN: a file could not be read or written ([Errno 13] Permission denied: '/the/guide')"
+                " — fix: make the kit's files readable and the system's temporary folder writable",
+                no_block,
+            ],
+            f"{ended} {lines}",
+        )
+        printed_lines = io.StringIO()
+        with contextlib.redirect_stdout(printed_lines), contextlib.redirect_stderr(io.StringIO()):
+            ended = main(["--no-such-option"])
+        lines = printed_lines.getvalue().splitlines()
+        self.case(
+            "an option the check does not know: the misinvocation line and the same stop line, exit 1",
+            ended == EXIT_BROKEN
+            and lines
+            == ["BROKEN: misinvocation — fix: run with no arguments, or with --self-test", no_block],
+            f"{ended} {lines}",
+        )
 
     def clone_and_source_cases(self, toy: Toy) -> None:
         """Folders that are no clone, the carried credentials, and the source the marketplace block takes."""
@@ -4879,7 +5142,7 @@ def main(argv: list[str]) -> int:
         args = parser.parse_args(argv)
     except SystemExit:
         print("BROKEN: misinvocation — fix: run with no arguments, or with --self-test")
-        print("BROKEN: the check could not run — 0 blocks run")
+        print(stop_line(0))
         return EXIT_BROKEN
     try:
         if args.self_test:
@@ -4892,7 +5155,7 @@ def main(argv: list[str]) -> int:
         return EXIT_BROKEN
     except OSError as bad:
         print(f"BROKEN: {unreadable_said(bad)}")
-        print("BROKEN: the check could not run — 0 blocks run")
+        print(stop_line(0))
         return EXIT_BROKEN
 
 
