@@ -30,7 +30,7 @@ Two skills load on their own. `close-task` loads when a task, a branch or a pull
 <a id="a4"></a>
 ## How it works
 
-**At turn end.** A hook runs when the session's turn ends. It asks git whether the working tree is clean, and reports a dirty tree once per turn with the commit to make. Under the default, louder setting, it is a request the model weighs, not a wall: the second stop of a turn always lets it end. Under the quieter setting, it is a notice to the user alone. It does not fire on a user interrupt, and never in a session that has not loaded the plugin.
+**At turn end.** A hook runs when the session's turn ends. It asks git whether the working tree is clean, and reports a dirty tree once per turn with the commit to make. Under the default, louder setting, it is a request the model weighs, not a wall: the second stop of a turn always lets it end. Under the quieter setting, it is a notice to the user alone. While a subagent of the session still runs, the report waits until none does, because the tree may hold that agent's files. It does not fire on a user interrupt, and never in a session that has not loaded the plugin.
 
 **At session start.** A hook prints one line that names the two skills and the moment each applies. It reads nothing and checks nothing; it only tells the session when to load a skill. It runs again after a resume, a compaction or a clear.
 
