@@ -219,7 +219,7 @@ jobs:
     if: ${{ !cancelled() && needs.list.result == 'success' }}
     name: mutation ${{ matrix.module }}
     runs-on: ubuntu-latest
-    timeout-minutes: 70 # above the sum of the steps' own limits, so that a step's limit ends a hang and the job's never does
+    timeout-minutes: 70 # above the sum of the steps' own limits, so that a step's limit ends a hang before the job's does
     strategy:
       fail-fast: false
       matrix:
