@@ -2104,6 +2104,34 @@ def test_fences_close_at_their_depth() -> None:
     blocks(shows_a_fence, r1(line=20))
     blocks(tabbed, r1(line=16))
     passes(unclosed_in_list)
+    # A line ends where Markdown ends one, at a line feed, a carriage return or both, and nowhere else. Each
+    # of these characters breaks a line for `str.splitlines()` and for no Markdown reader. It stands inside a
+    # fenced line, before a run of ticks: the run closes nothing, so REQ-9 on the next line is still code,
+    # and the one finding is REQ-7 after the real closer. Typed by hand: the fence opens on line 10, the
+    # character stands on 11, REQ-9 on 12, the closer on 13, REQ-7 on 15.
+    for char in NO_LINE_END:
+        inside = f"# F\n\n```\nshown{char}```\nREQ-9 is code\n```\n\nAfter REQ-7.\n"
+        only_red(f"U+{ord(char):04X} in a fenced line", inside, [r1_line(15)])
+    # A lone carriage return does end a line: the run after it opens the fence, and the next one closes it.
+    # The whole text is line 8 for the finding, which counts line feeds: REQ-9 is code, REQ-7 stands after
+    # the closer. The fence is of tildes, since a run of ticks would also read as a code span within one line.
+    only_red("a lone carriage return", "# F\r\r~~~\rREQ-9 is code\r~~~\r\rAfter REQ-7.\r", [r1_line(8)])
+
+
+NO_LINE_END = "\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029"  # where `str.splitlines()` breaks and Markdown does not
+
+
+def r1_line(line: int) -> str:
+    return f"RED: {DOC}:{line}: 'REQ-7' cites a requirement by a bare handle"
+
+
+def only_red(name: str, text: str, wanted: list[str]) -> None:
+    """The write is blocked with exactly the wanted finding lines, the count line aside."""
+    result, _ = gate_on(wrote(text), dials_patch=LANES)
+    got = [line for line in red_lines(result.stderr) if line.startswith(f"RED: {DOC}:")]
+    assert got == wanted and result.code == 2, (
+        f"{name}: wanted exit 2 with {wanted}; got exit {result.code}: {got}"
+    )
 
 
 @item(74, "a footnote is no link: a bare form in it is red, a path in it is left alone")
