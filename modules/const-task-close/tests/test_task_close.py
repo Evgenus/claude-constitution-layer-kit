@@ -31,7 +31,15 @@ from constitution_layer_kit.errors import ConfigurationFailure
 from constitution_layer_kit.model import Finding
 from constitution_layer_kit.testing.acceptance import broken_first_line, expect, failure_of, item
 from constitution_layer_kit.testing.consumer import Consumer
-from constitution_layer_kit.testing.harness import Edit, Harness, Result, Write, stop_json
+from constitution_layer_kit.testing.harness import (
+    SIGNER,
+    Edit,
+    Harness,
+    Result,
+    Write,
+    fake_signer,
+    stop_json,
+)
 from constitution_layer_kit.testing.items import (
     PatternDial,
     Subject,
@@ -1003,40 +1011,6 @@ def refs_that_resolve() -> None:
 # ------------------------------------------------------------------ declarations
 
 
-def fake_gpg(root: Path) -> Path:
-    """Signs every later commit of the repository through a fake `gpg.program` and turns
-    `log.showSignature` on; the fake logs each call to the returned file and, to verify, says its
-    human text on stderr as gpg does, which git log prints before the formatted line."""
-    folder = H.scratch_dir()
-    log = folder / "gpg.log"
-    program = folder / "gpg"
-    program.write_text(
-        "#!/bin/sh\n"
-        f"printf '%s\\n' \"$*\" >> {shlex.quote(str(log))}\n"
-        "cat > /dev/null\n"
-        'case "$*" in\n'
-        "  *--verify*)\n"
-        "    printf 'gpg: Good signature from \"fake signer\"\\n' >&2\n"
-        "    printf '[GNUPG:] GOODSIG 0123456789ABCDEF fake signer\\n'\n"
-        "    printf '[GNUPG:] VALIDSIG 0123456789ABCDEF 2026-10-06 1 0 4 0 1 8 00 0123456789ABCDEF\\n';;\n"
-        "  *)\n"
-        "    printf '[GNUPG:] SIG_CREATED D 1 8 00 1 0123456789ABCDEF 1\\n' >&2\n"
-        "    printf -- '-----BEGIN PGP SIGNATURE-----\\n\\nZmFrZQ==\\n-----END PGP SIGNATURE-----\\n';;\n"
-        "esac\n",
-        encoding="utf-8",
-    )
-    program.chmod(0o755)
-    for key, value in (
-        ("gpg.format", "openpgp"),
-        ("gpg.program", str(program)),
-        ("user.signingkey", "FIXTURE"),
-        ("commit.gpgsign", "true"),
-        ("log.showSignature", "true"),
-    ):
-        assert git(root, "config", key, value).returncode == 0
-    return log
-
-
 def signed_gate(root: Path, result: Result, log: Path) -> str:
     """What is wrong with a scan of a signed range, or "": the repository's own git log verifies the
     signature through the fake and prints its text, so the case cannot pass for want of a signature
@@ -1045,9 +1019,9 @@ def signed_gate(root: Path, result: Result, log: Path) -> str:
     calls = log.read_text(encoding="utf-8") if log.exists() else ""
     if "--verify" not in calls:
         return f"git never called the fake to verify: {calls!r}"
-    if "fake signer" not in shown.stdout + shown.stderr:
+    if SIGNER not in shown.stdout + shown.stderr:
         return f"git log did not print the check: {shown.stdout}{shown.stderr}"
-    if "fake signer" in result.stdout + result.stderr:
+    if SIGNER in result.stdout + result.stderr:
         return f"the signature check reached the output: {result.stdout}{result.stderr}"
     return ""
 
@@ -1099,7 +1073,7 @@ def signed_note() -> None:
     as for an unsigned commit, and the scan prints that note and the count line, nothing more."""
     r = repo(with_map())
     branch(r.root)
-    log = fake_gpg(r.root)
+    log = fake_signer(H.scratch_dir(), r.root)
     where = "commit " + commit(r.root, "renamed\n\n" + trailer("core", "a rename only"), {"src/a.py": "2\n"})
     result = scan(r.root)
     note = messages.n2_declared(declared(where, "core", "a rename only"), True)
@@ -1245,7 +1219,7 @@ def signed_red() -> None:
     `commit <short>` on one line."""
     r = repo(with_map())
     branch(r.root)
-    log = fake_gpg(r.root)
+    log = fake_signer(H.scratch_dir(), r.root)
     where = "commit " + commit(
         r.root, "wrong\n\n" + f"{KEY}: nosuch — reason\n{KEY}: core\n", {"src/a.py": "2\n"}
     )
