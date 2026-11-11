@@ -39,11 +39,11 @@ A, by the session: it is the amendment the plan's item names, and it states what
 
 ## Choice
 
-B, by the decider, in chat on 2026-11-11. The decider gave the letter and no reason. The session keeps no objection: B leaves no hash of the tree against the row, which A did not. The pick did not name R6. The session added it after the carry audit, which found its sentence in this record's context alone.
+B, by the decider, in chat on 2026-11-11. The decider gave the letter and no reason. The session keeps no objection: B leaves no hash of the tree against the row, which A did not. The pick did not name R6. The session added it in the fixes of the first round of the carry audit, which found its sentence in this record's context alone.
 
 ## Ruling
 
-<a id="r1"></a>**R1.** A commit hash stands only in these places: a commit message, a record's body, a dated comparison, a dated statement of evidence or of done work, and chat. It never stands in a sentence that states how things are. This amends the requirement, which named the first, the second and the last of these places only.
+<a id="r1"></a>**R1.** A commit hash stands only in these places: a commit message, a record's body, a dated comparison, a dated statement of evidence or of done work, and chat. It never stands in a sentence that states how things are.
 
 <a id="r2"></a>**R2.** In a module document, a live proof or a platform fact carries its date, and may give the hash of the commit it was run or seen at.
 
