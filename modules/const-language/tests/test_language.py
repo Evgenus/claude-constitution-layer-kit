@@ -47,6 +47,8 @@ from constitution_layer_kit.testing.harness import (
     stop_json,
 )
 from constitution_layer_kit.testing.items import (
+    HANG_BOUND,
+    HANG_SECONDS,
     PatternDial,
     Subject,
     fake_claude,
@@ -1536,7 +1538,11 @@ def test_t33() -> None:
     and a Vale comment there switches nothing off. The copy is the last commit's, not the index's: a
     lower text staged and written again is the note. The gate asks git for the copy once, under a
     hook's cap, and not at all where the grade cannot be a finding — at warning, under a departure —
-    nor in the scan."""
+    nor in the scan, nor before the binary's preflight: with no vale on PATH the line is C2 and git was
+    not asked for the copy. Of the copy's hits only the grade counts: a copy that also holds a word with
+    a plain replacement gives its own grade to the note. A copy that is not UTF-8 is read as the file on
+    disk is, its bad byte replaced. A git that never answers the read is the shared C12.12, typed by
+    hand, exit 1: the write gets no verdict."""
     note = (
         f"note: {DOC}:1: the document reads at grade 33.04 by Flesch–Kincaid, above the ceiling of 10 and"
         " below the 43.54 of its last commit — reported, not red, while the grade falls: split the long"
@@ -1597,6 +1603,45 @@ def test_t33() -> None:
     H.run_gate(event_json(committed({DOC: GRADE_RED}, departure), Write(DOC, GRADE_LOWER)), env=departed_env)
     scan_env, scan_log = git_patch(H, unclocked=True)
     H.run_gate("", args=["--scan", str(root)], env=scan_env)
+    # after the binary's preflight: no vale on PATH is C2, and git was not asked for the copy
+    no_vale = H.scratch_dir()
+    for tool in ("python3", "git", "sh", "dirname"):
+        source = os.path.realpath(sys.executable) if tool == "python3" else command_path(tool)
+        os.symlink(source, no_vale / tool)
+    absent_env, absent_log = git_patch(H, unclocked=True)
+    absent = H.run_gate(
+        event_json(committed({DOC: GRADE_RED}), Write(DOC, GRADE_LOWER)),
+        env={**absent_env, "PATH": str(no_vale)},
+    )
+    # the copy holds a hit of another rule too: its grade alone is read, 38.87 as Vale 3.23.0 counts it
+    with_simpler = GRADE_RED.rstrip("\n") + " Organizational responsibilities materialize prior to noon.\n"
+    other_hit = write_over({DOC: with_simpler}, Write(DOC, GRADE_LOWER))
+    # the copy is not UTF-8: one byte no decoder takes, in the prose
+    bytes_root = committed({})
+    (bytes_root / DOC).parent.mkdir(parents=True, exist_ok=True)
+    (bytes_root / DOC).write_bytes(
+        GRADE_RED.encode("utf-8").replace(b"documentation.", b"documentation\xff.")
+    )
+    subprocess.run(["git", "add", "-A"], cwd=bytes_root, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid", "commit", "-qm", "x"],
+        cwd=bytes_root,
+        check=True,
+        capture_output=True,
+    )
+    not_utf8 = H.run_gate(event_json(bytes_root, Write(DOC, GRADE_LOWER)))
+    # a git that never answers the read of the copy: every other call goes to the real git
+    hang_root = committed({DOC: GRADE_RED})
+    stalled = H.scratch_dir()
+    fake_program(
+        stalled / "git",
+        f'for a in "$@"; do\n  if [ "$a" = cat-file ]; then\n    exec {shlex.quote(command_path("tail"))}'
+        f' -f /dev/null\n  fi\ndone\nexec {shlex.quote(command_path("git"))} "$@"\n',
+    )
+    hang_env, _ = git_patch(H, HANG_SECONDS, "cat-file", unclocked=True)
+    hang_env["PATH"] = str(stalled) + os.pathsep + os.environ.get("PATH", os.defpath)
+    with H.bounded(HANG_BOUND):
+        hung = H.run_gate(event_json(hang_root, Write(DOC, GRADE_LOWER)), env=hang_env)
 
     assert messages.n4_falling(DOC, GRADE_LOWER_VALUE, 10.0, GRADE_RED_VALUE) == note, "N4 typed whole"
     expect(same, 2, messages.l1_grade(DOC, GRADE_RED_VALUE, 10.0).render(), "stderr")
@@ -1640,10 +1685,31 @@ def test_t33() -> None:
     assert len(asked) == 1 and asked[0].split(" ", 1)[0] == repr(GIT_SECONDS), (
         f"the copy is asked for once, under a hook's cap of {GIT_SECONDS} s: {asked}"
     )
+    broken_first_line(absent, messages.c2_vale_missing().render())
+    said = context(other_hit)
+    assert said.code == 0 and said.stdout.splitlines() == [
+        messages.n4_falling(DOC, GRADE_LOWER_VALUE, 10.0, 38.87),
+        green_hook(),
+    ], f"a copy with another rule's hit gives its grade alone: {said.stdout} {said.stderr.strip()}"
+    said = context(not_utf8)
+    assert said.code == 0 and said.stdout.splitlines() == [note, green_hook()], (
+        f"a copy that is not UTF-8: exit {said.code}, {said.stdout} {said.stderr.strip()}"
+    )
+    where = shlex.quote(str(hang_root))
+    broken_first_line(
+        hung,
+        f"BROKEN: git gave no answer in {HANG_SECONDS:g} s to git cat-file in {hang_root} — fix: a git that"
+        " hangs is a stalled file system or, for a call that reads the index, a core.fsmonitor hook, set in"
+        " the repository's or in your own configuration: find the setting with"
+        f" git -C {where} config --show-origin --get core.fsmonitor (no output means none is set), repair or"
+        f" unset it or the file system, and run git -C {where} cat-file blob HEAD:{DOC} by hand until it"
+        " answers; the scan, which gives git as long as it takes, checks the same tree",
+    )
     for name, log in (
         ("at warning", warned_log),
         ("under a departure", departed_log),
         ("the scan", scan_log),
+        ("with no vale", absent_log),
     ):
         assert git_asked(log) and not [line for line in git_asked(log) if "cat-file" in line], (
             f"{name}: git is asked, and never for the committed copy: {git_asked(log)}"
