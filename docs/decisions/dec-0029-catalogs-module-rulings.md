@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-The third module, [`const-catalogs`](../requirements.md#const-catalogs), was authored on 2026-09-20 from its research comparison ([res-0003-const-catalogs](../research/res-0003-const-catalogs.md)) and the rows of [aspect A13](../requirements.md#a13). It is the first real test of the shared gate code with a third consumer, and the first gate of the kit that resolves no policy. Four questions were put to the decider in chat, each with lettered options; the rest was derived by the authoring session and is listed in section 5 for the decider to override before the yes. Two of the four answers overturn the comparison's recommendation, and the first reverses an earlier ruling of the decider's own.
+The third module, [`const-catalogs`](../requirements.md#const-catalogs), was authored on 2026-09-20 from its research comparison ([res-0003-const-catalogs](../research/res-0003-const-catalogs.md)) and the rows of [aspect A13](../requirements.md#a13). It is the first real test of the shared gate code with a third consumer, and the first gate of the kit that resolves no policy. Four questions were put to the decider in chat, each with lettered options. The rest was derived by the authoring session and is listed in section 5 for the decider to override before the yes. Two of the four answers overturn the comparison's recommendation, and the first reverses an earlier ruling of the decider's own.
 
 ## 1. Where a numbered kind is declared
 
@@ -22,17 +22,29 @@ The third module, [`const-catalogs`](../requirements.md#const-catalogs), was aut
   - **Cons:** every cost of B and of D together, and a double-declaration check across two places.
 - **B. Policy-declared only, the dial deferred.**
   - **Pros:** a kind's calibration stays with the kind's policy; no change to the shared pipeline.
-  - **Cons:** a key with one reader stays in the kernel schema; a project without policies cannot number anything; every write pays for the whole policy index — 373 ms measured on this repository.
+  - **Cons:**
+    - **a key with one reader stays in the kernel schema**;
+    - **a project without policies cannot number anything**;
+    - **every write pays for the whole policy index** — 373 ms measured on this repository.
 - **C. Both, the dial only where a root policy exists.**
   - **Pros:** avoids one pipeline change.
   - **Cons:** serves nobody: the dial's only named user is a project without policies.
 - **D. Dial-declared only: `const-catalogs.catalogs`, a list of `{prefix, territory, width}`, independent of policies.**
-  - **Pros:** the module reads its own namespace and nothing else, the most literal reading of [kernel §6](../constitution/CONVENTIONS.md#k6); the kernel schema shrinks to what two modules need; no index, no resolution, 172 ms per write where B took 373; works in any repository; a double declaration is a duplicate in one list.
-  - **Cons:** where a policy exists, the territory is declared twice and can drift — mitigated by YAML's own alias, which `yaml.safe_load` resolves; two mechanical changes to the shared code, touching the two accepted modules; the widest set of text amendments; reverses two earlier rulings.
+  - **Pros:**
+    - **the module reads its own namespace and nothing else**, the most literal reading of [kernel §6](../constitution/CONVENTIONS.md#k6);
+    - **the kernel schema shrinks** to what two modules need;
+    - **no index, no resolution**, 172 ms per write where B took 373;
+    - **works in any repository**;
+    - **a double declaration** is a duplicate in one list.
+  - **Cons:**
+    - **where a policy exists**, the territory is declared twice and can drift — mitigated by YAML's own alias, which `yaml.safe_load` resolves;
+    - **two mechanical changes to the shared code**, touching the two accepted modules;
+    - **the widest set of text amendments**;
+    - **reverses two earlier rulings**.
 
-The session first recommended B, against a dial it called "a second way to claim territory". The decider asked whether catalogs could be independent of policies; the probe showed the objection overstated — a catalog's territory binds no document to a policy, and [kernel §3](../constitution/CONVENTIONS.md#k3) itself calls catalogs "module and project concerns" — and showed that no sibling reads the policy-side key, which therefore sat in the kernel schema against the kernel's own admission rule. Recommendation revised to D. Chosen D by the decider in chat on 2026-09-20.
+The session first recommended B, against a dial it called "a second way to claim territory". The decider asked whether catalogs could be independent of policies. The probe showed the objection overstated — a catalog's territory binds no document to a policy, and [kernel §3](../constitution/CONVENTIONS.md#k3) itself calls catalogs "module and project concerns" — and showed that no sibling reads the policy-side key, which therefore sat in the kernel schema against the kernel's own admission rule. Recommendation revised to D. Chosen D by the decider in chat on 2026-09-20.
 
-**Ruling.** A numbered kind is an entry of `const-catalogs.catalogs`: `prefix`, `territory`, `width`. The `catalog` key leaves the kernel's dials schema. Item 5 of [dec-0004-catalogs-module](dec-0004-catalogs-module.md) is reversed, and the location fixed by ruling 1 of [dec-0017-records-numbered-now](dec-0017-records-numbered-now.md) moves: prefix `dec` and width 4 stand, the line leaves the policy's namespace for the module's. No id, number, prefix or width changes. A catalog declared by naming a policy is deferred with its signal.
+**Ruling.** A numbered kind is an entry of `const-catalogs.catalogs`: `prefix`, `territory`, `width`. The `catalog` key leaves the kernel's dials schema. Item 5 of [dec-0004-catalogs-module](dec-0004-catalogs-module.md) is reversed. The location fixed by ruling 1 of [dec-0017-records-numbered-now](dec-0017-records-numbered-now.md) moves: prefix `dec` and width 4 stand, the line leaves the policy's namespace for the module's. No id, number, prefix or width changes. A catalog declared by naming a policy is deferred with its signal.
 
 ## 2. Whether the hook refuses a number that is already taken
 
@@ -75,14 +87,17 @@ Recommendation D, against the comparison: after ruling 1 a catalog is identified
 
 ## 4. Whether a deleted top number may be issued again
 
-The row said "highest existing on the branch + 1"; the comparison's experiment E1 showed that this re-issues the number of a deleted highest item, so a bare citation written before the deletion would come to mean another document.
+The row said "highest existing on the branch + 1". The comparison's experiment E1 showed that this re-issues the number of a deleted highest item, so a bare citation written before the deletion would come to mean another document.
 
 - **A. As written, stated as a limit.**
   - **Pros:** the same in every clone; full names stay unambiguous.
   - **Cons:** a bare number silently changes its target; records of this repository may be deleted once carried, and the newest is a likely one.
 - **B. Advice reads history; refusals do not.** The number named is one more than the highest of the working tree and of every name the branch's history ever added.
   - **Pros:** a deleted top number is not suggested again; the gate's verdict is the same in every clone; one source of the number.
-  - **Cons:** one `git log` per scan and per new item — 32 ms here, growing with history; a shallow clone falls back to the tree and must say so; extends the row's wording.
+  - **Cons:**
+    - **one `git log` per scan and per new item** — 32 ms here, growing with history;
+    - **a shallow clone falls back to the tree** and must say so;
+    - **extends the row's wording**.
 - **C. The gate refuses a number history held.**
   - **Pros:** re-issue blocked.
   - **Cons:** the verdict depends on clone depth.
@@ -99,31 +114,42 @@ Recommendation B. Chosen B by the decider in chat on 2026-09-20.
 No real choice was put to the decider on these; each is the session's derivation, open to override before the yes.
 
 1. **An item** is a Markdown document whose path lies in an entry's territory — by path alone, no declaration in the envelope. Where two territories hold one file, the catalog whose prefix the file name carries judges it, else the first listed.
-2. **One name.** [Requirement A13.1](../requirements.md#a13-1) is read as "id equals stem", as the context of [dec-0017-records-numbered-now](dec-0017-records-numbered-now.md) reads it; a missing id and an unreadable envelope are reported here too, since the module must work with no sibling installed.
+2. **One name.** [Requirement A13.1](../requirements.md#a13-1) is read as "id equals stem", as the context of [dec-0017-records-numbered-now](dec-0017-records-numbered-now.md) reads it. A missing id and an unreadable envelope are reported here too, since the module must work with no sibling installed.
 3. **A malformed entry and a prefix listed twice are configuration failures,** exit 1, after the precedent of the second module's dial failures and the row's own "fails load".
 4. **One entry point:** the hook is the write-time gate and `--scan` the check for CI.
 5. **A free number below the highest passes.** The gate asks for free, not for next; it cannot tell a deleted item's number from one renumbered away before it landed.
-6. **The width is a ceiling:** past the last number it can write, the fix says the catalog is full and names no file; `width` itself stops at 9, where a fix line would outgrow what the platform shows.
+6. **The width is a ceiling:**
+   - **past the last number it can write**, the fix says the catalog is full and names no file;
+   - **`width` itself stops at 9**, where a fix line would outgrow what the platform shows.
 7. **Who renumbers.** The row's "younger branch" is read as the branch that has not landed: the item already on the main branch keeps its number. Commit dates are no measure — the comparison's experiments E4 and E5 showed templated files and shallow checkouts misdating them. The row now says so.
-8. **A file that exists keeps the number its name shows.** The fix of K1 tells a legacy item under a malformed name to keep its number, since it may be cited by it, and a new item is numbered above every number a name in the territory shows, formed or not; where another file shows the same number each is told of the other, and a number the width cannot write is named as such. Found by the fresh-context validation, the rivals by its second pass: the first text would have renumbered cited items on the adoption path.
-9. **No verdict waits for advice.** The hook reads history only once a finding that names a number is certain, against one clock of five seconds, and the history reader raises nothing — the clock, a failing git and a vanished one all end in the working tree's answer; where history is incomplete or was not read the fix and the scan's line say so instead of claiming "deleted items included", while a repository with no commit has a complete, empty history. Found by the same validation, on a synthetic history of 20,000 commits; the vanished git and the silent scan line by its second pass.
+8. **A file that exists keeps the number its name shows.** The fix of K1 tells a legacy item under a malformed name to keep its number, since it may be cited by it. A new item is numbered above every number a name in the territory shows, formed or not. Where another file shows the same number each is told of the other, and a number the width cannot write is named as such. Found by the fresh-context validation, the rivals by its second pass: the first text would have renumbered cited items on the adoption path.
+9. **No verdict waits for advice.** The hook reads history only once a finding that names a number is certain, against one clock of five seconds. The history reader raises nothing — the clock, a failing git and a vanished one all end in the working tree's answer. Where history is incomplete or was not read the fix and the scan's line say so instead of claiming "deleted items included". A repository with no commit has a complete, empty history. Found by the same validation, on a synthetic history of 20,000 commits; the vanished git and the silent scan line by its second pass.
 10. **Digits are ASCII and the extension is lowercase `.md`:** what the skill's listing glob cannot see is not the form.
 11. **The reference forms are carried by the skill,** not by a policy: a module ships none. The row's destination now says so.
 
 ## 6. The shared gate code, met by a third consumer
 
-Four seams, each fixed at the source with the fixtures of all three modules green; [dec-0025-shared-gate-code-linked](dec-0025-shared-gate-code-linked.md) asked for exactly this evidence.
+Four seams, each fixed at the source with the fixtures of all three modules green. [dec-0025-shared-gate-code-linked](dec-0025-shared-gate-code-linked.md) asked for exactly this evidence.
 
-1. The pipeline skipped when the dials name no root policy. That is the question of a gate that resolves policies, which now answers it itself; the type of the index builder does not let one forget.
+1. The pipeline skipped when the dials name no root policy. That is the question of a gate that resolves policies, which now answers it itself. The type of the index builder does not let one forget.
 2. The green line named a governing policy. It now says what the examined document is, in the module's words where no policy is involved.
-3. The fixture subject assumed a policy. It now carries the green words, the dials patch that re-declares its territory, and whether the gate resolves policies; a gate that resolves none leaves out the six items about the root policy and the policies' documents, every other item keeping its number.
-4. One shared item wrote its deeply nested envelope to the path of the subject's blocked write, which for this module is blocked by its name; it now writes to the path of the write that passes.
+3. The fixture subject assumed a policy. It now carries the green words, the dials patch that re-declares its territory, and whether the gate resolves policies. A gate that resolves none leaves out the six items about the root policy and the policies' documents, every other item keeping its number.
+4. One shared item wrote its deeply nested envelope to the path of the subject's blocked write, which for this module is blocked by its name. It now writes to the path of the write that passes.
 
 One seam was opened and closed again: a policy's namespace handed over as read, needed only while option B of section 1 stood.
 
 ## Applied
 
-In the commit that creates this record: the module's [MODULE.md](../../modules/const-catalogs/MODULE.md); the `catalog` key removed from `kernel/schemas/constitution.schema.json`; the kit's declaration moved in `constitution.yaml`; rows [A13.1](../requirements.md#a13-1), [A13.2](../requirements.md#a13-2), [A13.3](../requirements.md#a13-3), [A13.4](../requirements.md#a13-4), [A13.6](../requirements.md#a13-6) and [A13.7](../requirements.md#a13-7) amended and the module's specification replaced by its stub; rules 3 and 6 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md); one sentence each in the documents of the two accepted modules and one clause of the second module's skill. The module's scripts, fixtures, skill and install note, and the shared-code changes with [kit-shared-gate-code](../../shared/GATE.md), landed in the commits before it. The record is born `inactive`.
+In the commit that creates this record:
+
+- **the module's [MODULE.md](../../modules/const-catalogs/MODULE.md)**;
+- **the `catalog` key removed** from `kernel/schemas/constitution.schema.json`;
+- **the kit's declaration moved** in `constitution.yaml`;
+- **rows [A13.1](../requirements.md#a13-1)**, [A13.2](../requirements.md#a13-2), [A13.3](../requirements.md#a13-3), [A13.4](../requirements.md#a13-4), [A13.6](../requirements.md#a13-6) and [A13.7](../requirements.md#a13-7) amended and the module's specification replaced by its stub;
+- **rules 3 and 6** of [plc-0004-decision-records](../policies/plc-0004-decision-records.md);
+- **one sentence each** in the documents of the two accepted modules and one clause of the second module's skill.
+
+The module's scripts, fixtures, skill and install note, and the shared-code changes with [kit-shared-gate-code](../../shared/GATE.md), landed in the commits before it. The record is born `inactive`.
 
 ## Rulings carried
 

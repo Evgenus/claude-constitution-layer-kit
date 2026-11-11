@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-Two audits on 2026-09-19 and 2026-09-20 asked of every decision record whether it could be deleted without anyone losing a rule. The first found eleven ruling items that lived only in a record; after the repairs the second, by readers who knew nothing of the first, found none of those and six new ones — four of them in the repairs themselves. [dec-0027-record-citations-optional](dec-0027-record-citations-optional.md) had made a carry list and a carry check part of a record, both advisory. One day later the three records written under that rule close in two different shapes, and the third spreads its rulings over six sections where the others have one list.
+Two audits on 2026-09-19 and 2026-09-20 asked of every decision record whether it could be deleted without anyone losing a rule. The first found eleven ruling items that lived only in a record. After the repairs the second, by readers who knew nothing of the first, found none of those and six new ones — four of them in the repairs themselves. [dec-0027-record-citations-optional](dec-0027-record-citations-optional.md) had made a carry list and a carry check part of a record, both advisory. One day later the three records written under that rule close in two different shapes. The third spreads its rulings over six sections where the others have one list.
 
 The decider asked for the audit to be mandatory at the end of a module's development, and for a proposal of how to gate it. The difficulty is [law 5 of CLAUDE.md](../../CLAUDE.md#law-5): whether a sentence states a rule is judgment, and nothing judgment-based may be dressed as a check.
 
@@ -28,7 +28,10 @@ The decider asked for the audit to be mandatory at the end of a module's develop
   - **Cons:** it verifies a claim the author writes about their own work, so it can be green over an audit that never ran.
 - **D. The audit report as a governed document kind,** gated for existence and freshness.
   - **Pros:** findings survive outside commit messages and chat.
-  - **Cons:** a new document kind and policy for one use; reports are history, which [kernel §1](../constitution/CONVENTIONS.md#k1) wants in git; the pinned commit such a report needs is barred from documents by [requirement A5.6](../requirements.md#a5-6).
+  - **Cons:**
+    - **a new document kind and policy for one use**;
+    - **reports are history**, which [kernel §1](../constitution/CONVENTIONS.md#k1) wants in git;
+    - **the pinned commit such a report needs** is barred from documents by [requirement A5.6](../requirements.md#a5-6).
 
 ## Recommendation
 
@@ -40,18 +43,25 @@ C, by Eugene Chernyshov in chat on 2026-09-20, with both proposed defaults accep
 
 ## Ruling
 
-1. <a id="r1"></a>**R1.** The carry audit is mandatory before the yes on any decision record, and is the second pass of the fresh-context validation at the end of a module's development. It is run through the kit's `carry-audit` skill, which fixes the pin of each round to one commit, the reader prompts, the partition, the blind pass, and the rule that a reader's finding is verified against the tree before it is acted on.
+1. <a id="r1"></a>**R1.** The carry audit is mandatory before the yes on any decision record. It is the second pass of the fresh-context validation at the end of a module's development. It is run through the kit's `carry-audit` skill, which fixes the pin of each round to one commit, the reader prompts, the partition, the blind pass, and the rule that a reader's finding is verified against the tree before it is acted on.
 2. <a id="r2"></a>**R2.** The scope is computed, never chosen. Read in full: the records the change adds or edits, and those the module's decisions section cites. Read for regression: every other record that cites a file the change touched, asked only whether that file still states what the record ruled — the narrow question is what keeps the wide list affordable. `scripts/check-carry-lists.py --scope` computes both.
 3. <a id="r3"></a>**R3.** The audit is run in full, over every record, on any change to the kernel and once before publication.
-4. <a id="r4"></a>**R4.** The shape of a record is fixed: the last section is titled "Carry list"; every ruling item opens with a bold handle; the list pairs each handle, once, with links, with "history only", or with "pending" and a link.
+4. <a id="r4"></a>**R4.** The shape of a record is fixed:
+   - **the last section is titled "Carry list"**;
+   - **every ruling item opens with a bold handle**;
+   - **the list pairs each handle**, once, with links, with "history only", or with "pending" and a link.
 5. <a id="r5"></a>**R5.** A link in the list may lead only where a rule can live: an `active` `current-state` document, `CLAUDE.md`, a skill of the kit, a module's or the template's own file, a file that is not markdown — a file, never a folder. The rollout plan, a research comparison, another record and the README cannot hold a rule.
-6. <a id="r6"></a>**R6.** "pending" is for intent that is not yet real; its link leads to the task-record that holds the work to come — a plan, never a decision record — where [kernel §2](../constitution/CONVENTIONS.md#k2) says such intent rides. The entry is never rewritten: when that task-record closes, its close carries the intent into the current-state documents, the gate says so in a note, and the next audit in full checks it.
+6. <a id="r6"></a>**R6.** "pending" is for intent that is not yet real. Its link leads to the task-record that holds the work to come — a plan, never a decision record — where [kernel §2](../constitution/CONVENTIONS.md#k2) says such intent rides. The entry is never rewritten: when that task-record closes, its close carries the intent into the current-state documents, the gate says so in a note, and the next audit in full checks it.
 7. <a id="r7"></a>**R7.** The commit that names the yes carries two trailers: `Accepted:` with the record's id, and `Carry-Audit:` with the commit the readers were pinned to, the number of records read, and the findings, fixed and justified. The pinned commit is an ancestor at which the record already existed, the records are above zero, fixed and justified add up to the findings. The newest acceptance of a record is the one that counts, so a wrong receipt is mended by accepting again, never by rewriting history.
 8. <a id="r8"></a>**R8.** A record that no commit accepts yet awaits its yes: the gate reports a note, never a finding — a gate is not red for waiting on a person.
 9. <a id="r9"></a>**R9.** The gate is `scripts/check-carry-lists.py`, with its red→green proof in `--self-test`, for records numbered `0030` and above. Records `0027` to `0029` keep the earlier form of their lists — another title, or items without handles: an accepted record is not edited to fit a later rule.
-10. <a id="r10"></a>**R10.** Enforcement is declared, never blurred: the list's shape and the receipt are a gate; whether a ruling is carried is judgment, held by the audit's readers and by review. The gate cannot see an item that was given no handle, whether the linked text states the rule, or whether the audit a receipt names was run.
+10. <a id="r10"></a>**R10.** Enforcement is declared, never blurred:
+    - **the list's shape and the receipt are a gate**;
+    - **whether a ruling is carried is judgment**, held by the audit's readers and by review.
+
+    The gate cannot see an item that was given no handle, whether the linked text states the rule, or whether the audit a receipt names was run.
 11. <a id="r11"></a>**R11.** In Phase D the gate joins the kit's CI, which fetches the full history for it, and one audit in full is run before the modules are published.
-12. <a id="r12"></a>**R12.** The yes is named in the message of the commit that lands the change, as [kernel §4](../constitution/CONVENTIONS.md#k4) says. The kernel does not say which commit of a change made of several lands it; the kit reads it as the one that completes the change: a change is complete when it is accepted with a receipt the gate reads as right. For an audited record that commit comes after the audit, since readers are pinned to a commit that already holds the record; the decision-record policy had said "the commit that lands the record", which is narrower than the kernel and unreachable for a gated record.
+12. <a id="r12"></a>**R12.** The yes is named in the message of the commit that lands the change, as [kernel §4](../constitution/CONVENTIONS.md#k4) says. The kernel does not say which commit of a change made of several lands it. The kit reads it as the one that completes the change: a change is complete when it is accepted with a receipt the gate reads as right. For an audited record that commit comes after the audit, since readers are pinned to a commit that already holds the record. The decision-record policy had said "the commit that lands the record", which is narrower than the kernel and unreachable for a gated record.
 13. <a id="r13"></a>**R13.** From Phase D, when the yes is PR approval, the two trailers stand in the commit that merges the pull request.
 14. <a id="r14"></a>**R14.** This reverses two words of [dec-0027-record-citations-optional](dec-0027-record-citations-optional.md): its items 5 and 6 called the carry list and the carry check advisory. The list's shape is now gated and the audit mandatory; what that record called judgment stays judgment. It also widens its item 5: beside carried and "history only" there is "pending".
 15. <a id="r15"></a>**R15.** Built on the day:
@@ -60,7 +70,7 @@ C, by Eugene Chernyshov in chat on 2026-09-20, with both proposed defaults accep
     - **the audit of this change**, pinned to `f87bc5a`, then found the rest — among it a fix text that could never turn the gate green, a receipt that accepted a pin older than the record, and a rule 5 that contradicted the kernel;
     - **a confirming reader** pinned to `449eaa2` found nine more defects in those fixes, among them a kernel term stretched to cover the rewriting of a pending entry, which is why R6 now says the entry is never rewritten.
 
-16. <a id="r16"></a>**R16.** Until its yes the fixes of its audit may amend a record in place, and the commit says so. The third round of this record's audit found that no text allowed it; the decider made it the kernel's rule in [dec-0031-record-amended-until-its-yes](dec-0031-record-amended-until-its-yes.md). This record was so amended by each round of its audit.
+16. <a id="r16"></a>**R16.** Until its yes the fixes of its audit may amend a record in place, and the commit says so. The third round of this record's audit found that no text allowed it. The decider made it the kernel's rule in [dec-0031-record-amended-until-its-yes](dec-0031-record-amended-until-its-yes.md). This record was so amended by each round of its audit.
 17. <a id="r17"></a>**R17.** A finding is fixed, or justified in a commit message of the change. When fixes follow an audit, a confirming reader is pinned to the commit that holds them and asked only what the fixes broke, repeated while a pass finds a defect; the receipt names the last pin and counts the findings of every round.
 
 ## Carry list
