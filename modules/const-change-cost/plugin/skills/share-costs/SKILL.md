@@ -7,10 +7,10 @@ description: >-
 # Share what a change cost
 
 Claude Code writes the tokens of every reply into the session's transcript. This plugin logs each
-session's start and each commit as they happen, counts the tokens of each commit's window with a
-pinned ccusage, and keeps one line of counts per commit in the clone's git common directory. Nothing
-leaves the clone by itself. A count reaches the team only when a person starts it: by running a command,
-or by asking a session to open a pull request or to make a merge. This skill is how a session does that at
+session's start and each commit as they happen. It counts the tokens of each commit's window with a
+pinned ccusage. It keeps one line of counts per commit in the clone's git common directory. Nothing
+leaves the clone by itself. A count reaches the team only when a person starts it. The person runs a
+command, or asks a session to open a pull request or to make a merge. This skill is how a session does that at
 those two moments. A hook never starts it.
 
 The report reads the file of counts. It runs no ccusage and reads no transcript, so it is quick and
@@ -21,9 +21,9 @@ safe to run. Its range is the commits of the change, such as `main..HEAD` or `<b
 The start line of this plugin appears at session start while git's configuration lacks one of its two
 hooks of the commit log. Commits made before the hooks stand are never logged, and never counted.
 
-1. Tell the person, once, in plain words: this clone logs no commit, so its commits get no count;
-   `setup-commit-log.sh` writes the two hooks, and git's configuration changes only at a person's word:
-   a person runs the script, or a session when the person asks.
+1. Tell the person, once, in plain words: this clone logs no commit, so its commits get no count.
+   Tell them that `setup-commit-log.sh` writes the two hooks. Tell them also that git's configuration
+   changes only at a person's word: a person runs the script, or a session when the person asks.
 2. Run the setup only when the person asks for it:
 
    ```bash
@@ -46,11 +46,11 @@ When the person asks you to open a pull request, run the report for the change a
 sh "${CLAUDE_PLUGIN_ROOT}/scripts/cost-report.sh" --pr <base>..<branch>
 ```
 
-Where `gh` finds the pull request of the range's head, the branch the range ends at, the block is
-written into its description, between its two markers, and a second run replaces the block and keeps
-the rest. Where there is no pull request yet, no `gh`, or a `gh` that fails, the block is printed with
-a note that says which: put it in the description you give to the forge, for example with
-`gh pr create --body-file`. Never type a cost by hand.
+Where `gh` finds the pull request of the range's head, the block is written into its description,
+between its two markers. The head is the branch the range ends at. Where the pull request is found, a
+second run replaces the block and keeps the rest. Where there is no pull request yet, no `gh`, or a `gh` that fails, the block is
+printed with a note that says which. In that case, put the block in the description you give to the
+forge, for example with `gh pr create --body-file`. Never type a cost by hand.
 
 ## 3. Before a pull request is merged
 
@@ -72,8 +72,8 @@ When the person asks you to make the merge, or says yes to it:
    git merge --no-ff <branch> -m "<subject>" -m "$(sh "${CLAUDE_PLUGIN_ROOT}/scripts/cost-report.sh" --trailer <base>..<branch>)"
    ```
 
-   A merge on the forge's page has no local hook to see it: give the person the lines to paste into
-   the merge message, as its last paragraph.
+   A merge on the forge's page has no local hook to see it. For such a merge, give the person the
+   lines to paste into the merge message, as its last paragraph.
 
 ## 4. Git notes, only on the person's word
 
@@ -83,8 +83,8 @@ When the person asks to share each commit's count with the team:
 sh "${CLAUDE_PLUGIN_ROOT}/scripts/cost-report.sh" --notes <base>..<branch>
 ```
 
-It writes one note for each counted commit under `refs/notes/change-cost`. Then name the push
-command, `git push <remote> refs/notes/change-cost`, and run it only when the person says so: a pushed
+It writes one note under `refs/notes/change-cost` for each counted commit. Then name the push
+command, `git push <remote> refs/notes/change-cost`, and run it only when the person says so. A pushed
 ref publishes every count and cost, and in a public repository that is public. A person who asked only
 for the pull request's block gets the block alone. A plain push sends no notes ref. A rebase leaves the
 notes on the old commits unless `notes.rewriteRef` names their ref; say so before a rebase.
@@ -106,11 +106,11 @@ notes on the old commits unless `notes.rewriteRef` names their ref; say so befor
 
 The report names each one, with the reason. Say what the line says; do not guess a count.
 
-- **No line in the commit log:** the commit was made before the setup ran, by a tool that runs no git
+- **No line in the commit log:** the commit was made before the setup ran, by a tool running no git
   hook, or on a forge. It can never be counted.
 - **The commit log names no session:** the commit was made outside Claude Code.
 - **The session has no start in the start log, or the commit was made before its first logged start:**
-  it began before the plugin was enabled, or in another folder. No start is ever made up.
+  it began with the plugin disabled. Or it began in another folder. No start is ever made up.
 - **Its window may not be complete, or no pass has counted it yet:** run
   `sh "${CLAUDE_PLUGIN_ROOT}/scripts/count-costs.sh" --all`, which counts it or names what stops it.
 - **No transcript of the session stands:** Claude Code's cleanup swept it, or it was never kept.
