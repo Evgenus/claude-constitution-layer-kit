@@ -1,0 +1,56 @@
+# Profile new-project: a prewritten constitution.yaml for a repository that starts with the
+# constitution kit. It is the dials file as step 6 of the kit's install guide, INSTALL.md, leaves
+# it, with the policies a numbered kind. Take your lines from it in place of writing them by hand.
+#
+# It holds only what no default gives: the kernel-owned keys, the territory of the first three
+# policies, and two dials that switch a check on, `record_policies` and `catalogs`. So it leaves
+# out what the guide's own example writes at a default: the two lines of const-task-close and
+# each `width`. Every other dial stays at its module's default, so a default that a later version
+# changes reaches the project with no edit here.
+#
+# The order is the guide's. Step 4 writes the lines marked "step 4" below. Step 6 writes each
+# further policy, and after it the lines marked with that policy. A comment marks the step that
+# writes a line. A line with no mark goes with the nearest marked line above it.
+#
+# The file names no style guide. A project that keeps one loads the skill
+# /const-styling:style-defaults in step 6, which writes the guide's policy and its lines here.
+#
+# What a project adds later, each as its module's own INSTALL.md says: `coverage` of
+# const-task-close, the third dial that switches a check on, which pairs the project's own code
+# with its documents; `ceilings` of const-doc-budgets, set from the project's own history;
+# `deciders` of const-decision-records and `preferences` of const-questions, which name the
+# project's people.
+
+# --- kernel-owned keys ---
+
+root_policy: docs/policies/plc-0001-root-policy.md   # step 4: where the root policy is
+module_prefix: const-                                # step 4, required: the prefix of every module's namespace
+
+# --- policy namespaces: one per document kind, keyed by the policy's id ---
+
+plc-0001-root-policy:                 # step 4: the policy for policies; its territory is where policies live
+  territory:
+    - "docs/policies/**"
+
+plc-0002-kernel-policy:               # step 6, after this policy: the kernel copy
+  territory:
+    - "docs/constitution/**"
+
+plc-0003-decision-records:            # step 6, after this policy: the decision records
+  territory:
+    - "docs/decisions/**"
+
+# --- module namespaces: a module reads only its own ---
+
+const-decision-records:               # step 6, after the policy for decision records
+  record_policies:                    # step 6, after the policy for decision records: the gate examines nothing until this names it
+    - plc-0003-decision-records
+
+const-catalogs:                       # step 4
+  catalogs:                           # step 4, with its plc entry: the gate examines nothing until a catalog is listed
+    - prefix: dec                     # step 6, after the policy for decision records: a record is dec-<nnnn>-<slug>
+      territory:
+        - "docs/decisions/**"
+    - prefix: plc                     # step 4: a policy is plc-<nnnn>-<slug>, so the first policy's name is checked
+      territory:
+        - "docs/policies/**"

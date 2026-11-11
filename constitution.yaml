@@ -147,7 +147,10 @@ const-referencing:                    # the kit's own reference forms (requireme
     - pattern: '\bdec-[0-9]{4}-[a-z0-9-]+'
       files: []                     # patterns of the files read; empty: every file git lists that is no Markdown, no link and not binary
     - pattern: '\bplc-[0-9]{4}-[a-z0-9-]+'   # a policy's id is also its namespace key in this file, so a misspelt key is a finding
-      files: []
+      files:                        # of the files the scan reads, every one but the profiles: a profile names the policies of the project that takes it, which the kit does not hold; scripts/check-profiles.py holds the profiles
+        - "*"
+        - "!/profiles/"             # the folder first: a negated pattern frees no file under a folder that an earlier pattern still matches
+        - "!/profiles/**"
     - pattern: '\bres-[0-9]{4}-[a-z0-9-]+'
       files: []
 
