@@ -58,7 +58,7 @@ Option A, chosen by the decider in chat on 2026-11-11.
 
 <a id="r8"></a>**R8.** The skill and the install note of the module tell the writer that a long document may come down one edit at a time, and that the scan must be green before the change is merged.
 
-<a id="r9"></a>**R9.** This record narrows two rulings of the module's founding record, and both stand for every other case. One is R3 of [dec-0046-language-module-rulings](dec-0046-language-module-rulings.md#r3), by which a rule at level `error` is a finding. The other is the grade's part of R8 of [dec-0046-language-module-rulings](dec-0046-language-module-rulings.md#r8), by which the hook hands every finding back after the write.
+<a id="r9"></a>**R9.** This record narrows one ruling of the module's founding record: R3 of [dec-0046-language-module-rulings](dec-0046-language-module-rulings.md#r3), by which a rule at level `error` is a finding. For the grade rule, after a write, R1 makes one case at that level a note. R3 stands for every other case, and no other ruling of that record changes: the note is no finding, so what that record rules for findings holds as written.
 
 ## Applied
 
@@ -73,4 +73,4 @@ The commit that creates this record changes the hook, its messages and its fixtu
 5. R6 — [section 6 of the module's document](../../modules/const-language/MODULE.md#t6), item 2 of the cost and budget, and the package row of the table; [section 9](../../modules/const-language/MODULE.md#t9), limit 12, for how the copy is read.
 6. R7 — [section 10 of the module's document](../../modules/const-language/MODULE.md#t10), item T33.
 7. R8 — [the skill plain-language](../../modules/const-language/plugin/skills/plain-language/SKILL.md), step 3, and [the module's install note](../../modules/const-language/plugin/INSTALL.md), step 1.
-8. R9 — history only: the narrowing of two rulings of the founding record, an act of this record.
+8. R9 — history only: the narrowing of one ruling of the founding record, an act of this record.
