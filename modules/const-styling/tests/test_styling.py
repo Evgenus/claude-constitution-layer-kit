@@ -420,7 +420,9 @@ def test_t10() -> None:
     """Y11 for a row with a cell too few and for a short delimiter row; Y12 for an empty cell; a
     keyed table with an escaped pipe and `none`, lines with pipes and no delimiter row, a dash line
     without a pipe under a line with one, and a short row after a comment that opens on a row and
-    runs on, which ends the table, green"""
+    runs on, which ends the table, green; a lone backslash cell, a pipe after an escaped one, a
+    last line of cells with no final newline, text right after a table, and a row with no leading
+    pipe green; a delimiter row with no last pipe still opens a table"""
     one_finding(
         {"docs/notes/t.md": "# T\n\n| key | value |\n|---|---|\n| a |\n"},
         "docs/notes/t.md:5: a table row with 1 cell(s) under a header of 2",
@@ -438,6 +440,16 @@ def test_t10() -> None:
             "docs/notes/t.md": "# T\n\n| key | value |\n|:---|---:|\n| a | x \\| y |\n| b | none |\n\n"
             "a | b\nc | d\n\ncell | text\n---\n\n| one |\n"
         }
+    )
+    no_finding({"docs/notes/t.md": "# T\n\n| k | v |\n|---|---|\n| a | \\ |\n"})  # a lone backslash is a cell
+    # an escape ends at once
+    no_finding({"docs/notes/t.md": "# T\n\n| k | v |\n|---|---|\n| a \\| b | c |\n"})
+    no_finding({"docs/notes/t.md": "# T\n\na | b"})  # a last line with a pipe and no final newline
+    no_finding({"docs/notes/t.md": "# T\n\n| a | b |\n|---|---|\n| 1 | 2 |\ntext after\n"})
+    no_finding({"docs/notes/t.md": "# T\n\n| a | b |\n|---|---|\nc | d\n"})  # no leading pipe
+    one_finding(  # a delimiter row without its last pipe is one
+        {"docs/notes/t.md": "# T\n\n| k | v |\n|---|---\n| a |\n"},
+        "docs/notes/t.md:5: a table row with 1 cell(s) under a header of 2",
     )
     no_finding({"docs/notes/t.md": "# T\n\n| a | b |\n|---|---|\n| 1 | 2 | <!-- open\nhidden\n-->\n| x |\n"})
 
