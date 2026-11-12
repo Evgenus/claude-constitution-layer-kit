@@ -26,8 +26,9 @@ guide is the one statement of the defaults. This page restates none of them. Ste
 scan's traces, which are the mechanical halves of some, not the defaults.
 
 Where the repository has no style guide, the shipped text, `style-guide.md` beside this file,
-applies meanwhile. Create the project's own from it, unless the project has decided to keep none. Its decision
-records say so, or the user answered no while the project is or was being set up. Such a project
+applies meanwhile. Create the project's own from it, unless the project has decided to keep none.
+That is the case when its decision records say so, or the user answered no while the project
+is or was being set up. Such a project
 follows the shipped text and creates nothing. To create one,
 fill its envelope, with the `id` a stable kebab-case name. Put it where the project's documents of
 that kind live. Name its path in `const-styling.guides`. Write it with the session's file
@@ -73,8 +74,8 @@ documents are frozen by a rule of the project, say records accepted before the d
 A departure for them names their number range by a character class.
 `docs/records/rec-00[0-3]*.md` is such a class. A frozen document takes first the wording edits
 its policy allows, if any. The departure covers only what those cannot fix. The document is
-never taken out of the scan's territory. A second document may need the same one-off departure.
-That is the signal to widen the entry to the kind, or to change the default in the guide.
+never taken out of the scan's territory. A second document needing the same one-off departure
+is the signal to widen the entry to the kind, or to change the guide's default.
 
 ## 4. Read a finding
 
@@ -91,4 +92,4 @@ was due, a drawing trivial, or a key column first.
 
 A question the guide does not answer is answered once, through the project's decision path.
 The answer is added to the guide as the next numbered entry with its examples. It is born with
-the document that needed it. It is never answered in one document, one template or one commit message alone.
+the document that needed it. The question is never answered in one document, one template or one commit message alone.

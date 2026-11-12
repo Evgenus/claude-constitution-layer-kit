@@ -29,8 +29,8 @@ A line that starts `BROKEN: const-styling needs the Python package constitution-
    first gives the guide a policy of its own. Then it has its root policy ask every policy for a
    style rule. It also has each kind's policy carry one, binding that kind's documents to the guide. Where module `const-locations` is installed and the
    guide's territory is a directory, name the shipped file in `const-locations.templates` as the template of the
-   guide's policy. Then create the guide through its command. A territory of one path is created
-   by hand, once, with the session's file tools, so that the hooks see the write. A copy made in
+   guide's policy. Then create the guide through that module's command. A territory of one path
+   is created by hand, once, with the session's file tools, so that the hooks see the write. A copy made in
    the shell passes no hook.
 3. **Zero configuration works** in a repository whose `constitution.yaml` has `module_prefix`
    and no key of this namespace. There the scan covers every Markdown file git lists, allows no
