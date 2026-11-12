@@ -727,13 +727,13 @@ def self_test() -> int:  # noqa: C901 — one flat list of cases, each a few lin
         for blind, title in (
             ("copy", "a copy of the plugin's scripts that a test makes and runs counts as the module's file"),
             ("-S", "a child that a test starts under python3 -S is measured"),
-            ("folded", "a continuation line of a folded constant is reached by the tests that reach the constant"),
+            ("folded", "a continuation line of a folded constant counts as reached where its first line is"),
         ):
-            got = {key: seen.get(key) for key in BLIND[blind]}
+            reached = {key: seen.get(key) for key in BLIND[blind]}
             case(
                 f"{title}, so the test that kills its mutants runs them",
-                got == BLIND[blind],
-                f"outcomes: {got}",
+                reached == BLIND[blind],
+                f"outcomes: {reached}",
             )
         case(
             "the kit measured is only read: every file as it was",

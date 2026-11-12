@@ -42,23 +42,37 @@ names it and coverage.py's own `.pth` file starts coverage there. `patch = subpr
 `scripts/kit_coverage.py` uses, is not used here: it hands a child the parent's settings already
 expanded, so a child would carry the parent's empty context. A line that runs outside any test, at
 import or during collection, has the context ``. The unmutated tests must be green in that run; a red
-one is a MutationError, since a mutant's red would then mean nothing.
+one is a MutationError, since a mutant's red would then mean nothing. Three kinds of run reach the map
+that coverage.py alone would not see (decision dec-0127-mutation-line-map-blind-spots):
+  copies        the run measures every file whose path holds a folder named `scripts`, not the module's
+                folder alone. A file measured outside the copy of the kit stands for the module's file
+                that the part of its path after its last such folder names, below plugin/scripts: a
+                copy a test made of the plugin, and ran. A path that holds a line break is not matched;
+  -S            in this run alone, the plugin makes `<work>/python` the tests' sys.executable. It runs
+                `-S <file>` through `scripts/kit_mutation_boot.py`, which starts coverage.py before the
+                file, and hands every other call on unchanged. A child started any other way under
+                `-S` is not measured;
+  no bytecode   a line that holds none, as in the continuation lines of a constant the compiler folds
+                into one, is looked up as the first line of the nearest node around the mutant, up to
+                its statement, that holds some: the field `reach` of a Mutant, which no file holds.
 
 The run of one mutant. The mutant's text is written over the file in a copy of the kit, so that a child
 process meets it too. The file's modification time is set to a value no other text of that copy
 carries, so that Python never loads the cached bytecode of another text of the file. pytest then runs,
-stopped at the first failure, only the tests whose coverage reaches one of the mutant's lines, the
-quickest first; when one of those lines also runs outside any test, every other test follows, since any
-test may depend on it. The file is restored after the run, whatever happened. The outcome, the key
-`status`:
+stopped at the first failure, only the tests whose coverage the line map says reaches one of the
+mutant's lines, the quickest first; when one of those lines also runs outside any test, every other test
+follows, since any test may depend on it. The file is restored after the run, whatever happened. The
+outcome, the key `status`:
   killed        pytest exited 1, a test failed, or 2, the tests could not be collected;
   timeout       the run passed its limit and was stopped: four times the chosen tests' own time and 15
                 seconds more, and never less than 30 seconds; counted with the killed, as a run that
                 does not end does not pass;
   survived      pytest exited 0;
-  not covered   no test reaches a line of the mutant; nothing is run, and no test can kill it. A child
-                started with an environment of its own, without coverage's variable, is not measured, so
-                this count can be too high and the score too low, never too high;
+  not covered   no test reaches a line of the mutant; nothing is run, and no test can kill it. Some
+                children are not measured: one started with an environment of its own, without
+                coverage's variable, and one under a limit on the size of the files it writes, which
+                cannot write coverage.py's data file. So this count can be too high and the score too
+                low, never too high;
   unsure        with more than one copy alone: the test that failed with the mutant was run again at
                 once on the unmutated file in the same copy, and failed there too, so the load and not
                 the mutant may have failed it. Left out of the score. A kill at collection, where no
@@ -218,7 +232,9 @@ class Source:
         for line in self.data.splitlines(keepends=True):
             self.starts.append(self.starts[-1] + len(line))
         self.code = code_lines(compile(self.data, str(path), "exec", dont_inherit=True))
-        self.parents = {id(child): node for node in ast.walk(self.tree) for child in ast.iter_child_nodes(node)}
+        self.parents = {
+            id(child): node for node in ast.walk(self.tree) for child in ast.iter_child_nodes(node)
+        }
 
     def reach(self, node: Node, first: int, last: int) -> tuple[int, ...]:
         """The lines of `first` to `last` that hold bytecode; where none does, as in the continuation lines
