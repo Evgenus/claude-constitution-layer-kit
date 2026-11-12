@@ -2,7 +2,7 @@
 id: dec-0130-kernel-defines-numbered-kind-and-settles-profile-names
 type: task-record
 title: The kernel defines a numbered kind with no module needed, and settles its names of profiles
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
