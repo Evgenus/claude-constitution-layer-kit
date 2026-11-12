@@ -45,7 +45,7 @@ def _unfenced(text: str) -> str:
     """Each code span outside a fence that holds a run of three backticks or more, its delimiters
     included, rewritten at the same length: one backtick on each side, and a space for every other
     backtick. Vale 3.23.0 masks such a run and the rest of its line wherever it stands, as if it opened
-    a fence (`prepMarkdown` in its `internal/lint/md.go`). The text after it is then not where Vale
+    a fence (`prepMarkdown` in its Markdown lint source). The text after it is then not where Vale
     looks for it, so it places each later sentence of the block by guess. A guess can name the wrong
     line, and two guesses on one place are one finding to Vale. Vale reads no word inside a code span,
     so the rewrite moves no count."""
