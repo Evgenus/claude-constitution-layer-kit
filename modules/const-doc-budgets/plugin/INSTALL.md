@@ -88,7 +88,7 @@ A line that starts `BROKEN: const-doc-budgets needs the Python package constitut
    `severity` says; a ceiling at `warning` prints notes and never turns it red. Every scan prints
    one note per ceiling: what it holds, the longest document and the margin left.
 10. Output log: everything the check prints is also appended, one JSON line per print (timestamp,
-    module, gate, mode, session, stream, text), to `const-doc-budgets.jsonl`. By default it lives
+    module, gate, mode, session, path, transcript, stream, text), to `const-doc-budgets.jsonl`. By default it lives
     in the platform's per-plugin data directory. Set `log_dir` to keep it inside the repository;
     the directory must be git-ignored, and the check refuses to run otherwise.
 11. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-doc-budgets/tests -p no:cacheprovider` — all green.

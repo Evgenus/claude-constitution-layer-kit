@@ -3,7 +3,7 @@
 <a id="a1"></a>
 ## What it gives you
 
-References a machine can follow and a move can repair: one written form per kind of reference, anchors that do not depend on a heading's words, a check of the whole tree after every write and in the scan, and a mover that repairs the links a move breaks. Plus a skill for citing, anchoring and moving, and two always-on sentences about references in chat.
+References a machine can follow and a move can repair. Each kind of reference has one written form, and anchors do not depend on a heading's words. A check reads the whole tree after every write and in the scan, and a mover repairs the links a move breaks. Plus a skill for citing, anchoring and moving, and two always-on sentences about references in chat.
 
 In plain words: a reference is any place where one document points at another. A reference a machine can follow is a link with a target that exists. A written form is the one way the project writes that kind of reference. An anchor is a fixed name placed at a cited place in a document, so a link can name that place. It survives a reworded heading, which a heading's own generated name does not. The module checks links before and after a write. The scan is the same check over every Markdown file in the repository, run by hand or in CI. The whole tree is that set of files. The mover is a command that moves a document with git and repairs every link to it. The skill is a procedure the session loads when it writes a link, adds a cited section or moves a document. The two always-on sentences are printed at every session start and ask for the same in chat.
 

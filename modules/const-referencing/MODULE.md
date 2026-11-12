@@ -182,9 +182,9 @@ The lint, resolution and R7 are deterministic; the fixtures are their pairs. The
 
 **F-d** — hashes:
 
-- **7.** "Fixed in 70b7c39" in a commit message → fine / in a policy → *not*: a rebuilt history leaves it pointing at nothing.
-- **7a.** A record of a decision says "applied in the commit that creates this record" → fine. It is a record's body / a current-state page says "since 70b7c39 the gate reads code" → *not*: say what the gate does.
-- **7b.** Chat: "that is 1de11cd on the branch" → fine / the same sentence copied into the install note → *not*.
+- **7.** "Fixed in 3a9e2f1" in a commit message → fine / in a policy → *not*: a rebuilt history leaves it pointing at nothing.
+- **7a.** A record of a decision says "applied in the commit that creates this record" → fine. It is a record's body / a current-state page says "since 3a9e2f1 the gate reads code" → *not*: say what the gate does.
+- **7b.** Chat: "that is c4d8b07 on the branch" → fine / the same sentence copied into the install note → *not*.
 - **7c.** A dated proof says "the workflow cloned the repository at 4f2c9d1" → fine. It is evidence of that day. So is a dated comparison that names the tree it read. So is a dated line of done work that names the commit a tag was made on. / A sentence of the same page that states how things are says "the scan runs in CI since 4f2c9d1" → *not*: say what runs.
 
 **F-e** — moving:

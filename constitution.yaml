@@ -874,15 +874,6 @@ const-language:                       # the prose of covered documents: a grade 
         - sentence
         - grade
       reason: an accepted record that took every wording edit its policy lists on 2026-11-12 and still reads above grade 10; its long sentences stand for the reason of the entry above (rule 14 of plc-0004-decision-records)
-    - paths:
-        - "/modules/const-interaction/README.md"
-        - "/modules/const-questions/README.md"
-        - "/modules/const-referencing/README.md"
-        - "/modules/const-styling/README.md"
-        - "/modules/const-task-close/README.md"
-      allow:
-        - sentence
-      reason: a module's landing page opens with its plugin manifest's description as written, one sentence (step 4 of the module-development page); the manifests are a later item's to reword
 
 const-doc-budgets:                    # a character ceiling per group of documents, measured after the fact (MODULE.md §7)
   severity: block                     # values: block | warn — block: a finding reaches the model as a block after the write; warn: as context

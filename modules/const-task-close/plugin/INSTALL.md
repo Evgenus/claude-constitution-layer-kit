@@ -89,7 +89,7 @@ A line that starts `BROKEN: const-task-close needs the Python package constituti
    its description. A shallow clone whose history stops before the base cannot see the range, and
    the check relays git's refusal with the fix.
 7. Output log: everything the hook and the scan print is also appended to `const-task-close.jsonl`,
-   one JSON line per print (timestamp, module, gate, mode, session, stream, text). Blocked
+   one JSON line per print. The fields of a line are timestamp, module, gate, mode, session, path, transcript, stream and text. Blocked
    turn ends and warnings leave no trace in git. By default it lives in the platform's
    per-plugin data directory. Set `log_dir` to keep it inside the repository. The directory must
    be git-ignored, and the gate refuses to run otherwise.

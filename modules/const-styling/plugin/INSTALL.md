@@ -79,7 +79,7 @@ A line that starts `BROKEN: const-styling needs the Python package constitution-
    many findings, fix them, or declare the departures for the kinds that keep their form. Each
    departure is one entry with its reason. There is no warn mode, since the scan blocks no write.
 6. Output log: the scan also appends everything it prints to `const-styling.jsonl`, one JSON line
-   per print (timestamp, module, gate, mode, session, stream, text). By default it lives in
+   per print (timestamp, module, gate, mode, session, path, transcript, stream, text). By default it lives in
    the platform's per-plugin data directory. Set `log_dir` to keep it inside the repository. The
    directory must be git-ignored, and the scan refuses to run otherwise.
 7. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`). The command `python3 -m pytest <kit clone>/modules/const-styling/tests -p no:cacheprovider` runs them, all green.

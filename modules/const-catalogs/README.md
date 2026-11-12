@@ -3,7 +3,7 @@
 <a id="a1"></a>
 ## What it gives you
 
-Numbered kinds: a catalogued document's file name and id are one name, <prefix>-<nnnn>-<slug>; a new item's number must be free, and no two items of a catalog share one. Catalogs are declared in this module's own dial. Plus a skill for taking a number, renumbering after a collision, listing and citing.
+Numbered kinds: a catalogued document's file name and id are one name, <prefix>-<nnnn>-<slug>. A new item's number must be free, and no two items of a catalog share one. Catalogs are declared in this module's own dial. Plus a skill for taking a number, renumbering after a collision, listing and citing.
 
 In plain words: a numbered kind is a kind of document that people cite by number, such as a decision record. A catalog is all the documents of one kind. An item is one such document. Its name has a prefix that names the kind, a number with a fixed count of digits, and a short slug of words, for example `dec-0007-use-sqlite.md`. The id is a field at the top of the file, and it repeats that name without `.md`. A dial is one setting in the project's `constitution.yaml`; here it lists the catalogs. A collision is two items under one number, which happens when two branches each take the next one. A skill is a page of advice that Claude loads when the work needs it. The module checks the name and the id at the write, and refuses a number already taken. Its scan finds two items under one number. The skill says how to take the next number, how to renumber after a collision, and how to list and cite items.
 

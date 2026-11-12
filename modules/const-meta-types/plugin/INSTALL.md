@@ -47,7 +47,7 @@ A line that starts `BROKEN: const-meta-types needs the Python package constituti
    ```
    Exit 0 green, 2 findings, 1 the checker could not run. The scan ignores `severity`.
 5. Output log: everything the gate prints is also appended to `const-meta-types.jsonl`, one JSON
-   line per print (timestamp, module, gate, mode, session, stream, text). Blocked writes,
+   line per print (timestamp, module, gate, mode, session, path, transcript, stream, text). Blocked writes,
    warnings and configuration failures leave no trace in git, so this is where they
    survive. By default it lives in the platform's per-plugin data directory, outside the
    repository. Set `log_dir` to keep it inside the repository instead; the directory must

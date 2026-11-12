@@ -67,7 +67,7 @@ A line that starts `BROKEN: const-catalogs needs the Python package constitution
    went further. Where history is incomplete — a shallow checkout — or could not be read, the
    line says so.
 5. Output log: everything the gate prints is also appended, one JSON line per print (timestamp,
-   module, gate, mode, session, stream, text), to `const-catalogs.jsonl`. Blocked writes,
+   module, gate, mode, session, path, transcript, stream, text), to `const-catalogs.jsonl`. Blocked writes,
    warnings and configuration failures leave no trace in git, so this is where they survive.
    By default it lives in the platform's per-plugin data directory, outside the repository.
    Set `log_dir` to keep it inside the repository instead. The directory must be git-ignored,

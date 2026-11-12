@@ -90,7 +90,7 @@ A line that starts `BROKEN: const-language needs the Python package constitution
    Exit 0 green, 2 findings, 1 the checker could not run. The scan is red on any finding whatever
    `severity` says; a rule at `warning` prints notes and never turns it red.
 5. Output log: everything the check prints is also appended, one JSON line per print (timestamp,
-   module, gate, mode, session, stream, text), to `const-language.jsonl`. By default it lives in
+   module, gate, mode, session, path, transcript, stream, text), to `const-language.jsonl`. By default it lives in
    the platform's per-plugin data directory. Set `log_dir` to keep it inside the repository; the
    directory must be git-ignored, and the check refuses to run otherwise.
 6. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the

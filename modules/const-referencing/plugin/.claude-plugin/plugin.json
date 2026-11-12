@@ -1,7 +1,7 @@
 {
   "name": "const-referencing",
   "version": "0.0.1",
-  "description": "References a machine can follow and a move can repair: one written form per kind of reference, anchors that do not depend on a heading's words, a check of the whole tree after every write and in the scan, and a mover that repairs the links a move breaks. Plus a skill for citing, anchoring and moving, and two always-on sentences about references in chat.",
+  "description": "References a machine can follow and a move can repair. Each kind of reference has one written form, and anchors do not depend on a heading's words. A check reads the whole tree after every write and in the scan, and a mover repairs the links a move breaks. Plus a skill for citing, anchoring and moving, and two always-on sentences about references in chat.",
   "author": { "name": "Eugene Chernyshov" },
   "license": "Apache-2.0"
 }

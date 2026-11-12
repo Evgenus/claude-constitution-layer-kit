@@ -55,7 +55,7 @@ A line that starts `BROKEN: const-questions needs the Python package constitutio
    Exit 0 green, 2 findings, 1 the checker could not run. The scan ignores `severity` and always
    reports.
 5. Output log: the hook and the scan append everything they print to `const-questions.jsonl` too.
-   Each print is one JSON line (timestamp, module, gate, mode, session, stream, text). Blocked writes
+   Each print is one JSON line (timestamp, module, gate, mode, session, path, transcript, stream, text). Blocked writes
    leave no trace in git. By default the log lives in the platform's per-plugin data directory. Set
    `log_dir` to keep it inside the repository. The directory must be git-ignored, and the gate
    refuses to run otherwise.

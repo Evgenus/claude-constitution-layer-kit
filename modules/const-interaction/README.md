@@ -3,7 +3,7 @@
 <a id="a1"></a>
 ## What it gives you
 
-Answer in the shape the question has, the answer first; every assumption listed, every list item addressable; honesty over agreement; stop before a hard-to-reverse act and wait for a yes, with a gate on enumerated destructive commands.
+Answer in the shape the question has, the answer first. List every assumption, and make every list item addressable. Put honesty over agreement. Stop before a hard-to-reverse act and wait for a yes, with a gate on listed destructive commands.
 
 In plain words: nine rules for every reply are printed into every session, and one of them has a gate. The rules say how to answer: the answer first, assumptions listed, every item citable, findings never softened, no hard-to-reverse act without a yes. An assumption is something the reply took as true to do the work. An addressable item carries a handle, a number, a letter or a short key, so you can cite it without quoting it. Honesty over agreement means the reply says a request is wrong, even after you decided. A hard-to-reverse act is one you cannot undo, such as a forced push. A destructive command is a shell command on a list the module holds, such as a hard reset. The gate stops a listed destructive shell command until you confirm it.
 

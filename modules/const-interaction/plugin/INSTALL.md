@@ -90,9 +90,8 @@ A line that starts `BROKEN: const-interaction needs the Python package constitut
 6. CLAUDE.md line: none. The rules ride on the session-start hook; the gate on the shell hook. A
    consumer that cannot run hooks may copy `scripts/rules.txt` into the project's own `CLAUDE.md`
    by hand, as a fallback. The copy drifts on every version bump and the gate does not run — say so in the copy.
-7. Output log: everything the hooks and the scans print is also appended, one JSON line per print
-   (timestamp, module, gate, mode, session, stream, text), to `const-interaction.jsonl`. A
-   prompt's reason and a denied command leave no trace in git. By default it lives in the
+7. Output log: everything the hooks and the scans print is also appended to `const-interaction.jsonl`,
+   one JSON line per print. The fields of a line are timestamp, module, gate, mode, session, path, transcript, stream and text. A prompt's reason and a denied command leave no trace in git. By default it lives in the
    platform's per-plugin data directory. Set `log_dir` to keep it inside the repository. The
    directory must be git-ignored, and the gate refuses to run otherwise.
 8. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the commit the install records (`gitCommitSha` in `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-interaction/tests -p no:cacheprovider` — all green.
