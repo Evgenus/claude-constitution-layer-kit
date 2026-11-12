@@ -24,11 +24,18 @@ The platform's documentation, read on 2026-10-10 on its raw pages with Claude Co
 A skill applies at one of two moments: before a write, as the styling, language, type, catalog and task skills do, or after a gate's red, when the gate has named the problem. A pointer costs characters in every session that carries it ([law 8 of CLAUDE.md](../../CLAUDE.md#law-8)).
 
 - **A. A gate pointer only:** one shared line after the count line of every red of a gate whose module has a skill.
-  - **Pros:** no cost in a session without a red, about 100 characters a red; it reaches the 125 and the 7 blocks at the moment they happen; one change of the shared code, which the fixtures take, since the harness counts only lines that open `RED:`.
-  - **Cons:** nothing reaches the moment before a write; the styling skill, whose module has no hook, and the task skills, whose report never fired, stay unnamed.
+  - **Pros:**
+    - **no cost in a session without a red**, about 100 characters a red;
+    - **it reaches the 125 and the 7 blocks** at the moment they happen;
+    - **one change of the shared code**, which the fixtures take, since the harness counts only lines that open `RED:`.
+  - **Cons:**
+    - **nothing reaches the moment before a write**;
+    - **the styling skill**, whose module has no hook, and the task skills, whose report never fired, stay unnamed.
 - **B. The gate pointer and one session-start line per module whose skill applies before a write:** A, plus a line at session start that names the skill and its moment.
   - **Pros:** it reaches both moments; it copies the one pointer with proven reach, `ask-or-decide` with 45 loads; every skill in scope is covered.
-  - **Cons:** every session pays about 1,050 characters; four modules gain their first session-start hook, with its script, its fixture and its always-on slot.
+  - **Cons:**
+    - **every session pays about 1,050 characters**;
+    - **four modules gain their first session-start hook**, with its script, its fixture and its always-on slot.
 - **C. Session-start lines only:** B without the gate pointer.
   - **Pros:** it reaches the moment before a write and leaves the shared code alone.
   - **Cons:** it costs B's characters; a red still teaches its fix without naming the skill, the case with 125 blocks and no load.
@@ -40,7 +47,7 @@ The session recommended B: A alone leaves the skills with no gate moment out, an
 
 <a id="r1"></a>**R1.** A gate whose module has a skill that teaches its rule names that skill in one shared line after the count line of every red the model reads: in the block, in the warn's context, in the reason of an `ask`, and in a scan's output. The user's notice on a turn's end at `warn`, which no model reads, does not carry it. The gate's identity maps each of its modes to the skill. Module [`const-interaction`](../requirements.md#const-interaction) has no skill, and its gate names none.
 
-<a id="r2"></a>**R2.** Modules [`const-catalogs`](../requirements.md#const-catalogs), [`const-language`](../requirements.md#const-language), [`const-meta-types`](../requirements.md#const-meta-types), [`const-referencing`](../requirements.md#const-referencing), [`const-styling`](../requirements.md#const-styling) and [`const-task-close`](../requirements.md#const-task-close) each print one advisory pointer line at session start: `<module> (advisory): before <the moment>, load the skill <module>:<skill>.` The six lines hold 1,247 characters together, not the 1,050 of the estimate the choice was put with; the plugin-qualified skill names make most of the difference. A module whose skill applies only after its gate's red, or whose skill sessions were found to load at its moment, prints none, as R10 rules.
+<a id="r2"></a>**R2.** Modules [`const-catalogs`](../requirements.md#const-catalogs), [`const-language`](../requirements.md#const-language), [`const-meta-types`](../requirements.md#const-meta-types), [`const-referencing`](../requirements.md#const-referencing), [`const-styling`](../requirements.md#const-styling) and [`const-task-close`](../requirements.md#const-task-close) each print one advisory pointer line at session start: `<module> (advisory): before <the moment>, load the skill <module>:<skill>.` The six lines hold 1,247 characters together, not the 1,050 of the estimate the choice was put with. The plugin-qualified skill names make most of the difference. A module whose skill applies only after its gate's red, or whose skill sessions were found to load at its moment, prints none, as R10 rules.
 
 <a id="r3"></a>**R3.** The decider's choice of B carried a condition: if the live proof of section 3 showed that a description which gives an order brings the loads by itself, the session would put the removal of R2's lines to the decider before the yes. The proof showed it for one skill, the question was put in section 3, and the decider kept the lines.
 
@@ -49,8 +56,14 @@ The session recommended B: A alone leaves the skills with no gate moment out, an
 Modules ship no agents, so a module cannot change a consumer's agent definitions ([law 2 of CLAUDE.md](../../CLAUDE.md#law-2), [law 3](../../CLAUDE.md#law-3)). What it can ship is a hook, and its hooks also run inside the consumer's subagents. The kit's own agents are kit tooling, never shipped.
 
 - **A. The kit's writing agent gets `Skill`; the modules repeat their pointer at `SubagentStart`:** `Skill` joins the tools of the implementer, the one kit agent that writes the kit's tracked files, and each module of R2 gives its line to every subagent.
-  - **Pros:** it reaches every subagent, the general-purpose ones and the consumer's included, in the words the main session reads; no new text is written; the implementer can act on both pointers.
-  - **Cons:** each subagent's start pays the same characters as a session's; the six modules gain a second hook event with a fixture; that the line brings a load is not yet proved live.
+  - **Pros:**
+    - **it reaches every subagent**, the general-purpose ones and the consumer's included, in the words the main session reads;
+    - **no new text is written**;
+    - **the implementer can act on both pointers**.
+  - **Cons:**
+    - **each subagent's start pays the same characters** as a session's;
+    - **the six modules gain a second hook event** with a fixture;
+    - **that the line brings a load** is not yet proved live.
 - **B. As A, with the implementer preloading the skills through `skills:`:** the implementer's frontmatter names `plain-language`, `style-defaults`, `referencing` and `commit-before-edit`.
   - **Pros:** the implementer reads the skills without a choice to make.
   - **Cons:** about 21,100 characters for each implementer's start, whatever its piece; kit tooling names module skills, and breaks when one is renamed.
@@ -82,14 +95,28 @@ The live proof ran on 2026-10-10 with Claude Code 2.1.286. Each run was one head
 The table prompt named the moment, so it could not tell the variants apart. Under V0, too, subagents loaded the skill, so they read the skill listing. The sample is three runs a cell and two skills of seven.
 
 - **A. Reword the seven descriptions and keep the pointer lines:** the descriptions of `catalog-item`, `plain-language`, `choose-meta-type`, `referencing`, `style-defaults`, `close-task` and `commit-before-edit` open with "Load this skill first, before <the moment>…", and the lines of R2 and R4 stay.
-  - **Pros:** two carriers for the moment before a write; a pointer line still stands where the platform drops the descriptions of skills seldom used, which it does when the listing overflows its budget, 1% of the context window.
-  - **Cons:** 1,247 characters in every session and again at every subagent's start, for a gain the proof did not measure; six hooks, scripts and fixtures to keep.
-- **B. Reword the seven descriptions and remove the pointer lines:** the same rewording; the hooks, scripts and fixtures of R2 and R4 leave the six modules, and the line after a red stays.
-  - **Pros:** the variant that did best, at no cost per session or per subagent, since the listing already carries the description; subagents read the listing too; less to keep.
-  - **Cons:** one rewording of seven is proved by a prompt that tells the variants apart; a description dropped from an overflowing listing leaves the skill only the line after a red; part of six module commits undone.
+  - **Pros:**
+    - **two carriers for the moment before a write**;
+    - **a pointer line still stands** where the platform drops the descriptions of skills seldom used, which it does when the listing overflows its budget, 1% of the context window.
+  - **Cons:**
+    - **1,247 characters in every session** and again at every subagent's start, for a gain the proof did not measure;
+    - **six hooks, scripts and fixtures to keep**.
+- **B. Reword the seven descriptions and remove the pointer lines:**
+  - **the same rewording**;
+  - **the hooks, scripts and fixtures of R2 and R4** leave the six modules, and the line after a red stays.
+  - **Pros:**
+    - **the variant that did best**, at no cost per session or per subagent, since the listing already carries the description;
+    - **subagents read the listing too**;
+    - **less to keep**.
+  - **Cons:**
+    - **one rewording of seven is proved** by a prompt that tells the variants apart;
+    - **a description dropped from an overflowing listing** leaves the skill only the line after a red;
+    - **part of six module commits undone**.
 - **C. Keep the descriptions as they stood and keep the pointer lines:** section 1's choice as built.
   - **Pros:** no further change.
-  - **Cons:** the pointer brought 2 of 3 where the order brought 3 of 3; the weak descriptions stay for every session the pointer does not reach.
+  - **Cons:**
+    - **the pointer brought 2 of 3** where the order brought 3 of 3;
+    - **the weak descriptions stay** for every session the pointer does not reach.
 
 The session recommended B: the pointer lines showed no gain over a description that gives an order, at 1,247 characters a session and a subagent. To cover what was not proved, B carried a live run with one fair prompt for each of the other rewordings, its module's line returning for a skill that is not loaded. The decider chose A in chat on 2026-10-10, giving no reason; A keeps both carriers.
 
@@ -101,21 +128,27 @@ The session recommended B: the pointer lines showed no gain over a description t
 
 [dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md#r4) ruled that module [`const-styling`](../requirements.md#const-styling) prints no `SessionStart` line, in its R4, and ships no hook, in its R9. R2 and R4 above give it one pointer line and two advisory hooks. No real choice is left here: sections 1 and 2 chose the lines and the hooks, and this item only names the earlier items they replace.
 
-<a id="r8"></a>**R8.** For module [`const-styling`](../requirements.md#const-styling), R2 and R4 replace two items of [dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md#r4): its R4's "no `SessionStart` line" and its R9's "the module ships no hook". The module prints its pointer line at session start and at each subagent's start through two advisory hooks, and its scan still runs no hook, has no hook mode and no `severity` dial, as [dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md#r9)'s R9 ruled.
+<a id="r8"></a>**R8.** For module [`const-styling`](../requirements.md#const-styling), R2 and R4 replace two items of [dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md#r4): its R4's "no `SessionStart` line" and its R9's "the module ships no hook". The module prints its pointer line at session start and at each subagent's start through two advisory hooks. Its scan still runs no hook, has no hook mode and no `severity` dial, as [dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md#r9)'s R9 ruled.
 
 ## 5. How far the two rules reach
 
 The carry audit of this record found that the module template's skill row read as binding every module skill: each description opening with the order, and each skill that applies before a write named in a pointer line. The choices above applied them to seven skills and six modules. Six other skills stood outside: `record-decision` and `new-document`, loaded 6 times each in the study, `set-ceilings` twice, `new-kind` once, `promote-recurring-notes`, whose trigger is rare, never, and `ask-or-decide`, 45 times, with the order as its second sentence. Modules [`const-decision-records`](../requirements.md#const-decision-records), [`const-doc-budgets`](../requirements.md#const-doc-budgets) and [`const-locations`](../requirements.md#const-locations) print no pointer line.
 
-- **A. Narrow the template to what was applied:** the order and the pointer line bind a new skill and a skill found not to load at its moment; the six keep their descriptions.
+- **A. Narrow the template to what was applied:**
+  - **the order and the pointer line bind** a new skill and a skill found not to load at its moment;
+  - **the six keep their descriptions**.
   - **Pros:** the choices as taken; skills that load are left alone.
   - **Cons:** two kinds of description in the kit; "found not to load" needs a usage study before it applies.
-- **B. The order for every description; the pointer line only for a skill found not to load:** the five descriptions that open with what the skill does are reworded, and the order moves to the front of `ask-or-decide`; the pointer line is narrowed as in A.
+- **B. The order for every description; the pointer line only for a skill found not to load:**
+  - **the five descriptions** that open with what the skill does are reworded, and the order moves to the front of `ask-or-decide`;
+  - **the pointer line is narrowed** as in A.
   - **Pros:** one rule for every description, at no cost per session, since the listing carries it already; the order is the variant that did best.
   - **Cons:** six descriptions reworded beyond the seven of section 3, five of them of skills that load; one more round of fixtures, sizes and audit.
 - **C. Both rules everywhere:** B, with pointer lines and `SubagentStart` hooks in the three modules.
   - **Pros:** uniform.
-  - **Cons:** about 600 more characters at every session's and every subagent's start, for skills with no measured reach problem; the kit ships no machinery for a failure no one has hit.
+  - **Cons:**
+    - **about 600 more characters** at every session's and every subagent's start, for skills with no measured reach problem;
+    - **the kit ships no machinery** for a failure no one has hit.
 
 The session recommended B: the description's order costs nothing to apply everywhere and did best, while a pointer line costs characters at every start and stays earned by evidence. The decider chose B in chat on 2026-10-10.
 

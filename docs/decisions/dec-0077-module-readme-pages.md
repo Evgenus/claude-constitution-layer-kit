@@ -16,14 +16,23 @@ The module table of the root README linked each module to its anchor in the requ
 ## Options
 
 - **A. A landing page per module, of the root README's kind.** `README.md` beside `INSTALL.md`, user-facing and informational, in no policy's territory, with no envelope, binding nothing.
-  - **Pros:** the page GitHub shows first in a folder; a kind the kit already has, so no policy and no envelope; a reader gets what the module gives, why, how a session behaves with it, how it works and how to get it, in plain language, and the manifest's description as the first sentence keeps the two from differing.
-  - **Cons:** a twelfth prose file per module, held by the scans and by review rather than by a policy; the root README's table stops pointing at the specification anchor, an exception to the citation rule of the kit guide.
+  - **Pros:**
+    - **the page GitHub shows first** in a folder;
+    - **a kind the kit already has**, so no policy and no envelope;
+    - **a reader gets what the module gives**, why, how a session behaves with it, how it works and how to get it, in plain language, and the manifest's description as the first sentence keeps the two from differing.
+  - **Cons:**
+    - **a twelfth prose file per module**, held by the scans and by review rather than by a policy;
+    - **the root README's table stops pointing** at the specification anchor, an exception to the citation rule of the kit guide.
 - **B. A consumer-facing page, read by the portability check.** The same page written as an installed component: no name of the kit, no document of the kit, held by the kit's portability check as `INSTALL.md` is.
   - **Pros:** one rule for every file of a module's folder; the page could ship in an install unchanged.
-  - **Cons:** the page could not name the kit, its install guide or its marketplace, so its last section would have nothing to point at; the check would grow a read list for a page that people read and no session runs.
+  - **Cons:**
+    - **the page could not name the kit**, its install guide or its marketplace, so its last section would have nothing to point at;
+    - **the check would grow a read list** for a page that people read and no session runs.
 - **C. Fold `INSTALL.md` into `README.md`.** One page per module, the description and the procedure together.
   - **Pros:** one file; nothing to drift between two.
-  - **Cons:** the install note is an installed component with rules of its own, read by the portability check and named by the install guide; a landing page that opens with requirements and symbolic links is the page the decider wanted to replace.
+  - **Cons:**
+    - **the install note is an installed component** with rules of its own, read by the portability check and named by the install guide;
+    - **a landing page** that opens with requirements and symbolic links is the page the decider wanted to replace.
 
 ## Recommendation
 
@@ -35,9 +44,9 @@ A, chosen by the decider in chat on 2026-10-08, and narrowed there: user-facing,
 
 ## Ruling
 
-<a id="r1"></a>**R1.** Every module ships `README.md` at its root beside `INSTALL.md`: a page of the root README's kind — user-facing, informational, in no policy's territory, with no envelope, binding nothing — in plain language for a reader whose first language is not English, each term defined where it is first used. It has five sections, each heading with its anchor `a1` to `a5`. The first, what it gives you, opens with the manifest's `description` copied as written, so that the two never differ, and then says in plain words what the module checks, refuses and brings. The second, why use it, is the problem in the user's own terms, and then how the module resolves it once installed. The third, how Claude behaves with it, is prose with one real message of the module in a `text` fence. The fourth, how it works, is one paragraph per tool the module ships — each hook by its event, the scan, each skill, each command — saying what the tool reads, what it decides, what it cannot see, and that the defaults work with no configuration, the dials named in words. The fifth, get it, is the install line for one session and the marketplace form, the module's own scan command, and one closing line linking the module's `INSTALL.md` and `MODULE.md`. The page restates no requirement row, cites no row number, no decision and no error-code handle, and links nothing of the kit beyond those two files. Every list and table row carries a handle. A change to the page is routine, as a change to the root README is.
+<a id="r1"></a>**R1.** Every module ships `README.md` at its root beside `INSTALL.md`: a page of the root README's kind — user-facing, informational, in no policy's territory, with no envelope, binding nothing — in plain language for a reader whose first language is not English, each term defined where it is first used. It has five sections, each heading with its anchor `a1` to `a5`. The first, what it gives you, opens with the manifest's `description` copied as written, so that the two never differ. It then says in plain words what the module checks, refuses and brings. The second, why use it, is the problem in the user's own terms, and then how the module resolves it once installed. The third, how Claude behaves with it, is prose with one real message of the module in a `text` fence. The fourth, how it works, is one paragraph per tool the module ships — each hook by its event, the scan, each skill, each command — saying what the tool reads, what it decides, what it cannot see, and that the defaults work with no configuration, the dials named in words. The fifth, get it, is the install line for one session and the marketplace form, the module's own scan command, and one closing line linking the module's `INSTALL.md` and `MODULE.md`. The page restates no requirement row, cites no row number, no decision and no error-code handle. It links nothing of the kit beyond those two files. Every list and table row carries a handle. A change to the page is routine, as a change to the root README is.
 
-<a id="r2"></a>**R2.** The module template carries `README.md` with the five sections as placeholders, each saying what goes there; the page links only inside its own folder, so a copy keeps its links. Its plugin skeleton lists the file, and step 4 of "Developing a module" in the kit guide names it beside `INSTALL.md`.
+<a id="r2"></a>**R2.** The module template carries `README.md` with the five sections as placeholders, each saying what goes there. The page links only inside its own folder, so a copy keeps its links. Its plugin skeleton lists the file, and step 4 of "Developing a module" in the kit guide names it beside `INSTALL.md`.
 
 <a id="r3"></a>**R3.** The module table of the root README links each module to its `README.md`, the landing page: a third exception of the kit guide's reference bullet, beside the two it already holds for a kit template and a frozen comparison. Outside these three places and module prose, and in chat, the specification anchor stays the citation and the module's handle. The kit's module-links check reads no page under `modules/`, which is module prose.
 
@@ -45,11 +54,15 @@ A, chosen by the decider in chat on 2026-10-08, and narrowed there: user-facing,
 
 <a id="r5"></a>**R5.** A module's `README.md` is reader prose like `MODULE.md`: outside the read list of the kit's portability check, which reads a module's installed components, and its docstring says so, held by a self-test case. The portability rule, [law 2 of CLAUDE.md](../../CLAUDE.md#law-2), holds for the page by review, and the guide's step 4 says so. A module's `README.md` is never the home of a ruling: the record policy's carry rule and the kit's carry-list check refuse it, as they refuse the root README, and the carry-audit skill's readers count it as no home.
 
-<a id="r6"></a>**R6.** R3 narrows three earlier rulings, which stand as written: R7 and R11 of [dec-0005-reference-forms](dec-0005-reference-forms.md#r7), that kit documents link a module to its specification anchor; R1 of [dec-0049-module-links-held-by-a-kit-check](dec-0049-module-links-held-by-a-kit-check.md#r1), two places excepted, now three; and R1 of [dec-0051-module-citation-rule-in-the-guide](dec-0051-module-citation-rule-in-the-guide.md#r1), the two exceptions in the reference bullet, now three.
+<a id="r6"></a>**R6.** R3 narrows three earlier rulings, which stand as written:
+
+- **R7 and R11 of [dec-0005-reference-forms](dec-0005-reference-forms.md#r7)**, that kit documents link a module to its specification anchor;
+- **R1 of [dec-0049-module-links-held-by-a-kit-check](dec-0049-module-links-held-by-a-kit-check.md#r1)**, two places excepted, now three;
+- **and R1 of [dec-0051-module-citation-rule-in-the-guide](dec-0051-module-citation-rule-in-the-guide.md#r1)**, the two exceptions in the reference bullet, now three.
 
 ## Applied
 
-The change that adds this record applies every item: the eleven pages, the template's page and the line in its plugin skeleton, the table and the map row of the root README, the two clauses of the kit guide, the ceiling, the docstrings and the cases of the portability and module-links checks, and, from the carry audit's fixes, rule 2 of the record policy, the carry-audit skill's list of places, and the carry-list check's refusal with its docstring and cases. Every module is a draft at `0.0.x`, so no version moves. The record grew while its change was made and was born `active`; the carry audit's fixes applied the last of it, and it is `inactive` from that commit.
+The change that adds this record applies every item: the eleven pages, the template's page and the line in its plugin skeleton, the table and the map row of the root README, the two clauses of the kit guide, the ceiling, the docstrings and the cases of the portability and module-links checks, and, from the carry audit's fixes, rule 2 of the record policy, the carry-audit skill's list of places, and the carry-list check's refusal with its docstring and cases. Every module is a draft at `0.0.x`, so no version moves. The record grew while its change was made and was born `active`. The carry audit's fixes applied the last of it. It is `inactive` from that commit.
 
 ## Carry list
 
