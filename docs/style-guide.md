@@ -63,7 +63,7 @@ The defaults every document of this repository follows unless a departure is dec
    - *Follows:* the flag `--force` in a code span.
    - *Departs:* "the `Git` tool" — a product name in code font.
    - *Follows:* "the git tool", or `git` where the command is meant.
-9. <a id="d9"></a>**Bold for a run-in label or a handle; italic for a document's note about itself and a term at its first use; asterisks, never underscores.** Bold opens a paragraph or an item with its label or its handle, so a reader can point at it. Italic marks a template's note to the writer, a document's note about its own status, and a term the sentence defines. Neither raises the voice: the words carry the emphasis. Emphasis is written with asterisks, since an underscore inside a name is text.
+9. <a id="d9"></a>**Bold for a run-in label or a handle; italic for a document's note about itself and a term at its first use. Asterisks, never underscores.** Bold opens a paragraph or an item with its label or its handle, so a reader can point at it. Italic marks a template's note to the writer, a document's note about its own status, and a term the sentence defines. Neither raises the voice: the words carry the emphasis. Emphasis is written with asterisks, since an underscore inside a name is text.
    - *Departs:* "this must **never** be done".
    - *Follows:* "this is never done", the word doing the work.
    - *Departs:* `_term_` with underscores.

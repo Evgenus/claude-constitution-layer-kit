@@ -121,7 +121,7 @@ The advisory rules beside it:
 
 | key | first line | why | fix |
 |---|---|---|---|
-| R1 | `RED: {path}:{line}: '{match}' cites {names} by a bare handle` — `names` is the lane's | a bare handle resolves only inside its home document: elsewhere no reader can follow it, no check can test it, and a move cannot find it | `write it as a link: {fix}` — `fix` is the lane's, printed as written |
+| R1 | `RED: {path}:{line}: '{match}' cites {names} by a bare handle` — `names` is the lane's | `a bare handle resolves only inside its home document: elsewhere no reader can follow it, no check can test it, and a move cannot find it` | `write it as a link: {fix}` — `fix` is the lane's, printed as written |
 | R2 | `RED: {path}:{line}: document id '{id}' stands in backticks and is no link` | an id names a document that can move: only a link lets a reader reach it and lets a move repair it | `write [{id}]({relative path to its document}) — the path from this document to {owner}` |
 | R3 | `RED: {path}:{line}: the link's text is document id '{id}', and its target {target} is not that document ({owner})` | a link that shows one document's id and opens another misleads every reader who trusts the text | `point it at {relative path to owner}; after a move, every such link is repaired at once by: sh "<plugin root>/scripts/move-document.sh" --ids` — the plugin's path is printed resolved, so the line can be pasted |
 | R4 | `RED: {path}:{line}: '{match}' is a path on one machine` — an absolute path under a home directory, or a `file:` link | it resolves on the machine it was written on and nowhere else | `link a file of this repository by its relative path, or cite the public address the fact was verified at, or drop the reference` |
