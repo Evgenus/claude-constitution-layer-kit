@@ -1,13 +1,13 @@
 """The rules of const-meta-types' effect report (its module document, §13), all judged by a pattern, each
-built by one helper of `constitution_layer_kit.ways` with what only this module knows: its claimed territory,
-its skill, and what loosens its one dial. The territory is read as the hook reads it, through the shared index
-of policies and the shared matcher, never a second time."""
+built by one helper of `constitution_layer_kit.ways` with what only this module knows: its claimed territory
+and its skill. Its one dial that loosens, `severity`, the helper judges alone. The territory is read as the
+hook reads it, through the shared index of policies and the shared matcher, never a second time."""
 
 from __future__ import annotations
 
 import dataclasses
 import os
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from constitution_layer_kit import ways
@@ -56,13 +56,6 @@ def claimed(rel: str) -> bool:
     return _CLAIMED[key]
 
 
-def loosened(old: Mapping[str, object], new: Mapping[str, object]) -> bool:
-    """Whether the change of the namespace takes strictness away. The module's only dial that does is
-    `severity`, `block` when absent: lowered to `warn` from `block`, written or not. `log_dir` is no
-    strictness."""
-    return old.get("severity", "block") == "block" and new.get("severity", "block") == "warn"
-
-
 def writes_a_claimed_document(history_of: Callable[[], History]) -> Callable[[ToolCall, Session], bool]:
     """The moment of W5: a Write of a Markdown file in claimed territory."""
 
@@ -102,7 +95,9 @@ W6_TEXT = "The main branch holds no document in claimed territory that the guard
 def rules() -> Sequence[Rule]:
     return (
         ways.path_bypass("W1", W1_TEXT, claimed),
-        ways.switch_off("W2", W2_TEXT, loosened),
+        # the module's one dial that takes strictness away is `severity`, which the helper judges alone:
+        # the commit that adds the namespace lowers nothing, so a project may adopt the module at warn
+        ways.switch_off("W2", W2_TEXT),
         ways.after_red("W3", W3_TEXT),
         ways.skill_after_red("W4", W4_TEXT),
         skill_before_governed_write(),

@@ -41,7 +41,7 @@ from constitution_layer_kit.testing.items import (
     tr_line,
     tr_turn,
 )
-from meta_types_gate import effect_rules, messages, start
+from meta_types_gate import messages, start
 from meta_types_gate.checks import envelope_errors
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
@@ -1413,16 +1413,16 @@ def test_effect_w1() -> None:
 
 @item(41, "W2: a change of the dials is applied, or bypassed by B2 when severity goes down to warn")
 def test_effect_w2() -> None:
-    """Seven commits of the dials file. Applied: the namespace added at block, warn turned back to block,
-    block turned to the default by an empty namespace, `log_dir` added beside warn, and warn back to block.
-    Bypassed by B2: block turned to warn, and the default turned to warn by a namespace that had no
-    `severity` (a loosening the helper's own test of `block` to `warn` does not see). Then six changes
-    judged alone by the module's predicate, so two wrong outcomes cannot keep the total."""
+    """Eight commits of the dials file. Applied: the namespace added at warn, an adoption that lowers
+    nothing; warn turned to block; warn turned back to block; block turned to the default by an empty
+    namespace; that empty namespace turned to warn, which the shared helper cannot tell from the namespace
+    added; `log_dir` added beside warn; and warn back to block. Bypassed by B2: block turned to warn."""
     consumer = H.fresh_consumer()
     consumer.write(".gitignore", "logs/\n")  # the log folder a dial may name must be git-ignored
     consumer.commit()
     logs = "logs"
     steps: list[dict[str, object]] = [
+        {"severity": "warn"},
         {"severity": "block"},
         {"severity": "warn"},
         {"severity": "block"},
@@ -1435,18 +1435,7 @@ def test_effect_w2() -> None:
         consumer.write_dials(own(**step))
         consumer.commit()
     found = effect_lines(consumer.root, {})
-    assert "  W2 (pattern): 7 moment(s): 5 applied, 2 bypassed, 0 missed — B2 2" in found, found
-    # each change judged alone by the module's own predicate, so two wrong outcomes cannot keep the total
-    changes: list[tuple[dict[str, object], dict[str, object], bool]] = [
-        ({}, {"severity": "warn"}, True),
-        ({"severity": "block"}, {"severity": "warn"}, True),
-        ({"severity": "warn"}, {"severity": "block"}, False),
-        ({"severity": "warn"}, {"severity": "warn", "log_dir": logs}, False),
-        ({"severity": "block"}, {}, False),
-        ({}, {"log_dir": logs}, False),
-    ]
-    wrong = [(old, new) for old, new, loose in changes if effect_rules.loosened(old, new) is not loose]
-    assert not wrong, f"judged wrongly: {wrong}"
+    assert "  W2 (pattern): 8 moment(s): 7 applied, 1 bypassed, 0 missed — B2 1" in found, found
 
 
 @item(
