@@ -13,7 +13,8 @@ collection, since the shared items carry the same numbers in every module and `c
 two tests carry.
 
 The checks assert: `check_case` both halves of a red→green case, through the harness's two-half check,
-`expect` an exit and a text, `broken_first_line` a configuration failure. `failure_of` turns a check that
+`expect` an exit and a text, `broken_first_line` a configuration failure, its whole stderr where the
+closing line is given. `failure_of` turns a check that
 fails into its message, for an item that gathers several and reports every failure.
 """
 
@@ -51,11 +52,19 @@ def expect(result: Result, code: int, text: str, where: str = "both", label: str
     assert result.code == code and text in haystack, f"{label}: {said}" if label else said
 
 
-def broken_first_line(result: Result, first_line: str, label: str = "") -> None:
-    """A configuration failure: exit 1 — never 2, never 0 — and its line is the FIRST stderr line."""
-    first = result.stderr.splitlines()[0] if result.stderr else ""
-    said = f"wanted exit 1 with first line {first_line!r}; got exit {result.code}: {result.stderr.strip()}"
-    assert result.code == 1 and first == first_line, f"{label}: {said}" if label else said
+def broken_first_line(result: Result, first_line: str, label: str = "", closing: str | None = None) -> None:
+    """A configuration failure: exit 1 — never 2, never 0 — and its line is the FIRST stderr line. With
+    `closing`, stderr is exactly two lines, that line and then `closing`: nothing before, between or after
+    them, so a traceback after the closing line fails."""
+    if closing is None:
+        first = result.stderr.splitlines()[0] if result.stderr else ""
+        ok = first == first_line
+        wanted = f"first line {first_line!r}"
+    else:
+        ok = result.stderr == f"{first_line}\n{closing}\n"
+        wanted = f"stderr exactly {first_line!r} then {closing!r}"
+    said = f"wanted exit 1 with {wanted}; got exit {result.code}: {result.stderr.strip()}"
+    assert result.code == 1 and ok, f"{label}: {said}" if label else said
 
 
 def failure_of(check: Callable[[], object]) -> str | None:

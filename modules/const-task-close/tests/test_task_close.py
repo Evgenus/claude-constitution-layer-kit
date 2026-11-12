@@ -41,6 +41,7 @@ from constitution_layer_kit.testing.harness import (
     stop_json,
 )
 from constitution_layer_kit.testing.items import (
+    EntryFile,
     PatternDial,
     Subject,
     fake_claude,
@@ -2334,6 +2335,19 @@ def test_effect_close_task() -> None:
     assert "  W5 (pattern): 4 moment(s): 2 applied, 0 bypassed, 2 missed — B5 2" in found, found
 
 
+def red_range_scan() -> Result:
+    """A scan the gate reports, for the shared item about F10: a branch whose one commit touches the map's
+    code and none of its documents."""
+    r = repo(with_map())
+    branch(r.root)
+    commit(r.root, "code only", {"src/a.py": "x = 2\n"})
+    return scan(r.root)
+
+
+# The module's other entry files, beside the harness's, each with its clause and closing line typed by hand:
+# the shared items about the interpreter's floor and the shared package run each.
+ENTRY_FILES = (EntryFile("effect-report.py", "", "BROKEN: the report could not run — no rule counted"),)
+
 SUBJECT = Subject(
     harness=H,
     gate_on=gate_on,
@@ -2350,4 +2364,8 @@ SUBJECT = Subject(
     pattern_dial=PatternDial("working_files", lambda pattern: own(working_files=[pattern])),
     skill="commit-before-edit",  # the skill a red names (F10), typed by hand
     effect="effect-report.sh",
+    entries=ENTRY_FILES,
+    effect_clause="until then the effect report is not made",  # its C2 clause, typed by hand
+    scan_skill="close-task",  # the skill a red of the scan names (F10), typed by hand
+    scan_red=red_range_scan,
 )
