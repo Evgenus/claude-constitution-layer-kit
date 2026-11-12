@@ -42,23 +42,53 @@ names it and coverage.py's own `.pth` file starts coverage there. `patch = subpr
 `scripts/kit_coverage.py` uses, is not used here: it hands a child the parent's settings already
 expanded, so a child would carry the parent's empty context. A line that runs outside any test, at
 import or during collection, has the context ``. The unmutated tests must be green in that run; a red
-one is a MutationError, since a mutant's red would then mean nothing.
+one is a MutationError, since a mutant's red would then mean nothing. Four kinds of run reach the map
+that coverage.py alone would not see (decision dec-0132-mutation-line-map-blind-spots):
+  copies        the run measures every file whose path holds a folder named `scripts`, not the module's
+                folder alone. A file measured outside the copy of the kit stands for the module's file
+                that the part of its path after its last such folder names, below plugin/scripts: a
+                copy a test made of the plugin, and ran. Any other file with that part counts the same,
+                which can add a test to a mutant's run, never a kill the mutant did not cause. A file
+                whose part names no file of the module is left out, and so is a path that holds a line
+                break, which coverage.py does not match;
+  -S            in this run alone, the plugin makes `<work>/python` the tests' sys.executable, and the
+                `python3` on PATH hands on to it. It runs `-S <file>` through
+                `scripts/kit_mutation_boot.py`, which starts coverage.py before the file. A child
+                started any other way under `-S` is not measured;
+  size limit    in the same run, a test's `resource.setrlimit` of the limit on file size sets the soft
+                value alone. `<work>/python` runs `<file>`, given first, under a soft limit below the
+                hard one through the boot file too, which lifts the soft limit once the file has ended,
+                before coverage.py saves; `-S <file>` takes the boot file whatever the limit. Every
+                other call `<work>/python` hands on unchanged. A child stays unmeasured when its limit
+                is still too low for coverage.py's data file as it exits: its hard value is, as when a
+                shell's plain `ulimit -f` sets both values, or its soft value is and no boot file ran
+                to lift it, as for a child started with another option before its file or by another
+                interpreter;
+  no bytecode   a mutant is looked up at those of its lines that hold bytecode. Where none of them
+                does, as in the continuation lines of a constant the compiler folds into one, it is
+                looked up at the first line of the nearest node around it, up to its statement, that
+                holds some; where none does either, it is not covered. The field `reach` of a Mutant
+                holds those lines, and no file holds it.
 
 The run of one mutant. The mutant's text is written over the file in a copy of the kit, so that a child
 process meets it too. The file's modification time is set to a value no other text of that copy
 carries, so that Python never loads the cached bytecode of another text of the file. pytest then runs,
-stopped at the first failure, only the tests whose coverage reaches one of the mutant's lines, the
-quickest first; when one of those lines also runs outside any test, every other test follows, since any
-test may depend on it. The file is restored after the run, whatever happened. The outcome, the key
-`status`:
+stopped at the first failure, only the tests whose coverage the line map says reaches one of the
+mutant's lines, the quickest first; when one of those lines also runs outside any test, every other test
+follows, since any test may depend on it. The file is restored after the run, whatever happened. The
+outcome, the key `status`:
   killed        pytest exited 1, a test failed, or 2, the tests could not be collected;
   timeout       the run passed its limit and was stopped: four times the chosen tests' own time and 15
                 seconds more, and never less than 30 seconds; counted with the killed, as a run that
                 does not end does not pass;
   survived      pytest exited 0;
-  not covered   no test reaches a line of the mutant; nothing is run, and no test can kill it. A child
-                started with an environment of its own, without coverage's variable, is not measured, so
-                this count can be too high and the score too low, never too high;
+  not covered   in the map's run, none of the lines the mutant is looked up at, its `reach`, ran in a
+                test that passed, nor outside any test; nothing is run, and no test can kill it. A child
+                started with an environment of its own, without coverage's variable, is not measured,
+                and neither are the runs the line map's paragraph leaves out; a line that only a
+                skipped test runs counts for no test. So this count can be too high, and so can the
+                survivors, where a measured test reaches the line and only an unmeasured run would
+                have killed the mutant: the score can be too low, never too high;
   unsure        with more than one copy alone: the test that failed with the mutant was run again at
                 once on the unmutated file in the same copy, and failed there too, so the load and not
                 the mutant may have failed it. Left out of the score. A kill at collection, where no
@@ -93,12 +123,14 @@ import os
 import queue
 import random
 import re
+import shlex
 import shutil
 import signal
 import subprocess
 import sys
 import threading
 import time
+import types
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -106,8 +138,11 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 WORKFLOW = HERE.parent / ".github" / "workflows" / "gates.yml"
 PLUGIN = "kit_mutation_plugin"
+BOOT = "kit_mutation_boot"
 SELECT_ENV = "KIT_MUTATION_SELECT"  # names a JSON list of node ids: the plugin runs those alone, in order
 SEEN_ENV = "KIT_MUTATION_SEEN"  # names a file: the plugin writes each test's outcome and seconds there
+PYTHON_ENV = "KIT_MUTATION_PYTHON"  # names the interpreter the plugin makes sys.executable, in the map's run
+MEASURED = "*/scripts/*"  # the files the map's run measures: the module's own, and any copy of them
 STRIPPED = (  # never handed to a run: each would change which tests run or what they measure
     "COVERAGE_PROCESS_START",
     "COVERAGE_PROCESS_CONFIG",
@@ -117,6 +152,7 @@ STRIPPED = (  # never handed to a run: each would change which tests run or what
     "PYTEST_CURRENT_TEST",
     SELECT_ENV,
     SEEN_ENV,
+    PYTHON_ENV,
 )
 PHASE = re.compile(r" \((?:setup|call|teardown)\)$")
 OLD_CUT = 120
@@ -168,6 +204,7 @@ class Mutant:
     file: str  # from the kit root, with forward slashes
     line: int
     end_line: int
+    reach: tuple[int, ...]  # the lines looked up in the line map for the mutant, from Source.reach
     op: str
     old: str
     new: str
@@ -210,6 +247,27 @@ class Source:
         self.starts = [0]
         for line in self.data.splitlines(keepends=True):
             self.starts.append(self.starts[-1] + len(line))
+        self.code = code_lines(compile(self.data, str(path), "exec", dont_inherit=True))
+        self.parents = {
+            id(child): node for node in ast.walk(self.tree) for child in ast.iter_child_nodes(node)
+        }
+
+    def reach(self, node: Node, first: int, last: int) -> tuple[int, ...]:
+        """The lines of `first` to `last` that hold bytecode; where none does, as in the continuation lines
+        of a constant the compiler folds into one, the first line of the nearest node around `node`, up to
+        its statement, that holds some, since that bytecode runs the node; none where no such line is."""
+        lines = tuple(line for line in range(first, last + 1) if line in self.code)
+        if lines or isinstance(node, ast.stmt):
+            return lines
+        around = self.parents.get(id(node))
+        while around is not None:
+            line = getattr(around, "lineno", None)
+            if line in self.code:
+                return (line,)
+            if isinstance(around, ast.stmt):
+                return ()
+            around = self.parents.get(id(around))
+        return ()
 
     def span(self, node: Node) -> tuple[int, int]:
         end_line = node.lineno if node.end_lineno is None else node.end_lineno
@@ -239,6 +297,16 @@ class Source:
         if ast.dump(tree) == self.dump or out.count(b"\n") != self.data.count(b"\n"):
             return None
         return out
+
+
+def code_lines(code: types.CodeType) -> set[int]:
+    """The lines that hold bytecode in `code` and every code object inside it: the only lines coverage.py
+    can see run."""
+    lines = {line for _, _, line in code.co_lines() if line is not None}
+    for inner in code.co_consts:
+        if isinstance(inner, types.CodeType):
+            lines |= code_lines(inner)
+    return lines
 
 
 def is_text(node: ast.AST) -> bool:
@@ -388,12 +456,14 @@ def file_mutants(path: Path, shown: str) -> list[Mutant]:
     for line, column, op, point, data in made:
         count = seen[(line, column, op)] = seen.get((line, column, op), 0) + 1
         old = src.text(point.node)
+        end_line = line + old.count("\n")
         out.append(
             Mutant(
                 id=f"{shown}:{line}:{column}:{op}" + (f":{count}" if count > 1 else ""),
                 file=shown,
                 line=line,
-                end_line=line + old.count("\n"),
+                end_line=end_line,
+                reach=src.reach(point.node, line, end_line),
                 op=op,
                 old=old if len(old) <= OLD_CUT else old[:OLD_CUT] + "…",
                 new=point.new,
@@ -487,20 +557,63 @@ def make_copy(root: Path, target: Path) -> None:
 
 def prepare(work: Path) -> dict[str, str]:
     """The environment of every run: a `python3` that is this interpreter first on PATH, so that a gate's
-    `python3` is the one that holds coverage.py and pytest; the plugin's folder first on PYTHONPATH,
-    a copy of the one file, so that no other kit script can be imported by a test; and none of STRIPPED."""
+    `python3` is the one that holds coverage.py and pytest, and that is the map's interpreter where
+    KIT_MUTATION_PYTHON names it, in the map's run alone; the plugin's folder first on PYTHONPATH, a copy
+    of the one file, so that no other kit script can be imported by a test; and none of STRIPPED."""
     shim = work / "bin"
     shim.mkdir(parents=True, exist_ok=True)
     python3 = shim / "python3"
-    python3.write_text(f'#!/bin/sh\nexec "{sys.executable}" "$@"\n', encoding="utf-8")
+    python3.write_text(
+        "#!/bin/sh\n"
+        f'if [ -n "${{{PYTHON_ENV}-}}" ]; then\n    exec "${PYTHON_ENV}" "$@"\nfi\n'
+        f'exec {shlex.quote(sys.executable)} "$@"\n',
+        encoding="utf-8",
+    )
     python3.chmod(0o755)
     plugin = work / "plugin"
     plugin.mkdir(exist_ok=True)
     shutil.copy2(HERE / f"{PLUGIN}.py", plugin / f"{PLUGIN}.py")
+    map_interpreter(work)
     env = {name: value for name, value in os.environ.items() if name not in STRIPPED}
     env["PATH"] = f"{shim}{os.pathsep}{env.get('PATH', '')}"
     env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(plugin), env.get("PYTHONPATH")]))
     return env
+
+
+def map_interpreter(work: Path) -> Path:
+    """The interpreter of the map's run: `work/python`, a shell file that runs this interpreter, which the
+    plugin makes the tests' sys.executable and the `python3` on PATH hands on to. Asked for `-S <file>`,
+    it runs the boot file under `-S` first, which starts coverage.py from a folder that holds coverage.py
+    alone, put last on the path, so that the child measures what `-S` would leave unmeasured and imports
+    nothing else it could not. Asked for `<file>` under a soft limit on the size of files below the hard
+    one, which the plugin leaves where a test sets such a limit, it runs the boot file first too, which
+    lifts the soft limit once the file has ended, so that coverage.py can save. Any other call it hands
+    on unchanged."""
+    import coverage  # noqa: PLC0415 — preflight has made sure it is there; only the map's run needs it
+
+    boot = work / "boot"
+    boot.mkdir(exist_ok=True)
+    shutil.copy2(HERE / f"{BOOT}.py", boot / f"{BOOT}.py")
+    lib = work / "coverage-only"
+    lib.mkdir(exist_ok=True)
+    if not (lib / "coverage").exists():
+        (lib / "coverage").symlink_to(Path(coverage.__file__).resolve().parent)
+    real, started = shlex.quote(sys.executable), shlex.quote(str(boot / f"{BOOT}.py"))
+    python = work / "python"
+    python.write_text(
+        "#!/bin/sh\n"
+        'if [ "$1" = "-S" ] && [ "$#" -ge 2 ] && [ "${2#-}" = "$2" ]; then\n'
+        "    shift\n"
+        f'    exec {real} -S {started} {shlex.quote(str(lib))} "$@"\n'
+        "fi\n"
+        'if [ "$#" -ge 1 ] && [ "${1#-}" = "$1" ] && [ "$(ulimit -S -f)" != "$(ulimit -H -f)" ]; then\n'
+        f'    exec {real} {started} {shlex.quote(str(lib))} "$@"\n'
+        "fi\n"
+        f'exec {real} "$@"\n',
+        encoding="utf-8",
+    )
+    python.chmod(0o755)
+    return python
 
 
 def pytest_command(module: str, *more: str) -> list[str]:
@@ -573,18 +686,17 @@ def line_map(copy: Path, module: str, work: Path, env: dict[str, str]) -> LineMa
     """The per-test line map of the module, from one run of its unmutated tests in `copy`; MutationError
     when that run is not green or its data cannot be read."""
     rc = work / "coveragerc"
-    scripts = copy / "modules" / module / "plugin" / "scripts"
     rc.write_text(
         f"[run]\nparallel = true\ndata_file = {work / 'data'}\n"
         "context = ${PYTEST_CURRENT_TEST-}\n"
-        f"source =\n    {scripts}\n",
+        f"include =\n    {MEASURED}\n",
         encoding="utf-8",
     )
     seen = work / "tests.json"
     code, out, seconds = run_process(
         [sys.executable, "-m", "coverage", "run", "--rcfile", str(rc), *pytest_command(module)],
         copy,
-        {**env, "COVERAGE_PROCESS_START": str(rc), SEEN_ENV: str(seen)},
+        {**env, "COVERAGE_PROCESS_START": str(rc), SEEN_ENV: str(seen), PYTHON_ENV: str(work / "python")},
         3600.0,
     )
     if code != 0:
@@ -596,19 +708,20 @@ def line_map(copy: Path, module: str, work: Path, env: dict[str, str]) -> LineMa
             f"  fix: run python3 scripts/check-aspects.py --run --module {module} and repair what it names"
         )
     cli(work, work, env, "combine", "-q")
-    report = work / "map.json"
-    cli(work, copy, env, "json", "--show-contexts", "-q", "-o", str(report))
     try:
-        files = json.loads(report.read_text(encoding="utf-8"))["files"]
+        from coverage import CoverageData  # noqa: PLC0415 — preflight has made sure it is there
+
+        data = CoverageData(basename=str(work / "data"))
+        data.read()
         ran = json.loads(seen.read_text(encoding="utf-8"))
         lines: dict[str, dict[int, list[str]]] = {}
-        for name, one in files.items():
-            path = Path(name)
-            shown = (path.resolve().relative_to(copy.resolve()) if path.is_absolute() else path).as_posix()
-            lines[shown] = {
-                int(line): sorted({PHASE.sub("", context) for context in contexts})
-                for line, contexts in one.get("contexts", {}).items()
-            }
+        for name in data.measured_files():
+            shown = module_file(name, copy, module)
+            if shown is None:
+                continue
+            per = lines.setdefault(shown, {})
+            for line, contexts in data.contexts_by_lineno(name).items():
+                per[line] = sorted({*per.get(line, ()), *(PHASE.sub("", context) for context in contexts)})
         tests = {node: float(one["seconds"]) for node, one in ran.items() if one["outcome"] == "passed"}
     except (OSError, ValueError, KeyError, TypeError, AttributeError) as bad:
         raise MutationError(
@@ -619,11 +732,28 @@ def line_map(copy: Path, module: str, work: Path, env: dict[str, str]) -> LineMa
     return LineMap(tests, lines, seconds)
 
 
+def module_file(name: str, copy: Path, module: str) -> str | None:
+    """The path from the copy's root that a file measured in the map's run stands for: its own, when it
+    lies in the copy; the module's file below plugin/scripts named by the part of its path after its last
+    folder named `scripts`, when it lies elsewhere, a copy a test made of the plugin; None when there is
+    no such file of the module."""
+    path = Path(name).resolve()
+    root = copy.resolve()
+    if path.is_relative_to(root):
+        return path.relative_to(root).as_posix()
+    parts = path.parts
+    if "scripts" not in parts[:-1]:
+        return None
+    below = parts[len(parts) - parts[::-1].index("scripts") :]
+    target = root / "modules" / module / "plugin" / "scripts" / Path(*below)
+    return target.relative_to(root).as_posix() if target.is_file() else None
+
+
 def select(mutant: Mutant, table: LineMap) -> list[str] | None:
     """The node ids to run for the mutant, in order; None when no test reaches it."""
     per = table.lines.get(mutant.file, {})
     reach: set[str] = set()
-    for line in range(mutant.line, mutant.end_line + 1):
+    for line in mutant.reach:
         reach.update(per.get(line, ()))
     if not reach:
         return None
