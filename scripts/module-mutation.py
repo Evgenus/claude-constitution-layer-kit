@@ -462,7 +462,12 @@ def main() -> int:
 if __name__ == "__main__":
     sys.exit(main())
 """
-TESTS = """import subprocess
+COPIED = 'print("copied")\n'
+BARE = 'import sys\n\nsys.stdout.write("bare\\n")\n'
+NAMES = 'NAMES = (\n    "a",\n    "b",\n)\n'
+TESTS = """import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 from x_gate import calc
@@ -481,9 +486,28 @@ def test_count():
 def test_child():
     done = subprocess.run(["python3", str(ENTRY), "5"], capture_output=True, text=True, check=False)
     assert done.stdout == "big\\n"
+
+
+def test_copy(tmp_path):
+    shutil.copytree(ENTRY.parent, tmp_path / "plugin" / "scripts")
+    copied = tmp_path / "plugin" / "scripts" / "copied.py"
+    done = subprocess.run(["python3", str(copied)], capture_output=True, text=True, check=False)
+    assert done.stdout == "copied\\n"
+
+
+def test_bare():
+    bare = ENTRY.parent / "bare.py"
+    done = subprocess.run([sys.executable, "-S", str(bare)], capture_output=True, text=True, check=False)
+    assert done.stdout == "bare\\n"
+
+
+def test_names():
+    from x_gate import names
+
+    assert names.NAMES == ("a", "b")
 """
 SCRIPTS = "modules/const-x/plugin/scripts"
-# what the fixture's three tests do to each of its mutants, by the mutant's id less the folder
+# what the fixture's tests do to each of its mutants, by the mutant's id less the folder
 OUTCOMES = {
     # the entry file, which only the child process of test_child runs
     "entry.py:7:21:num": "killed",  # argv[2] does not exist
@@ -521,6 +545,15 @@ OUTCOMES = {
     "x_gate/calc.py:23:11:return": "not covered",
     "x_gate/calc.py:23:15:num": "not covered",
 }
+# what the line map once did not see, each run by one test alone: a copy of the plugin's scripts that the
+# test makes and runs; a child under `python3 -S`; the continuation lines of a folded constant
+BLIND = {
+    "copy": {"copied.py:1:0:call-del": "killed", "copied.py:1:6:str": "killed"},
+    "-S": {"bare.py:3:0:call-del": "killed", "bare.py:3:17:str": "killed"},
+    "folded": {"x_gate/names.py:2:4:str": "killed", "x_gate/names.py:3:4:str": "killed"},
+}
+OUTCOMES.update({key: status for one in BLIND.values() for key, status in one.items()})
+TESTS_COUNT = 6
 TABLE = """\
 module   mutants  run  killed  timeout  survived  not covered  other  score      ±  seconds
 -------------------------------------------------------------------------------------------
@@ -538,6 +571,9 @@ def fixture_kit(root: Path) -> None:
     (scripts / "x_gate" / "__init__.py").write_text("", encoding="utf-8")
     (scripts / "x_gate" / "calc.py").write_text(CALC, encoding="utf-8")
     (scripts / "entry.py").write_text(ENTRY, encoding="utf-8")
+    (scripts / "copied.py").write_text(COPIED, encoding="utf-8")
+    (scripts / "bare.py").write_text(BARE, encoding="utf-8")
+    (scripts / "x_gate" / "names.py").write_text(NAMES, encoding="utf-8")
     tests = root / "modules" / "const-x" / "tests"
     tests.mkdir()
     (tests / "test_x.py").write_text(TESTS, encoding="utf-8")
@@ -611,7 +647,7 @@ def confirmed(scratch: Path, exits: list[int]) -> str:
         run,
         1,
     )
-    mutant = kit_mutation.Mutant("g.py:1:4:num", "g.py", 1, 1, "num", "1", "2", "N = (2)\n")
+    mutant = kit_mutation.Mutant("g.py:1:4:num", "g.py", 1, 1, (1,), "num", "1", "2", "N = (2)\n")
     result = worker.one(mutant)
     assert target.read_text(encoding="utf-8") == "N = 1\n"
     return str(result["status"]) + (f", {len(left)} run not made" if left else "")
@@ -685,9 +721,20 @@ def self_test() -> int:  # noqa: C901 — one flat list of cases, each a few lin
         case(
             "a mutant meets the tests that reach it alone: one for a line of count, every test for a"
             " module-level line, none where no test reaches",
-            picked == [1, 3, 0],
+            picked == [1, TESTS_COUNT, 0],
             f"tests chosen: {picked}",
         )
+        for blind, title in (
+            ("copy", "a copy of the plugin's scripts that a test makes and runs counts as the module's file"),
+            ("-S", "a child that a test starts under python3 -S is measured"),
+            ("folded", "a continuation line of a folded constant is reached by the tests that reach the constant"),
+        ):
+            got = {key: seen.get(key) for key in BLIND[blind]}
+            case(
+                f"{title}, so the test that kills its mutants runs them",
+                got == BLIND[blind],
+                f"outcomes: {got}",
+            )
         case(
             "the kit measured is only read: every file as it was",
             digest(kit) == before,
@@ -701,7 +748,7 @@ def self_test() -> int:  # noqa: C901 — one flat list of cases, each a few lin
         case(
             "the file of a module holds the mutants made, the tests that passed and the settings",
             (whole["mutants"], whole["tests"], whole["seed"], whole["budget"], whole["copies"])
-            == (len(OUTCOMES), 3, "0", None, 1),
+            == (len(OUTCOMES), TESTS_COUNT, "0", None, 1),
             f"mutants {whole['mutants']}, tests {whole['tests']}",
         )
 

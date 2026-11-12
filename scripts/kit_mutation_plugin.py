@@ -1,6 +1,11 @@
 """Kit tooling, never shipped in a module: the pytest plugin of the mutation report, passed with
 `-p kit_mutation_plugin` by `scripts/kit_mutation.py`, which copies this one file into a folder of its own
-on the run's import path. It does three things, each only when asked.
+on the run's import path. It does four things, each only when asked.
+
+The interpreter: when the environment variable KIT_MUTATION_PYTHON names a file, as it does in the run of
+the line map alone, the plugin makes that file sys.executable as it is imported, before any test module
+is. A test that starts a child as `sys.executable -S <file>` then reaches the start that
+`scripts/kit_mutation.py` writes there, under which coverage.py measures that child too.
 
 Contexts: while coverage.py measures the pytest process, each test's node id becomes the coverage
 context of the lines that process runs during the test; outside a test the context is empty. A child
@@ -20,6 +25,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from collections.abc import Generator
 
 import coverage
@@ -27,7 +33,11 @@ import pytest
 
 SELECT_ENV = "KIT_MUTATION_SELECT"
 SEEN_ENV = "KIT_MUTATION_SEEN"
+PYTHON_ENV = "KIT_MUTATION_PYTHON"
 SEEN: dict[str, dict[str, object]] = {}
+
+if os.environ.get(PYTHON_ENV):  # before any test module is imported, so that each reads the new value
+    sys.executable = os.environ[PYTHON_ENV]
 
 
 def switch(label: str) -> None:
