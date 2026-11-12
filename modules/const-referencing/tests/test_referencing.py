@@ -51,7 +51,7 @@ from constitution_layer_kit.testing.items import (
     tr_hook,
     tr_line,
 )
-from referencing_gate import lychee, masking, messages, start
+from referencing_gate import anchors, links, lint, lychee, masking, mentions, messages, start
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 
@@ -429,6 +429,8 @@ def test_local_paths_allowed() -> None:
 @item(16, "the document's own id, and a name no covered document carries, pass in backticks")
 def test_own_id_and_unknown_ids_pass() -> None:
     passes(body("This is `note-a`; `not-a-document` is no id of a covered document."))
+    # a code span that is no id ends nothing: an id in backticks after it is still found
+    blocks(body(f"Run `ls` and `{OWNER_ID}`."), R2)
 
 
 @item(17, "R3 passes: ticks and a fragment, a fragment alone, an address with a scheme, angle brackets")
@@ -440,12 +442,37 @@ def test_id_links_that_pass() -> None:
         f"[{OWNER_ID}](<{TO_OWNER}>) in angle brackets",
     ]
     passes("# F\n\n" + "\n".join(lines) + "\n")
+    # the path a destination names: query and fragment are cut, a root-relative one starts at the root
+    assert lint.target_of(DOC, "../policies/notes-policy.md?x=1#k") == OWNER
+    assert lint.target_of(DOC, "/docs/policies/notes-policy.md") == OWNER
+    assert lint.target_of(DOC, "/XRAY.md") == "XRAY.md"
+    assert lint.target_of(DOC, "#k") == DOC
+    assert lint.target_of(DOC, "https://example.com/a") is None
+    # the way from a document at the top of the repository goes down, never up
+    assert lint.path_between("README.md", OWNER) == OWNER
+    assert lint.path_between(DOC, OWNER) == TO_OWNER
 
 
 @item(18, "R3 judges an id written in ticks inside the link's text")
 def test_ticks_in_link_text_are_judged() -> None:
     finding = messages.r3_id_link_astray(DOC, LINE, OWNER_ID, "b.md", OWNER, TO_OWNER)
     blocks(body(f"See [`{OWNER_ID}`](b.md)."), finding)
+    # links side by side: an id in the text of the second is no bare id, whether or not a space parts them
+    to_owner = f"({TO_OWNER})"
+    passes(body(f"[a]{to_owner}[`{OWNER_ID}`]{to_owner}"))
+    passes(body(f"[a]{to_owner} and [`{OWNER_ID}`]{to_owner}"))
+    # R3 reads every link: a reference definition, an href or a link of other text before it ends nothing
+    astray = "../policies/root-policy.md"
+    blocks(body(f'<a href="x.md">x</a> [{OWNER_ID}]({astray})'), R3)
+    blocks(body(f"[plain](https://example.com/p) [{OWNER_ID}]({astray})"), R3)
+    blocks(
+        "# Fixture\n[r]: x.md\n\n" + f"[{OWNER_ID}]({astray})\n",
+        messages.r3_id_link_astray(DOC, LINE + 2, OWNER_ID, astray, OWNER, TO_OWNER),
+    )
+    # the letters around a link's text are the text's own: `XnoteX` is no id, though `note` is one
+    odd = {"docs/notes/x.md": note("# X\n", "note")}
+    letters = gate_on(wrote(body(f"See [XnoteX]({astray}).")), dials_patch=LANES, files=odd)[0]
+    expect(letters, 0, messages.g1_covered(), "stdout")
 
 
 @item(19, "the id of a document that exists is known to the write of another")
@@ -484,6 +511,8 @@ def test_findings_in_reading_order() -> None:
 @item(29, "R4 names the path, not the full stop after it")
 def test_a_path_ends_before_the_sentence_does() -> None:
     blocks(body("Notes are in /Users/someone/notes.md."), R4_PATH)
+    # letters at the end of a path are the path's, whatever they are
+    blocks(body("See /Users/me/BOX."), messages.r4_one_machine(DOC, LINE, "/Users/me/BOX"))
 
 
 @item(22, "a document outside const-referencing.territories, or a new one git ignores, is a visible skip")
@@ -552,6 +581,13 @@ def test_scan_reports_all() -> None:
     expect(red, 2, second.render(), "stdout")
     expect(red, 2, shared.f9_count_scan(2, tail), "stdout")
     expect(green, 0, shared.g1_green_scan(messages.f9_scan_tail(4, 2, 4, 1, 0, 0)), "stdout")
+    # the tails, typed by hand, whole
+    assert green.stdout == (
+        "GREEN: const-referencing: 4 document(s) and 2 link(s) examined, 4 Markdown file(s) scanned,"
+        " 1 lane(s)\n"
+    ), green.stdout
+    count = "RED: 2 finding(s) — 5 document(s) and 0 link(s) examined, 5 Markdown file(s) scanned, 1 lane(s)"
+    assert count in red.stdout.splitlines(), red.stdout
 
 
 @item(24, "the scan ignores severity")
@@ -585,7 +621,11 @@ def test_dial_failures() -> None:
         ),
         (own(territories=[]), messages.c5_territories()),
         (own(territories=["*.md", 3]), messages.c5_territories()),
-        (own(bare_ids="maybe"), messages.c5_switch("bare_ids")),
+        (  # typed by hand
+            own(bare_ids="maybe"),
+            "BROKEN: constitution.yaml: const-referencing.bare_ids must be refuse or allow — fix: write"
+            " bare_ids: allow, or remove the key: refuse is the default",
+        ),
         (own(bare_ids=True), messages.c5_switch("bare_ids")),
         (own(local_paths="off"), messages.c5_switch("local_paths")),
         (  # typed by hand
@@ -687,6 +727,17 @@ def test_control_character_in_a_pattern() -> None:
     assert literal in red.stderr, f"the golden line is not in: {red.stderr.strip()}"
     expect(green, 2, r1().render(), "stderr")
     broken(mention, messages.c5_mention(1, messages.lane_pattern_control("\x08")))
+    # a space is no control character, the delete character is
+    spaced = gate_on(wrote(body("See REQ 7.")), dials_patch=own(lanes=[{**LANE, "pattern": r"REQ [0-9]+"}]))[
+        0
+    ]
+    expect(spaced, 2, "RED: docs/notes/a.md:9: 'REQ 7' cites a requirement by a bare handle\n", "stderr")
+    assert gate_on(VALID, dials_patch=own(mentions=[{"pattern": "see note-[a-z]+"}]))[0].code == 0
+    delete = gate_on(VALID, dials_patch=own(lanes=[{**LANE, "pattern": "REQ\x7f-[0-9]+"}]))[0]
+    assert delete.code == 1 and delete.stderr.startswith(
+        "BROKEN: constitution.yaml: entry 1 of const-referencing.lanes has a pattern holding the control"
+        " character '\\x7f' — "
+    ), delete.stderr
 
 
 @item(26, "a lane's home pattern git would misread is the shared configuration failure")
@@ -699,6 +750,15 @@ def test_lane_home_pattern_git_would_misread() -> None:
         " break; "
         "escape a leading # as \\# bare or in single quotes, "
         "as \\\\# in double quotes, and remove a line break",
+    )
+    # a mention's files pattern is held the same way, and the line names the mention
+    misread = gate_on(VALID, dials_patch=own(mentions=[{**MENTION, "files": ["#tools"]}]))[0]
+    broken_typed(
+        misread,
+        "BROKEN: constitution.yaml: const-referencing.mentions[1].files holds a pattern git would not read as"
+        " one: '#tools' — fix: a pattern may not start with '#' (a comment to git) nor contain a line"
+        " break; escape a leading # as \\# bare or in single quotes, as \\\\# in double quotes, and remove a"
+        " line break",
     )
 
 
@@ -879,6 +939,14 @@ def test_owned_invocation() -> None:
 @item(36, "links inside code are not checked")
 def test_links_in_code_are_not_checked() -> None:
     expect(tree_scan("Shown: `[x](gone.md)`.\n\n```md\n[y](gone.md#a)\n```"), 0, "GREEN: ", "stdout")
+    # a link-shaped text inside a code span hides the links after it from no one
+    shown = "`[a](x.md)` [b](y.md)"
+    found = links.find_links(shown, masking.mask(shown))
+    assert [(link.text, link.destination) for link in found] == [("b", "y.md")]
+    # a link spread over lines is blanked whole, its line breaks kept
+    spread = "[a\nb](x.md)\nREQ 7\n"
+    blanked = links.without_links(masking.mask(spread), links.find_links(spread, masking.mask(spread)))
+    assert blanked == "  \n        \nREQ 7\n"
 
 
 def path_with(lychee_script: str | None) -> dict[str, str]:
@@ -924,6 +992,12 @@ def test_link_checker_unusable() -> None:
         messages.x2_lychee_too_old("0.24.2", "lychee 0.23.0"),
     )
     broken(scan_with(path_with("exit 0\n")), messages.x2_lychee_too_old("0.24.2", ""))
+    broken_typed(  # typed by hand: a version that cannot be read
+        scan_with(path_with("exit 0\n")),
+        "BROKEN: const-referencing needs lychee 0.24.2 or newer, its version could not be read — fix: install"
+        " a current one (https://lychee.cli.rs/installation/), then run the scan — until then no reference is"
+        " checked for resolving",
+    )
     broken(scan_with(path_with_unstartable_lychee()), messages.x2_lychee_too_old("0.24.2", ""))
     broken(scan_with(path_with(usage)), messages.x3_no_report("exit 2", "error: unexpected argument"))
     # a version probe that exits non-zero is read for what it said, not a defect
@@ -1039,6 +1113,37 @@ def test_governed_only_without_root() -> None:
     expect(default, 0, messages.g1_covered(), "stdout")
 
 
+def mentions_over_odd_files() -> None:
+    """A file that is not UTF-8 text is read with its odd bytes replaced, one nobody may read is passed over,
+    and a NUL at the byte the sniff stops before marks no binary file."""
+    consumer = H.fresh_consumer()
+    root = consumer.root
+    consumer.write("constitution.yaml", dials_text(own(mentions=[MENTION])))
+    consumer.write(SOURCE, source("x"))
+    consumer.write("tools/ok.sh", "# see note-s\n")
+    (root / "tools/latin.sh").write_bytes(b"caf\xe9 note-s\n")
+    (root / "tools/edge.dat").write_bytes(b"a" * 8000 + b"\0")  # the NUL is the 8,001st byte: not sniffed
+    (root / "tools/inside.dat").write_bytes(b"a" * 7999 + b"\0")
+    locked = root / "tools/locked.sh"
+    locked.write_text("# note-gone\n", encoding="utf-8")
+    locked.chmod(0)
+    try:
+        result = H.run_gate("", args=["--scan", str(root)])
+        listed = mentions.other_files(root)
+    finally:
+        locked.chmod(0o644)
+    assert result.code == 0 and result.stdout == (
+        "GREEN: const-referencing: 4 document(s) and 0 link(s) examined, 4 Markdown file(s) scanned,"
+        " 0 lane(s), 1 mention pattern(s) over 4 other file(s)\n"
+    ), result.stdout + result.stderr
+    assert listed == [
+        "constitution.yaml",
+        "tools/edge.dat",
+        "tools/latin.sh",
+        "tools/ok.sh",
+    ], listed
+
+
 @item(43, "R8: a name outside Markdown no covered document carries; off by default")
 def test_mentions_outside_markdown() -> None:
     files = {
@@ -1056,7 +1161,14 @@ def test_mentions_outside_markdown() -> None:
     expect(red, 2, "1 finding(s)", "stdout")
     expect(odd, 2, messages.r8_unknown_mention("tools/page.sh", 2, "note-lost").render(), "stdout")
     expect(odd, 2, "2 finding(s)", "stdout")
-    expect(fixed, 0, "1 mention pattern(s) over ", "stdout")
+    assert fixed.code == 0 and fixed.stdout == (
+        "GREEN: const-referencing: 4 document(s) and 0 link(s) examined, 4 Markdown file(s) scanned,"
+        " 0 lane(s), 1 mention pattern(s) over 2 other file(s)\n"
+    ), fixed.stdout
+    assert (
+        "  fix: correct the name, or drop the mention and state the rule in words" in red.stdout.splitlines()
+    )
+    mentions_over_odd_files()
     expect(scan_of(files), 0, "GREEN: ", "stdout")
     expect(elsewhere, 0, "GREEN: ", "stdout")
 
@@ -1135,7 +1247,8 @@ def test_own_links_after_write() -> None:
     finding = messages.r5_no_target(SOURCE, LINE, "gone.md")
     fixed = {TARGET: TARGET_TEXT, SOURCE: source("See [x](t.md#k1).")}
     expect(after_write(SOURCE, files), 2, finding.render(), "stderr")
-    expect(after_write(SOURCE, files), 2, after_count(SOURCE, 1, 1), "stderr")
+    uncut = "RED: 1 link(s) of the whole tree examined, 1 finding(s) involve docs/notes/s.md"
+    assert uncut in after_write(SOURCE, files).stderr.splitlines()
     expect(after_write(SOURCE, fixed), 0, messages.g1_covered(), "stdout")
     # the count line is what a later step reads: the path whole, escaped, over 80 characters
     expect(
@@ -1223,9 +1336,17 @@ def test_many_findings_are_cut() -> None:
     assert by_count.code == 2 and by_count.stderr.count("RED: docs/") == 20, (
         "short findings: not twenty printed"
     )
-    assert after_count(SOURCE, 25, 25, 20) in by_count.stderr, "short findings: the count line"
+    short_line = (
+        "RED: 25 link(s) of the whole tree examined, 25 finding(s) involve docs/notes/s.md"
+        " — the first 20 shown"
+    )
+    assert short_line in by_count.stderr.splitlines(), "short findings: the count line"
     assert by_size.code == 2 and 0 < printed < 20, f"long findings: {printed} printed"
-    assert after_count(SOURCE, 25, 25, printed) in by_size.stderr, "long findings: the count line"
+    long_line = (
+        "RED: 25 link(s) of the whole tree examined, 25 finding(s) involve docs/notes/s.md"
+        f" — the first {printed} shown"
+    )
+    assert long_line in by_size.stderr.splitlines(), "long findings: the count line"
     assert len(by_size.stderr) < 10000, f"long findings: {len(by_size.stderr)} characters"
 
 
@@ -2001,6 +2122,9 @@ def test_anchors_by_name_and_encoded_paths() -> None:
         finding.render(),
         "stdout",
     )
+    # an `id` on any element and a `name` on an `a` are anchors; a `name` on another element is none
+    markup = masking.mask('<span id="k1"></span> <a name="n1"></a> <div name="no"></div> <A NAME="n2"></A>')
+    assert anchors.explicit_anchors(markup) == frozenset({"k1", "n1", "n2"})
 
 
 @item(94, "a byte order mark does not open the YAML block to R4")
@@ -2054,6 +2178,10 @@ def lychee_entry_cases() -> None:
     # a link no link of the document can be told for keeps its fragment, named after the path
     with_fragment = _lychee_entries([{**base, "url": "file:///nowhere/x.md#frag"}])
     assert has_line(with_fragment, f"RED: {SOURCE}:9: link target /nowhere/x.md#frag does not resolve: T")
+    assert has_line(
+        with_fragment,
+        "  fix: correct the link so that it names a file of this repository by its relative path",
+    )
     no_words = _lychee_entries([{**base, "status": {}}])
     assert has_line(no_words, head), no_words.stdout
     status_is_text = _lychee_entries([{**base, "status": "bad"}])
