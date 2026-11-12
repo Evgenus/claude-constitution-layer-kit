@@ -22,14 +22,16 @@ import shutil
 import subprocess
 import sys
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
 import pytest
 import yaml
-from catalogs_gate import messages, start
+from catalogs_gate import history, messages, start
 from catalogs_gate.history import HOOK_SECONDS
-from catalogs_gate.model import Advice, Catalog, NameToTake, Reach
+from catalogs_gate.model import Advice, Catalog, NameToTake, Reach, Read
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.envelope import yaml_error_line
 from constitution_layer_kit.model import Broken, EnvelopeState, Finding
@@ -974,13 +976,39 @@ def calls_before_history(log: Path) -> int:
     return next(number for number, args in enumerate(asked) if "--verify" in args)
 
 
+def read_history_asked(seconds: float, clock: Callable[[], float]) -> tuple[history.History, list[float]]:
+    """`read_history` over a git that answers at once and a clock the test moves, in the module only: the
+    history it reads (one item, number 3) and the timeout each git call was given."""
+    given: list[float] = []
+
+    def run(command: list[str], **kwargs: float) -> subprocess.CompletedProcess[bytes]:
+        given.append(kwargs["timeout"])
+        if "--is-shallow-repository" in command:
+            out = b"false\n"
+        elif "log" in command:
+            out = b"docs/items/itm-0003-x.md\0"
+        else:
+            out = b""
+        return subprocess.CompletedProcess(command, 0, out, b"")
+
+    spies = (
+        mock.patch.object(history, "subprocess", SimpleNamespace(run=run, TimeoutExpired=TimeoutError)),
+        mock.patch.object(history, "time", SimpleNamespace(monotonic=clock)),
+    )
+    with spies[0], spies[1]:
+        return history.read_history(Path("."), seconds), given
+
+
 @acceptance_item(66, "a history twenty seconds slow costs no verdict: the block comes in time")
 def test_slow_history_costs_no_verdict() -> None:
     """A history that takes twenty seconds to list: the block still comes, within the hook's patience. The
     history is given its own 5 s, or what the hook's deadline has left where that is less: with the gate
     declared with 2 s, no git call, the history's included, is given more than that. With the deadline
     already spent when the history is asked, the history is not read and starts no git, and the block stands,
-    exit 2, never the shared C12.14 (exit 1): no verdict waits for advice or falls with it."""
+    exit 2, never the shared C12.14 (exit 1): no verdict waits for advice or falls with it. The edges of that
+    clock are read on `read_history` itself, over a git that answers at once and a clock moved by hand: with
+    0.5 s left the history is read, each git call given that 0.5 s; with the deadline long past, a call is
+    given 0.01 s; with none left no git starts. The history's own cap is typed: 5 s."""
     consumer = H.fresh_consumer(SETUP)
     env, _ = fake_git(on_log="exec /bin/sleep 20")
     patch, log = git_patch(H)
@@ -1002,7 +1030,7 @@ def test_slow_history_costs_no_verdict() -> None:
         and block in red.stderr
         and elapsed < 9
         and bool(own)
-        and max(own) > HOOK_SECONDS - 0.5  # the history read has its own 5 s
+        and 4.5 < max(own) <= 5.0  # the history read has its own 5 s, typed by hand
         and short.code == 2
         and block in short.stderr
         and bool(left)
@@ -1012,6 +1040,17 @@ def test_slow_history_costs_no_verdict() -> None:
         and "budget" not in spent.stderr
         and asked == before_history  # a read asked with nothing left starts no git
     )
+    half, half_calls = read_history_asked(0.5, lambda: 0.0)  # 0.5 s left: git would answer, so it is asked
+    assert half.read is Read.ALL and half.stems == ("itm-0003-x",), f"0.5 s left: history {half}"
+    assert half_calls == [0.5, 0.5, 0.5], f"0.5 s left: each git call is given the 0.5 s, got {half_calls}"
+    ticks = iter([0.0])  # the deadline set at 0; every later look at the clock finds it long past
+    late, late_calls = read_history_asked(0.5, lambda: next(ticks, 10.0))
+    assert late_calls == [0.01, 0.01, 0.01], (
+        f"deadline long past: each call is given 0.01 s, got {late_calls}"
+    )
+    assert late.read is Read.ALL, f"the answers came, so the history is read: {late}"
+    none, none_calls = read_history_asked(0, lambda: 0.0)
+    assert none.read is Read.NOT and none_calls == [], f"no time left: no git: {none} {none_calls}"
     assert ok, (
         f"exit {red.code} in {elapsed:.1f} s (bound 9 s), saying history was not read; the most any git call"
         f" was given: {max(own, default=0):.2f} s, and {max(left, default=0):.2f} s under a hook of 2 s;"
