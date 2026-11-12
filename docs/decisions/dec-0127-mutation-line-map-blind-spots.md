@@ -1,13 +1,13 @@
 ---
 id: dec-0127-mutation-line-map-blind-spots
 type: task-record
-title: The line map of the mutation report sees copies of the plugin, children under python3 -S and the continuation lines of folded constants
+title: The line map of the mutation report sees copies of the plugin, children under python3 -S or a limit on file size, and the continuation lines of folded constants
 status: active
 stakes: process
 decider: Eugene Chernyshov
 ---
 
-# The line map of the mutation report sees copies of the plugin, children under python3 -S and the continuation lines of folded constants
+# The line map of the mutation report sees copies of the plugin, children under python3 -S or a limit on file size, and the continuation lines of folded constants
 
 ## Context
 
@@ -20,7 +20,9 @@ On 2026-11-12 a session measured every mutant of all twelve modules, for [item 9
 3. A child under a limit on the size of the files it may write, `RLIMIT_FSIZE`: it cannot write coverage.py's data file. 5 mutants, all in module [`const-locations`](../requirements.md#const-locations).
 4. The continuation lines of a constant that the compiler folds into one: no bytecode stands on them, so coverage.py sees no line run there. 43 mutants in three modules, most in [`const-language`](../requirements.md#const-language).
 
-The session fixed the first, second and fourth places on its branch, and measured every mutant of the two modules with the most such mutants again. It used eight copies, on 2026-11-12. All 107 mutants that the readers had sorted this way in those two modules were killed: 77 in [`const-change-cost`](../requirements.md#const-change-cost) and 30 in [`const-language`](../requirements.md#const-language). In `const-change-cost`, 113 mutants were no longer not covered: 82 were killed and 31 survived. The 31 sit in the entry files that a copy or a `-S` child runs, and the readers had sorted most of them as behaviour no test holds. The score of `const-change-cost` rose from 74.6% to 79.7%, and that of `const-language` from 79.1% to 82.6%. The same four mutants as before ended as an error, none of them reached by these fixes. The session also built the line map of the other ten modules: the unmutated tests of each stayed green. Their mutants not covered fell only where the readers had found such mutants: from 64 to 52 in [`const-doc-budgets`](../requirements.md#const-doc-budgets), from 115 to 97 in [`const-interaction`](../requirements.md#const-interaction) and from 60 to 48 in [`const-referencing`](../requirements.md#const-referencing). The other seven kept their counts.
+The session first fixed the first, second and fourth places on its branch, and measured every mutant of the two modules with the most such mutants again. It used eight copies, on 2026-11-12. All 107 mutants that the readers had sorted this way in those two modules were killed: 77 in [`const-change-cost`](../requirements.md#const-change-cost) and 30 in [`const-language`](../requirements.md#const-language). In `const-change-cost`, 113 mutants were no longer not covered: 82 were killed and 31 survived. The 31 sit in the entry files that a copy or a `-S` child runs, and the readers had sorted most of them as behaviour no test holds. The score of `const-change-cost` rose from 74.6% to 79.7%, and that of `const-language` from 79.1% to 82.6%. The same four mutants as before ended as an error, none of them reached by these fixes. The session also built the line map of the other ten modules: the unmutated tests of each stayed green. Their mutants not covered fell only where the readers had found such mutants: from 64 to 52 in [`const-doc-budgets`](../requirements.md#const-doc-budgets), from 115 to 97 in [`const-interaction`](../requirements.md#const-interaction) and from 60 to 48 in [`const-referencing`](../requirements.md#const-referencing). The other seven kept their counts.
+
+<!-- SIZE: the measure of const-locations after the fix of the third place goes here. -->
 
 ## Options
 
@@ -40,34 +42,36 @@ Option A, recommended by the session. It runs almost every hidden mutant with pu
 
 ## Choice
 
-<!-- CHOICE: the decider's answer goes here. -->
+Option B, chosen by the decider in chat on 2026-11-12, over the recommendation. The decider gave no reason beyond the letter.
+
+Building it, the session found a way that needs no private method of coverage.py. Python runs the handlers of a process's exit last registered first. So a handler that the child registers after coverage.py has started runs before coverage.py's own handler, which saves the data. Only the test's call of `resource.setrlimit` is still patched, in the run of the line map alone. The second half of B's cons, a release of coverage.py that breaks the fix in silence, falls away with the private method. A change in the rule on exit handlers would break it, but that rule is part of Python's documented `atexit` module.
 
 ## Ruling
 
 <a id="r1"></a>**R1.** The run of the line map measures every file whose path holds a folder named `scripts`, not only the module's own folder. A file measured outside the copy of the kit stands for a file of the module. That file is the one below `plugin/scripts` that the part of the path after its last folder named `scripts` names, when the module has it. A file the module does not have is left out, and so is a path that holds a line break, which coverage.py does not match.
 
-<a id="r2"></a>**R2.** In the run of the line map alone, the report's pytest plugin makes a file the report writes the tests' `sys.executable`. That file runs `-S <file>` through `scripts/kit_mutation_boot.py`, and hands every other call to the real interpreter unchanged. The boot file starts coverage.py from a folder that holds coverage.py alone, put last on the path, then runs the file as Python would under `-S`. No mutant's run uses it. A child started under `-S` in another way stays unmeasured.
+<a id="r2"></a>**R2.** In the run of the line map alone, the report's pytest plugin makes a file the report writes the tests' `sys.executable`, and the `python3` the report puts first on PATH hands on to that file. That file runs `-S <file>` through `scripts/kit_mutation_boot.py`. The boot file starts coverage.py from a folder that holds coverage.py alone, put last on the path, then runs the file as Python would under `-S`. No mutant's run uses it. A child started under `-S` in another way stays unmeasured.
 
 <a id="r3"></a>**R3.** A mutant is looked up in the line map at those of its lines that hold bytecode. Where none of them does, it is looked up at the first line of the nearest node around it, up to its statement, that holds bytecode. Where there is no such line either, the mutant is not covered.
 
-<a id="r4"></a>**R4.** A child under a limit on the size of the files it writes stays unmeasured. The report's docstring names it, beside a child started with an environment of its own, as a reason the count of mutants not covered can be too high.
+<a id="r4"></a>**R4.** In the same run, a test's call of `resource.setrlimit` on the limit on file size sets the soft value alone and keeps the hard one. The soft value is the one a write meets, so the test's child fails its write as before. The file of R2 runs `<file>` under a soft limit below the hard one through the boot file as well. The boot file registers a handler of the process's exit that lifts the soft limit to the hard one. Registered after coverage.py's own, it runs before it, once the file and its own handlers have ended. Every other call the file of R2 hands to the real interpreter unchanged. A limit set another way, as by a shell's `ulimit`, still stops coverage.py's data file, and that child stays unmeasured.
 
 <a id="r5"></a>**R5.** The score, the outcomes and every key of the JSON keep their meaning. Only the tests chosen for a mutant can change, so a mutant may move from not covered to killed or to survived. A kill still means that a test failed on the mutated file.
 
-<a id="r6"></a>**R6.** The self-test of the report holds each of R1, R2 and R3 with a case of its own, on its fixture kit. Each case is red when its fix is taken out.
+<a id="r6"></a>**R6.** The self-test of the report holds each of R1 to R4 with a case of its own, on its fixture kit. Each case is red when its fix is taken out.
 
-<a id="r7"></a>**R7.** This record widens R3 of [dec-0122-module-mutation-report](dec-0122-module-mutation-report.md#r3): the line map holds what R1 to R3 add. The rest of that ruling stands as written.
+<a id="r7"></a>**R7.** This record widens R3 of [dec-0122-module-mutation-report](dec-0122-module-mutation-report.md#r3): the line map holds what R1 to R4 add. The rest of that ruling stands as written.
 
 ## Applied
 
-The commits of the branch before this record change `scripts/kit_mutation.py`, `scripts/kit_mutation_plugin.py` and `scripts/module-mutation.py`, and add `scripts/kit_mutation_boot.py`. Each item is applied there, so the record is born `inactive`.
+The commits of the branch before this record change `scripts/kit_mutation.py`, `scripts/kit_mutation_plugin.py` and `scripts/module-mutation.py`, and add `scripts/kit_mutation_boot.py`. The commit that creates this record started it `active`, before the choice. Every item is applied by the end of the branch, and its last commit sets the record `inactive`.
 
 ## Carry list
 
 1. R1 — [`scripts/kit_mutation.py`](../../scripts/kit_mutation.py), its docstring, the paragraph on the line map.
 2. R2 — [`scripts/kit_mutation.py`](../../scripts/kit_mutation.py), its docstring, the paragraph on the line map; [`scripts/kit_mutation_plugin.py`](../../scripts/kit_mutation_plugin.py), its docstring; [`scripts/kit_mutation_boot.py`](../../scripts/kit_mutation_boot.py), its docstring.
 3. R3 — [`scripts/kit_mutation.py`](../../scripts/kit_mutation.py), its docstring, the paragraph on the line map.
-4. R4 — [`scripts/kit_mutation.py`](../../scripts/kit_mutation.py), its docstring, the outcome `not covered`.
+4. R4 — [`scripts/kit_mutation.py`](../../scripts/kit_mutation.py), its docstring, the paragraph on the line map; [`scripts/kit_mutation_plugin.py`](../../scripts/kit_mutation_plugin.py), its docstring; [`scripts/kit_mutation_boot.py`](../../scripts/kit_mutation_boot.py), its docstring.
 5. R5 — history only: a finding of the day, that no key changes its meaning.
-6. R6 — [`scripts/module-mutation.py`](../../scripts/module-mutation.py), its self-test, the cases on a copy, on `-S` and on a folded constant.
+6. R6 — [`scripts/module-mutation.py`](../../scripts/module-mutation.py), its self-test, the cases on a copy, on `-S`, on a folded constant and on a limit on file size.
 7. R7 — history only: the widening of one ruling of an earlier record, an act of this record.
