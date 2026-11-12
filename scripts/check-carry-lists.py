@@ -31,10 +31,12 @@ script can hold, and the anchor and the order every ruling is cited by:
                a gate is not red for waiting on a person. An "Accepted:" id that names no record
                is a note too: deleted since, renumbered, renamed or misspelt. A renumbered or
                renamed record is accepted again under its new id, in the merge commit of the change
-               that renumbers or renames it. Once that is done the note is not printed: git's
+               that renumbers or renames it, or, once that change has merged, in the merge commit
+               of a new pull request. Once that is done the note is not printed: git's
                rename detection, `git log -M`, follows the old id's file `<id>.md`, in any folder,
                through each newest rename to a record that stands, and a commit that holds the
-               last rename accepts that record. A deleted or misspelt id keeps its note.
+               last rename accepts that record. A deleted or misspelt id keeps its note, and so
+               does a rename never accepted again or accepted only before the rename.
 
   the anchor   every ruling handle **R<n>.** stands right after the anchor of its own key,
                <a id="r<n>"></a>, so that a ruling cited from another document is reached by a
@@ -815,7 +817,8 @@ def check_kit(kit: Path) -> tuple[list[Finding], list[str], int, int]:
                 f"NOTE: commit {acceptance.commit[:7]} accepts {stem}, which is no record here — "
                 "deleted since, renumbered, renamed or misspelt; when renumbered or renamed, accept "
                 "it again under its new id in the merge commit of the change that renumbers or "
-                "renames it, and this note is no longer printed; when misspelt, accept again in the "
+                "renames it, or, once that change has merged, in the merge commit of a new pull "
+                "request, and this note is no longer printed; when misspelt, accept again in the "
                 "merge commit of a new pull request, the id spelt right"
             )
     return findings, notes, len(records), len(records) + len(older)
@@ -1380,7 +1383,8 @@ def run_receipts(t: Tally) -> None:
     stranger_note = (
         "NOTE: commit {last} accepts " + stranger + ", which is no record here — deleted since, renumbered,"
         " renamed or misspelt; when renumbered or renamed, accept it again under its new id in the merge"
-        " commit of the change that renumbers or renames it, and this note is no longer printed; when"
+        " commit of the change that renumbers or renames it, or, once that change has merged, in the merge"
+        " commit of a new pull request, and this note is no longer printed; when"
         " misspelt, accept again in the merge commit of a new pull request, the id spelt right"
     )
     for name, (messages, red_wanted, notes_wanted) in receipts.items():

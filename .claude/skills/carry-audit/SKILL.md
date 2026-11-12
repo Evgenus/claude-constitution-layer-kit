@@ -32,7 +32,8 @@ kit's own reading of it is rule 2 of [plc-0004-decision-records](../../../docs/p
      added, under its new name, as [rule 5 of plc-0004-decision-records](../../../docs/policies/plc-0004-decision-records.md#r5) asks;
    - `regression` — every other record that cites a file the change touched. Editing such a file is
      how an older ruling gets un-carried.
-   A full audit skips this step and takes every record as `full`.
+   A full audit skips this step and takes every record as `full`. A change that mends a lost
+   acceptance, as rule 5 says, takes the mended record as `full` too.
 3. **Partition.** At most five `full` records to a reader, at most ten `regression` records to a
    reader. Readers are fresh subagents, started together, holding nothing of the authoring reasoning.
    A regression reader is the `regression-reader` agent of `.claude/agents/`. The confirming
@@ -67,8 +68,9 @@ kit's own reading of it is rule 2 of [plc-0004-decision-records](../../../docs/p
    `x + j = f` must hold. For a `product` record, which has no yes, the `Carry-Audit:` trailer stands alone. It stands on the merge
    commit of the change that holds the fixes. The newest acceptance of a record is the one that counts. A
    wrong receipt is mended by accepting again, in the merge commit of a new pull request.
-   So is a renumbering or rename that merged without the acceptance under the new id. That audit
-   reads the record in full.
+   So is a renumbering or rename that merged without the acceptance under the new id. The new pull
+   request's carry audit reads the record in full. Its pin is a commit at which the record already
+   stood under its new id.
 9. **Run the gate:** `python3 scripts/check-carry-lists.py`. Red is fixed before the turn ends.
 
 ## Prompt A — a reader of `full` records
