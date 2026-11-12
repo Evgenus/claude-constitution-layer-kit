@@ -1714,7 +1714,7 @@ def test_effect_path_bypass() -> None:
     """A write examined by a run of the gate's hook is applied; a write no run examined, two shell commands
     that change an item and a write through a worktree of the project are bypassed by B1, the worktree's read
     as the path in the root. A file outside every territory, one that is no Markdown and a path outside the
-    project are no moment."""
+    project are no moment. So is a Write of an item path in a project that lists no catalog."""
     consumer = H.fresh_consumer()
     consumer.write_dials(listing())
     root, sid = consumer.root, "s79"
@@ -1733,16 +1733,22 @@ def test_effect_path_bypass() -> None:
     found = effect_lines(root, {sid: lines}, no_plugins())
     wanted = "  W1 (pattern): 6 moment(s): 1 applied, 5 bypassed, 0 missed — B1 5"
     assert wanted in found, found
+    # a project that lists no catalog: the gate examines nothing, so a Write of an item path is no moment
+    bare = H.fresh_consumer().root
+    unlisted = tr_call("s79b", bare, WAY_AT, "t1", "Write", bare / "docs" / "items" / "itm-0001-a.md")
+    quiet = effect_lines(bare, {"s79b": [unlisted]}, no_plugins())
+    assert "  W1 (pattern): 0 moment(s): 0 applied, 0 bypassed, 0 missed" in quiet, quiet
 
 
 @acceptance_item(80, "W2: the plugin disabled, or a dial of the gate loosened, is bypassed by B2")
 def test_effect_switch_off() -> None:
-    """Eight commits of the dials file, the namespace changed at each: a catalog listed (applied); a second
+    """Nine commits of the dials file, the namespace changed at each: a catalog listed (applied); a second
     catalog listed (applied); severity warn where none stood, so from the default block (bypassed); severity
     block again (applied); the first catalog's territory narrowed to another pattern (bypassed); a negated
-    pattern added to it (bypassed); its width changed (applied); the second catalog unlisted (bypassed). A
-    fake plugin list that lists the gate for this project disabled adds one more, bypassed. The lines are
-    typed by hand."""
+    pattern added to it (bypassed); its width changed (applied); the second catalog unlisted (bypassed); the
+    negated pattern removed again, so the territory grows (applied). A fake plugin list that lists the gate
+    for this project disabled adds one more, bypassed. Catalog entries that are none (a string, an entry
+    with no prefix, a number) change nothing: three commits, all applied. The lines are typed by hand."""
     consumer = H.fresh_consumer()
     root = consumer.root
     first, second = entry(), entry("note", ["docs/notes/**"])
@@ -1756,15 +1762,23 @@ def test_effect_switch_off() -> None:
         {"catalogs": [entry(territory=["docs/items/some/**", "!docs/items/some/x/**"]), second]},
         {"catalogs": [entry(territory=["docs/items/some/**", "!docs/items/some/x/**"], width=5), second]},
         {"catalogs": [entry(territory=["docs/items/some/**", "!docs/items/some/x/**"], width=5)]},
+        {"catalogs": [entry(territory=["docs/items/some/**"], width=5)]},
     ]
     for step in steps:
         consumer.write_dials({NAMESPACE: step})
         consumer.commit()
     found = effect_lines(root, {}, no_plugins())
-    assert "  W2 (pattern): 8 moment(s): 4 applied, 4 bypassed, 0 missed — B2 4" in found, found
+    assert "  W2 (pattern): 9 moment(s): 5 applied, 4 bypassed, 0 missed — B2 4" in found, found
     disabled = json.dumps([{"id": f"{NAMESPACE}@m", "enabled": False, "projectPath": str(root)}])
     again = effect_lines(root, {}, no_plugins(disabled))
-    assert "  W2 (pattern): 9 moment(s): 4 applied, 5 bypassed, 0 missed — B2 5" in again, again
+    assert "  W2 (pattern): 10 moment(s): 5 applied, 5 bypassed, 0 missed — B2 5" in again, again
+    # entries that are no catalog (a string, an entry with no prefix) are none listed and none dropped
+    odd = H.fresh_consumer()
+    for step in ([first], [first, "itm", {"territory": ["docs/x/**"]}, 7], [first]):
+        odd.write_dials({NAMESPACE: {"catalogs": step}})
+        odd.commit()
+    quiet = effect_lines(odd.root, {}, no_plugins())
+    assert "  W2 (pattern): 3 moment(s): 3 applied, 0 bypassed, 0 missed" in quiet, quiet
 
 
 @acceptance_item(
@@ -1835,7 +1849,8 @@ def test_effect_skill_before_write() -> None:
     """A Write of a Markdown file in a catalog's territory after a Skill call for catalog-item, in full or
     bare, is applied; one with no load before it, one after a load of another skill and one whose load comes
     after the write are missed; an Edit of an item, a Write of a Markdown file outside every territory and a
-    Write of a file that is no Markdown are no moment. The line is typed by hand."""
+    Write of a file that is no Markdown are no moment. So is a Write in a project that lists no catalog. The
+    line is typed by hand."""
     consumer = H.fresh_consumer()
     consumer.write_dials(listing())
     root = consumer.root
@@ -1858,6 +1873,11 @@ def test_effect_skill_before_write() -> None:
     }
     found = effect_lines(root, sessions, no_plugins())
     assert "  W5 (pattern): 5 moment(s): 2 applied, 0 bypassed, 3 missed — B5 3" in found, found
+    # a project that lists no catalog: the same Write, with no skill loaded, is no moment
+    bare = H.fresh_consumer().root
+    bare_write = tr_call("s83h", bare, WAY_AT, "w", "Write", bare / "docs" / "items" / "itm-0001-a.md")
+    quiet = effect_lines(bare, {"s83h": [bare_write]}, no_plugins())
+    assert "  W5 (pattern): 0 moment(s): 0 applied, 0 bypassed, 0 missed" in quiet, quiet
 
 
 @acceptance_item(
