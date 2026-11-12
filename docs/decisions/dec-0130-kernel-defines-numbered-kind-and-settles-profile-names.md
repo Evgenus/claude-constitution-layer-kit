@@ -68,7 +68,7 @@ The session recommended B. The kernel holds vocabulary and shape, and a list of 
 
 ## 3. Two requirement rows in the kernel's words
 
-The carry audit in full of the change that holds this record found two rows of [the requirements](../requirements.md) at odds with R1, R2 and R5. [Requirement A13.7](../requirements.md#a13-7) said that "a numbered kind is an entry of the module's dials". That is a second definition, which [law 1 of CLAUDE.md](../../CLAUDE.md#law-1) bars. [Requirement A5.8](../requirements.md#a5-8) spoke of "a kind that becomes a catalog" and of "a catalog whose form changes". Both wordings stood on the main branch before this change. [Rule 2 of plc-0007-requirements](../policies/plc-0007-requirements.md#r2) makes the amendment of a row a `process` decision.
+The carry audit in full of the change that holds this record found two rows of [the requirements](../requirements.md) at odds with R1, R2 and R5. [Requirement A13.7](../requirements.md#a13-7) said that "a numbered kind is an entry of the module's dials". That is a second definition, which [law 1 of CLAUDE.md](../../CLAUDE.md#law-1) bars. [Requirement A5.8](../requirements.md#a5-8) spoke of "a kind that becomes a catalog", and of a kind "whose catalog's form changes". Both wordings stood on the main branch before this change. [Rule 2 of plc-0007-requirements](../policies/plc-0007-requirements.md#r2) makes the amendment of a row a `process` decision.
 
 - **A. Rule it here, before the yes.** The two rows take the kernel's words.
   - **Pros:** [law 1 of CLAUDE.md](../../CLAUDE.md#law-1) holds when the change lands; the amendment has its record in the same change; two cells change.
