@@ -1166,6 +1166,39 @@ GOLDEN = {
     " could not be read",
 }
 
+SLUG_THEN_ID = "the slug is lowercase words and digits joined by '-'; then set id to that name without .md"
+LEGACY_ZERO = at("ITM-0-zero")
+
+# whole stderr lines typed by hand, to their last word: a text cut short, or changed at its end, fails
+GOLDEN_LINES = {
+    "K1 fix": "  fix: name the file itm-0001-<slug>.md: itm-0001 is the catalog's next number, one more than the"
+    f" highest it has held, deleted items included; {SLUG_THEN_ID}",
+    "K4 fix": f"  fix: {ITEM_A} keeps its number; name the file itm-0002-<slug>.md: itm-0002 is the catalog's next"
+    f" number, one more than the highest it has held, deleted items included; {SLUG_THEN_ID}",
+    "not read": "  fix: name the file itm-0001-<slug>.md: itm-0001 is one more than the highest number seen — this"
+    " clone's history is incomplete or could not be read (a shallow clone, a history too long to read in"
+    " time, or a git that gave no list), so check that no deleted item went higher; " + SLUG_THEN_ID,
+    "keep": "  fix: rename the file with git mv to itm-0006-<slug>.md: it keeps its number, which others may"
+    " already cite, written in lowercase with exactly 4 digit(s), zero-padded; the slug is lowercase words"
+    " and digits joined by '-'; then set id to that name without .md, and rewrite the links to the old name",
+    "keep zero": "  fix: rename the file with git mv to itm-0000-<slug>.md: it keeps its number, which others may"
+    " already cite, written in lowercase with exactly 4 digit(s), zero-padded; the slug is lowercase words"
+    " and digits joined by '-'; then set id to that name without .md, and rewrite the links to the old name",
+    "contested": f"  fix: the name shows number 6, and so does {at('itm-0006-new')}: only one of the two can be"
+    " itm-0006. The one that others already cite by that number keeps it — rename it with git mv to"
+    " itm-0006-<slug>.md; the other takes one more than the highest the catalog has held, which the scan's"
+    f" last line names; {SLUG_THEN_ID}",
+    "contested zero": f"  fix: the name shows number 0, and so does {at('itm-0000-new')}: only one of the two can be"
+    " itm-0000. The one that others already cite by that number keeps it — rename it with git mv to"
+    " itm-0000-<slug>.md; the other takes one more than the highest the catalog has held, which the scan's"
+    f" last line names; {SLUG_THEN_ID}",
+    "K2 unterminated": f"RED: {ITEM_A}: id cannot be read: the file's YAML block is opened with '---' but never"
+    " closed",
+    "K2 unterminated fix": "  fix: close the YAML block with a line holding only '---'; the block carries id:"
+    f" {STEM_A}",
+    "K2 yaml fix": f"  fix: repair the YAML between the '---' lines; the block carries id: {STEM_A}",
+}
+
 # K3 is the scan's, on stdout
 K3_GOLDEN = [
     f"RED: catalog 'itm': 2 items carry number itm-0001: {ITEM_A}, {SECOND_TAKEN}",
@@ -1186,7 +1219,9 @@ def test_golden_lines() -> None:
     of K4's fix, and the opening of every advice text: next, keep, contested, words, full, wide, not
     read. Seen to fail with the keep text broken, and with one word of the K1 why changed. A path of over
     80 characters with a line break stands whole and escaped in K1, K3, K4 and the contested fix; a long
-    file name is cut; a YAML error with a backslash stands whole, its backslash doubled."""
+    file name is cut; a YAML error with a backslash stands whole, its backslash doubled. The fixes of
+    next, not read, keep, contested, and of the two K2 envelope shapes, are typed whole to their last word and
+    matched as whole lines, the keep and contested fixes also for number 0."""
     runs = {
         "K1": gate_on(Write(at("first"), item("first")))[0],
         "K2 missing": gate_on(Write(ITEM_A, item(drop=("id",))))[0],
@@ -1226,7 +1261,15 @@ def test_golden_lines() -> None:
     runs["not read"] = H.run_gate(
         event_json(H.fresh_consumer(SETUP).root, BLOCKED), env=fake_git(on_log="exit 97")[0]
     )
+    zero = {LEGACY_ZERO: item("ITM-0-zero")}
+    runs["keep zero"] = gate_on(Write(LEGACY_ZERO, item("ITM-0-zero")), files=zero)[0]
+    both_zero = {**zero, at("itm-0000-new"): item("itm-0000-new")}
+    runs["contested zero"] = gate_on(Write(LEGACY_ZERO, item("ITM-0-zero")), files=both_zero)[0]
+    runs["K2 unterminated"] = gate_on(Write(ITEM_A, f"---\nid: {STEM_A}\n\n# Item\n"))[0]
+    runs["K2 yaml fix"] = gate_on(Write(ITEM_A, "---\nid: [unclosed\n---\n"))[0]
+    runs["K2 unterminated fix"] = runs["K2 unterminated"]
     missing = [key for key, line in GOLDEN.items() if line not in runs[key].stderr]
+    missing += [key for key, line in GOLDEN_LINES.items() if line not in runs[key].stderr.splitlines()]
     k3 = scan_of(COLLIDING).stdout
     missing += [line for line in K3_GOLDEN if line not in k3]
     two = {f"{WEIRD_DIR}/itm-0001-a.md": item("itm-0001-a"), f"{WEIRD_DIR}/itm-0001-b.md": item("itm-0001-b")}
