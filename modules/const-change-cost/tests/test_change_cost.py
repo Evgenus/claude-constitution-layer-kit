@@ -1249,10 +1249,16 @@ def payload(session: str, cwd: Path, source: str = "startup", transcript: str = 
     )
 
 
-def git_in(cwd: Path, *args: str, session: str | None = S1, check: bool = True) -> str:
+def git_in(
+    cwd: Path,
+    *args: str,
+    session: str | None = S1,
+    check: bool = True,
+    extra: Mapping[str, str] | None = None,
+) -> str:
     """The real git, in `cwd`, as a session would run it: the variable of the session named, or unset."""
     env = {key: value for key, value in os.environ.items() if key != "CLAUDE_CODE_SESSION_ID"}
-    env.update({**GIT_ENV, **AUTHOR})
+    env.update({**GIT_ENV, **AUTHOR, **(extra or {})})
     if session is not None:
         env["CLAUDE_CODE_SESSION_ID"] = session
     done = subprocess.run(["git", *args], cwd=cwd, env=env, capture_output=True, text=True, check=False)
@@ -2496,11 +2502,11 @@ SHARE = "const-change-cost:share-costs"
 OTHER_SKILL = "const-task-close:close-task"
 
 
-def tr_call(session: str, cwd: Path, seconds: float, call_id: str, name: str, **given: object) -> str:
+def tr_call(session: str, cwd: Path, seconds: float | str, call_id: str, name: str, **given: object) -> str:
+    """A tool call at `seconds` after the fixture's day start, or at the time text given whole."""
     block = {"type": "tool_use", "id": call_id, "name": name, "input": given}
-    return tr_line(
-        "assistant", session, cwd, stamp(seconds), message={"role": "assistant", "content": [block]}
-    )
+    when = seconds if isinstance(seconds, str) else stamp(seconds)
+    return tr_line("assistant", session, cwd, when, message={"role": "assistant", "content": [block]})
 
 
 def tr_failed(session: str, cwd: Path, seconds: float, call_id: str) -> str:
@@ -2514,14 +2520,15 @@ def effect_run(
     sessions: Mapping[str, Sequence[str]] | None = None,
     claude: str = "echo '[]'\n",
     args: Sequence[str] = (),
+    env: Mapping[str, str] | None = None,
 ) -> Result:
     """The effect report over the sessions, one transcript each; a fake `claude` lists the plugins."""
     folder = clone.tmp / "sessions"
     folder.mkdir(exist_ok=True)
     for name, lines in (sessions or {}).items():
         (folder / f"{name}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
-    env = fake_claude(HE.scratch_dir(), claude)
-    return clone.count("--transcripts", str(folder), *args, harness=HE, env=env)
+    fake = fake_claude(HE.scratch_dir(), claude)
+    return clone.count("--transcripts", str(folder), *args, harness=HE, env={**fake, **(env or {})})
 
 
 def effect_lines(
@@ -2571,9 +2578,32 @@ def test_effect_commit_logged(tmp_path: Path) -> None:
         "three": [
             tr_call("55555555-5555-4555-8555-555555555555", tmp_path, 12, "a", "Bash", command="git commit")
         ],
+        # every call here has a line of its session half a second after it, so each commit is applied; a
+        # call that is no commit makes no moment, and neither makes a tool that is not the shell
+        "four": [
+            tr_call(S4, root, 100, "a", "Bash", command="git -c user.name=x commit -qm a"),
+            tr_call(S4, root, 101, "b", "Bash", command="git --git-dir .git commit -qm b"),
+            tr_call(S4, root, 102, "c", "Bash", command="git --work-tree . commit -qm c"),
+            tr_call(S4, root, 103, "d", "Bash", command="git --namespace n commit -qm d"),
+            tr_call(S4, root, 104, "e", "Bash", command="git --no-pager commit -qm e"),
+            tr_call(S4, root, 105, "f", "Bash", command="pwd"),
+            tr_call(S4, root, 106, "g", "Bash", command="FOO=1 git commit -qm g"),
+            tr_call(S4, root, 107, "h", "Bash", command="GIT_EDITOR=true git commit -qm h"),
+            tr_call(S4, root, 108, "i", "Read", file_path="git commit"),
+            # 12:01:50 at +02:00 is 10:01:50 UTC, 110 s after the day start
+            tr_call(S4, root, "2026-11-01T12:01:50.000+02:00", "j", "Bash", command="git commit -qm j"),
+        ],
     }
+    for seconds in (100, 101, 102, 103, 104, 106, 107, 110):
+        clone.commit(f"{seconds:040d}", seconds + 0.5, S4)
     found = effect_lines(clone, sessions)
-    assert rule_line("W1", 2, 0, 4, "B6 4") in found, found
+    assert rule_line("W1", 10, 0, 4, "B6 4") in found, found
+    with (clone.folder / "commits.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write("this is not JSON\n")
+    noted = effect_lines(clone, sessions)
+    shown = f"note: a log line cannot be read and is left out: {clone.folder}"
+    unreadable = f"{shown}/commits.jsonl line 13: it is not JSON"
+    assert unreadable in noted, noted
 
 
 @item(
@@ -2606,6 +2636,8 @@ def test_effect_share_costs(tmp_path: Path) -> None:
             tr_call(s, root, 3, "3", "Bash", command="git log --merges"),
             tr_call(s, root, 4, "4", "Bash", command='echo "gh pr merge 7"'),
             tr_call(s, root, 5, "5", "Bash", command="gh pr view 7"),
+            tr_call(s, root, 6, "6", "Bash", command="git merge --continue"),
+            tr_call(s, root, 7, "7", "Bash", command="git merge --quit"),
         ],
         "e": [
             tr_call(s, root, 1, "k", "Skill", skill="share-costs"),
@@ -2616,17 +2648,18 @@ def test_effect_share_costs(tmp_path: Path) -> None:
     assert rule_line("W2", 3, 0, 2, "B5 2") in found, found
 
 
-def land(clone: Clone, name: str, message: str, counted: bool) -> str:
-    """A branch of one commit merged into main without a fast-forward; the kept line of the commit when
-    `counted`. Returns the merge commit's SHA."""
+def land(clone: Clone, name: str, message: str, counted: bool, onto: str = "main", date: str = "") -> str:
+    """A branch of one commit merged into `onto` without a fast-forward, the merge committed at `date` when
+    one is given; the kept line of the commit when `counted`. Returns the merge commit's SHA."""
     root = clone.root
-    git_in(root, "checkout", "-q", "-b", name, "main", session=None)
+    git_in(root, "checkout", "-q", "-b", name, onto, session=None)
     git_in(root, "commit", "--allow-empty", "-q", "-m", name, session=None)
     sha = git_in(root, "rev-parse", "HEAD", session=None)
     if counted:
         clone.append_line("counts.jsonl", kept_line(sha, S1, COUNTS_OF_ONE))
-    git_in(root, "checkout", "-q", "main", session=None)
-    git_in(root, "merge", "--no-ff", "-q", "-m", message, name, session=None)
+    git_in(root, "checkout", "-q", onto, session=None)
+    dated = {"GIT_COMMITTER_DATE": date} if date else None
+    git_in(root, "merge", "--no-ff", "-q", "-m", message, name, session=None, extra=dated)
     return git_in(root, "rev-parse", "HEAD", session=None)
 
 
@@ -2643,12 +2676,14 @@ def test_effect_trailer_on_merge(tmp_path: Path) -> None:
     git_in(root, "checkout", "-q", "-b", "main", session=None)
     git_in(root, "commit", "--allow-empty", "-q", "-m", "base", session=None)
     trailer = "Change-Cost: 1 of 1 commit(s) counted; 6,000 tokens"
+    land(
+        clone, "uncounted", "Work: uncounted", False
+    )  # the oldest: the scan goes on past a merge with no count
     land(clone, "applied", f"Work: applied\n\nAccepted: x\n{trailer}", True)
     land(clone, "bare", "Work: bare", True)
     land(clone, "commit-only", "Work: commit-only\n\nChange-Cost-Commit: aaaaaaaaaaaa 6,000 tokens", True)
     land(clone, "first-paragraph", f"Work: first\n{trailer}\n\nA closing paragraph.", True)
     land(clone, "first-paragraph-too", f"Work: again\n{trailer}\n\nAnother closing paragraph.", True)
-    land(clone, "uncounted", "Work: uncounted", False)
     land(clone, "uncounted-trailer", f"Work: uncounted\n\n{trailer}", False)
     git_in(root, "commit", "--allow-empty", "-q", "-m", "direct", session=None)
     clone.append_line(
@@ -2660,6 +2695,51 @@ def test_effect_trailer_on_merge(tmp_path: Path) -> None:
     assert future.code == 0 and rule_line("W3", 0, 0, 0) in future.stdout.splitlines(), future.stdout
     past = effect_run(clone, args=["--since", "2000-01-01"])
     assert rule_line("W3", 1, 0, 4, "B6 4") in past.stdout.splitlines(), past.stdout
+    # a line of the file of counts that cannot be read is noted; a merge message that is not UTF-8 is read
+    merged = land(clone, "latin", "Work: latin", True)
+    raw = subprocess.run(
+        ["git", "cat-file", "commit", merged], cwd=root, capture_output=True, check=True, env=os.environ
+    ).stdout
+    crafted = (
+        raw.partition(b"\n\n")[0]
+        + b"\n\nWork: caf\xe9\n\nChange-Cost: 1 of 1 commit(s) counted; 6,000 tokens\n"
+    )
+    made = subprocess.run(
+        ["git", "hash-object", "-t", "commit", "-w", "--literally", "--stdin"],
+        cwd=root,
+        input=crafted,
+        capture_output=True,
+        check=True,
+        env=os.environ,
+    ).stdout.decode()
+    git_in(root, "update-ref", "refs/heads/main", made.strip(), session=None)
+    with (clone.folder / "counts.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write("this is not JSON\n")
+    latin = effect_lines(clone)
+    assert rule_line("W3", 2, 0, 4, "B6 4") in latin, latin
+    unreadable = (
+        f"note: a log line cannot be read and is left out: {clone.folder}/counts.jsonl line 8: it is not JSON"
+    )
+    assert unreadable in latin, latin
+    # the main branch is the first of origin/HEAD, main and master that this clone has
+    for index, (branch, via_origin) in enumerate((("trunk", True), ("master", False))):
+        other = bare_clone(tmp_path / f"other-{index}")
+        git_in(other.root, "checkout", "-q", "-b", branch, session=None)
+        git_in(other.root, "commit", "--allow-empty", "-q", "-m", "base", session=None)
+        if via_origin:
+            git_in(
+                other.root, "symbolic-ref", "refs/remotes/origin/HEAD", f"refs/heads/{branch}", session=None
+            )
+        land(other, "w", "Work: w", True, onto=branch, date="2020-01-01T12:00:00+00:00")
+        got = effect_lines(other)
+        assert rule_line("W3", 0, 0, 1, "B6 1") in got, (branch, got)
+    # --since keeps a merge by the instant of its date: this one falls on the day before, under UTC
+    edge = bare_clone(tmp_path / "edge")
+    git_in(edge.root, "checkout", "-q", "-b", "main", session=None)
+    git_in(edge.root, "commit", "--allow-empty", "-q", "-m", "base", session=None)
+    land(edge, "w", "Work: w", True, date="2026-03-10T01:00:00+05:00")
+    early = effect_run(edge, args=["--since", "2026-03-10"], env={"TZ": "UTC"})
+    assert rule_line("W3", 0, 0, 0) in early.stdout.splitlines(), early.stdout
 
 
 @item(30, "W4: a fake claude listing the plugin enabled is applied, disabled bypassed by B2")
@@ -2691,6 +2771,18 @@ def test_effect_plugin_enabled(tmp_path: Path) -> None:
     ), other.stdout
     broken = effect_run(clone, claude="exit 3\n")
     assert broken.code == 0 and rule_line("W4", 0, 0, 0) in broken.stdout.splitlines()
+    (root / "constitution.yaml").write_text("module_prefix: [const-\n", encoding="utf-8")
+    git_in(root, "add", "constitution.yaml", session=None)
+    git_in(root, "commit", "-q", "-m", "a dials file that is no YAML", session=None)
+    (root / "constitution.yaml").write_text("module_prefix: const-\n", encoding="utf-8")
+    git_in(root, "add", "constitution.yaml", session=None)
+    git_in(root, "commit", "-q", "-m", "a dials file that parses again", session=None)
+    garbled = effect_run(clone, claude=listing(True))
+    assert garbled.code == 0 and rule_line("W4", 1, 0, 0) in garbled.stdout.splitlines()
+    assert (
+        "note: const-change-cost: W4: the history of constitution.yaml could not be read in full"
+        " (2 commit(s) with ParserError) — the changes it failed on are not counted"
+    ) in garbled.stdout.splitlines()
 
 
 def exit_codes_of_effect(parent: Path) -> None:
