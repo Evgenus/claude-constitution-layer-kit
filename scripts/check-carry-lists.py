@@ -31,7 +31,10 @@ script can hold, and the anchor and the order every ruling is cited by:
                a gate is not red for waiting on a person. An "Accepted:" id that names no record
                is a note too: deleted since, renumbered, renamed or misspelt. A renumbered or
                renamed record is accepted again under its new id, in the merge commit of the change
-               that renumbers or renames it.
+               that renumbers or renames it. Once that is done the note is not printed: git's
+               rename detection, `git log -M`, follows the old id's file `<id>.md`, in any folder,
+               through each newest rename to a record that stands, and a commit that holds the
+               last rename accepts that record. A deleted or misspelt id keeps its note.
 
   the anchor   every ruling handle **R<n>.** stands right after the anchor of its own key,
                <a id="r<n>"></a>, so that a ruling cited from another document is reached by a
@@ -67,7 +70,10 @@ Modes:  no arguments            check the lists, the anchors and the receipts;
                                 layout and a decisions section that ends at the next anchor, with
                                 that anchor gone a failure to run; an envelope whose brackets nest
                                 past the depth the YAML parser reads, read as one that does not
-                                load, and a dials file nested so, a failure to run with the fix.
+                                load, and a dials file nested so, a failure to run with the fix;
+                                an accepted id renamed once, twice, and away and back, then accepted
+                                again after its last rename, no note; renamed and not accepted
+                                again, accepted only before the rename, or deleted, its note.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -644,6 +650,55 @@ AGAIN = (
 )
 
 
+def renames(kit: Path) -> dict[str, tuple[str, str]]:
+    """Each Markdown file name git's rename detection sees renamed in the history, as its stem: the stem it
+    was renamed to and the commit that did it, the newest rename of each stem only."""
+    log = git(
+        kit,
+        "-c",
+        "log.showSignature=false",
+        "log",
+        "-M",
+        "--diff-filter=R",
+        "--name-status",
+        "--format=%x01%H",
+    )
+    if log.returncode != 0:
+        raise CouldNotRun(
+            f"git log failed: {log.stderr.strip()} — fix: run the script from a checkout of the kit"
+        )
+    found: dict[str, tuple[str, str]] = {}
+    for chunk in log.stdout.split("\x01")[1:]:
+        lines = chunk.strip("\n").splitlines()
+        for line in lines[1:]:
+            parts = line.split("\t")
+            if len(parts) != 3 or not parts[0].startswith("R"):
+                continue
+            old, new = Path(parts[1]), Path(parts[2])
+            if old.suffix == new.suffix == ".md" and old.stem != new.stem:
+                found.setdefault(old.stem, (new.stem, lines[0]))  # the log is newest first
+    return found
+
+
+def accepted_again(
+    kit: Path, stem: str, renamed: dict[str, tuple[str, str]], present: set[str], accepted: list[Acceptance]
+) -> bool:
+    """Whether an id that names no record was renamed, through any number of renames, to a record that
+    stands, and that record is accepted in a commit that holds the last rename."""
+    seen = {stem}
+    while stem in renamed:
+        stem, done = renamed[stem]
+        if stem in present:
+            return any(
+                stem in a.accepted and git(kit, "merge-base", "--is-ancestor", done, a.commit).returncode == 0
+                for a in accepted
+            )
+        if stem in seen:
+            return False
+        seen.add(stem)
+    return False
+
+
 def files_at(kit: Path, listings: dict[str, set[str]], commit: str) -> set[str]:
     """The file names of every folder of a commit's tree, read once per commit."""
     if commit not in listings:
@@ -752,16 +807,17 @@ def check_kit(kit: Path) -> tuple[list[Finding], list[str], int, int]:
         else:
             findings.extend(check_receipt(kit, listings, record.stem, mine[0]))
     present = {path.stem for path in (kit / catalog.folder).glob("*.md")}
-    for acceptance in accepted:
-        for stem in acceptance.accepted:
-            if stem not in present:
-                notes.append(
-                    f"NOTE: commit {acceptance.commit[:7]} accepts {stem}, which is no record here — "
-                    "deleted since, renumbered, renamed or misspelt; when renumbered or renamed, accept "
-                    "it again under its new id in the merge commit of the change that renumbers or "
-                    "renames it; when misspelt, accept again in the merge commit of a new pull request, "
-                    "the id spelt right"
-                )
+    strays = [(a, stem) for a in accepted for stem in a.accepted if stem not in present]
+    renamed = renames(kit) if strays else {}
+    for acceptance, stem in strays:
+        if not accepted_again(kit, stem, renamed, present, accepted):
+            notes.append(
+                f"NOTE: commit {acceptance.commit[:7]} accepts {stem}, which is no record here — "
+                "deleted since, renumbered, renamed or misspelt; when renumbered or renamed, accept "
+                "it again under its new id in the merge commit of the change that renumbers or "
+                "renames it, and this note is no longer printed; when misspelt, accept again in the "
+                "merge commit of a new pull request, the id spelt right"
+            )
     return findings, notes, len(records), len(records) + len(older)
 
 
@@ -1324,8 +1380,8 @@ def run_receipts(t: Tally) -> None:
     stranger_note = (
         "NOTE: commit {last} accepts " + stranger + ", which is no record here — deleted since, renumbered,"
         " renamed or misspelt; when renumbered or renamed, accept it again under its new id in the merge"
-        " commit of the change that renumbers or renames it; when misspelt, accept again in the merge"
-        " commit of a new pull request, the id spelt right"
+        " commit of the change that renumbers or renames it, and this note is no longer printed; when"
+        " misspelt, accept again in the merge commit of a new pull request, the id spelt right"
     )
     for name, (messages, red_wanted, notes_wanted) in receipts.items():
         with tempfile.TemporaryDirectory() as tmp:
@@ -1955,6 +2011,98 @@ def run_renamed(t: Tally) -> None:
     )
 
 
+def rename(root: Path, old: str, new: str) -> None:
+    """Rename a record of the sample kit, its envelope's id with it, as a renumbering does."""
+    folder = root / DEFAULT_LAYOUT.folder
+    text = (folder / f"{old}.md").read_text(encoding="utf-8")
+    (folder / f"{old}.md").unlink()
+    (folder / f"{new}.md").write_text(text.replace(f"id: {old}", f"id: {new}"), encoding="utf-8")
+
+
+def run_accepted_again(t: Tally) -> None:
+    """The note of an accepted id that names no record: not printed once git shows the record renamed and
+    the new id accepted in a commit that holds the rename; printed in every other case."""
+    first, second = f"dec-{THRESHOLD + 5:04d}-renamed", f"dec-{THRESHOLD + 6:04d}-renamed-again"
+    stays = f"dec-{THRESHOLD + 7:04d}-stays"  # a second record, so that a kit whose sample is gone has one
+
+    def landed(root: Path) -> str:
+        git(root, "init", "-q")
+        sample_kit(root)
+        (root / DEFAULT_LAYOUT.folder / f"{stays}.md").write_text(
+            GOOD_RECORD.replace(f"id: {SAMPLE}", f"id: {stays}"), encoding="utf-8"
+        )
+        pinned = commit(root, "the records land")
+        commit(root, RIGHT_FOR.format(id=f"{SAMPLE}, {stays}", at=pinned[:12]))
+        return pinned
+
+    def again(root: Path) -> None:  # renamed, and accepted again in the commit after the rename
+        landed(root)
+        rename(root, SAMPLE, first)
+        moved = commit(root, "renumber the record")
+        commit(root, RIGHT_FOR.format(id=first, at=moved[:12]))
+
+    def twice(root: Path) -> None:  # renamed twice, the last id accepted after the last rename
+        landed(root)
+        rename(root, SAMPLE, first)
+        commit(root, "renumber the record")
+        rename(root, first, second)
+        moved = commit(root, "renumber it again")
+        commit(root, RIGHT_FOR.format(id=second, at=moved[:12]))
+
+    def back(root: Path) -> None:  # renamed and back, then renamed again: the newest rename of the id counts
+        landed(root)
+        rename(root, SAMPLE, second)
+        commit(root, "renumber the record")
+        rename(root, second, SAMPLE)
+        commit(root, "take the old number back")
+        rename(root, SAMPLE, first)
+        moved = commit(root, "renumber it at last")
+        commit(root, RIGHT_FOR.format(id=first, at=moved[:12]))
+
+    def not_again(root: Path) -> None:  # renamed, never accepted under the new id
+        landed(root)
+        rename(root, SAMPLE, first)
+        commit(root, "renumber the record")
+
+    def before(root: Path) -> None:  # the new id accepted before the rename, never after it
+        pinned = landed(root)
+        commit(root, RIGHT_FOR.format(id=first, at=pinned[:12]))
+        rename(root, SAMPLE, first)
+        commit(root, "renumber the record")
+
+    def deleted(root: Path) -> None:  # the record deleted, its acceptance left
+        landed(root)
+        (root / DEFAULT_LAYOUT.folder / f"{SAMPLE}.md").unlink()
+        commit(root, "delete the record")
+
+    def gone(root: Path) -> None:  # renamed, accepted again, then the new record deleted
+        again(root)
+        (root / DEFAULT_LAYOUT.folder / f"{first}.md").unlink()
+        commit(root, "delete the record")
+
+    for name, build, notes_wanted, red in (
+        ("renamed and accepted again after the rename: no note", again, [], False),
+        ("renamed twice, the last id accepted after the last rename: no note", twice, [], False),
+        ("renamed and back, then renamed and accepted again: no note", back, [], False),
+        ("renamed, never accepted again: the note of the old id", not_again, [SAMPLE], False),
+        # its receipt is red too: at its audit commit the record stood under the old id
+        (
+            "renamed, the new id accepted before the rename alone: the note of the old id",
+            before,
+            [SAMPLE],
+            True,
+        ),
+        ("deleted: the note of its id", deleted, [SAMPLE], False),
+        ("renamed, accepted again, then deleted: the notes of both ids", gone, [first, SAMPLE], False),
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root)
+            findings, notes, _, _ = check_kit(root)
+        said = [note.split(" accepts ")[1].split(",")[0] for note in notes if " accepts " in note]
+        t.judge(bool(findings) == red and said == notes_wanted, f"an acceptance of a record {name}")
+
+
 def run_envelope_forms(t: Tally) -> None:
     """A home's envelope is read by the shared reader (limit 8 of shared/GATE.md section 4): a line ends
     at \\n, \\r\\n or a lone \\r, a closing line is --- with its trailing whitespace ignored, and
@@ -2099,6 +2247,7 @@ def self_test() -> int:
     run_moved_folder(t)
     run_shared_listing(t)
     run_renamed(t)
+    run_accepted_again(t)
     run_envelope_forms(t)
     run_envelope_reads(t)
     print(f"{t.total - t.failed}/{t.total} cases green")
