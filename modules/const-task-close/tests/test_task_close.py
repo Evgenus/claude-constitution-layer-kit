@@ -2321,9 +2321,10 @@ def effect_lines(root: Path, sessions: Mapping[str, Sequence[str]] | None = None
     "W1: a change of the module's dials is applied, or bypassed by B2 when the map narrows or severity falls",
 )
 def test_effect_switch_off() -> None:
-    """Six commits of the dials file: a map of two pairs and severity block (applied), one pair removed
+    """Eight commits of the dials file: a map of two pairs and severity block (applied), one pair removed
     (bypassed), a pattern added to a pair's code (applied), a pattern removed from it (bypassed), severity
-    turned to warn (bypassed), the trunk renamed (applied). The plugin list names no plugin."""
+    turned to warn (bypassed), the trunk renamed (applied), a map the module's reader refuses (applied, no
+    crash) and the map read again (applied). The plugin list names no plugin."""
     r = repo(own())
     core = {"name": "core", "code": ["src/**"], "docs": ["docs/core.md"]}
     extra = {"name": "extra", "code": ["lib/**"], "docs": ["docs/extra.md"]}
@@ -2352,8 +2353,10 @@ def test_effect_switch_off() -> None:
 def test_effect_after_turn_end_red() -> None:
     """Each session holds a red of the turn-end hook. A commit or a stash before the next human turn is
     applied, whatever acts come between: a commit alone, a look at the tree and a stash, a write of a file and
-    then a commit. The end of the session with a `rm` only, a `git checkout --` and then a human turn, a human
-    turn first, and a look at the tree and then a human turn are bypassed by B3. A refusal of a call by this
+    then a commit, a bare `git` and then a bare `git stash`, a commit and then a human turn. The end of the
+    session with a `rm` only, a `git checkout --` and then a human turn, a human turn first, a look at the
+    tree and then a human turn, and a write of a file and then a human turn are bypassed by B3. A refusal of
+    a call by this
     plugin and a red of another plugin are no moment. The red is the `isMeta` line the platform writes for a
     Stop hook."""
     root = repo(own()).root
@@ -2453,7 +2456,8 @@ def test_effect_escape() -> None:
 def test_effect_commit_before_edit() -> None:
     """The moment is the first call of an editing tool after each human turn. A load of the skill, in full or
     bare, before it makes it applied, and stays so for later turns; none makes it missed. A second edit of
-    the same turn, a shell write and a read are no moment."""
+    the same turn, a shell write and a read are no moment. A `MultiEdit` and a `NotebookEdit` are each the
+    first edit of their turn."""
     root = repo(own()).root
     s = "s45"
     sessions = {
@@ -2501,8 +2505,10 @@ def test_effect_commit_before_edit() -> None:
 def test_effect_close_task() -> None:
     """The moment is a shell command that merges: `gh pr merge` or `git merge`, behind `cd`, with options
     of git before the subcommand. A load of the skill earlier in the session, in full or bare, makes it
-    applied; none, or a load of the other skill, makes it missed. `git merge --abort`, `git merge-base`,
-    a log of merges and a quoted phrase are no moment."""
+    applied; none, or a load of the other skill, makes it missed: behind `-C`, `-c`, `--git-dir`,
+    `--work-tree`, `--namespace` and `--no-pager`, and behind an assignment. `git merge --abort`,
+    `--continue` and `--quit`, `git merge-base`, a log of merges, a quoted phrase and a one-word command
+    are no moment."""
     root = repo(own()).root
     s = "s46"
     merge_pr = "cd . && gh pr merge 5 --merge --subject 'Work: x'"
