@@ -35,7 +35,6 @@ from constitution_layer_kit.testing.items import (
     git_patch,
     git_timeouts,
     hook_budget,
-    reader_fake,
     tr_call,
     tr_hook,
     tr_line,
@@ -361,6 +360,11 @@ def test_dangling_record_policy() -> None:
     result, _ = gate_on(VALID, dials_patch={NAMESPACE: {"record_policies": ["ghost-policy"]}})
     expect(result, 0, messages.n2_note_dangling_record_policy("ghost-policy"), "stdout")
     assert "0 documents examined" in result.stdout, result.stdout
+    ghost = (  # the note a whole line of what the model is handed, typed by hand
+        "note: const-decision-records.record_policies names 'ghost-policy', but no policy with that id lies"
+        " in the root policy's territory; it claims nothing until that policy exists"
+    )
+    assert ghost in as_context(result).stdout.splitlines(), as_context(result).stdout
     # an id of 100 characters only points: the note cuts it at 80 and says so, typed by hand
     long_id = "g" * 100
     wide, _ = gate_on(VALID, dials_patch={NAMESPACE: {"record_policies": [long_id]}})
@@ -383,6 +387,13 @@ def test_record_policy_claims_nothing() -> None:
     said = Result(result.code, answer["hookSpecificOutput"]["additionalContext"], result.stderr)
     expect(said, 0, note, "stdout")
     assert "0 documents examined" in said.stdout, said.stdout
+    whole = (  # the note a whole line, typed by hand
+        "note: const-decision-records.record_policies names 'records-policy'"
+        " (docs/policies/records-policy.md), whose namespace declares no territory — it governs no document"
+        " until constitution.yaml holds records-policy: {territory: [<patterns of the paths where decision"
+        " records live>]}"
+    )
+    assert whole in said.stdout.splitlines(), said.stdout
     # the policy file's path, over 80 characters with a line break, and its id of 100 characters are
     # typed whole into the note — the reader opens the one and writes the other: escaped, never cut
     long_id = "p" * 100
@@ -449,8 +460,15 @@ def test_policy_in_record_territory() -> None:
 
 @item(20, "C5: the root policy named as a record policy")
 def test_root_named_as_record_policy() -> None:
-    result, _ = gate_on(VALID, dials_patch={NAMESPACE: {"record_policies": ["root-policy"]}})
+    result, named_root = gate_on(VALID, dials_patch={NAMESPACE: {"record_policies": ["root-policy"]}})
     broken_first_line(result, messages.c5_record_policy_is_root("root-policy").render())
+    scanned = H.run_gate("", args=["--scan", str(named_root)])  # the scan refuses it the same way
+    broken_first_line(
+        scanned,
+        "BROKEN: constitution.yaml: const-decision-records.record_policies names the root policy"
+        " 'root-policy', which governs policies, never decision records — fix: name the policy that governs"
+        " decision records instead; if there is none yet, write that policy first",
+    )
     # a root policy whose id is 100 characters only points: the line cuts it at 80 and says so
     root = "docs/policies/long-root.md"
     long_id = "r" * 100
@@ -834,7 +852,13 @@ def test_session_start_skips_and_failures() -> None:
         and f"{shown_name} is not inside a git repository" in wide_no_repo.stdout
     )
     arg = SESSION.run_gate(session_json(session_root()), args=["--scan"])
-    arg_ok = arg.code == 1 and "BROKEN: misinvocation: unexpected argument --scan" in arg.stderr
+    arg_ok = (arg.code, arg.stdout, arg.stderr) == (
+        1,
+        "",
+        "BROKEN: misinvocation: unexpected argument --scan — fix: session-start takes no arguments; it reads"
+        " one SessionStart event on stdin\nBROKEN: the session-start line could not be printed — the gate's"
+        " state is unknown\n",
+    )
     assert no_dials_ok, f"no dials got: {no_dials.stdout!r} {no_dials.stderr[:200]!r}"
     assert from_sub_ok, f"no dials from a subfolder got: {from_sub.stdout!r} {from_sub.stderr[:200]!r}"
     assert no_repo_ok, f"no repository got: {no_repo.stdout!r} {no_repo.stderr[:200]!r}"
@@ -982,7 +1006,7 @@ def test_effect_path_bypass() -> None:
     """A write examined by a run of the gate's hook is applied; a write no run examined, a shell redirect and
     a write through a worktree of the project are bypassed by B1, the worktree's read as the path in the root.
     A governed document that is no record, the record policy itself, a file that is no Markdown and a path
-    outside the project are no moment."""
+    outside the project are no moment. In a project with no dials file, a write is no moment of W1 or W5."""
     root, sid = record_root(), "s42"
     worktree = root / ".claude" / "worktrees" / "w" / "docs" / "decisions" / "w.md"
     lines = [
@@ -999,6 +1023,16 @@ def test_effect_path_bypass() -> None:
     found = effect_lines(root, {sid: lines}, no_plugins())
     wanted = "  W1 (pattern): 4 moment(s): 1 applied, 3 bypassed, 0 missed — B1 3"
     assert wanted in found, found
+    bare = H.fresh_consumer().root  # no dials file: the gate examines nothing, so a write is no moment
+    (bare / "constitution.yaml").unlink()
+    unheld = [tr_call("s42b", bare, WAY_AT, "t1", "Write", bare / "docs" / "decisions" / "a.md")]
+    none_held = [
+        line for line in effect_lines(bare, {"s42b": unheld}, no_plugins()) if line[:5] in ("  W1 ", "  W5 ")
+    ]
+    assert none_held == [
+        "  W1 (pattern): 0 moment(s): 0 applied, 0 bypassed, 0 missed",
+        "  W5 (pattern): 0 moment(s): 0 applied, 0 bypassed, 0 missed",
+    ], none_held
 
 
 @item(43, "W2: the plugin disabled, severity lowered or a record policy dropped is bypassed by B2")
@@ -1101,7 +1135,8 @@ def test_effect_skill_before_write() -> None:
     """A Write of a Markdown file in record territory after a Skill call for record-decision, in full or
     bare, is applied; one with no load before it, and one after a load of another skill, are missed. A Write
     outside record territory, an Edit of a record and a Write of a file that is no Markdown are no moment. The
-    line is typed by hand."""
+    report run from a subfolder places the paths from the project's root all the same. The lines are typed by
+    hand."""
     root = record_root()
     record = root / "docs" / "decisions" / "new.md"
     sessions = {
@@ -1124,6 +1159,8 @@ def test_effect_skill_before_write() -> None:
     }
     found = effect_lines(root, sessions, no_plugins())
     assert "  W5 (pattern): 4 moment(s): 2 applied, 0 bypassed, 2 missed — B5 2" in found, found
+    below = effect_lines(root / "docs", {"s46a": sessions["s46a"]}, no_plugins())  # run from a subfolder
+    assert "  W5 (pattern): 1 moment(s): 1 applied, 0 bypassed, 0 missed" in below, below
 
 
 @item(
@@ -1156,8 +1193,10 @@ def test_effect_reader_rule() -> None:
     """Four turns answer a message of lettered options with one of its letters: `B`, a lowercase `b` alone,
     `I pick A, go ahead`, and an `A` followed by a second turn. Five do not: a long argument, a `yes` with no
     letter, a letter after a message that offers none, a letter not among the options, and the second turn
-    after the first answer. Without `--reader` the four are counted and not judged; a fake reader that
-    answers APPLIED judges them. The lines are typed by hand."""
+    after the first answer. At the edges, a turn of 300 characters naming B and a lowercase `b, go ahead.`
+    of 12 answer; turns of 301 and of 13 do not. Without `--reader` the six are counted and not judged; a
+    fake reader that answers APPLIED judges them, given the rule's text each time. The lines are typed by
+    hand."""
     root = record_root()
     offer = "Which do you want?\n\n- **A. Record it** — a process decision.\n- **B. Commit note** — routine."
     argument = "I would like to think about this longer. " * 10
@@ -1174,12 +1213,33 @@ def test_effect_reader_rule() -> None:
             tr_turn("s48h", root, WAY_AT, "A"),
             tr_turn("s48h", root, WAY_AT, "B"),
         ],
+        # the edges: a turn of 300 characters is an answer, one of 301 an argument; a lowercase letter is
+        # an answer in a turn of 12 characters or fewer once stripped, and not in one of 13
+        "s48i": [tr_say("s48i", root, offer), tr_turn("s48i", root, WAY_AT, "B " + "." * 298)],
+        "s48j": [tr_say("s48j", root, offer), tr_turn("s48j", root, WAY_AT, "B " + "." * 299)],
+        "s48k": [tr_say("s48k", root, offer), tr_turn("s48k", root, WAY_AT, "b, go ahead.")],
+        "s48l": [tr_say("s48l", root, offer), tr_turn("s48l", root, WAY_AT, "b, go ahead!!")],
     }
     plain = effect_lines(root, sessions, no_plugins())
-    assert "  W7 (reader): 4 moment(s), not judged — run again with --reader to judge them" in plain, plain
-    env, _ = reader_fake(H.scratch_dir(), "claude.ai", json.dumps({"result": "APPLIED"}))
+    assert "  W7 (reader): 6 moment(s), not judged — run again with --reader to judge them" in plain, plain
+    asked = H.scratch_dir() / "prompts"
+    status = json.dumps({"authMethod": "claude.ai"})
+    answer = json.dumps({"result": "APPLIED"})
+    env = fake_claude(
+        H.scratch_dir(),
+        'case "$1" in\n  --version) echo "9.9.9 (Claude Code)" ;;\n'
+        f"  auth) echo {shlex.quote(status)} ;;\n"
+        f'  -p) printf "%s\\n" "$2" >> {shlex.quote(str(asked))}; echo {shlex.quote(answer)} ;;\n'
+        "esac\n",
+    )
     judged = effect_lines(root, sessions, env, "--reader")
-    assert "  W7 (reader): 4 moment(s): 4 applied, 0 bypassed, 0 missed" in judged, judged
+    assert "  W7 (reader): 6 moment(s): 6 applied, 0 bypassed, 0 missed" in judged, judged
+    rule_typed = (
+        "The rule:\nA ruling the user makes in chat at recorded stakes (process, product, architecture) is"
+        " written down as a decision record, and one below that line is left as a commit note.\n\nThe moment"
+    )
+    prompts = asked.read_text(encoding="utf-8")
+    assert prompts.count(rule_typed) == 6, f"the reader is given the rule as typed: {prompts[:400]}"
 
 
 SUBJECT = Subject(
