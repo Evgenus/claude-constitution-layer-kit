@@ -5,7 +5,7 @@
 
 Numbered kinds: a catalogued document's file name and id are one name, <prefix>-<nnnn>-<slug>; a new item's number must be free, and no two items of a catalog share one. Catalogs are declared in this module's own dial. Plus a skill for taking a number, renumbering after a collision, listing and citing.
 
-In plain words: a numbered kind is a kind of document that people cite by number, such as a decision record. A catalog is all the documents of one kind. An item is one such document. Its name has a prefix that names the kind, a number with a fixed count of digits, and a short slug of words, for example `dec-0007-use-sqlite.md`. The id is a field at the top of the file, and it repeats that name without `.md`. A dial is one setting in the project's `constitution.yaml`; here it lists the catalogs. A collision is two items under one number, which happens when two branches each take the next one. A skill is a page of advice that Claude loads when the work needs it. The module checks the name and the id at the write, refuses a number already taken, and finds two items under one number in a scan. The skill says how to take the next number, how to renumber after a collision, and how to list and cite items.
+In plain words: a numbered kind is a kind of document that people cite by number, such as a decision record. A catalog is all the documents of one kind. An item is one such document. Its name has a prefix that names the kind, a number with a fixed count of digits, and a short slug of words, for example `dec-0007-use-sqlite.md`. The id is a field at the top of the file, and it repeats that name without `.md`. A dial is one setting in the project's `constitution.yaml`; here it lists the catalogs. A collision is two items under one number, which happens when two branches each take the next one. A skill is a page of advice that Claude loads when the work needs it. The module checks the name and the id at the write, and refuses a number already taken. Its scan finds two items under one number. The skill says how to take the next number, how to renumber after a collision, and how to list and cite items.
 
 <a id="a2"></a>
 ## Why use it
@@ -34,11 +34,11 @@ The skill `catalog-item` is for the moments when a numbered document is created,
 
 **At session start.** Two hooks run. The first prints one line into the session's context while no catalog is declared. The line says that no document is examined and which dial to write. Once a catalog is declared it prints nothing. The second prints one line that names the skill and the moments to load it. It reads nothing, and it works without Python.
 
-**At a subagent's start.** A hook gives the same line that names the skill to the subagent as its starting context, since a subagent does not see what was printed at session start.
+**At a subagent's start.** A hook gives the same line that names the skill to the subagent as its starting context. That is because a subagent does not see what was printed at session start.
 
 **The scan.** The same checks over every Markdown file git lists, plus the one only a whole tree shows: two items of one catalog under one number. That is where two branches that each took a number meet. It exits with code 2 on a finding. Its last line names each catalog's highest number, the one a new item counts on from. Run it in CI on every pull request, where both branches are in the tree.
 
-**The skill.** A procedure in prose, loaded when the activity occurs. Nothing in it blocks a write. The module names its skill at session start, at each subagent's start and after every red of the gate, so the session knows when to load it.
+**The skill.** A procedure in prose, loaded when the activity occurs. Nothing in it blocks a write. The module names its skill at session start, at each subagent's start and after every red of the gate. That way the session knows when to load it.
 
 **Settings.** The module works with no configuration beyond the one dial that switches it on, the list of catalogs. It reads no policy and nothing else of the dials file. A folder's patterns can be shared with the policy that governs the kind by a YAML alias, so the two never drift apart. A file in a catalog's folders that is no item, such as an index page, is taken out by a negated pattern. Two dials are every gate's: how loud a finding is, and where the log goes. The quieter setting reports the finding and lets the write through, the path for adopting a kind that already has documents.
 

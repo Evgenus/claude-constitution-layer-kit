@@ -2,7 +2,7 @@
 
 Requires: git, Python 3.12 or newer as `python3`, and the libraries in `requirements.txt`
 (`python3 -m pip install -r <plugin root>/requirements.txt`). A missing one is reported at session
-start and on the first `Write` or `Edit` of any file, with the fix on the first line; nothing is silently
+start and on the first `Write` or `Edit` of any file, with the fix on the first line. Nothing is silently
 skipped.
 
 The shared code is the Python package `constitution-layer-kit`, which brings PyYAML with it. A project
@@ -16,10 +16,10 @@ A line that starts `BROKEN: const-decision-records needs the Python package cons
 
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). Two hooks. At every session start — startup, resume, clear, compaction, fork — the
-   plugin prints one line into the model's context while `record_policies` names nothing, saying so
-   (the transcript does not show it), and nothing once a record policy is named. The write-time hook
-   fires on every `Write` and `Edit`; it examines Markdown files governed by a record policy and
-   nothing else.
+   plugin prints one line into the model's context while `record_policies` names nothing, saying so.
+   The transcript does not show it. Once a record policy is named, it prints nothing at session
+   start. The write-time hook fires on every `Write` and `Edit`. It examines Markdown files governed
+   by a record policy and nothing else.
 2. **Switch the check on: name the record policy.** A document is a decision record because
    a policy for decision records governs it. The module ships no policy and guesses none:
    until `record_policies` names one, every run prints `0 documents examined` and says why.
@@ -48,21 +48,21 @@ A line that starts `BROKEN: const-decision-records needs the Python package cons
      note_trailer: <Trailer-Key>    # if routine notes carry a theme trailer in commit messages
    ```
 4. Adoption, onto a repository that already holds records: `severity: warn` reports a finding
-   to Claude and to the user and lets the write through, while the records written before the
-   module are fixed; `block` is the default.
+   to Claude and to the user and lets the write through. Set it while the records written before
+   the module are fixed. `block` is the default.
 5. Backstop for writes the hook cannot see (shell edits, other tools, other people): run the
    scan on demand and in CI:
    ```bash
    sh <plugin root>/scripts/check-decision-record.sh --scan
    ```
    Exit 0 green, 2 findings, 1 the checker could not run. The scan ignores `severity`.
-6. Output log: everything the gate prints is also appended, one JSON line per print (timestamp,
-   module, gate, mode, session, stream, text), to `const-decision-records.jsonl` — blocked
+6. Output log: everything the gate prints is also appended to `const-decision-records.jsonl`,
+   one JSON line per print (timestamp, module, gate, mode, session, stream, text). Blocked
    writes, warnings and configuration failures leave no trace in git, so this is where they
    survive. By default it lives in the platform's per-plugin data directory, outside the
    repository. Set `log_dir` to keep it inside the repository instead; the directory must
    be git-ignored, and the gate refuses to run otherwise. The log rotates at 1 MiB.
-7. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-decision-records/tests -p no:cacheprovider` — all green.
+7. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-decision-records/tests -p no:cacheprovider` — all green.
 8. CLAUDE.md line: none. The skills `/const-decision-records:record-decision` and
    `/const-decision-records:promote-recurring-notes` load on their own when a ruling is
    being made or commit notes are being reviewed.

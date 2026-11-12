@@ -18,13 +18,14 @@ A ruling that lives only in the chat is gone with the session. A ruling recorded
 ceremony than it deserves teaches everyone to skip the ceremony. This procedure prices the
 decision first and writes a record only when the price says so. Stakes, the ceremony each
 level gets, and the shape of a decision record are defined by the constitution's conventions
-page that the project adopted; nothing here redefines them.
+page that the project adopted. Nothing here redefines them.
 
-What is checked and what is not: once the project has named its record policy (step 3,
-item 1), this plugin's hook blocks a decision record whose envelope lacks
-`type: task-record`, a `stakes` of `process | product | architecture`, or a non-empty
-`decider` — or, where the project set `severity: warn`, reports it and lets the write
-through. Until a record policy is named the hook examines nothing and says so. Everything else on this page is judgment, and it is yours: whether a record was
+What is checked and what is not: this plugin's hook acts once the project has named its
+record policy (step 3, item 1). Then it blocks a decision record whose envelope lacks
+`type: task-record`, a `stakes` of `process | product | architecture`, or a `decider` that
+is not empty. Where the project set `severity: warn`, it reports such a record instead and
+lets the write through. Until a record policy is named the hook examines nothing and says
+so. Everything else on this page is judgment, and it is yours: whether a record was
 due, what its stakes are, whether the body is honest.
 
 ## 1. Price it: which stakes?
@@ -35,10 +36,10 @@ Ask one question: **is the call cheap to revert?**
   why. Write no record — a record for a routine call is ritual, and the gate refuses
   `stakes: routine`.
 - **No, and it rules on the harness, a policy or a procedure → `process`.** A record, and one
-  human yes on the change, named in the commit that lands it: where a PR flow exists, the
-  commit that merges the pull request, the yes being its approval or, where no second human
-  reviews it, the decider's own merge. This is the fast lane: a
-  process fix needs that one yes and nothing more — it never waits behind a heavier gate,
+  human yes on the change. The yes is named in the commit that lands it. Where a PR flow
+  exists, that is the commit that merges the pull request. The yes is then its approval or,
+  where no second human reviews it, the decider's own merge. This is the fast lane: a
+  process fix needs that one yes and nothing more. It never waits behind a heavier gate,
   least of all the gate it is fixing.
 - **No, and it changes what a user sees → `product`.** A record.
 - **No, and it is structural and hard to reverse → `architecture`.** A record, and review.
@@ -64,9 +65,10 @@ unrecorded structural call costs the next session its reasoning.
 `decider` is the person or role who made the choice — not who typed the commit; git already
 knows that, and it is often not the same. If the project says who may decide at each level
 (`deciders` under `const-decision-records` in `constitution.yaml`, a list per stakes level),
-the decider comes from that list; if the project names nobody — the key absent or empty, as a whole or at that level — ask who decides. If the person who should decide is absent, do not decide
-for them at recorded stakes: stop, put the question with its options, and name them as the
-blocker.
+the decider comes from that list. If the project names nobody — the key absent or empty, as
+a whole or at that level — ask who decides. If the person who should decide is absent, do
+not decide for them at recorded stakes. In that case, at recorded stakes, stop, put the
+question with its options, and name them as the blocker.
 
 ## 3. Write the record
 
@@ -76,9 +78,9 @@ blocker.
    own rules — naming, numbering, anything else. When a module that allocates numbers is
    installed and the project numbers its decision records, take the number from it.
    When a module that creates documents at their home is installed, its command's dry run
-   names the path for the record's stem; take the home from there rather than deriving it.
+   names the path for the record's stem. Take the home from there rather than deriving it.
    If the project has no `constitution.yaml`, or names no record policy, ask the user where
-   decision records live and write the record there; say once that the write-time check is
+   decision records live and write the record there. Then say once that the write-time check is
    off until `record_policies` names the policy for that place.
 2. **From the template,** never from a blank page or from another record:
    [record-template.md](record-template.md) in this skill's directory
@@ -87,15 +89,16 @@ blocker.
 3. **Envelope.** `id` stable kebab-case, never changed afterwards; `type: task-record`;
    `title` one line stating the ruling, not the topic; `stakes`; `decider`; `status` as in
    item 5. No date: the commit is the decision moment and the ordering.
-4. **Body, when a real choice existed:** the options considered; pros and cons per option;
-   exactly **one** recommendation with its reasoning; the choice made and by whom — which
-   may differ from the recommendation, and then the record says why.
+4. **Body, when a real choice existed:** the options considered, and pros and cons per
+   option. It also holds exactly **one** recommendation with its reasoning. It also holds
+   the choice made and by whom. That may differ from the recommendation, and then the
+   record says why.
    **Body, when no real choice existed:** the ruling and the reasoning. Never manufacture
    options to fill the shape.
 5. **Status.** `active` while the ruling is still being applied to the documents and code
    it changes; `inactive` once it is applied. A record whose ruling is applied in the same
    commit that creates it is born `inactive`. Once applied, the rule must stand in the text
-   of the current-state document it changed: the record is provenance — where and why —
+   of the current-state document it changed. The record is provenance — where and why —
    never the place a rule lives.
 
 ## 4. Reversing or changing an earlier ruling
@@ -105,14 +108,15 @@ A record is **accepted** once the ceremony its stakes ask for is complete: the y
 neither and is accepted when committed.
 
 - **Before it is accepted,** whatever examines the record — a validation, a review, the
-  decider reading it again — may still correct it in place: a ruling item tightened, added or
-  withdrawn. Correct the documents it changed in the same commit, and say so in the commit
+  decider reading it again — may still correct it in place. A ruling item may be tightened, added
+  or withdrawn. Correct the documents it changed in the same commit, and say so in the commit
   message.
 - **Once it is accepted,** write a **new** record that names the old one and says what
   replaces it. Never edit the old record's ruling, stakes or decider in place. The only
-  in-place edit left is mechanical — a typo, rewriting how it cites other documents, or a
-  wording edit of a kind the project's policy for records lists in a closed set, such as a long
-  sentence split — with the commit message naming it a typo fix, a migration or a wording edit.
+  in-place edit left is mechanical: a typo, or rewriting how it cites other documents. A
+  wording edit is mechanical too when the project's records policy lists its kind in a closed
+  set, such as a long sentence split. Such an edit comes with a commit message naming it a typo fix, a
+  migration or a wording edit.
 
 ## 5. Before you finish
 

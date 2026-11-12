@@ -21,10 +21,10 @@ except the checks named in steps 1 and 2.
 
 ## 1. A ceiling comes from data
 
-- **Group first.** A ceiling holds a group of documents named by path patterns: a kind of
-  document — the path patterns of its policy, by a YAML alias where the dials file anchors
-  them — or any other group, such as the project's CLAUDE.md or its skills. One document, one ceiling:
-  two entries that match one document are refused.
+- **Group first.** A ceiling holds a group of documents named by path patterns. The group may be
+  a kind of document — the path patterns of its policy, by a YAML alias where the dials file
+  anchors them. Or it may be any other group, such as the project's CLAUDE.md or its skills. One
+  document, one ceiling: two entries that match one document are refused.
 - **Then the report.** Write the entry at `level: warning` with a generous number, then run the
   report over the history: `--scan --since <the first day of the window>`. It prints, per day,
   the longest document of the group, and per ceiling the window's longest document with the rule
@@ -42,16 +42,17 @@ except the checks named in steps 1 and 2.
 A ceiling stays at `level: warning` until 30 days of data stand behind it: the check refuses
 `error` on a window shorter than 30 days. At warning an excess is a note that reaches the model
 after the write and is listed by the scan, never red. After 30 days, run the report again, set
-the number from it, widen the window, and move the level to `error`, in a change of its own that
-names the number and the reason.
+the number from it, widen the window, and move the level to `error`. Make those edits in a change
+of their own that names the number and the reason.
 
 ## 3. Reading a finding
 
 - **Over a ceiling at error** — the finding names the document, its length, the ceiling and how
   much to cut. Cut or split; never squeeze. A shorter document that says less clearly is the
-  wrong fix. Split along a seam the document already has: a long table into a document of its
-  own, linked from the first; a rule restated from its home replaced by a link to that home; a
-  procedure that loads only when its activity occurs moved into a skill.
+  wrong fix. Split along a seam the document already has. A seam may be a long table, moved into
+  a document of its own and linked from the first. It may be a rule restated from its home,
+  replaced by a link to that home. It may be a procedure that loads only when its activity
+  occurs, moved into a skill.
 - **Over a ceiling at warning** — the same numbers in a note. Cut or split before the ceiling
   blocks; the note repeats after every write until then.
 - **A document already over,** written again for another reason: the finding repeats the length,
@@ -59,23 +60,24 @@ names the number and the reason.
 
 ## 4. A document that must stand
 
-An accepted record, a frozen comparison, a document the project will not rewrite: first make the
-edits the project's rules allow for such a document, where they bring it under. Declare what they
-do not reach in the dials file, as an entry of `departures` with `paths` for the document or its
-number range, `allow` naming the ceiling it may exceed, and a one-line `reason`. The check still
-measures it, and the other ceilings still apply. Never mark the document, and never take it out of
-a ceiling's paths with a negated pattern, which hides it with no reason. An entry that lifts
-nothing — it matches no document that a ceiling it names holds — is a note on every scan: remove
-it or fix its names.
+Take an accepted record, a frozen comparison, a document the project will not rewrite. First make
+the edits the project's rules allow for such a document, where they bring it under. Declare what
+they do not reach as an entry of `departures` in the dials file. It has `paths` for the document or
+its number range, `allow` naming the ceiling it may exceed, and a `reason` of one line. The check
+still measures it, and the other ceilings still apply. Never mark the document, and never take it
+out of a ceiling's paths with a negated pattern, which hides it with no reason. An entry can lift
+nothing — it matches no document that a ceiling it names holds. Such an entry is a note on every
+scan: remove it or fix its names.
 
 ## 5. Lowering a ceiling
 
-A ceiling is lowered only from data — the report showing the group smaller for a while — in a
-change of its own with the number and the reason. A lower number that falls below a frozen
-document needs that document's departure in the same change.
+A ceiling is lowered only from data — the report showing the group smaller for a while. The
+lowering is a change of its own with the number and the reason. A lower number that falls below a
+frozen document needs that document's departure in the same change.
 
 ## What the check does not judge
 
-Whether a long document says what it needs to, whether a split left each part readable, whether
-the declared window is where the number came from, and a file written by a shell command, which
-the scan sees and the hook does not. Those are the writer's and the reviewer's.
+The check does not judge whether a long document says what it needs to, or whether a split left
+each part readable. Nor does it judge whether the declared window is where the number came from.
+Nor does it judge a file written by a shell command, which the scan sees and the hook does not.
+Those are the writer's and the reviewer's.
