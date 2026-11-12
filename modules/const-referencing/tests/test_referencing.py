@@ -838,6 +838,11 @@ def test_anchor_case_counts() -> None:
     allowed = tree_scan("See [x](t.md#K1).", own(heading_anchors="allow"))
     expect(tree_scan("See [x](t.md#K1)."), 2, finding.render(), "stdout")
     expect(allowed, 2, finding.headline, "stdout")
+    # a second `#` belongs to the fragment, as the document wrote it: `k1#x` is no anchor, named whole
+    two = tree_scan("See [x](t.md#k1#x).")
+    assert two.code == 2 and "RED: docs/notes/s.md:9: t.md#k1#x has no anchor 'k1#x'\n" in two.stdout, (
+        two.stdout
+    )
 
 
 @item(34, "coverage decides whose links are judged, not which targets must exist")
@@ -853,6 +858,13 @@ def test_uncovered_targets() -> None:
         "stdout",
     )
     expect(tree_scan("See [x](gone.md).", only_source), 2, gone.render(), "stdout")
+    # no document covered at all: nothing is handed to the checker, and the scan is green
+    nothing = tree_scan("See [x](gone.md).", own(territories=["nowhere/**"]))
+    green = (
+        "GREEN: const-referencing: 0 document(s) and 0 link(s) examined, 5 Markdown file(s) scanned,"
+        " 0 lane(s)\n"
+    )
+    assert nothing.code == 0 and nothing.stdout == green and nothing.stderr == "", nothing
 
 
 @item(35, "a lychee.toml and a .lycheeignore in the repository change nothing")
@@ -914,6 +926,16 @@ def test_link_checker_unusable() -> None:
     broken(scan_with(path_with("exit 0\n")), messages.x2_lychee_too_old("0.24.2", ""))
     broken(scan_with(path_with_unstartable_lychee()), messages.x2_lychee_too_old("0.24.2", ""))
     broken(scan_with(path_with(usage)), messages.x3_no_report("exit 2", "error: unexpected argument"))
+    # a version probe that exits non-zero is read for what it said, not a defect
+    broken(
+        scan_with(path_with('case "$1" in --version) echo "lychee 0.23.0"; exit 1;; esac\n')),
+        messages.x2_lychee_too_old("0.24.2", "lychee 0.23.0"),
+    )
+    # no report and nothing on stderr: the line has no parenthesis
+    nothing = scan_with(path_with('case "$1" in --version) echo "lychee 0.24.2";; *) exit 3;; esac\n'))
+    assert nothing.code == 1 and nothing.stderr.startswith(
+        "BROKEN: lychee gave no report: exit 3 — fix: this is a defect"
+    ), nothing.stderr
     # lychee's version output is several lines with a backslash: it only points, cut at 80, escaped
     broken_typed(
         scan_with(path_with("printf 'lychee 0.23.0\\nline\\\\two " + "w" * 90 + "\\n'\n")),
@@ -1142,6 +1164,16 @@ def test_older_break_elsewhere_is_not_repeated() -> None:
     }
     expect(after_write("docs/notes/u.md", files), 0, messages.g1_covered(), "stdout")
     expect(scan_of(files), 2, messages.r5_no_target(SOURCE, LINE, "gone.md").headline, "stdout")
+    # an older break in a document that sorts before the written one does not end the reading: the written
+    # document's own break is still reported, and it alone
+    both = {**files, "docs/notes/a.md": note(body("See [x](gone-too.md)."), "note-a")}
+    got = after_write(
+        "docs/notes/z.md", {**both, "docs/notes/z.md": note(body("See [x](gone-z.md)."), "note-z")}
+    )
+    assert got.code == 2, got.stderr
+    assert "RED: docs/notes/z.md:9: link target gone-z.md does not exist\n" in got.stderr, got.stderr
+    assert "gone.md" not in got.stderr and "gone-too.md" not in got.stderr, got.stderr
+    assert "RED: 3 link(s) of the whole tree examined, 1 finding(s) involve docs/notes/z.md\n" in got.stderr
 
 
 @item(53, "after the write: a heading-derived anchor is reported")
@@ -2001,6 +2033,7 @@ def test_a_break_in_words_of_lychee() -> None:
         messages.r5_unresolved(SOURCE, LINE, "/nowhere/x.md", "Some new failure").render(),
         "stdout",
     )
+    lychee_entry_cases()
     expect(
         odd,
         2,
@@ -2010,20 +2043,47 @@ def test_a_break_in_words_of_lychee() -> None:
     )
 
 
-def _lychee_words(text: str, name: str = "x.md") -> Result:
-    report = json.dumps(
-        {
-            "error_map": {
-                "SRC": [
-                    {
-                        "url": f"file:///nowhere/{name}",
-                        "status": {"text": text},
-                        "span": {"line": 9, "column": 5},
-                    }
-                ]
-            }
-        }
+def has_line(result: Result, line: str) -> bool:
+    return line in result.stdout.splitlines()
+
+
+def lychee_entry_cases() -> None:
+    """The report's entries the checker may leave short: each is read for what it holds, and nothing else."""
+    base: dict[str, object] = {"url": "file:///nowhere/x.md", "status": {"text": "T"}, "span": {"line": 9}}
+    head = f"RED: {SOURCE}:9: link target /nowhere/x.md does not resolve: "
+    # a link no link of the document can be told for keeps its fragment, named after the path
+    with_fragment = _lychee_entries([{**base, "url": "file:///nowhere/x.md#frag"}])
+    assert has_line(with_fragment, f"RED: {SOURCE}:9: link target /nowhere/x.md#frag does not resolve: T")
+    no_words = _lychee_entries([{**base, "status": {}}])
+    assert has_line(no_words, head), no_words.stdout
+    status_is_text = _lychee_entries([{**base, "status": "bad"}])
+    assert has_line(status_is_text, head), status_is_text.stdout
+    no_url = _lychee_entries([{key: value for key, value in base.items() if key != "url"}])
+    assert has_line(no_url, f"RED: {SOURCE}:9: link target  does not resolve: T"), no_url.stdout
+    no_line = _lychee_entries([{**base, "span": {}}])
+    assert has_line(no_line, f"RED: {SOURCE}:0: link target /nowhere/x.md does not resolve: T"), (
+        no_line.stdout
     )
+    # two breaks on one line to one target: the one without a fragment comes first
+    order = _lychee_entries(
+        [
+            {**base, "url": "file:///nowhere/x.md#A", "status": {"text": "A"}},
+            {**base, "status": {"text": "B"}},
+        ]
+    )
+    shown = [line for line in order.stdout.splitlines() if line.startswith("RED: docs")]
+    assert shown == [head + "B", f"RED: {SOURCE}:9: link target /nowhere/x.md#A does not resolve: A"], shown
+
+
+def _lychee_words(text: str, name: str = "x.md") -> Result:
+    entry = {"url": f"file:///nowhere/{name}", "status": {"text": text}, "span": {"line": 9, "column": 5}}
+    return _lychee_entries([entry])
+
+
+def _lychee_entries(entries: list[object]) -> Result:
+    """The scan of a document whose checker answers with exactly these entries of its report, for the
+    document `SRC` stands for."""
+    report = json.dumps({"error_map": {"SRC": entries}})
     # the fake's PATH holds no cat: the shell's own read and printf do
     script = (
         'case "$1" in --version) echo "lychee 0.24.2";; *) while read -r _; do :; done;'
@@ -2035,8 +2095,7 @@ def _lychee_words(text: str, name: str = "x.md") -> Result:
     Path(env["PATH"], "lychee.json").write_text(
         report.replace("SRC", str(consumer.root / SOURCE)) + "\n"
     )  # read needs the line closed
-    result = H.run_gate("", args=["--scan", str(consumer.root)], env=env)
-    return result
+    return H.run_gate("", args=["--scan", str(consumer.root)], env=env)
 
 
 @item(97, "the mover's absences: no python3 and no shared code before the guard, no PyYAML inside it")
