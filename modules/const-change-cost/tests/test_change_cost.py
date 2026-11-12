@@ -42,7 +42,7 @@ from constitution_layer_kit.model import Finding, Mode
 from constitution_layer_kit.output import Output
 from constitution_layer_kit.testing.acceptance import item
 from constitution_layer_kit.testing.harness import Edit, Harness, Result, Write, fake_program
-from constitution_layer_kit.testing.items import Subject, fake_claude, tr_line
+from constitution_layer_kit.testing.items import EntryFile, Subject, fake_claude, tr_line
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 PLUGIN = SCRIPTS.parent
@@ -2767,6 +2767,23 @@ def claim(territory: Sequence[str]) -> dict[str, object]:
     return {}
 
 
+# The module's other entry files, beside the harness's, each with its clause and closing line typed by hand:
+# the shared items about the interpreter's floor and the shared package run each.
+ENTRY_FILES = (
+    EntryFile("cost-report.py", "", "BROKEN: the report could not run — nothing was shown or written"),
+    EntryFile("effect-report.py", "", "BROKEN: the report could not run — no rule counted"),
+    EntryFile(
+        "session-start.py",
+        "",
+        "BROKEN: const-change-cost could not log this session's start — its commits will get no count",
+    ),
+    EntryFile(
+        "setup-commit-log.py",
+        "",
+        "BROKEN: the setup could not run — setup-commit-log.sh --check shows what stands",
+    ),
+)
+
 SUBJECT = Subject(
     harness=H,
     gate_on=gate_on,
@@ -2789,4 +2806,6 @@ SUBJECT = Subject(
     closing=CLOSING,
     act_args=["--all"],
     effect="effect-report.sh",
+    entries=ENTRY_FILES,
+    effect_clause="until then the effect report is not made",  # its C2 clause, typed by hand
 )

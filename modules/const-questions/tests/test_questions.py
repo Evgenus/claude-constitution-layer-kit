@@ -34,6 +34,7 @@ from constitution_layer_kit.testing.harness import (
     red_lines,
 )
 from constitution_layer_kit.testing.items import (
+    EntryFile,
     PatternDial,
     Subject,
     fake_claude,
@@ -893,6 +894,10 @@ def test_effect_reader_rule() -> None:
     assert "  W8 (reader): 4 moment(s): 4 applied, 0 bypassed, 0 missed" in judged, judged
 
 
+# The module's other entry files, beside the harness's, each with its clause and closing line typed by hand:
+# the shared items about the interpreter's floor and the shared package run each.
+ENTRY_FILES = (EntryFile("effect-report.py", "", "BROKEN: the report could not run — no rule counted"),)
+
 SUBJECT = Subject(
     harness=H,
     gate_on=gate_on,
@@ -913,4 +918,7 @@ SUBJECT = Subject(
     skill="ask-or-decide",  # the skill a red names (F10), typed by hand
     effect="effect-report.sh",  # no `effect_reader`: its reader rule W8 has a moment for each question put,
     # and the shared items about a reader rule need one for each human turn
+    entries=ENTRY_FILES,
+    effect_clause="until then the effect report is not made",  # its C2 clause, typed by hand
+    scan_skill="ask-or-decide",  # the skill a red of the scan names (F10), typed by hand
 )

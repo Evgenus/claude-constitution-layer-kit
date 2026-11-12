@@ -32,7 +32,7 @@ from constitution_layer_kit.model import Broken, Finding
 from constitution_layer_kit.testing.acceptance import broken_first_line, expect, failure_of, item
 from constitution_layer_kit.testing.consumer import ROOT_POLICY, Consumer, document, envelope
 from constitution_layer_kit.testing.harness import Edit, Harness, Result, Write
-from constitution_layer_kit.testing.items import Subject, fake_claude, tr_line
+from constitution_layer_kit.testing.items import EntryFile, Subject, fake_claude, tr_line
 from locations_gate import filling, messages, start
 from locations_gate.dials import KEYS
 from locations_gate.model import ActKey
@@ -1211,6 +1211,17 @@ def test_notes_are_printed() -> None:
     expect(result, 0, note, "stdout")
 
 
+# The module's other entry files, beside the harness's, each with its clause and closing line typed by hand:
+# the shared items about the interpreter's floor and the shared package run each.
+ENTRY_FILES = (
+    EntryFile("effect-report.py", "", "BROKEN: the report could not run — no rule counted"),
+    EntryFile(
+        "grant-new-document.py",
+        "",
+        "BROKEN: the command was not granted — the platform asks for it as for any other command",
+    ),
+)
+
 SUBJECT = Subject(
     harness=H,
     gate_on=gate_on,
@@ -1228,6 +1239,8 @@ SUBJECT = Subject(
     act_args=NOTE_ARGS,
     effect="effect-report.sh",
     effect_hook="grant-new-document.sh",  # the hook runs the grant, not the generator the harness wraps
+    entries=ENTRY_FILES,
+    effect_clause="until then the effect report is not made",  # its C2 clause, typed by hand
 )
 
 

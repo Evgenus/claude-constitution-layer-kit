@@ -46,6 +46,7 @@ from constitution_layer_kit.testing.harness import (
     fake_signer,
 )
 from constitution_layer_kit.testing.items import (
+    EntryFile,
     PatternDial,
     Subject,
     fake_claude,
@@ -1471,6 +1472,17 @@ def subject_gate_on(
     return gate_on(action, dials_patch, env, raw_dials, files, remove)
 
 
+# The module's other entry files, beside the harness's, each with its clause and closing line typed by hand:
+# the shared items about the interpreter's floor and the shared package run each.
+ENTRY_FILES = (
+    EntryFile("effect-report.py", "", "BROKEN: the report could not run — no rule counted"),
+    EntryFile(
+        "session-start.py",
+        "until then the gate's state is not said at session start",
+        "BROKEN: the session-start line could not be printed — the gate's state is unknown",
+    ),
+)
+
 SUBJECT = Subject(
     harness=H,
     gate_on=subject_gate_on,
@@ -1495,4 +1507,7 @@ SUBJECT = Subject(
     ),
     skill="set-ceilings",  # the skill a red names (F10), typed by hand
     effect="effect-report.sh",
+    entries=ENTRY_FILES,
+    effect_clause="until then the effect report is not made",  # its C2 clause, typed by hand
+    scan_skill="set-ceilings",  # the skill a red of the scan names (F10), typed by hand
 )
