@@ -1,6 +1,6 @@
 # Install — const-change-cost
 
-Requires: git 2.54 or newer, which runs hooks set in its configuration. It also needs Node and npm,
+Requires: git 2.54 or newer, which runs hooks set in its configuration. The module also needs Node and npm,
 which run the pinned ccusage that counts the tokens. It needs Python 3.12 or newer as `python3`, and
 the libraries in `requirements.txt` (`python3 -m pip install -r <plugin root>/requirements.txt`). The GitHub command
 line `gh` is optional, for `cost-report.sh --pr` alone. A missing `python3`, library, Node or npm is
@@ -22,7 +22,7 @@ A line that starts `BROKEN: const-change-cost needs the Python package constitut
    it also prints a line, below, while this clone logs no commit. A second `SessionStart` hook and a
    `Stop` hook run in the background and count every commit whose window is complete: after each turn,
    and at each start. The skill `share-costs` tells a session how to put the counts into a pull
-   request and a merge commit. It tells it to share them only when a person starts it. A person starts
+   request and a merge commit. It tells the session to share them only when a person starts it. A person starts
    it by a command, or by asking the session to open a pull request or make a merge. A hook never
    starts it. The pinned ccusage comes with the plugin as a manifest and a lockfile in its folder
    `ccusage/`, and the platform installs nothing for them. The count installs ccusage into the plugin's data folder, with `npm ci --ignore-scripts`, at the
@@ -65,8 +65,8 @@ A line that starts `BROKEN: const-change-cost needs the Python package constitut
 5. Where the logs live: the two logs and the file of counts, in the folder `const-change-cost/` of the
    clone's git common directory. Every worktree of the clone shares them: the start log, the commit log
    and the file of counts. They are never committed or pushed, and the module writes no file in the working tree.
-   Everything the hooks and commands print is also appended to `const-change-cost.jsonl`, one JSON
-   line per print. That file is in the platform's per-plugin data directory, where one is set.
+   Where the platform's per-plugin data directory is set, everything the hooks and commands print is
+   also appended there. It goes to `const-change-cost.jsonl`, one JSON line per print.
 6. Optional, the fixtures: the install holds no tests. So run
    `python3 -m pytest <kit clone>/modules/const-change-cost/tests -p no:cacheprovider` from a clone of
    the kit, at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`). They need git

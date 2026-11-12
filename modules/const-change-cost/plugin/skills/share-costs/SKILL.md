@@ -9,8 +9,8 @@ description: >-
 Claude Code writes the tokens of every reply into the session's transcript. This plugin logs each
 session's start and each commit as they happen. It counts the tokens of each commit's window with a
 pinned ccusage. It keeps one line of counts per commit in the clone's git common directory. Nothing
-leaves the clone by itself. A count reaches the team only when a person starts it. The person runs a
-command, or asks a session to open a pull request or to make a merge. This skill is how a session does that at
+leaves the clone by itself. A count reaches the team only when a person starts it. The person starts it
+by running a command, or by asking a session to open a pull request or to make a merge. This skill is how a session does that at
 those two moments. A hook never starts it.
 
 The report reads the file of counts. It runs no ccusage and reads no transcript, so it is quick and
