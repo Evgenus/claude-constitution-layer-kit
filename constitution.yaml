@@ -888,6 +888,12 @@ const-doc-budgets:                    # a character ceiling per group of documen
   severity: block                     # values: block | warn — block: a finding reaches the model as a block after the write; warn: as context
   log_dir: local/gate-logs
   ceilings:                           # the founding entries set 2026-09-29 by the report --scan --since 2026-09-14, a later entry on the day its own comment names, over its own `window`; each by the rule: the window's longest plus 10 %, rounded up to 1,000; at warning until 30 days of data; an entry at error re-set 2026-11-08 by the report --scan --since 2026-10-09, its window those 30 days, a group moving to error in the change that brings it under its number (rollout plan item 9.9); every Markdown file git lists stands under one ceiling (decision dec-0052-doc-budgets-module-rulings)
+    # By decision dec-0128-thirteen-ceilings-follow-the-dials-file, the number, the level and the window of thirteen
+    # founding ceilings are those of their entries: comparisons, kernel, intent, requirements, style-guide, readme,
+    # module-skills, install-notes, kit-agents, kit-skills, templates, rollout-plan and module-documents. A later re-set
+    # of any of them by the rule at this key is routine: a new window, the number that rule gives from it, and the level.
+    # The change that makes the re-set writes its day and its reason in a comment at that entry. A change of such an
+    # entry by another measure, such as a number set from a shortened document, is priced by its stakes like any other change.
     # records, 2026-11-09: kept at 34,000, the number the decider's pick D13 of 2026-11-08 kept, and moved to error; the two
     # frozen records over it stand under departures below (decision dec-0115-long-documents-split-and-carry-entries-follow-moved-text, R8 and R10).
     # A third, over it since the wording edits of 2026-11-12, stands under a departure below too, with its reason there
