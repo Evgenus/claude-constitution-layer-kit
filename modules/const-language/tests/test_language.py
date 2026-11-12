@@ -62,6 +62,7 @@ from constitution_layer_kit.testing.items import (
 from language_gate import dials as own_dials
 from language_gate import effect_rules, messages, rules, start, vale
 from language_gate.model import Departure, Rule
+from language_gate.prepare import prepare
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 PLUGIN_ROOT = SCRIPTS.parent
@@ -1382,15 +1383,36 @@ def test_t17() -> None:
     )
 
 
-@item(18, "an Edit is judged on what it produces; a line number survives a fence above it")
+@item(18, "an Edit is judged on what it produces; a line survives a fence, or three backticks, above it")
 def test_t18() -> None:
     """An Edit before the write is judged on the document it produces; the sentence echo comes from
-    the document's own line; a finding's line survives a fence above it."""
+    the document's own line; a finding's line survives a fence above it. It survives a code span that
+    holds three backticks too, which Vale alone takes for a fence: without the rewrite of that span,
+    row B's sentence is lost and the other two are placed at the start of row D."""
     edit = Edit(DOC, "before noon", "prior to noon")
     result, _ = gate_on(edit, files={DOC: SIMPLER_GREEN})
     fenced = "# T\n\n```text\nprior to\n```\n\nDo it prior to noon.\n"
     expect(result, 2, messages.l4_simpler(DOC, 3, "prior to", "before").headline, "stderr")
     one_finding(fenced, messages.l4_simpler(DOC, 7, "prior to", "before").headline)
+    other = (
+        "We read the plan and we wrote the code and we ran the tests and we fixed the bugs and we sent"
+        " the change to the team today."
+    )
+    table = (
+        "# T\n\n| key | code | text |\n|---|---|---|\n| A | `a ```b c` | Short. |\n"
+        f"| B | x | {LONG_SENTENCE} |\n| C | x | Short. |\n| D | x | {other} {LONG_SENTENCE} |\n"
+    )
+    result, _ = gate_on(Write(DOC, table))
+    assert result.code == 2 and headlines(result) == [
+        f"RED: {DOC}:6: a sentence of 32 words, over the limit of 25 — The cat sat on the mat and the dog ran"
+        " to the door and the bird flew up to the r… [132 characters]",
+        f"RED: {DOC}:8: a sentence of 28 words, over the limit of 25 — We read the plan and we wrote the code"
+        " and we ran the tests and we fixed the bug… [256 characters]",
+        f"RED: {DOC}:8: a sentence of 32 words, over the limit of 25 — The cat sat on the mat and the dog ran"
+        " to the door and the bird flew up to the r… [132 characters]",
+    ], f"exit {result.code}: {result.stderr.strip()}"
+    spans = "Use ```d``` and `a ```b` here, ``x`` stays.\n"
+    assert prepare(spans).text == "Use `  d  ` and `a    b` here, ``x`` stays.\n", "each span at its length"
 
 
 @item(

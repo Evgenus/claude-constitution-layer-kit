@@ -18,9 +18,9 @@ Modes:    (hook)          one tool event, JSON on stdin — the written document
                           the history report: per ceiling and per day since the date, the longest
                           document on the first-parent line of HEAD; judges nothing.
 Reads:    from the event: hook_event_name, tool_name, tool_input.file_path, .content, .old_string,
-          .new_string and .replace_all, cwd, session_id. From constitution.yaml: this module's dials
-          const-doc-budgets.severity, .log_dir, .ceilings and .departures; the file as a whole is
-          validated as every gate does. No policy is read; no envelope is judged. The report reads
+          .new_string and .replace_all, cwd, session_id, transcript_path. From constitution.yaml: this
+          module's dials const-doc-budgets.severity, .log_dir, .ceilings and .departures; the file as
+          a whole is validated as every gate does. No policy is read; no envelope is judged. The report reads
           git's history.
 Exit:     0 green, a report, or nothing to examine (the count line says which);
           2 finding — a document is over a ceiling at level error;
