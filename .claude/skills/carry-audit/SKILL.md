@@ -28,7 +28,8 @@ kit's own reading of it is rule 2 of [plc-0004-decision-records](../../../docs/p
 2. **Compute the scope, never choose it.** `python3 scripts/check-carry-lists.py --scope <base> [<module>]`,
    where `<base>` is the commit the change started from. It prints two lists:
    - `full` — the records the change adds or edits, and those the module's decisions section cites,
-     each printed with its reason: added, edited or cited;
+     each printed with its reason: added, edited or cited. A renamed or renumbered record prints as
+     added, under its new name, as [rule 5 of plc-0004-decision-records](../../../docs/policies/plc-0004-decision-records.md#r5) asks;
    - `regression` — every other record that cites a file the change touched. Editing such a file is
      how an older ruling gets un-carried.
    A full audit skips this step and takes every record as `full`.
@@ -40,7 +41,7 @@ kit's own reading of it is rule 2 of [plc-0004-decision-records](../../../docs/p
    wording edits (prompt E) run on the session's model.
 4. **Give each reader its prompt**, below, with its record list filled in. Check that it is filled
    in before sending, since a prompt has gone out with its list still a placeholder.
-5. **Run the blind pass** on each record the change adds: one more reader, prompt C, with one
+5. **Run the blind pass** on each record the change adds, a renamed or renumbered one included. It takes one more reader, prompt C, with one
    question per carried item. A "pending" or "history only" item has nothing to answer from.
    Where the change makes wording edits in accepted records or frozen comparisons, run one more
    reader, prompt E, on every such edit.
