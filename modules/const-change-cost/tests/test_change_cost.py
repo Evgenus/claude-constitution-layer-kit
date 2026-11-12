@@ -3081,6 +3081,9 @@ def git_edges(tmp_path: Path, clone: Clone, monkeypatch: pytest.MonkeyPatch) -> 
     assert broken(lambda: gitpart.remove_section(root, root / ".git", "k")) == (
         cannot % ("k", "caf\ufffd") + write_fix + until
     )
+    assert broken(lambda: gitpart.set_config(root, root / ".git", "k.x", ["v"])) == (
+        cannot % ("k.x", "caf\ufffd") + write_fix + until
+    )
     # a git that names itself in no usual way is named by its own answer, or by "no answer"; 2.54.0 is the
     # first
     # that serves hooks set in the configuration
