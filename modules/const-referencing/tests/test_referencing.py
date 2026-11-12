@@ -2305,6 +2305,9 @@ def lychee_entry_cases() -> None:
     assert has_line(no_line, f"RED: {SOURCE}:0: link target /nowhere/x.md does not resolve: T"), (
         no_line.stdout
     )
+    # a missing fragment the report does not name is an anchor with no name
+    nameless = _lychee_entries([{**base, "status": {"text": "Cannot find fragment"}}])
+    assert has_line(nameless, f"RED: {SOURCE}:9: /nowhere/x.md has no anchor ''"), nameless.stdout
     # two breaks on one line to one target: the one without a fragment comes first
     order = _lychee_entries(
         [
@@ -3416,6 +3419,38 @@ def w7_lines() -> list[str]:
     return effect_lines(consumer.root, {}, no_plugins())
 
 
+def effect_counts_that_do_not_cancel() -> None:
+    """Counts that a wrong rule could keep in total: each is asserted, line by line, on a short history."""
+    # a repository with no dials file covers nothing: a write in it is no moment of W1, and no crash
+    bare = H.fresh_consumer()
+    (bare.root / "constitution.yaml").unlink()
+    writes = [
+        tr_call("w", bare.root, WAY_AT, "t1", "Write", bare.root / "docs/notes/a.md"),
+        tr_tool("w", bare.root, "t2", "Bash", command="echo x > docs/notes/c.md"),
+    ]
+    got = effect_lines(bare.root, {"w": writes}, no_plugins())
+    assert "  W1 (pattern): 0 moment(s): 0 applied, 0 bypassed, 0 missed" in got, got
+    # the namespace appears, then a switch turns to allow: one applied and one bypassed, not two applied
+    turned = H.fresh_consumer()
+    for step in (own(severity="block"), own(severity="block", bare_ids="allow")):
+        turned.write_dials(step)
+        turned.commit()
+    got = effect_lines(turned.root, {}, no_plugins())
+    assert "  W2 (pattern): 2 moment(s): 1 applied, 1 bypassed, 0 missed — B2 1" in got, got
+    # a namespace nobody can read is no loosening: the commit is applied
+    unreadable = H.fresh_consumer()
+    for step in (own(severity="block"), own(bare_ids="maybe")):
+        unreadable.write_dials(step)
+        unreadable.commit()
+    got = effect_lines(unreadable.root, {}, no_plugins())
+    assert "  W2 (pattern): 2 moment(s): 2 applied, 0 bypassed, 0 missed" in got, got
+    # a file name written right before a link is still bare
+    root = H.fresh_consumer().root
+    said = ["See [a](docs/a.md).", "Read README.md[a](docs/a.md)."]
+    got = effect_lines(root, {"c": [tr_say("c", root, text) for text in said]}, no_plugins())
+    assert "  W6 (pattern): 2 moment(s): 1 applied, 0 bypassed, 1 missed — B6 1" in got, got
+
+
 @item(9, "effect report: W1 to W7 each count their moments and outcomes, typed by hand")
 def test_effect_rules() -> None:
     """One hand-made history for each rule; the line of the rule is typed by hand. W1 reads the module's own
@@ -3452,6 +3487,7 @@ def test_effect_rules() -> None:
     if count.format(key="W2", n=2, a=1, b=1, m=0, by=" — B2 1") not in plugin:
         missing.append("W2 plugin")
     assert not missing, (missing, got, history, plugin)
+    effect_counts_that_do_not_cancel()
 
 
 SUBJECT = Subject(
