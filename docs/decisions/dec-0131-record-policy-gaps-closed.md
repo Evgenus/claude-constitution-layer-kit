@@ -1,13 +1,13 @@
 ---
 id: dec-0131-record-policy-gaps-closed
 type: task-record
-title: Commit hashes in a record's body follow the reference row, and a lost acceptance after an id change is mended like a wrong receipt
+title: The record policy closes three gaps, on hashes in a body, a lost acceptance after an id change and a link to rewritten text
 status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
 
-# Commit hashes in a record's body follow the reference row, and a lost acceptance after an id change is mended like a wrong receipt
+# The record policy closes three gaps, on hashes in a body, a lost acceptance after an id change and a link to rewritten text
 
 This record answers questions on [plc-0004-decision-records](../policies/plc-0004-decision-records.md) that [item 9.38 of the rollout plan](../rollout-plan.md#s9-38) logged. Each has a section of its own.
 
@@ -43,12 +43,29 @@ The session recommended A: it is the path rule 5 already gives a wrong receipt, 
 
 <a id="r4"></a>**R4.** The receipt of R3 names a commit at which the record already stood under its new id. R6 of [dec-0124-renamed-record-accepted-again](dec-0124-renamed-record-accepted-again.md#r6) asks the same.
 
+## 3. A link to text that a later change rewrote elsewhere
+
+This section is on [dec-0078-landed-collisions-renumber-and-kit-checks-hold-numbers-descriptions-namespaces-and-folders](dec-0078-landed-collisions-renumber-and-kit-checks-hold-numbers-descriptions-namespaces-and-folders.md). Entry 2 of its carry list homes its R2 in the docstring of `run_all`, in the shared harness file. The move to pytest on 2026-10-15 removed `run_all`. R3 of [dec-0091-module-fixtures-run-as-pytest](dec-0091-module-fixtures-run-as-pytest.md#r3) replaced part of that ruling. Its carry list names `collected` in the shared file `acceptance.py` as the home. [Rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) let a link follow a place's whole text moved to another document, in the same change. This text was rewritten, not moved, a month before.
+
+- **A. Move the link.** Only the link's target in dec-0078 changes, to `acceptance.py`.
+  - **Pros:** a reader of the record lands on the code that holds the ruling now.
+  - **Cons:** it edits a frozen record past what rule 14 allowed; the record's words still name `run_all`.
+- **B. Leave dec-0078 as it stands.** The newer record already names the ruling's current home.
+  - **Pros:** no edit of a frozen record; rule 14 stays as it is.
+  - **Cons:** the link leads to a file where the named docstring is gone.
+
+The session recommended B: rule 14 let a link follow only a whole text moved in the same change. <a id="r5"></a>**R5.** A, chosen by the decider in chat on 2026-11-12. The session's objection stands as history: the pick moves a link past what rule 14 allowed. So rule 14 is widened, and the move is a migration under it. A later change may have rewritten a link's cited text into another document. Then, if a later record's carry list names that place for the same ruling, the link may take it at any later time. Only the link's target changes, as for a moved place. The commit names it a migration and names that record.
+
+<a id="r6"></a>**R6.** Under R5, the link of entry 2 of dec-0078's carry list to the shared harness takes `acceptance.py`, as dec-0091 names it. The link's text and the words "the docstring of `run_all`" stay as history.
+
 ## Applied
 
-The commit that creates this record rewords the sentence on hashes in rule 12 of the policy. A later commit of the same branch adds section 2, its sentences in rule 5 and in step 8 of the carry-audit skill. The record is born `inactive`.
+The commit that creates this record rewords the sentence on hashes in rule 12 of the policy. A later commit of the same branch adds section 2, its sentences in rule 5 and in step 8 of the carry-audit skill. Another adds section 3, its sentences in rule 14, and the migration of R6. The record is born `inactive`.
 
 ## Carry list
 
 1. R1 — [rule 12 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r12), its sentences on a commit hash.
 2. R2 — history only: the reversal in part of an earlier ruling, which binds nothing once R1 is carried.
 3. R3, R4 — [rule 5 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r5), its sentences on a lost acceptance after an id change. Also [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md), step 8.
+4. R5 — [rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14), its sentences on a text a later change rewrote into another document.
+5. R6 — history only: one migration under R5, a one-time act.
