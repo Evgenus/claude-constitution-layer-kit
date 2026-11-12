@@ -33,6 +33,7 @@ from constitution_layer_kit.testing.consumer import (
 from constitution_layer_kit.testing.harness import Case, Edit, Harness, Result, Write, event_json, red_lines
 from constitution_layer_kit.testing.items import (
     NO_ENVELOPE,
+    EntryFile,
     Subject,
     fake_claude,
     tr_call,
@@ -1521,6 +1522,10 @@ def test_effect_w6() -> None:
     assert tree() == before
 
 
+# The module's other entry files, beside the harness's, each with its clause and closing line typed by hand:
+# the shared items about the interpreter's floor and the shared package run each.
+ENTRY_FILES = (EntryFile("effect-report.py", "", "BROKEN: the report could not run — no rule counted"),)
+
 SUBJECT = Subject(
     harness=H,
     gate_on=gate_on,
@@ -1537,4 +1542,6 @@ SUBJECT = Subject(
     skill="choose-meta-type",  # the skill a red names (F10), typed by hand
     effect="effect-report.sh",
     # no effect_reader: this module has no reader rule
+    entries=ENTRY_FILES,
+    scan_skill="choose-meta-type",  # the skill a red of the scan names (F10), typed by hand
 )

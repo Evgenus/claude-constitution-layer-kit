@@ -255,7 +255,7 @@ class PatternDial:
 
 
 @dataclass(frozen=True)
-class Entry:
+class EntryFile:
     """An entry file of the module beside the harness's own, in the same scripts folder: an effect report,
     a session-start printer, a grant, a generator, a mover, a second gate. The items about the interpreter's
     floor and the shared package (C14 to C17) run it as they run the harness's entry, and hold its whole
@@ -344,7 +344,7 @@ class Subject:
     # moment for each human turn of a session; empty leaves the items about the reader out
     effect_hook: str = ""  # the file name of the script a hook of the module runs on a call, where it is not
     # the harness's wrapper, as a grant's is not; empty: the wrapper's
-    entries: Sequence[Entry] | None = None  # the module's other entry files, each with its clause and its
+    entries: Sequence[EntryFile] | None = None  # the module's other entry files, each with its clause and its
     # closing line typed by hand; declared, every Python file at the top of the harness's scripts folder is
     # the harness's entry or one of these, and the items about the floor and the package run each; None:
     # not declared, and those items run the harness's entry alone
@@ -352,8 +352,8 @@ class Subject:
     # hand, for a gate with a hook mode; empty: the scan names none, and no such line follows its count
     # line; None leaves the scan's half of the item about the line out
     scan_red: Callable[[], Result] | None = None  # a scan the gate reports, for a gate whose scan judges no
-    # file the hook judges — one driven by Stop or by the shell tool; None: `red` written into a fresh
-    # consumer and `--scan` run there
+    # file the hook judges — one driven by Stop or by the shell tool; None: `red` written into the consumer
+    # `gate_on` prepares for it and `--scan` run there
 
 
 AS_ROOT = (
@@ -585,9 +585,9 @@ class SharedItems:
         return {"PYTHONPATH": str(folder)}
 
     def skill_after_scan_red(self, skill: str) -> None:
-        """A red of the scan — `scan_red`, or `red` written into a fresh consumer and scanned — exits 2 and
-        ends its stdout in the line naming `skill`, typed by hand, right after its count line and once;
-        with no skill, in its count line, and no line names a skill."""
+        """A red of the scan — `scan_red`, or `red` written into the consumer `gate_on` prepares for it and
+        that consumer scanned — exits 2 and ends its stdout in the line naming `skill`, typed by hand, right
+        after its count line and once; with no skill, in its count line, and no line names a skill."""
         if self.s.scan_red is not None:
             result = self.s.scan_red()
         else:
@@ -595,9 +595,11 @@ class SharedItems:
                 f"Subject.scan_red is None for a gate driven by {self.s.event}, whose scan judges no written"
                 " file — fix: give Subject.scan_red, a scan the gate reports"
             )
-            consumer = self.h.fresh_consumer()
-            consumer.write(self.s.red.target, self.s.red.text)
-            result = self.h.run_gate("", args=self.scan_args(consumer.root))
+            _, root = self.s.gate_on(self.s.red)  # the consumer as the module prepares it, its dials in it
+            target = root / self.s.red.target
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(self.s.red.text, encoding="utf-8")
+            result = self.h.run_gate("", args=self.scan_args(root))
         lines = result.stdout.splitlines()
         named = f"{self.ns}: load the skill"
         if skill:

@@ -38,6 +38,7 @@ from constitution_layer_kit.testing.harness import (
     red_lines,
 )
 from constitution_layer_kit.testing.items import (
+    EntryFile,
     PatternDial,
     Subject,
     fake_claude,
@@ -2437,6 +2438,22 @@ def test_effect_reader_rule() -> None:
 # ---------------------------------------------------------------- the runner
 
 RED_LONG = "git push --force " + "x" * (12_000 - len("git push --force "))
+# The module's other entry files, beside the harness's, each with its clause and closing line typed by hand:
+# the shared items about the interpreter's floor and the shared package run each.
+ENTRY_FILES = (
+    EntryFile(
+        "check-list-handles.py",
+        "until then no list is scanned",
+        "BROKEN: the check could not run — 0 documents examined",
+    ),
+    EntryFile("effect-report.py", "", "BROKEN: the report could not run — no rule counted"),
+    EntryFile(
+        "session-start.py",
+        "until then the gate's state is not said at session start",
+        "BROKEN: the session-start line could not be printed — the gate's state is unknown",
+    ),
+)
+
 SUBJECT = Subject(
     harness=H,
     gate_on=gate_on,
@@ -2455,4 +2472,5 @@ SUBJECT = Subject(
     pattern_dial=PatternDial("territories", lambda pattern: own(territories=[pattern])),
     effect="effect-report.sh",  # no `effect_reader`: its reader rule W4 has a moment for the last reply
     # before each human turn, and the shared items about a reader rule need a moment for each human turn
+    entries=ENTRY_FILES,
 )
