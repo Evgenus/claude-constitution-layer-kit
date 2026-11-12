@@ -256,17 +256,17 @@ The count line of this module: hook mode `1 document examined, governed by …` 
 <a id="t11"></a>
 ## 11. Siblings
 
-**Depends on:** [kernel §1](../../docs/constitution/CONVENTIONS.md#k1) (the envelope and its lifecycle rule), [§3](../../docs/constitution/CONVENTIONS.md#k3) (territory, policy, kind, resolution), [§4](../../docs/constitution/CONVENTIONS.md#k4) (the stakes enum and ceremony), [§5](../../docs/constitution/CONVENTIONS.md#k5) (the decision record), [§6](../../docs/constitution/CONVENTIONS.md#k6) (dials file, kernel-owned keys, dialect, portability), [§7](../../docs/constitution/CONVENTIONS.md#k7) (naming). Beside the kernel it needs git, which the gate, the scan and the printer run to find the repository and to match territories, and Python 3.12 with PyYAML, which each entry file checks before anything else; and the Python package `constitution-layer-kit`, which pip installs. That package is the kit's shared gate code and no sibling ([law 3 of CLAUDE.md](../../CLAUDE.md#law-3)). Nothing else.
+**Depends on:** [kernel §1](../../docs/constitution/CONVENTIONS.md#k1) (the envelope and its lifecycle rule), [§3](../../docs/constitution/CONVENTIONS.md#k3) (territory, policy, kind, resolution), [§4](../../docs/constitution/CONVENTIONS.md#k4) (the stakes enum and ceremony). It also depends on [§5](../../docs/constitution/CONVENTIONS.md#k5) (the decision record), [§6](../../docs/constitution/CONVENTIONS.md#k6) (dials file, kernel-owned keys, dialect, portability) and [§7](../../docs/constitution/CONVENTIONS.md#k7) (naming). Beside the kernel it needs git, which the gate, the scan and the printer run to find the repository and to match territories. It needs Python 3.12 with PyYAML, which each entry file checks before anything else. And it needs the Python package `constitution-layer-kit`, which pip installs. That package is the kit's shared gate code and no sibling ([law 3 of CLAUDE.md](../../CLAUDE.md#law-3)). Nothing else.
 
-**Kernel alone, with that package installed:** on a bare repository with no `constitution.yaml` every write passes with a visible zero count, the session starts with the line naming the missing file, and both skills work from their seed pairs and the template; with a dials file naming `module_prefix`, a root policy, a record policy and the dial, every Markdown write into record territory is checked for the record fields and the scan runs. The record policy is the consumer's document; the module ships none. Without git, the gate, the scan and the printer stop with the shared [`C3`](../../shared/MESSAGES.md#g3), exit 1, and say so; the two skills still load and work from their text, and the promotion skill's reading of the commit log needs git.
+**Kernel alone, with that package installed:** on a bare repository with no `constitution.yaml` every write passes with a visible zero count. There the session starts with the line naming the missing file, and both skills work from their seed pairs and the template. A dials file may name `module_prefix`, a root policy, a record policy and the dial. With such a file, every Markdown write into record territory is checked for the record fields, and the scan runs. The record policy is the consumer's document; the module ships none. Without git, the gate, the scan and the printer stop with the shared [`C3`](../../shared/MESSAGES.md#g3), exit 1, and say so. The two skills still load and work from their text, and the promotion skill's reading of the commit log needs git.
 
 **Optional enhancements:**
 
-1. When module `const-meta-types` is installed, the rest of the envelope and the resolution defects are guarded there, and a record is fully valid per the kernel's record schema only with both.
-2. When module `const-catalogs` is installed and lists a catalog whose territory holds the records, the skill takes the record's number from that module's allocation; this module reads nothing of that module's dial.
+1. When module `const-meta-types` is installed, the rest of the envelope and the resolution defects are guarded there. A record is fully valid per the kernel's record schema only with both.
+2. When module `const-catalogs` is installed and lists a catalog whose territory holds the records, the skill takes the record's number from that module's allocation. This module reads nothing of that module's dial.
 3. When module `const-questions` is installed, a recorded-stakes answer reached in its dialog is written through this module's skill.
 4. When module `const-task-close` is installed, setting a record `inactive` at task close is its moment.
-5. When module `const-locations` is installed, the skill takes a record's home from that module's command in its dry run — a kind and a stem in, a `HOME:` line out — and still writes the record from its own template; this module reads nothing of that module's dial.
+5. When module `const-locations` is installed, the skill takes a record's home from that module's command in its dry run. A kind and a stem go in, and a `HOME:` line comes out. The skill still writes the record from its own template. This module reads nothing of that module's dial.
 
 <a id="t12"></a>
 ## 12. Deferred
@@ -278,7 +278,7 @@ The count line of this module: hook mode `1 document examined, governed by …` 
 5. **A marker that the skill ran in the session,** to refuse a free-form record. It proves "the skill ran earlier", not "this record came from it", and is a state machine over three hook events. Signal: free-form records recurring despite the skill.
 6. **A record policy declared in the policy's own namespace** rather than in this module's dial. A kernel key, admissible when a second module needs to know which policies govern records.
 
-7. **The effect report's other ways.** The report reads a record's territory by the record policies' own `territory` and not by a `policy:` declaration in an envelope, counts a Write and not an Edit as the moment of W5, and gives the reader of W7 the six events around the human turn, so a record written later in a long session is outside its excerpt. A ruling made in free prose is no moment of W7. Signal: a session found, by review, to have skipped the skill or left a ruling unrecorded with the report not showing it, twice.
+7. **The effect report's other ways.** The report reads a record's territory by the record policies' own `territory` and not by a `policy:` declaration in an envelope. It counts a Write and not an Edit as the moment of W5. It gives the reader of W7 the six events around the human turn. So a record written later in a long session is outside its excerpt. A ruling made in free prose is no moment of W7. Signal: a session found, by review, to have skipped the skill or left a ruling unrecorded with the report not showing it, twice.
 
 The deferrals every gate shares stand in [kit-shared-gate-code §1](../../shared/GATE.md#g1); this list holds the module's own.
 
@@ -287,20 +287,20 @@ The deferrals every gate shares stand in [kit-shared-gate-code §1](../../shared
 <a id="t13"></a>
 ## 13. Effect
 
-What the module counts of its own effect in a project that installs it, [aspect A14](../../docs/requirements.md#a14): at each moment where one of its rules applies, whether the rule was applied, bypassed or missed. One row per rule, its key the key of the code's `Rule` in `decision_records_gate/effect_rules.py`:
+What the module counts of its own effect in a project that installs it, [aspect A14](../../docs/requirements.md#a14). At each moment where one of its rules applies, it counts whether the rule was applied, bypassed or missed. One row per rule, its key the key of the code's `Rule` in `decision_records_gate/effect_rules.py`:
 
 | # | rule | moment | judge | ways |
 |---|---|---|---|---|
 | W1 | a Markdown file in the territory of a record policy is written through a Write or an Edit that the gate's hook examines | each Write or Edit of a Markdown file in the territory of a policy `record_policies` names, and each shell command that changes one | `pattern` | B1 |
-| W2 | the module stays on, with `severity` block and every record policy it was set to name | the plugin in the project's plugin list, and each commit that changes the module's namespace in the dials file; loosened: severity to warn, a record policy no longer named | `pattern` | B2 |
+| W2 | the module stays on, with `severity` block and every record policy it was set to name | the plugin in the project's plugin list, and each commit that changes the module's namespace in the dials file. Loosened: severity to warn, a record policy no longer named | `pattern` | B2 |
 | W3 | after a block for a record the record is fixed and the check is not walked around | each block of the hook on a write, when an act follows before a human turn | `pattern` | B3 |
 | W4 | after a block, the skill `record-decision` that the block names is loaded before the file is touched | each block whose text names the skill | `pattern` | B5 |
 | W5 | the skill `record-decision` is loaded before a decision record is written | each Write of a Markdown file in record territory | `pattern` | B5 |
 | W6 | the main branch holds no decision record with a missing or invalid type, stakes or decider | each first-parent commit of the main branch in the window, the last 50, scanned by the module's `--scan` | `pattern` | B4 |
-| W7 | a ruling the user makes in chat at recorded stakes is written down as a record, and one below that line is left as a commit note | each human turn that answers a message of lettered options with one of its letters | `reader` | B6 |
+| W7 | a ruling the user makes in chat at recorded stakes is written down as a record. One below that line is left as a commit note | each human turn that answers a message of lettered options with one of its letters | `reader` | B6 |
 
 **Judge** *(template rule)*. As [template §13](../../module-template/MODULE.md#t13) says; W7 is the one reader rule.
 
 **Ways** *(template rule)*. The ways B1 to B6 as [template §13](../../module-template/MODULE.md#t13) defines them.
 
-**Code** *(template rule)*. As [template §13](../../module-template/MODULE.md#t13) says: the rules in `decision_records_gate/effect_rules.py`, built by the helpers of `constitution_layer_kit.ways` with this module's record territory, loosened dials, scan and skill; the entry is E6 of [§9](#t9), `REQUIRES` `2.1.0`.
+**Code** *(template rule)*. As [template §13](../../module-template/MODULE.md#t13) says: the rules in `decision_records_gate/effect_rules.py`, built by the helpers of `constitution_layer_kit.ways` with this module's record territory, loosened dials, scan and skill. The entry is E6 of [§9](#t9), `REQUIRES` `2.1.0`.
