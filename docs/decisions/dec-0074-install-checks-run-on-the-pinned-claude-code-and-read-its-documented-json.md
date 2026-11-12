@@ -45,7 +45,7 @@ The session recommended A: nobody waits for the routine half, so B's speed buys 
 
 ## 2. The pinned version, and a run on another
 
-The plan the decider kept puts the version in one file, read by the workflow and by both checks. It has each check ask `claude --version` before any other `claude` command. The question was what a run on another version does. Claude Code's auto-updater moves a machine's version unasked, and the kit's sessions run the twelve install entries of the gate list locally.
+The plan the decider kept puts the version in one file, read by the workflow and by both checks. The plan has each check ask `claude --version` before any other `claude` command. The question was what a run on another version does. Claude Code's auto-updater moves a machine's version unasked, and the kit's sessions run the twelve install entries of the gate list locally.
 
 - **A. Fail to run on any other version, everywhere**; the fix puts a pinned `claude` first on `PATH` for the run, installed beside one's own.
   - **Pros:** the strictest; every GREEN anywhere is on the pinned version; no variable to read or forget.
