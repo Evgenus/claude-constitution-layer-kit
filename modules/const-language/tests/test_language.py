@@ -1554,6 +1554,10 @@ def test_t18() -> None:
     ], f"exit {result.code}: {result.stderr.strip()}"
     spans = "Use ```d``` and `a ```b` here, ``x`` stays.\n"
     assert prepare(spans).text == "Use `  d  ` and `a    b` here, ``x`` stays.\n", "each span at its length"
+    lettered = "Use ```X``` here.\n"  # the delimiters alone are stripped, never a letter beside them
+    assert prepare(lettered).text == "Use `  X  ` here.\n", (
+        f"a span opening with a letter: {prepare(lettered)}"
+    )
 
 
 @item(
