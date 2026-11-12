@@ -134,7 +134,7 @@ For each gate: the red→green fixture proving it (a fixture that fails without 
 <a id="t11"></a>
 ## 11. Siblings
 
-**Depends on** *(slot)*: the kernel sections used, each external tool a gate preflights, such as git or a pinned third-party tool. It also lists the Python distribution `constitution-layer-kit`, which pip installs as it installs PyYAML for a module that reads YAML, and nothing else. The kit's shared gate code is no sibling ([law 3 of CLAUDE.md](../CLAUDE.md#law-3)). Then the kernel-alone statement, with that package installed: what the module does on a bare repository with the kernel only. It also says what runs without each external tool. Then each optional enhancement as "when module `const-<x>` is installed, …". A concept this module needs from a sibling is a kernel candidate, raised as a `process` decision, never coupled.
+**Depends on** *(slot)*: the kernel sections used, each external tool a gate preflights, such as git or a pinned third-party tool. It also lists the Python distribution `constitution-layer-kit`, which pip installs as it installs PyYAML for a module that reads YAML. It lists nothing else. The kit's shared gate code is no sibling ([law 3 of CLAUDE.md](../CLAUDE.md#law-3)). Then the kernel-alone statement, with that package installed: what the module does on a bare repository with the kernel only. It also says what runs without each external tool. Then each optional enhancement as "when module `const-<x>` is installed, …". A concept this module needs from a sibling is a kernel candidate, raised as a `process` decision, never coupled.
 
 <a id="t12"></a>
 ## 12. Deferred

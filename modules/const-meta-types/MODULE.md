@@ -238,7 +238,7 @@ Runner: `python3 -m pytest tests` from the module's folder, the run the kit make
 
 The deferrals every gate shares stand in [kit-shared-gate-code §1](../../shared/GATE.md#g1). This module's own:
 
-1. **A `Bash` matcher inspecting commands for Markdown writes.** Signal: consumer commit notes recurring on shell edits that escaped the hook and were caught late by the scan. The platform calls Bash matching best-effort and points to permissions for a hard deny (documentation read 2026-09-18). An exact Bash match would make such a hook a gate, so the scan is the honest backstop until then.
+1. **A `Bash` matcher inspecting commands for Markdown writes.** Signal: consumer commit notes recurring on shell edits that escaped the hook and were caught late by the scan. The platform calls Bash matching best-effort and points to permissions for a hard deny (documentation read 2026-09-18). So the scan is the honest backstop until then. Breaks: an exact Bash match would make such a hook a gate.
 2. **`pathspec` as a fallback matcher.** Signal: a consumer reports a territory verdict where git and the kernel's dialect description disagree.
 3. **Id reuse across history.** Signal: a retired id resurfacing in a consumer and breaking references; the check needs git history and a definition of "retired".
 4. **Checking the declaration's condition** (an active task-record covering the move). Signal: declarations left in place after moves complete; the check needs the record catalog of module `const-decision-records`, which would be a kernel candidate.

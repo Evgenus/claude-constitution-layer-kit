@@ -46,7 +46,7 @@ The session recommended B. Every term the exceptions use then stands in the kern
 
 <a id="r4"></a>**R4.** The kernel does not state the exact form of an item's name. That form is `<prefix>-<nnnn>-<slug>`, with the `id` equal to the file name without `.md`. It stays in [requirement A13.1](../requirements.md#a13-1), a row of the module. A project's own policy for the kind states it too, as [rule 3 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r3) does for the kit's records.
 
-<a id="r5"></a>**R5.** "Catalog" has one sense in the kernel. One sentence of [kernel §3](../constitution/CONVENTIONS.md#k3) used it for the list of policies. It now reads: "Which policies exist and where territories end are module and project concerns."
+<a id="r5"></a>**R5.** "Catalog" has one sense in the kernel. One sentence of [kernel §3](../constitution/CONVENTIONS.md#k3) used it for the list of policies. It now reads: "Which policies exist and where territories end are module and project concerns." In [kernel §1](../constitution/CONVENTIONS.md#k1), the third exception spoke of a kind that "becomes a catalog". It now says the kind "becomes numbered", and a numbered kind's form changes.
 
 ## 2. Which profiles the kernel names
 
@@ -70,5 +70,5 @@ The session recommended B. The kernel holds vocabulary and shape, and a list of 
 
 1. R1, R2, R3 — [the kernel](../constitution/CONVENTIONS.md#k1), section 1, the paragraph of the three exceptions to the `id` rule.
 2. R4 — [the requirements](../requirements.md#a13-1), its row of the name's form; [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r3), rule 3.
-3. R5 — [the kernel](../constitution/CONVENTIONS.md#k3), section 3, its last paragraph.
+3. R5 — [the kernel](../constitution/CONVENTIONS.md#k3), section 3, its last paragraph; [the kernel](../constitution/CONVENTIONS.md#k1), section 1, the third exception to the `id` rule.
 4. R6 — [the kernel](../constitution/CONVENTIONS.md#k6), section 6; [the install guide](../../INSTALL.md#s2), step 4 of section 2.

@@ -54,7 +54,7 @@ This section is on [dec-0078-landed-collisions-renumber-and-kit-checks-hold-numb
   - **Pros:** no edit of a frozen record; rule 14 stays as it is.
   - **Cons:** the link leads to a file where the named docstring is gone.
 
-The session recommended B: rule 14 let a link follow only a whole text moved in the same change. <a id="r5"></a>**R5.** A, chosen by the decider in chat on 2026-11-12. The session's objection stands as history: the pick moves a link past what rule 14 allowed. So rule 14 is widened, and the move is a migration under it. A later change may have rewritten a link's cited text into another document. Then, if a later record's carry list names that place for the same ruling, the link may take it at any later time. Only the link's target changes, as for a moved place. The commit names it a migration and names that record.
+The session recommended B: rule 14 let a link follow only a whole text moved in the same change. <a id="r5"></a>**R5.** A, chosen by the decider in chat on 2026-11-12. The session's objection stands as history: the pick moves a link past what rule 14 allowed. So rule 14 is widened, and the move is a migration under it. A later change may have rewritten a link's cited text into another document. Then, if a later record's carry list names that place for the same ruling, the link may take it at any later time. Only the link's target changes. The commit names it a migration and names that record.
 
 <a id="r6"></a>**R6.** Under R5, the link of entry 2 of dec-0078's carry list to the shared harness takes `acceptance.py`, as dec-0091 names it. The link's text and the words "the docstring of `run_all`" stay as history.
 
