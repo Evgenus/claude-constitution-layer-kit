@@ -68,6 +68,12 @@ would not list it. In both cases a deleted top number may be out of sight. If th
 marked `(full: the width can write no higher number)`, stop and tell the user: a wider width
 renames every item.
 
+If the user widens the catalog, every item takes the new width once. Rename each file with
+`git mv` and set its `id` to the new name. Then rewrite every reference to it in the whole
+tree, as for two landed items in section 4. An old id is never given to another item. Where
+the project accepts items by a trailer naming the id, accept each renamed item again in the
+change that renames it.
+
 The number is **provisional until your branch lands on the main branch, and frozen from then
 on**. There is one exception: two landed items under one number (section 4). Another branch may
 take the same number meanwhile; whoever lands second renumbers (section 4). So cite a new
