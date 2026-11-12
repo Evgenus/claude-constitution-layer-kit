@@ -46,7 +46,7 @@ The session recommended B. Every term the exceptions use then stands in the kern
 
 <a id="r4"></a>**R4.** The kernel does not state the exact form of an item's name. That form is `<prefix>-<nnnn>-<slug>`, with the `id` equal to the file name without `.md`. It stays in [requirement A13.1](../requirements.md#a13-1), a row of the module. A project's own policy for the kind states it too, as [rule 3 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r3) does for the kit's records.
 
-<a id="r5"></a>**R5.** "Catalog" has one sense in the kernel. One sentence of [kernel §3](../constitution/CONVENTIONS.md#k3) used it for the list of policies. It now reads: "Which policies exist and where territories end are module and project concerns." In [kernel §1](../constitution/CONVENTIONS.md#k1), the third exception spoke of a kind that "becomes a catalog". It now says the kind "becomes numbered", and a numbered kind's form changes.
+<a id="r5"></a>**R5.** "Catalog" has one sense in the kernel. One sentence of [kernel §3](../constitution/CONVENTIONS.md#k3) used it for the list of policies. It now reads: "Which policies exist and where territories end are module and project concerns." In [kernel §1](../constitution/CONVENTIONS.md#k1), the third exception spoke of a kind that "becomes a catalog, or a catalog whose form changes". It now reads "becomes numbered, or a numbered kind whose form changes".
 
 ## 2. Which profiles the kernel names
 
