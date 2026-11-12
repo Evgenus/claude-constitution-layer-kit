@@ -971,6 +971,8 @@ def test_exit_codes(tmp_path: Path, clone: Clone) -> None:
         ((), "one of the arguments --all --session is required"),
         (("--all", "--session"), "argument --session: not allowed with argument --all"),
         (("--bogus",), "one of the arguments --all --session is required"),
+        (("--al",), "one of the arguments --all --session is required"),
+        (("--sess",), "one of the arguments --all --session is required"),
         (("--all", "x"), "unrecognized arguments: x"),
     ):
         misuse = clone.count(*args)
@@ -1035,17 +1037,21 @@ def exit_codes_of_start_and_setup(tmp_path: Path, clone: Clone) -> None:
     assert len(log_lines(clone, "starts.jsonl")) == logged_before, "a start that cannot be read logs nothing"
     outside = tmp_path / "outside-setup"
     outside.mkdir()
-    nowhere = clone.count(harness=HU, cwd=outside, env={"GIT_CEILING_DIRECTORIES": str(tmp_path)})
-    assert nowhere.code == 1 and nowhere.stdout == ""
-    assert nowhere.stderr.splitlines() == [
-        f"BROKEN: {outside} is not inside a git repository — fix: run it inside the clone whose commits it"
-        " counts",
-        SETUP_CLOSING,
-    ]
+    for flags in ((), ("--check",), ("--remove",)):
+        nowhere = clone.count(*flags, harness=HU, cwd=outside, env={"GIT_CEILING_DIRECTORIES": str(tmp_path)})
+        assert nowhere.code == 1 and nowhere.stdout == "", flags
+        assert nowhere.stderr.splitlines() == [
+            f"BROKEN: {outside} is not inside a git repository — fix: run it inside the clone whose commits"
+            " it counts",
+            SETUP_CLOSING,
+        ], flags
     for args, detail in (
         (("--bogus",), "unrecognized arguments: --bogus"),
         (("--remove", "--check"), "argument --check: not allowed with argument --remove"),
         (("x",), "unrecognized arguments: x"),
+        (("--rem",), "unrecognized arguments: --rem"),
+        (("--che",), "unrecognized arguments: --che"),
+        (("--help",), "unrecognized arguments: --help"),
     ):
         wrong = setup_run(clone, *args)
         assert wrong.code == 1 and wrong.stdout == "", args
@@ -1069,6 +1075,20 @@ def exit_codes_of_start_and_setup(tmp_path: Path, clone: Clone) -> None:
         " — fix: repair what git names, such as the file's rights, then run setup-commit-log.sh --check"
     )
     assert HOOK_COMMIT not in git_in(clone.root, "config", "--local", "--list", session=None)
+    git_dir.chmod(0o555)
+    try:
+        stuck = setup_run(clone, "--remove")
+    finally:
+        git_dir.chmod(0o755)
+    assert stuck.code == 1 and stuck.stdout == ""
+    first, closing_line = stuck.stderr.splitlines()
+    assert closing_line == SETUP_CLOSING
+    assert first.startswith(
+        f"BROKEN: git could not write {HOOK_COMMIT} into {git_dir}/config: error: could not lock config file"
+    )
+    assert first.endswith(
+        " — fix: repair what git names, such as the file's rights, then run setup-commit-log.sh --check"
+    )
 
 
 def exit_codes_of_report(parent: Path) -> None:
@@ -1093,6 +1113,11 @@ def exit_codes_of_report(parent: Path) -> None:
         (("--trailer", "a..b", "--pr", "c..d"), "argument --pr: not allowed with argument --trailer"),
         (("a..b", "c..d"), "unrecognized arguments: c..d"),
         (("--pr", "a..b", "c"), "unexpected argument c"),
+        (("--trail", "a..b"), "unrecognized arguments: --trail"),
+        (("--p", "a..b"), "unrecognized arguments: --p"),
+        (("--n", "a..b"), "unrecognized arguments: --n"),
+        (("--help",), "unrecognized arguments: --help"),
+        (("-h",), "unrecognized arguments: -h"),
     ):
         misuse = run_report(clone, *args)
         assert misuse.code == 1 and misuse.stdout == "", args
@@ -1100,6 +1125,10 @@ def exit_codes_of_report(parent: Path) -> None:
             f"BROKEN: misinvocation: {detail} — fix: run it as {usage}",
             REPORT_CLOSING,
         ], args
+    inside = clone.root / "sub"
+    inside.mkdir()
+    deep = clone.count("nowhere..HEAD", harness=HR, cwd=inside)
+    assert deep.code == 1 and f"cannot read the range nowhere..HEAD in {clone.root}: fatal: " in deep.stderr
     for flag in ("", "--trailer", "--pr", "--notes"):
         args = (flag, "nowhere..HEAD") if flag else ("nowhere..HEAD",)
         unreadable = run_report(clone, *args)
@@ -1111,6 +1140,20 @@ def exit_codes_of_report(parent: Path) -> None:
             " — fix: name commits this clone has, such as main..HEAD; a shallow clone may need git fetch"
             " --unshallow"
         )
+    # the output log names the mode of each run: a report only reads, --pr and --notes change something
+    log = clone.data / "const-change-cost.jsonl"
+    for forms, mode in (
+        ((), "report"),
+        (("--trailer", "nowhere..HEAD"), "report"),
+        (("--pr", "nowhere..HEAD"), "act"),
+        (("--pr=nowhere..HEAD",), "act"),
+        (("--notes", "nowhere..HEAD"), "act"),
+        (("--notes=nowhere..HEAD",), "act"),
+    ):
+        seen = len(log.read_text(encoding="utf-8").splitlines())
+        run_report(clone, *(forms or ("nowhere..HEAD",)))
+        added = [json.loads(raw) for raw in log.read_text(encoding="utf-8").splitlines()[seen:]]
+        assert added and {held["mode"] for held in added} == {mode}, (forms, added)
     (clone.root / ".git" / "refs" / "notes").write_text("a file where git wants a folder\n", encoding="utf-8")
     refused = run_report(clone, "--notes", "base..HEAD", env=AUTHOR)
     assert refused.code == 1 and refused.stdout == ""
