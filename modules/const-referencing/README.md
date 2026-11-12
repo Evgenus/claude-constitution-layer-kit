@@ -10,7 +10,7 @@ In plain words: a reference is any place where one document points at another. A
 <a id="a2"></a>
 ## Why use it
 
-A document is moved, a heading is reworded or a page is deleted. Every link that pointed there still reads as a link. But it leads nowhere, or to a neighbour that carries the old heading's words. Nobody notices at the edit, because the break is in other files, and a reader finds it weeks later. Beside it stands the reference that never was one. Such a reference is a bare "see section 4", an id in backticks or a path that exists only on the author's machine. No tool can follow it and a rename cannot find it.
+A document is moved, a heading is reworded or a page is deleted. Every link that pointed there still reads as a link. But it leads nowhere, or to a neighbour that carries the old heading's words. Nobody notices at the edit, because the break is in other files, and a reader finds it weeks later. Beside it stands the reference that never was one. Such a reference is a bare "see section 4", an id in backticks or a path that exists only on the author's machine. No tool can follow such a reference, and a rename cannot find it.
 
 With the module installed, a bad reference form is refused at the write, and a link that leads nowhere is reported right after it. A document is moved by the mover, which repairs every link to it. The scan in CI turns red on any link or anchor that does not resolve, so a broken reference never reaches the main branch.
 

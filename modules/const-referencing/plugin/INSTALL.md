@@ -2,8 +2,8 @@
 
 Requires: git. It requires Python 3.12 or newer as `python3`, with the libraries in `requirements.txt`
 (`python3 -m pip install -r <plugin root>/requirements.txt`). It also requires `lychee` 0.24.2 or newer on
-`PATH` (<https://lychee.cli.rs/installation/>), in every session and on the CI runner. The
-check after a write and the scan both ask it whether links resolve. A missing `python3` or
+`PATH` (<https://lychee.cli.rs/installation/>), in every session and on the CI runner.
+That binary is needed there, since the check after a write and the scan both ask it whether links resolve. A missing `python3` or
 library is reported on the first `Write` or `Edit` of any file. A missing git or `lychee` is reported on the
 first one of a Markdown file. Each report has the fix on the first line; nothing is silently skipped.
 Without `lychee` the forms of references are still checked and blocked. Whether they resolve is
@@ -75,8 +75,8 @@ A line that starts `BROKEN: const-referencing needs the Python package constitut
    do. Run the scan; repair what does not resolve first. Then convert heading links at your own
    pace — an `<a id="key"></a>` line before the heading, the key cited — and remove `allow`
    when the scan is green without it.
-5. Backstop for what the hooks cannot see, such as `git mv`, shell edits, other tools and other people.
-   It is also **the gate for whether references resolve**. Run the scan on demand, and in CI on every
+5. Backstop for what the hooks cannot see: `git mv`, shell edits, other tools and other people.
+   The scan is that backstop, and also **the gate for whether references resolve**. Run the scan on demand, and in CI on every
    pull request, on a runner with `lychee` installed:
    ```bash
    sh <plugin root>/scripts/check-references.sh --scan
