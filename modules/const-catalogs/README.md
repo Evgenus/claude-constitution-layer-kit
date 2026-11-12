@@ -38,7 +38,7 @@ The skill `catalog-item` is for the moments when a numbered document is created,
 
 **The scan.** The same checks over every Markdown file git lists, plus the one only a whole tree shows: two items of one catalog under one number. That is where two branches that each took a number meet. It exits with code 2 on a finding. Its last line names each catalog's highest number, the one a new item counts on from. Run it in CI on every pull request, where both branches are in the tree.
 
-**The skill.** A procedure in prose, loaded when the activity occurs. Nothing in it blocks a write. The module names its skill at session start, at each subagent's start and after every red of the gate. So the session knows when to load it.
+**The skill.** A procedure in prose, loaded when the activity occurs. Nothing in it blocks a write. The module names its skill at session start, at each subagent's start and after every red of the gate. That way the session knows when to load it.
 
 **Settings.** The module works with no configuration beyond the one dial that switches it on, the list of catalogs. It reads no policy and nothing else of the dials file. A folder's patterns can be shared with the policy that governs the kind by a YAML alias, so the two never drift apart. A file in a catalog's folders that is no item, such as an index page, is taken out by a negated pattern. Two dials are every gate's: how loud a finding is, and where the log goes. The quieter setting reports the finding and lets the write through, the path for adopting a kind that already has documents.
 

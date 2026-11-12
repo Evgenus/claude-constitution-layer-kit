@@ -14,11 +14,11 @@ description: >
 # A catalogued item
 
 A project cites its decisions, tasks and the like by number. That works only while a number
-means one document, and stands in the one name every reference resolves — the file's. The
-number must also never come to mean another document later. A catalog is nothing but the set
-of files that carry its prefix. There is no index, no register, no counter file to keep in
-step, and none is ever written. A generated list drifts from the files, and the files are the
-truth.
+means one document, and stands in the one name every reference resolves — the file's. It also
+works only while the number never comes to mean another document later. A catalog is nothing
+but the set of files that carry its prefix. There is no index, no register, no counter file to
+keep in step, and none is ever written. A generated list drifts from the files, and the files
+are the truth.
 
 What is checked and what is not. For every catalog listed under `const-catalogs.catalogs` in
 the project's `constitution.yaml`, this plugin's hook blocks a Markdown document in that

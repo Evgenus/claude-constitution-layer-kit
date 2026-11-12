@@ -18,7 +18,7 @@ A line that starts `BROKEN: const-catalogs needs the Python package constitution
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). Four hooks. At every session start — startup, resume, clear, compaction, fork — the
    plugin prints one line into the model's context while `catalogs` lists nothing. The line says
-   so (the transcript does not show it). It prints nothing once a catalog is listed. It also prints, at every
+   so (the transcript does not show it). It prints no such line once a catalog is listed. It also prints, at every
    session start and at every subagent's start, one line naming the skill (step 7). The write-time hook fires on
    every `Write` and `Edit`. It examines Markdown files in a listed catalog's territory and nothing else.
 2. **Switch the check on: list the catalogs.** A kind is numbered because an entry here says
@@ -56,9 +56,9 @@ A line that starts `BROKEN: const-catalogs needs the Python package constitution
    items are numbered above every number a name shows, renamed yet or not. A dated legacy name
    under width 4 — `<prefix>-2026-09-22-<slug>` — already has the form. It is an item numbered
    by its year. Once it is committed, its year stays in the advice.
-4. Backstop for what the hook cannot see — `git mv`, shell edits, other tools, other people,
+4. A backstop covers what the hook cannot see: `git mv`, shell edits, other tools, other people,
    and two branches that took one number. Run the scan on demand, and in CI on every pull
-   request. There the checkout is the merge of both branches:
+   request, where the checkout is the merge of both branches:
    ```bash
    sh <plugin root>/scripts/check-catalog-item.sh --scan
    ```
