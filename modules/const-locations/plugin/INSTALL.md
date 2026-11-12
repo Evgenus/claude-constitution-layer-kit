@@ -68,7 +68,7 @@ A line that starts `BROKEN: const-locations needs the Python package constitutio
    line by hand at the end of `constitution.yaml`, then the first document. The command creates
    the policy itself when given the root policy's id as the kind.
 5. Output log: everything the command prints is also appended to `const-locations.jsonl`, one JSON line per print (timestamp,
-   module, gate, mode, session, stream, text). Refusals leave no
+   module, gate, mode, session, path, transcript, stream, text). Refusals leave no
    trace in git. By default it lives in the platform's per-plugin data directory. Set `log_dir`
    to keep it inside the repository; the directory must be git-ignored, and the command refuses
    to run otherwise. The hook's records — its answers, and its failures once the shared package is
