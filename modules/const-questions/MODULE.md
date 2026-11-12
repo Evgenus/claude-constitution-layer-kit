@@ -141,42 +141,42 @@ The gate validates the two dials it reads at each read. A key of this namespace 
 <a id="t8"></a>
 ## 8. Boundary examples
 
-The test behind every pair: is the call the user's to make — recorded stakes, or a fact only the user holds that the work cannot proceed without? The pairs are the definition and are carried by the skill; the project's own arrive through the preferences dial ([§7](#t7)).
+The test behind every pair: is the call the user's to make? That is, is it at recorded stakes, or a fact only the user holds that the work cannot proceed without? The pairs are the definition and are carried by the skill. The project's own arrive through the preferences dial ([§7](#t7)).
 
-**Q-a and Q-i — ask or decide** (this module's slice of the routine/recorded line of [kernel §4](../../docs/constitution/CONVENTIONS.md#k4), aligned with the pairs of module `const-decision-records` where installed: the two modules share the triage, this one asking the question and that one writing the answer). Pairs 1 to 3 read *decide and note / ask*:
+**Q-a and Q-i — ask or decide** (this module's slice of the routine/recorded line of [kernel §4](../../docs/constitution/CONVENTIONS.md#k4)). The slice is aligned with the pairs of module `const-decision-records` where installed. The two modules share the triage, this one asking the question and that one writing the answer. Pairs 1 to 3 read *decide and note / ask*:
 
-- **1.** Which of two directory names holds a scratch file → decide, one line in the commit / where the project's decision records live and how they are numbered → ask (`process`).
-- **2.** The wording of a commit message, the name of a helper nobody else calls → decide / the name of a dial, a trailer key or a command-line flag that others will type → ask.
-- **3.** A fact the session can find by reading the tree, the documents or the history → find it, never ask / a fact only the user holds — who decides, which consumer, a date — without which the work cannot proceed → ask, and if the user is absent, halt that part behind a named blocker.
-- **3a.** The answer to a routine question → one line in the commit message saying what was chosen and why / the answer to a question asked at recorded stakes → recorded as the kernel asks, written through the record skill of module `const-decision-records` where it is installed, never left as a commit line.
+- **1.** Which of two directory names holds a scratch file → decide, one line in the commit. / Where the project's decision records live and how they are numbered → ask (`process`).
+- **2.** The wording of a commit message, the name of a helper nobody else calls → decide. / The name of a dial, a trailer key or a command-line flag that others will type → ask.
+- **3.** A fact the session can find by reading the tree, the documents or the history → find it, never ask. / A fact only the user holds — who decides, which consumer, a date — without which the work cannot proceed → ask. If the user is absent, halt that part behind a named blocker.
+- **3a.** The answer to a routine question → one line in the commit message saying what was chosen and why. / The answer to a question asked at recorded stakes → recorded as the kernel asks. It is written through the record skill of module `const-decision-records` where it is installed, never left as a commit line.
 
 **Q-b — the full shape or a plain question** ([A6.2](../../docs/requirements.md#a6-2), the exemption, and one decision per message):
 
-5. "The pasted file or the one in the repository?" — one fact, answered in a word → a plain question, one line / three mechanisms compared, one to be chosen → the full shape: lettered options, pros and cons, one recommendation, the decider named.
-6. Every uncertainty put as a lettered ceremony — the spelling of a variable, the order of two paragraphs → *not* the shape, and not a question: decide and note / a choice that binds a policy, a procedure or a contract → the shape, every time.
-7. Two open slots, both at recorded stakes → two messages, the second put after the first is answered / two facts of one slot — a value and its unit → one message.
+5. "The pasted file or the one in the repository?" — one fact, answered in a word → a plain question, one line. / Three mechanisms compared, one to be chosen → the full shape: lettered options, pros and cons, one recommendation, the decider named.
+6. Every uncertainty put as a lettered ceremony — the spelling of a variable, the order of two paragraphs → *not* the shape, and not a question. Decide and note. / A choice that binds a policy, a procedure or a contract → the shape, every time.
+7. Two open slots, both at recorded stakes → two messages, the second put after the first is answered. / Two facts of one slot — a value and its unit → one message.
 
 **Q-c to Q-e — derived, not improvised** ([A6.3](../../docs/requirements.md#a6-3)–[A6.5](../../docs/requirements.md#a6-5)):
 
-8. The next unfilled template section, the next `[decide: …]` marker, the next missing dial → the next question, in that order / "while we are at it, should we also…" → not asked; noted as a deferred item with its signal.
-9. A slot whose values are a kernel enum or a dial's listed values → those values are the options, nothing beside them / a genuinely open value — a title, a path the project owns → free text, with the default proposed.
-10. A slot with a sensible default → "default is X — accept or override?", the override carrying its one-line reason / a slot with no defensible default → options with one recommendation.
+8. The next unfilled template section, the next `[decide: …]` marker, the next missing dial → the next question, in that order. / "While we are at it, should we also…" → not asked; noted as a deferred item with its signal.
+9. A slot whose values are a kernel enum or a dial's listed values → those values are the options, nothing beside them. / A genuinely open value — a title, a path the project owns → free text, with the default proposed.
+10. A slot with a sensible default → "default is X — accept or override?", the override carrying its one-line reason. / A slot with no defensible default → options with one recommendation.
 
 **Q-f — restate, do not guess** ([A6.6](../../docs/requirements.md#a6-6)):
 
-- **4.** A request with two readings that lead to the same work → proceed on the stated reading, restated first / two readings that lead to materially different work → ask: a material assumption is a question, not an assumption.
+- **4.** A request with two readings that lead to the same work → proceed on the stated reading, restated first. / Two readings that lead to materially different work → ask. A material assumption is a question, not an assumption.
 - **4a.** Context-foreign or vague input → the reply opens with the reading taken, "I read this as: …" / the same input answered on a silent guess → violates.
-- **4b.** Several plausible readings whose choice is below the line of Q-a → name them and the one chosen, and proceed / the choice above that line → ask.
+- **4b.** Several plausible readings whose choice is below the line of Q-a → name them and the one chosen, and proceed. / The choice above that line → ask.
 
 **Q-g — resolved, not deferred** ([A6.7](../../docs/requirements.md#a6-7)):
 
 - **11.** `TBD: who owns this` inside a delivered plan → *not* delivered; the part halts behind "blocked: <who> must name the owner" / a draft module document at manifest `0.0.x` carrying `[decide: …]` markers → the draft's own open slots, legitimate until publication.
-- **11a.** "To be agreed with the team" written as a sentence in a delivered document → violates, though the gate sees no marker ([§9](#t9), limit 1) / the same part halted behind a named blocker → complies.
-- **11b.** A draft taken out of `territories` by its own path, until it is delivered → complies / the same draft taken out by a wildcard that hides finished documents with it → violates.
+- **11a.** "To be agreed with the team" written as a sentence in a delivered document → violates, though the gate sees no marker ([§9](#t9), limit 1). / The same part halted behind a named blocker → complies.
+- **11b.** A draft taken out of `territories` by its own path, until it is delivered → complies. / The same draft taken out by a wildcard that hides finished documents with it → violates.
 
 **Q-h — the argument must reach the user** ([A6.9](../../docs/requirements.md#a6-9)):
 
-12. Under five options, no report of a missing argument, `pick` absent or `tool` → the platform's question tool follows the chat message and carries the letter and a short label alone / the user has reported an argument missing → every later decision of the session ends the turn on the chat message, the pick by letter, without the tool.
+12. Under five options, no report of a missing argument, `pick` absent or `tool` → the platform's question tool follows the chat message. It carries the letter and a short label alone. / The user has reported an argument missing → every later decision of the session ends the turn on the chat message. The pick is by letter, without the tool.
 13. A decider whose `preferences` entry says `pick: letter` → the letter path from the first decision / an entry with `pick` omitted → `tool`.
 14. Four options, the tool offered, no standing `pick: letter` → the question tool follows the chat message / five options, the same session → chat only, the pick by letter.
 
@@ -191,22 +191,22 @@ The test behind every pair: is the call the user's to make — recorded stakes, 
 | E4 | the hook on `SessionStart` and `print-decision-shape.sh`: Q-b in short | `advisory` |
 | E5 | the effect entry `effect-report.sh`: it informs judgment, gives no finding, never exits 2 and is never red | `advisory` |
 
-Exit codes, both modes: `0` green or nothing examined (the count line says which); `2` a finding — the document, or the tree, carries a marker; `1` a configuration failure — the shared failures, this module's `C5` and `C12`.
+Exit codes, both modes: `0` green or nothing examined (the count line says which). `2` a finding — the document, or the tree, carries a marker. `1` a configuration failure — the shared failures, this module's `C5` and `C12`.
 
 **Honest limits.** The limits every gate shares: [kit-shared-gate-code §4](../../shared/GATE.md#g4). This module's own:
 
 1. **A deferred question written in prose is invisible.** "We can settle the numbering later", a heading with nothing under it, a decider named nowhere: no marker, no finding. The gate proves that nobody left a marker, and its message claims no more. Backstop: Q-g in the skill; review of the deliverable.
-2. **A marker inside code is a quotation and is never reported** — a code span, a fenced block from its opener to its closer or to the end of the file. An unclosed fence therefore hides everything after it; an indented code block is not code to this check, nor is a fence indented four spaces or more, and a closing fence that carries an info string closes — three readings that differ from CommonMark and each err toward reporting a marker, never toward hiding one; a backtick fence whose info string holds a backtick is no opener, as in CommonMark, so a line of code spans opens nothing. Backstop: the scan lists what it examined; a fence is closed by its author.
-3. **Whether a question should have been asked, and the shape of the message, are judgment.** A choice decided in silence, a bundle of four decisions, an argument written where the user never saw it: no file shows any of them. Backstop: the skill; the shape printed at every session start (E4), which a session sees whether or not it loads the skill; the consumer's own pairs and preferences.
-4. **The skill-read dials are not validated.** A malformed `preferences` entry is read by the agent as it stands; the gate refuses a key that is none of the six, which is not validating the shape of what stands under a known one. Backstop: `none — accepted`: the skill reads the dials as prose, and validating their shape is deferred ([§12](#t12), item 2).
-5. **A draft is a deliverable to the gate.** A document with legitimate inline slots is blocked at every write unless its path is taken out by a negated pattern or `severity` is `warn` — the cost of catching the marker at the keystroke. Backstop: the fix line names the pattern; the kit's own dials file shows the shape.
+2. **A marker inside code is a quotation and is never reported**. Code is a code span, or a fenced block from its opener to its closer or to the end of the file. An unclosed fence therefore hides everything after it. An indented code block is not code to this check, nor is a fence indented four spaces or more. A closing fence that carries an info string closes. These three readings differ from CommonMark, and each errs toward reporting a marker, never toward hiding one. A backtick fence whose info string holds a backtick is no opener, as in CommonMark. So a line of code spans opens nothing. Backstop: the scan lists what it examined; a fence is closed by its author.
+3. **Whether a question should have been asked, and the shape of the message, are judgment.** A choice decided in silence, a bundle of four decisions, an argument written where the user never saw it: no file shows any of them. Backstop: the skill; the shape printed at every session start (E4), which a session sees whether or not it loads the skill. Also the consumer's own pairs and preferences.
+4. **The skill-read dials are not validated.** A malformed `preferences` entry is read by the agent as it stands. The gate refuses a key that is none of the six, which is not validating the shape of what stands under a known one. Backstop: `none — accepted`: the skill reads the dials as prose, and validating their shape is deferred ([§12](#t12), item 2).
+5. **A draft is a deliverable to the gate.** A document with legitimate inline slots is blocked at every write unless `severity` is `warn` or its path is taken out by a negated pattern. That is the cost of catching the marker at the keystroke. Backstop: the fix line names the pattern; the kit's own dials file shows the shape.
 6. **One finding per line.** Two markers on one line report the first; a line fixed and re-written reports the second then. Backstop: the count line says how many lines, and the scan re-reads the whole document.
-7. **Coverage is by path only, and the two modes see different files.** A document a policy governs is no more covered than any other Markdown file. The scan examines the files git lists, so a git-ignored draft is invisible to it; the hook judges the written file whether git lists it or not, so the same draft is blocked at its write — the backstop the shared code names. Backstop: `territories` is the consumer's; the scan says how many files it scanned.
+7. **Coverage is by path only, and the two modes see different files.** A document a policy governs is no more covered than any other Markdown file. The scan examines the files git lists, so a git-ignored draft is invisible to it. The hook judges the written file whether git lists it or not. So the same draft is blocked at its write, the backstop the shared code names. Backstop: `territories` is the consumer's; the scan says how many files it scanned.
 
 <a id="t10"></a>
 ## 10. Acceptance
 
-Runner: `python3 -m pytest tests` from the module's folder, which the kit runs through `scripts/check-aspects.py --run --module const-questions`; it needs git, Python 3.12 and the declared libraries, and runs T1–T28 and the shared S101–S106, S111–S128, S130–S143, S145–S148, S150–S157, S160–S163, S165–S197 and S203–S204, 117 items green. It builds the shared three-policy consumer in a temporary git repository, fresh for every half of every case, and drives the real entry point — POSIX wrapper, stdin, exit code — with real `PreToolUse` events. A red→green case fails when its red half does not exit 2, when red does not teach the expected message — all three lines, compared with what the `messages` function returns — or prints any `RED` line but that finding's headline and the count line, or when green still fails.
+Runner: `python3 -m pytest tests` from the module's folder, which the kit runs through `scripts/check-aspects.py --run --module const-questions`. It needs git, Python 3.12 and the declared libraries. It runs T1–T28 and the shared S101–S106, S111–S128, S130–S143 and S145–S148. It also runs S150–S157, S160–S163, S165–S197 and S203–S204, 117 items green. It builds the shared three-policy consumer in a temporary git repository, fresh for every half of every case. It drives the real entry point — POSIX wrapper, stdin, exit code — with real `PreToolUse` events. A red→green case fails when its red half does not exit 2. It fails when red does not teach the expected message: all three lines, compared with what the `messages` function returns. It fails when red prints any `RED` line but that finding's headline and the count line. It also fails when green still fails.
 
 | item | kind | rows | what it proves |
 |---|---|---|---|
