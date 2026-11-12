@@ -67,8 +67,8 @@ knows that, and it is often not the same. If the project says who may decide at 
 (`deciders` under `const-decision-records` in `constitution.yaml`, a list per stakes level),
 the decider comes from that list. If the project names nobody — the key absent or empty, as
 a whole or at that level — ask who decides. If the person who should decide is absent, do
-not decide for them at recorded stakes. In that case, stop, put the question with its
-options, and name them as the blocker.
+not decide for them at recorded stakes. In that case, at recorded stakes, stop, put the
+question with its options, and name them as the blocker.
 
 ## 3. Write the record
 
@@ -113,9 +113,9 @@ neither and is accepted when committed.
   message.
 - **Once it is accepted,** write a **new** record that names the old one and says what
   replaces it. Never edit the old record's ruling, stakes or decider in place. The only
-  in-place edit left is mechanical: a typo, or rewriting how it cites other documents. Or it
-  is a wording edit of a kind the project's records policy lists in a closed set, such as a
-  long sentence split. Such an edit comes with a commit message naming it a typo fix, a
+  in-place edit left is mechanical: a typo, or rewriting how it cites other documents. A
+  wording edit is mechanical too when the project's records policy lists its kind in a closed
+  set, such as a long sentence split. Such an edit comes with a commit message naming it a typo fix, a
   migration or a wording edit.
 
 ## 5. Before you finish

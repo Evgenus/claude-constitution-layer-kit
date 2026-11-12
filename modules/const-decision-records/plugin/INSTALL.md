@@ -17,9 +17,9 @@ A line that starts `BROKEN: const-decision-records needs the Python package cons
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). Two hooks. At every session start — startup, resume, clear, compaction, fork — the
    plugin prints one line into the model's context while `record_policies` names nothing, saying so.
-   The transcript does not show it. Once a record policy is named, the plugin prints nothing. The
-   write-time hook fires on every `Write` and `Edit`. It examines Markdown files governed by a record
-   policy and nothing else.
+   The transcript does not show it. Once a record policy is named, it prints nothing at session
+   start. The write-time hook fires on every `Write` and `Edit`. It examines Markdown files governed
+   by a record policy and nothing else.
 2. **Switch the check on: name the record policy.** A document is a decision record because
    a policy for decision records governs it. The module ships no policy and guesses none:
    until `record_policies` names one, every run prints `0 documents examined` and says why.
