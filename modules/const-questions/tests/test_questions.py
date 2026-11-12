@@ -37,6 +37,7 @@ from constitution_layer_kit.testing.items import (
     PatternDial,
     Subject,
     fake_claude,
+    reader_fake,
     tr_call,
     tr_hook,
     tr_line,
@@ -965,6 +966,10 @@ def test_effect_reader_rule() -> None:
     assert len(asked) == 5, asked
     for prompt in asked:
         assert prompt.split("The rule:\n", 1)[1].split("\n\nThe moment", 1)[0] == rule, prompt
+    # a reader that answers MISSED counts every moment missed
+    env, _ = reader_fake(H.scratch_dir(), "claude.ai", json.dumps({"result": "MISSED"}))
+    missed = effect_lines(root, {sid: lines}, env, "--reader")
+    assert "  W8 (reader): 5 moment(s): 0 applied, 0 bypassed, 5 missed" in missed, missed
 
 
 SUBJECT = Subject(

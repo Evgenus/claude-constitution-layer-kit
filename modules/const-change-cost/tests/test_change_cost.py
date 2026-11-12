@@ -3006,6 +3006,105 @@ def ccusage_failures(tmp_path: Path) -> list[str]:
     return failures
 
 
+# ------------------------------------------------------------------ git's answers that are odd
+
+
+def git_saying(parent: Path, body: str) -> Path:
+    """A folder with a `git` that runs `body` first; what `body` leaves undecided is the real git's."""
+    real = shutil.which("git")
+    assert real
+    parent.mkdir(parents=True)
+    fake_program(parent / "git", f'{body}\nexec {real} "$@"\n')
+    return parent
+
+
+def git_edges(tmp_path: Path, clone: Clone, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The module's git calls against a git that answers oddly: bytes that are no UTF-8, no message on
+    stderr, a version that is no version. The lines are typed by hand."""
+    root = clone.root
+    git_in(root, "commit", "--allow-empty", "-q", "-m", "a")
+    config = root / ".git" / "config"
+    original = os.environ["PATH"]
+    count = 0
+
+    def with_git(body: str) -> None:
+        nonlocal count
+        count += 1
+        fake = git_saying(tmp_path / "git-edges" / str(count), body)
+        monkeypatch.setenv("PATH", f"{fake}{os.pathsep}{original}")
+
+    def broken(action: Callable[[], object]) -> str:
+        with identity.declared(start.COUNT, Mode.ACT), pytest.raises(ConfigurationFailure) as caught:
+            action()
+        return caught.value.broken.render()
+
+    def answer(action: Callable[[], object]) -> object:
+        with identity.declared(start.COUNT, Mode.ACT):
+            return action()
+
+    until = " — until then no commit is counted"
+    where = "BROKEN: git could not answer where the repository is: "
+    where_fix = " — fix: repair the git setup named in the message (configuration, ownership, installation)"
+    with_git('[ "$1" = rev-parse ] && { printf "fatal: caf\\377\\n" >&2; exit 128; }')
+    assert broken(lambda: gitpart.common_or_none(root)) == where + "fatal: caf\ufffd" + where_fix
+    with_git('[ "$1" = rev-parse ] && exit 128')
+    assert broken(lambda: gitpart.common_or_none(root)) == where + "no message" + where_fix
+    with_git('[ "$1" = rev-parse ] && { printf "caf\\377\\n"; exit 0; }')
+    assert answer(lambda: gitpart.common_or_none(root)) == Path(os.path.realpath(root / "caf\ufffd"))
+    bad_range = f"BROKEN: git cannot read the range a..b in {root}: "
+    range_fix = (
+        " — fix: name commits this clone has, such as main..HEAD; a shallow clone may need git fetch"
+        " --unshallow"
+    )
+    with_git('[ "$1" = rev-list ] && { printf "caf\\377\\n" >&2; exit 128; }')
+    assert (
+        broken(lambda: gitpart.range_commits(root, root, "a..b"))
+        == bad_range + "caf\ufffd" + range_fix + until
+    )
+    with_git('[ "$1" = rev-list ] && exit 128')
+    assert (
+        broken(lambda: gitpart.range_commits(root, root, "a..b"))
+        == bad_range + "no message" + range_fix + until
+    )
+    cannot = f"BROKEN: git could not write %s into {config}: %s"
+    write_fix = (
+        " — fix: repair what git names, such as the file's rights, then run setup-commit-log.sh --check"
+    )
+    with_git('[ "$1" = config ] && exit 1')
+    assert broken(lambda: gitpart.set_config(root, root / ".git", "k.x", ["v"])) == (
+        cannot % ("k.x", "no message") + write_fix + until
+    )
+    assert broken(lambda: gitpart.remove_section(root, root / ".git", "k")) == (
+        cannot % ("k", "no message") + write_fix + until
+    )
+    with_git('[ "$1" = config ] && { printf "caf\\377\\n" >&2; exit 1; }')
+    assert broken(lambda: gitpart.remove_section(root, root / ".git", "k")) == (
+        cannot % ("k", "caf\ufffd") + write_fix + until
+    )
+    # a git that names itself in no usual way is named by its own answer, or by "no answer"; 2.54.0 is the
+    # first
+    # that serves hooks set in the configuration
+    for body, text, old in (
+        ('[ "$1" = --version ] && { echo hello; exit 0; }', "hello", True),
+        ('[ "$1" = --version ] && exit 0', "no answer", True),
+        ('[ "$1" = --version ] && { echo "git version 2.53.9"; exit 0; }', "2.53.9", True),
+        ('[ "$1" = --version ] && { echo "git version 2.54.0"; exit 0; }', "2.54.0", False),
+    ):
+        with_git(body)
+        assert answer(lambda: gitpart.version_text(root)) == text
+        assert answer(lambda: gitpart.is_old(root)) is old, text
+    # the name of a branch is read with replacements; a head that is not a branch is its own name
+    with_git('[ "$1" = rev-parse ] && [ "$2" = --abbrev-ref ] && { printf "caf\\377\\n"; exit 0; }')
+    assert answer(lambda: gitpart.branch_of(root, "HEAD")) == "caf\ufffd"
+    monkeypatch.setenv("PATH", original)
+    git_in(root, "checkout", "-q", "-b", "topic", session=None)
+    assert answer(lambda: gitpart.branch_of(root, "HEAD")) == "topic"
+    git_in(root, "checkout", "-q", "--detach", session=None)
+    assert answer(lambda: gitpart.branch_of(root, "@")) == "@"
+    assert answer(lambda: gitpart.branch_of(root, "HEAD")) == "HEAD"
+    git_in(root, "checkout", "-q", "-", session=None)
+
+
 # ------------------------------------------------------------------ T27 to T30: the effect report
 # The rules W1 to W4 of the module's section 13, each run through `effect-report.sh` over transcripts made by
 # hand and, for W3, over a git history made in a scratch clone. The lines are typed by hand.
@@ -3394,102 +3493,3 @@ SUBJECT = Subject(
     act_args=["--all"],
     effect="effect-report.sh",
 )
-
-
-# ------------------------------------------------------------------ git's answers that are odd
-
-
-def git_saying(parent: Path, body: str) -> Path:
-    """A folder with a `git` that runs `body` first; what `body` leaves undecided is the real git's."""
-    real = shutil.which("git")
-    assert real
-    parent.mkdir(parents=True)
-    fake_program(parent / "git", f'{body}\nexec {real} "$@"\n')
-    return parent
-
-
-def git_edges(tmp_path: Path, clone: Clone, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The module's git calls against a git that answers oddly: bytes that are no UTF-8, no message on
-    stderr, a version that is no version. The lines are typed by hand."""
-    root = clone.root
-    git_in(root, "commit", "--allow-empty", "-q", "-m", "a")
-    config = root / ".git" / "config"
-    original = os.environ["PATH"]
-    count = 0
-
-    def with_git(body: str) -> None:
-        nonlocal count
-        count += 1
-        fake = git_saying(tmp_path / "git-edges" / str(count), body)
-        monkeypatch.setenv("PATH", f"{fake}{os.pathsep}{original}")
-
-    def broken(action: Callable[[], object]) -> str:
-        with identity.declared(start.COUNT, Mode.ACT), pytest.raises(ConfigurationFailure) as caught:
-            action()
-        return caught.value.broken.render()
-
-    def answer(action: Callable[[], object]) -> object:
-        with identity.declared(start.COUNT, Mode.ACT):
-            return action()
-
-    until = " — until then no commit is counted"
-    where = "BROKEN: git could not answer where the repository is: "
-    where_fix = " — fix: repair the git setup named in the message (configuration, ownership, installation)"
-    with_git('[ "$1" = rev-parse ] && { printf "fatal: caf\\377\\n" >&2; exit 128; }')
-    assert broken(lambda: gitpart.common_or_none(root)) == where + "fatal: caf\ufffd" + where_fix
-    with_git('[ "$1" = rev-parse ] && exit 128')
-    assert broken(lambda: gitpart.common_or_none(root)) == where + "no message" + where_fix
-    with_git('[ "$1" = rev-parse ] && { printf "caf\\377\\n"; exit 0; }')
-    assert answer(lambda: gitpart.common_or_none(root)) == Path(os.path.realpath(root / "caf\ufffd"))
-    bad_range = f"BROKEN: git cannot read the range a..b in {root}: "
-    range_fix = (
-        " — fix: name commits this clone has, such as main..HEAD; a shallow clone may need git fetch"
-        " --unshallow"
-    )
-    with_git('[ "$1" = rev-list ] && { printf "caf\\377\\n" >&2; exit 128; }')
-    assert (
-        broken(lambda: gitpart.range_commits(root, root, "a..b"))
-        == bad_range + "caf\ufffd" + range_fix + until
-    )
-    with_git('[ "$1" = rev-list ] && exit 128')
-    assert (
-        broken(lambda: gitpart.range_commits(root, root, "a..b"))
-        == bad_range + "no message" + range_fix + until
-    )
-    cannot = f"BROKEN: git could not write %s into {config}: %s"
-    write_fix = (
-        " — fix: repair what git names, such as the file's rights, then run setup-commit-log.sh --check"
-    )
-    with_git('[ "$1" = config ] && exit 1')
-    assert broken(lambda: gitpart.set_config(root, root / ".git", "k.x", ["v"])) == (
-        cannot % ("k.x", "no message") + write_fix + until
-    )
-    assert broken(lambda: gitpart.remove_section(root, root / ".git", "k")) == (
-        cannot % ("k", "no message") + write_fix + until
-    )
-    with_git('[ "$1" = config ] && { printf "caf\\377\\n" >&2; exit 1; }')
-    assert broken(lambda: gitpart.remove_section(root, root / ".git", "k")) == (
-        cannot % ("k", "caf\ufffd") + write_fix + until
-    )
-    # a git that names itself in no usual way is named by its own answer, or by "no answer"; 2.54.0 is the
-    # first
-    # that serves hooks set in the configuration
-    for body, text, old in (
-        ('[ "$1" = --version ] && { echo hello; exit 0; }', "hello", True),
-        ('[ "$1" = --version ] && exit 0', "no answer", True),
-        ('[ "$1" = --version ] && { echo "git version 2.53.9"; exit 0; }', "2.53.9", True),
-        ('[ "$1" = --version ] && { echo "git version 2.54.0"; exit 0; }', "2.54.0", False),
-    ):
-        with_git(body)
-        assert answer(lambda: gitpart.version_text(root)) == text
-        assert answer(lambda: gitpart.is_old(root)) is old, text
-    # the name of a branch is read with replacements; a head that is not a branch is its own name
-    with_git('[ "$1" = rev-parse ] && [ "$2" = --abbrev-ref ] && { printf "caf\\377\\n"; exit 0; }')
-    assert answer(lambda: gitpart.branch_of(root, "HEAD")) == "caf\ufffd"
-    monkeypatch.setenv("PATH", original)
-    git_in(root, "checkout", "-q", "-b", "topic", session=None)
-    assert answer(lambda: gitpart.branch_of(root, "HEAD")) == "topic"
-    git_in(root, "checkout", "-q", "--detach", session=None)
-    assert answer(lambda: gitpart.branch_of(root, "@")) == "@"
-    assert answer(lambda: gitpart.branch_of(root, "HEAD")) == "HEAD"
-    git_in(root, "checkout", "-q", "-", session=None)
