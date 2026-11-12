@@ -974,7 +974,14 @@ def commit(root: Path, message: str) -> str:
 def fake_signer(root: Path, tools: Path) -> Path:
     """Signs later `git merge -S` of the repository through a fake `gpg.program` and turns
     `log.showSignature` on; the fake logs each call to the returned file and, to verify, says its human
-    text on stderr as gpg does, which git log prints before the formatted line."""
+    text on stderr as gpg does, which git log prints before the formatted line.
+
+    It copies the script of `fake_signer` in `constitution_layer_kit.testing.harness`, and the copy stays,
+    for three reasons. That subpackage is the modules' test library, promised to their tests, and no kit
+    check imports it, so a change made there for the modules never moves this check. The shared helper
+    turns `commit.gpgsign` on for every later commit, where this case wants one merge signed, as the forge
+    signs it, among plain commits. And a failed `git config` here is the check's own failure to run, with its
+    fix, where the shared helper raises a traceback."""
     log = tools / "gpg.log"
     program = tools / "gpg"
     program.write_text(
