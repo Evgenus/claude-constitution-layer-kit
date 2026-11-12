@@ -3,7 +3,7 @@
 <a id="a1"></a>
 ## What it gives you
 
-Task close as a single act: a change that touches code covered by current-state documents updates them or declares no impact; a close procedure that merges deltas, deletes working files and sets the record inactive; and a dirty tree at turn end warned or blocked.
+Task close as a single act. A change that touches code covered by current-state documents updates them or declares no impact. A close procedure merges deltas, deletes working files and sets the record inactive. At turn end, a dirty tree gets a warning or a block.
 
 In plain words: a current-state document is a page that says how things are now. When code changes, the page that describes it changes in the same change, one reviewed set of commits. Otherwise a line in a commit declares no impact and says why. A skill closes a task as one act. It merges into those pages what the change made different, the deltas. It deletes the working files, the scratch files made for the task. It sets the task's record, the file that tracks the task, to inactive, which means the task is history. At the end of every turn, one reply of Claude, a dirty tree, which holds uncommitted changes, is reported. Under the default, louder setting the session is asked to commit what is finished. Under the quieter setting the user sees a notice.
 
