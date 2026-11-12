@@ -1450,6 +1450,19 @@ def test_move_red_green() -> None:
     assert TWO_REPAIRED in two and "[r]: ../moved/deep/first.md" in two, f"inbound links: {two}"
     expect(scan(acted), 0, "GREEN: ", "stdout")
     no_clock(git_timeouts(log))
+    # a document at the top of the repository is reached without a `../`, and reaches down the same way
+    root_move = moving_consumer()
+    root_move.write("README.md", "# R\n\nSee [one](docs/notes/one.md).\n")
+    root_move.commit()
+    to_root = mover(root_move, OLD, "one.md")
+    expect(to_root, 0, "GREEN: ", "stdout")
+    assert "See [one](one.md).\n" in (root_move.root / "README.md").read_text()
+    moved_text = (root_move.root / "one.md").read_text()
+    assert (
+        "See [sib](docs/notes/two.md#k2), [self](one.md#k1), [here](#k1) and [up](constitution.yaml)."
+        in moved_text
+    ), moved_text
+    assert "Back to [note-one](../../one.md#k1)" in (root_move.root / "docs/notes/two.md").read_text()
 
 
 @item(61, "the mover lists what names the old path and changes none of it")
@@ -1476,6 +1489,14 @@ def test_mentions_are_listed_not_changed() -> None:
     assert (outside.root / "other/readme.md").read_text() == f"# Readme\nSee {OLD}.\nOr ../{OLD}.\n", (
         "the uncovered Markdown file was not rewritten"
     )
+    # the destination of a link is no mention, whether or not the mover rewrites it: here it does not
+    shielded = moving_consumer()
+    shielded.write("constitution.yaml", dials_text(own(territories=["docs/**"])))
+    shielded.write("other/o.md", "# O\n\nSee [one](../docs/notes/one.md).\n")
+    shielded.commit()
+    after = mover(shielded, OLD, NEW)
+    assert after.code == 0 and "other/o.md" not in after.stdout, after.stdout
+    assert (shielded.root / "other/o.md").read_text() == "# O\n\nSee [one](../docs/notes/one.md).\n"
 
 
 @item(62, "the fix R5 teaches, pasted as printed, repairs a move made by hand")
@@ -1537,6 +1558,13 @@ def test_id_repair_leaves_an_ambiguous_id_alone() -> None:
     done = mover(consumer, "--ids")
     kept = "See [note-twin](t.md)." in (consumer.root / SOURCE).read_text()
     assert kept and messages.v4_count(0, 0, 0) in done.stdout, done.stdout + done.stderr
+    # the letters round a link's text are the text's own: `Xnote-oneX` is no id, though `note-one` is one
+    letters = moving_consumer()
+    kept = "See [Xnote-oneX](gone.md) and [Xnote-one](gone.md) and [note-oneX](gone.md).\n"
+    letters.write("docs/notes/three.md", note("# T\n\n" + kept, "note-three"))
+    letters.commit()
+    mover(letters, "--ids")
+    assert kept in (letters.root / "docs/notes/three.md").read_text()
 
 
 @item(64, "every refusal of the mover is exit 1 and changes nothing")
@@ -1604,6 +1632,43 @@ def test_refusals_change_nothing() -> None:
     for result, line in typed:
         broken_first_line(result, line)
     assert tree_state(odd) == odd_before, "a refusal of a long path changed the tree"
+    # the refusals that look at git and at the two paths: each asked before anything moves, each typed by hand
+    more = moving_consumer()
+    more.write("docs/notes/untracked.md", "# U\n")  # on disk, no git file
+    more_before = tree_state(more)
+    not_listed = (
+        "is not a file git lists — fix: name a file of this repository, by its path from where you stand"
+    )
+    not_moved = (
+        "BROKEN: --moved says the move was made by hand, yet {old} still exists or {new} does not — fix: to"
+        " make the move and repair the links in one act, run it without --moved"
+    )
+    unknown = (
+        "BROKEN: misinvocation: unrecognized arguments: {given} — fix: run it with <old path> <new path> to"
+        " move a file and repair the links; --moved <old path> <new path> after a move made by hand; --ids to"
+        " point every link whose text is a document's id at that document"
+    )
+    typed_more = [
+        (
+            mover(more, "docs/notes/untracked.md", "docs/notes/u2.md"),
+            f"BROKEN: docs/notes/untracked.md {not_listed}",
+        ),
+        (mover(more, "docs/notes", "docs/other"), f"BROKEN: docs/notes {not_listed}"),
+        (
+            mover(more, "--moved", "docs/notes/none.md", "docs/notes/nothing.md"),
+            not_moved.format(old="docs/notes/none.md", new="docs/notes/nothing.md"),
+        ),
+        (
+            mover(more, "--moved", OLD, "docs/notes/two.md"),
+            not_moved.format(old=OLD, new="docs/notes/two.md"),
+        ),
+        (mover(more, "--id"), unknown.format(given="--id")),
+        (mover(more, "--mov", OLD, NEW), unknown.format(given="--mov")),
+    ]
+    for result, line in typed_more:
+        broken_first_line(result, line)
+        assert STOPPED_NOTHING in result.stderr.splitlines(), result.stderr
+    assert tree_state(more) == more_before, "a refusal changed the tree"
 
 
 @item(65, "with no dials file the mover refuses before it moves")
@@ -1642,7 +1707,11 @@ def test_mover_ends_red_when_the_tree_is() -> None:
 GOLDEN_MOVER = [
     f"MOVED: {OLD} → {NEW}",
     "REWROTE: docs/notes/two.md: 2 link(s)",
-    "names the old path outside a link — read it and decide; nothing was changed",
+    "MENTION: docs/notes/two.md:11: 'Back to [note-one](../moved/deep/first.md#k1), [r] and"
+    " `[shown](one.md)`. Once d… [97 characters]' names the old path outside a link — read it and"
+    " decide; nothing was changed",
+    "MENTION: tools/x.sh:1: '# see docs/notes/one.md' names the old path outside a link — read it and"
+    " decide; nothing was changed",
     "2 file(s) rewritten, 5 link(s), 2 mention(s) listed; the whole tree is checked next",
 ]
 
@@ -1651,7 +1720,7 @@ GOLDEN_MOVER = [
 def test_golden_mover_lines() -> None:
     out = mover(moving_consumer(), OLD, NEW).stdout
     refused = mover(moving_consumer(), OLD, "docs/notes/two.md").stderr
-    missing = [line for line in GOLDEN_MOVER if line not in out]
+    missing = [line for line in GOLDEN_MOVER if line not in out.splitlines()]
     wanted = (
         "BROKEN: docs/notes/two.md already exists — fix: choose a path that is free, or move what lies"
         " there first\nBROKEN: the move could not run — nothing was changed"
@@ -1895,6 +1964,13 @@ def test_mover_asks_before_it_moves() -> None:
     assert porcelain(rootless) == state and (rootless.root / OLD).exists(), "no root policy: the tree changed"
 
 
+STOPPED_NOTHING = "BROKEN: the move could not run — nothing was changed"
+STOPPED_MIDWAY = (  # typed by hand
+    "BROKEN: the act stopped midway — what the lines above name was moved or rewritten, and the check"
+    " of the whole tree has not run: look at git status, repair the cause, then run the scan"
+)
+
+
 @item(81, "a failure after the move says the act stopped midway, never that nothing changed")
 def test_mover_says_when_it_stopped_midway() -> None:
     """A failure after the move must not claim that nothing was changed."""
@@ -1909,17 +1985,28 @@ def test_mover_says_when_it_stopped_midway() -> None:
         env=merged,
         check=False,
     )
-    stopped = (  # typed by hand
-        "BROKEN: the act stopped midway — what the lines above name was moved or rewritten, and the check"
-        " of the whole tree has not run: look at git status, repair the cause, then run the scan"
-    )
     ok = (
         done.returncode == 1
-        and stopped in done.stderr
+        and STOPPED_MIDWAY in done.stderr.splitlines()
         and messages.v4_nothing_changed() not in done.stderr
         and (consumer.root / NEW).exists()
     )
     assert ok, done.stdout + done.stderr
+    # a defect inside the mover is said as one, and then the act is said to have stopped midway
+    readonly = moving_consumer()
+    locked = readonly.root / "docs/notes/two.md"
+    locked.chmod(0o444)
+    try:
+        defect = mover(readonly, OLD, NEW)
+    finally:
+        locked.chmod(0o644)
+    first, second = defect.stderr.splitlines()[:2]
+    assert defect.code == 1 and second == STOPPED_MIDWAY, defect.stderr
+    assert first.startswith("BROKEN: unexpected failure inside the checker: PermissionError: "), first
+    assert first.endswith(
+        " — fix: this is a defect of the gate, not of the repository; report it, with the traceback below, to"
+        " whoever maintains the plugin — until it is fixed do not move documents with it"
+    ), first
 
 
 @item(82, "the mover keeps CRLF and a byte order mark, and leaves a file that is not UTF-8 alone")
@@ -1945,6 +2032,15 @@ def test_mover_keeps_every_other_character() -> None:
         "LEFT ALONE: docs/notes/l\\\\y" + "n" * 80 + ".md is not UTF-8 text — its links, if any, were not"
         " repaired" in done.stdout.splitlines()
     ), done.stdout
+    # a moved file that is no Markdown is moved and nothing in it is rewritten
+    plain = moving_consumer()
+    plain.write("tools/guide.txt", "see [a](../docs/notes/one.md)\n")
+    plain.commit()
+    moved_plain = mover(plain, "tools/guide.txt", "tools/sub/guide.txt")
+    assert (plain.root / "tools/sub/guide.txt").read_text() == "see [a](../docs/notes/one.md)\n"
+    assert "0 file(s) rewritten, 0 link(s), 0 mention(s) listed; the whole tree is checked next" in (
+        moved_plain.stdout.splitlines()
+    ), moved_plain.stdout
 
 
 @item(83, "a new path under a file, and a git mv that git refuses: refused, no directory left behind")
@@ -1999,6 +2095,23 @@ def test_mover_quotes_and_bounds() -> None:
     assert "See [a](new%20name.md)." in b, f"the link: {b}"
     expect(done, 0, messages.v4_count(1, 1, 0), "stdout")
     expect(scan(consumer), 0, "and 1 link(s) examined", "stdout")
+    # the form of a link is kept: a query, a leading slash and angle brackets stay as written, and a document
+    # at the top of the repository is no mention of a path that climbs out of it
+    forms = moving_consumer()
+    forms.write(
+        "README.md",
+        "# R\n\nSee [one](docs/notes/one.md?plain=1#k1), [r](/docs/notes/one.md), [s](<docs/notes/one.md>)"
+        " and [q](docs/notes/one.md?x).\nAlso ../docs/notes/one.md here.\n",
+    )
+    forms.commit()
+    moved = mover(forms, OLD, "docs/moved/new name.md")
+    assert (forms.root / "README.md").read_text() == (
+        "# R\n\nSee [one](docs/moved/new%20name.md?plain=1#k1), [r](/docs/moved/new%20name.md),"
+        " [s](<docs/moved/new name.md>) and [q](docs/moved/new%20name.md?x).\nAlso ../docs/notes/one.md"
+        " here.\n"
+    )
+    assert "REWROTE: README.md: 4 link(s)" in moved.stdout.splitlines(), moved.stdout
+    assert "MENTION: README.md" not in moved.stdout, moved.stdout
 
 
 @item(85, "reference-style links: a usage is a link, and is judged by what its label opens")
@@ -2276,7 +2389,9 @@ def test_mover_entry_absences() -> None:
     ), no_shared.stderr
     assert (
         no_library.returncode == 1
-        and library_first.endswith(" — until then nothing is moved")
+        and library_first
+        == "BROKEN: const-referencing needs PyYAML — fix: run: python3 -m pip install -r"
+        f" '{PLUGIN / 'requirements.txt'}' — until then nothing is moved"
         and "pass unchecked" not in no_library.stderr
         and closing in no_library.stderr
     ), no_library.stderr
@@ -2339,8 +2454,8 @@ def test_midway_after_the_move_alone() -> None:
     (by_hand.root / NEW).parent.mkdir(parents=True)
     by_hand.git("mv", OLD, NEW)
     repaired = mover_with(by_hand, DYING, "--moved", OLD, NEW)
-    assert done.code == 1 and messages.v4_stopped_midway() in done.stderr, f"move alone: {done.stderr}"
-    assert repaired.code == 1 and messages.v4_stopped_midway() in repaired.stderr, (
+    assert done.code == 1 and STOPPED_MIDWAY in done.stderr.splitlines(), f"move alone: {done.stderr}"
+    assert repaired.code == 1 and STOPPED_MIDWAY in repaired.stderr.splitlines(), (
         f"--moved: {repaired.stderr}"
     )
     assert "REWROTE: docs/notes/two.md" in repaired.stdout, "--moved rewrote nothing"
