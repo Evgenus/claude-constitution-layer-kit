@@ -23,9 +23,8 @@ truth.
 What is checked and what is not. For every catalog listed under `const-catalogs.catalogs` in
 the project's `constitution.yaml`, this plugin's hook blocks a Markdown document in that
 catalog's territory in three cases. The first is a file name that is not
-`<prefix>-<number>-<slug>.md`. The second is an `id` that is not that name without its `.md`
-ending. The third, for a file that does not exist yet, is a number another item already
-carries. Where the project set `severity: warn`, the hook reports and lets the write through.
+`<prefix>-<number>-<slug>.md`. The second is an `id` that is not that name without `.md`.
+The third, for a file that does not exist yet, is a number another item already carries. Where the project set `severity: warn`, the hook reports and lets the write through.
 The scan adds: no two items of one catalog under one number. With no catalog listed, nothing
 is checked, and every run says so. Which number to take, when it is final, who renumbers, how
 to cite: that is judgment, and the rest of this page.
