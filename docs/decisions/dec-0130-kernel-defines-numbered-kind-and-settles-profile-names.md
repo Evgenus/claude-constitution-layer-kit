@@ -15,7 +15,7 @@ Item 9.24b of [the rollout plan](../rollout-plan.md#s9-24b) logged that [the ker
 
 ## 1. What a numbered kind is
 
-The term stood once in [kernel §1](../constitution/CONVENTIONS.md#k1), at the start of the three exceptions to the `id` rule. The same paragraph used "catalog" twice, also with no definition. It spoke of "ids that share a prefix and a number", and of a catalog "whose width grows". So the uses relied on four things:
+The term stood once in [kernel §1](../constitution/CONVENTIONS.md#k1), at the start of the three exceptions to the `id` rule. The same paragraph used "catalog" twice, also with no definition. It spoke of "ids that share a prefix and a number", and of "a catalog whose form changes, as when its width grows". So the uses relied on four things:
 
 1. a document kind, as [kernel §3](../constitution/CONVENTIONS.md#k3) defines one;
 2. a prefix that names the kind, in every item's `id`;
