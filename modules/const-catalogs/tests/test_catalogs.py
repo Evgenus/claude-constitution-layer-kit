@@ -1505,7 +1505,14 @@ def test_session_start_skips_and_failures() -> None:
         and f"{wide_tail.split(' — ')[0]} is not inside a git repository" in wide_no_repo.stdout
     )
     arg = SESSION.run_gate(session_json(session_root()), args=["--scan"])
-    arg_ok = arg.code == 1 and "BROKEN: misinvocation: unexpected argument --scan" in arg.stderr
+    arg_ok = (
+        arg.code == 1
+        and arg.stderr
+        == (  # typed by hand: the whole of stderr, the printer's closing line last
+            "BROKEN: misinvocation: unexpected argument --scan — fix: session-start takes no arguments;"
+            f" it reads one SessionStart event on stdin\n{COULD_NOT_RUN}\n"
+        )
+    )
     assert no_dials_ok, f"no dials got: {no_dials.stdout!r} {no_dials.stderr[:200]!r}"
     assert from_sub_ok, f"no dials from a subfolder got: {from_sub.stdout!r} {from_sub.stderr[:200]!r}"
     assert no_repo_ok, f"no repository got: {no_repo.stdout!r} {no_repo.stderr[:200]!r}"
@@ -1882,6 +1889,31 @@ def test_effect_escape() -> None:
         ["git", "status", "--porcelain", "--ignored"], cwd=root, capture_output=True, text=True, check=False
     )
     assert after.stdout == before.stdout, (before.stdout, after.stdout)
+
+
+@acceptance_item(85, "the effect report's absence path: PyYAML missing is C2, the report is not made")
+def test_effect_report_without_pyyaml() -> None:
+    """The report run with PyYAML missing: exit 1, the shared C2 as the first line of stderr, ending in the
+    report's own clause, "until then the effect report is not made", and the report's closing line; stdout
+    stays empty. The two lines are typed by hand."""
+    shadow = H.scratch_dir()
+    (shadow / "yaml.py").write_text("raise ImportError('simulated absence')\n", encoding="utf-8")
+    root = H.fresh_consumer().root
+    result = H.run_gate(
+        "",
+        args=["--transcripts", str(H.scratch_dir())],
+        env={"CLAUDE_PLUGIN_DATA": str(H.scratch_dir()), "PYTHONPATH": str(shadow)},
+        command=[H.sh, str(EFFECT)],
+        cwd=root,
+    )
+    c2 = (
+        "BROKEN: const-catalogs needs PyYAML — fix: run: python3 -m pip install -r"
+        f" '{PLUGIN_ROOT / 'requirements.txt'}' — until then the effect report is not made"
+    )
+    assert result.stdout == "", result.stdout
+    assert result.code == 1 and result.stderr == (
+        c2 + "\nBROKEN: the report could not run — no rule counted\n"
+    ), f"exit {result.code}: {result.stderr!r}"
 
 
 def claim(territory: Sequence[str]) -> dict[str, object]:
