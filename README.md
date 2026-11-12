@@ -2,7 +2,7 @@
 
 A portable governance layer for Claude Code projects, shipped as plugins.
 
-AI sessions write documents, make decisions and change code fast. Without shared rules, every session improvises: documents with no stated authority, decisions lost in chat, a typo and a security ruling priced the same, documents that drift from the code with no owner. The kit installs those rules into any repository, new or existing: a one-page semantic kernel, and modules that guard it, each a Claude Code plugin calibrated by one `constitution.yaml`. The [intent page](INTENT.md) says what the kit is for and what it is not.
+AI sessions write documents, make decisions and change code fast. Without shared rules, every session improvises. Documents have no stated authority, and decisions are lost in chat. A typo and a security ruling are priced the same, and documents drift from the code with no owner. The kit installs those rules into any repository, new or existing. They are a one-page semantic kernel, and modules that guard it. Each module is a Claude Code plugin calibrated by one `constitution.yaml`. The [intent page](INTENT.md) says what the kit is for and what it is not.
 
 ## Why it is shaped this way
 
@@ -31,7 +31,7 @@ flowchart TB
 
 ## The modules
 
-Every gate's error message says what failed, why the rule exists, and the exact fix. A gate is deterministic, and red means fix; a skill shapes judgment and checks nothing. The Module column links each module's own page, which says in plain language what it gives you, why, how a session behaves with it, how it works and how to get it.
+Every gate's error message says what failed, why the rule exists, and the exact fix. A gate is deterministic, and red means fix; a skill shapes judgment and checks nothing. The Module column links each module's own page. That page says in plain language what it gives you, why, how a session behaves with it, how it works and how to get it.
 
 | No. | Module | What it holds | Gate | Advisory |
 |---|---|---|---|---|
@@ -66,7 +66,7 @@ The modules ship as drafts, each at version `0.0.x` until Phase D of the [rollou
 
 ## Get started
 
-The [install guide](INSTALL.md) bootstraps a new project step by step: the prerequisites, the modules loaded first, two questions for you, the dials file, the first policies, the kernel copied and the first record, a scan of every module, then a merge that names your yes. It also covers installing one module, updating and uninstalling. CI runs its commands on every change to the kit.
+The [install guide](INSTALL.md) bootstraps a new project step by step. It starts with the prerequisites, the modules loaded first and two questions for you. Then come the dials file, the first policies, the kernel copied and the first record. A scan of every module follows, then a merge that names your yes. It also covers installing one module, updating and uninstalling. CI runs its commands on every change to the kit.
 
 ## Repository map
 

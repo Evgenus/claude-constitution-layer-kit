@@ -36,7 +36,9 @@ The session recommended A, since it took the decider's plan to be GitHub Free, w
   - **Cons:** a force push or a deletion on the remote can remove history.
 - **B. The full PR flow now.** A ruleset asks for a pull request; every change goes through one.
   - **Pros:** rollout step 10's PR flow done early; the shared main fully held.
-  - **Cons:** the yes must move to the pull request, where the author cannot approve, so the rule must change first; a pull request for every change.
+  - **Cons:**
+    - **the yes must move** to the pull request, where the author cannot approve, so the rule must change first;
+    - **a pull request for every change.**
 - **C. Protection only.** Force push and deletion blocked; merges pushed directly.
   - **Pros:** it guards against losing history, in minutes, with no rule change.
   - **Cons:** a bad merge can still be pushed; step 10 stays open.
@@ -52,7 +54,10 @@ The session recommended C. <a id="r3"></a>**R3.** B, chosen by the decider in ch
 ## 3. How the yes is given when the decider is the pull request's only human
 
 - **A. The merge is the yes.** The decider merges; the merge commit names the yes and carries the trailers.
-  - **Pros:** it works for one person; the yes stays in git, where the carry-lists gate reads it; a solo consumer can follow the same rule.
+  - **Pros:**
+    - **it works for one person;**
+    - **the yes stays in git**, where the carry-lists gate reads it;
+    - **a solo consumer can follow the same rule.**
   - **Cons:** GitHub shows no approval; the ruleset cannot force a yes, so the rule and the trailer's gate hold it.
 - **B. The yes as a comment on the pull request.**
   - **Pros:** it is visible on the pull request.
@@ -78,7 +83,7 @@ The session recommended A. <a id="r7"></a>**R7.** A, chosen by the decider in ch
 
 ## Applied
 
-The change that adds this record applies every item that binds — R5 and the hook's text in the commit before the record's, the rest in the record's own — so the record is born `inactive`. The fixes of its carry audit corrected the record and the current-state documents together, before its yes. The ruleset and the repository settings of R3 are set on GitHub before the pull request that carries this change is merged; that merge is the flow's first use.
+The change that adds this record applies every item that binds — R5 and the hook's text in the commit before the record's, the rest in the record's own — so the record is born `inactive`. The fixes of its carry audit corrected the record and the current-state documents together, before its yes. The ruleset and the repository settings of R3 are set on GitHub before the pull request that carries this change is merged. That merge is the flow's first use.
 
 ## Carry list
 

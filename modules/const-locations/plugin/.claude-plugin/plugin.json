@@ -1,7 +1,7 @@
 {
   "name": "const-locations",
   "version": "0.0.1",
-  "description": "Documents born in their canonical home: a command derives the home from the policy's territory, proves it resolves to exactly that policy, and writes the document from the kind's template with a valid envelope; a skill for creating documents through it and one for introducing a new kind — policy first, then territory, then document.",
+  "description": "Documents born in their canonical home. A command derives the home from the policy's territory and proves it resolves to exactly that policy. It writes the document from the kind's template with a valid envelope. It comes with a skill for creating documents through it, and one for introducing a new kind — policy first, then territory, then document.",
   "author": { "name": "Eugene Chernyshov" },
   "license": "Apache-2.0"
 }

@@ -1,7 +1,7 @@
 {
   "name": "const-interaction",
   "version": "0.0.1",
-  "description": "Answer in the shape the question has, the answer first; every assumption listed, every list item addressable; honesty over agreement; stop before a hard-to-reverse act and wait for a yes, with a gate on enumerated destructive commands.",
+  "description": "Answer in the shape the question has, the answer first. List every assumption, and make every list item addressable. Put honesty over agreement. Stop before a hard-to-reverse act and wait for a yes, with a gate on listed destructive commands.",
   "author": { "name": "Eugene Chernyshov" },
   "license": "Apache-2.0"
 }

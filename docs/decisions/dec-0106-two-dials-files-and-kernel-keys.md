@@ -25,7 +25,10 @@ The shared package read every key from the one file the identity names. A `know-
   - **Cons:** four public signatures grow; a call that forgets the parameter reads one file in silence and passes a document it should have checked.
 - **C. The package reads `constitution.yaml` whenever the identity names another file.**
   - **Pros:** no new public name.
-  - **Cons:** it changes what existing code does, against shared item S177; it builds a file name into a source that names none; a gate cannot keep to its own file.
+  - **Cons:**
+    - **it changes what existing code does**, against shared item S177;
+    - **it builds a file name into a source that names none**;
+    - **a gate cannot keep to its own file**.
 - **D. A reader of the constitution part alone.** The knowledge package reads each file in a scope of its own and joins the two reads.
   - **Pros:** the smallest change here; the package stays unaware of layers; each part is read where its layer owns it; `C5.12` stays for every normal read.
   - **Cons:** the knowledge package writes and tests the join, and a third layer writes its own; the inner scope must keep the run's deadline.
@@ -46,15 +49,18 @@ The decider proposed D in chat on 2026-10-27: a gate reads both files under diff
   - **Cons:** a break of the promise of [rule 11 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r11), so a new major; every identity and every `REQUIRES` changes.
 - **B. The knowledge kernel's keys under one mapping, `knowledge:`.**
   - **Pros:** no change here.
-  - **Cons:** the knowledge package parses the file a second time with its own failure texts; a misspelt mapping key becomes a silent candidate policy; a stray `territory_dialect` passes.
+  - **Cons:**
+    - **the knowledge package parses the file a second time with its own failure texts**;
+    - **a misspelt mapping key becomes a silent candidate policy**;
+    - **a stray `territory_dialect` passes**.
 
-The decider asked why the constitution kit itself does not load its dials the same way, and the answer made the list symmetric: the constitution's kernel keys are its layer's list, `KERNEL_KEYS`. The decider then asked whether release 1.0.0 could be amended with A2, since nothing outside used it yet. It could not: the installed 1.0.0 serves every session of this kit and the `const-` plugins the knowledge kit loads, pip keeps an installed version, and a module from an amended commit would meet the old code under the same number, which the version check cannot tell apart. The session recommended A1, since rule 11 makes a major the choice "only when nothing else serves" and the knowledge package can build every identity in one function. The decider chose A2 in chat on 2026-10-27. The session's objection stands as written here: A1 would have served. The case for A2 is that forgetting the list becomes impossible, which no function of another package can hold for every gate.
+The decider asked why the constitution kit itself does not load its dials the same way. The answer made the list symmetric: the constitution's kernel keys are its layer's list, `KERNEL_KEYS`. The decider then asked whether release 1.0.0 could be amended with A2, since nothing outside used it yet. It could not: the installed 1.0.0 serves every session of this kit and the `const-` plugins the knowledge kit loads, pip keeps an installed version, and a module from an amended commit would meet the old code under the same number, which the version check cannot tell apart. The session recommended A1, since rule 11 makes a major the choice "only when nothing else serves" and the knowledge package can build every identity in one function. The decider chose A2 in chat on 2026-10-27. The session's objection stands as written here: A1 would have served. The case for A2 is that forgetting the list becomes impossible, which no function of another package can hold for every gate.
 
 <a id="r3"></a>**R3.** `Identity` has a required field `kernel_keys`, with no default, right after `dials_file`: the top-level keys of that file that are no namespace. Every gate of this kit names `KERNEL_KEYS`, the constitution's three. A gate of another layer names its own file's list, and `module_prefix` stands in every list. A list without it is a defect of the entry point, a `RuntimeError` raised as the scope opens, which declares nothing.
 
 <a id="r4"></a>**R4.** `load_dials` reads `root_policy`, and checks `territory_dialect`, only where the identity lists them. A constitution kernel key that the list leaves out is `C5.13`: a copy of it in the gate's own file would be ignored or contradict the one that counts. A key the list names beyond the constitution's three is passed over and handed on as YAML read it, in the new field `Dials.layer`, for its layer to validate. Any other top-level key that holds no mapping is `C5.4`, as before. `C4b` names the identity's own list where it is not `KERNEL_KEYS`.
 
-<a id="r5"></a>**R5.** R3 breaks the version promise of [rule 11 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r11), so the package is 2.0.0. Every module's `REQUIRES` is 2.0.0, and every pip line names the tag `constitution-layer-kit-v2.0.0`, which is pushed only on the decider's go-ahead. A module requires the first release of the package's current major until it uses a name that a later release of that major added, and a new major raises every module's `REQUIRES` to its first release in the change that makes it. The release 1.0.0 is never amended: a release, once tagged, is never moved or made again.
+<a id="r5"></a>**R5.** R3 breaks the version promise of [rule 11 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r11). The package is 2.0.0. Every module's `REQUIRES` is 2.0.0. Every pip line names the tag `constitution-layer-kit-v2.0.0`, which is pushed only on the decider's go-ahead. A module requires the first release of the package's current major until it uses a name that a later release of that major added. A new major raises every module's `REQUIRES` to its first release in the change that makes it. The release 1.0.0 is never amended: a release, once tagged, is never moved or made again.
 
 ## Applied
 

@@ -20,10 +20,14 @@ The lifecycle rule of [kernel §1](../constitution/CONVENTIONS.md#k1) claimed on
   - **Cons:** "active" on a document without authority reads oddly until the clause is known; a kernel edit and a record.
 - **B. Always `active` while in the tree; stale means delete.**
   - **Pros:** nothing to manage; staleness is git-derivable from the date in the comparison.
-  - **Cons:** a field with a value but no meaning, which the git-derivability razor forbids; a superseded comparison that is still cited must go, breaking the cite.
+  - **Cons:**
+    - **a field with a value but no meaning**, which the git-derivability razor forbids;
+    - **a superseded comparison that is still cited** must go, breaking the cite.
 - **C. Born `inactive`, as the reversed ruling had it.**
   - **Pros:** matches the "kept as evidence" wording; consistent with records.
-  - **Cons:** `inactive` means historical and "kept only while referenced", so a fresh, unreferenced comparison is due for deletion the day it is written; current and superseded are indistinguishable.
+  - **Cons:**
+    - **`inactive` means historical** and "kept only while referenced", so a fresh, unreferenced comparison is due for deletion the day it is written;
+    - **current and superseded are indistinguishable**.
 - **D. Make `status` optional for non-authoritative documents.**
   - **Pros:** no meaningless value.
   - **Cons:** breaks the four-field envelope; the envelope check branches by type; the schema needs a conditional.

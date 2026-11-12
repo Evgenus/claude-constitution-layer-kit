@@ -2114,15 +2114,10 @@ def listed_in_reverse() -> Iterator[None]:
 
 def main_over(root: Path, argv: list[str]) -> tuple[int, list[str]]:
     """`main` as the command line runs it, over the tree `root` for the kit: its exit and the lines it
-    printed. The kit's place is restored on leaving."""
-    global KIT
-    real, KIT = KIT, root
+    printed."""
     printed = io.StringIO()
-    try:
-        with contextlib.redirect_stdout(printed):
-            code = main(argv)
-    finally:
-        KIT = real
+    with contextlib.redirect_stdout(printed):
+        code = main(argv, root)
     return code, printed.getvalue().splitlines()
 
 
@@ -4165,7 +4160,8 @@ def self_test() -> int:
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
 
-def main(argv: list[str]) -> int:
+def main(argv: list[str], kit: Path) -> int:
+    """The command line over the kit at `kit`: the gate, the run, or the self-test."""
     parser = argparse.ArgumentParser(prog="check-aspects", add_help=False, allow_abbrev=False)
     parser.add_argument("--run", action="store_true")
     parser.add_argument("--module")
@@ -4184,7 +4180,7 @@ def main(argv: list[str]) -> int:
     try:
         if args.self_test:
             return self_test()
-        return full_run(KIT, args.module) if args.run else gate(KIT)
+        return full_run(kit, args.module) if args.run else gate(kit)
     except Broken as broken:
         print(f"BROKEN: {broken}")
         print("BROKEN: the check could not run — 0 rows examined")
@@ -4192,4 +4188,4 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(main(sys.argv[1:], KIT))

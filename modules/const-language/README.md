@@ -3,9 +3,9 @@
 <a id="a1"></a>
 ## What it gives you
 
-Plain prose in governed documents, checked by Vale after every write and in a scan: a Flesch–Kincaid grade ceiling, a words-per-sentence limit, idioms and formal phrases plain language avoids, formal words with a plain replacement, passive voice reported — every threshold and level a dial, a departure declared in the dials file and never marked in the document. Plus a skill that applies the rules while writing and reads a finding.
+Plain prose in governed documents, checked by Vale after every write and in a scan. The check holds a Flesch–Kincaid grade ceiling and a words-per-sentence limit. It reports idioms and formal phrases plain language avoids, formal words with a plain replacement, and passive voice. Every threshold and level is a dial. A departure is declared in the dials file and never marked in the document. Plus a skill that applies the rules while writing and reads a finding.
 
-In plain words: after every write of a Markdown page, Vale, a free program that checks prose, reads it and reports what a non-native reader would stumble on. A Flesch–Kincaid grade is a score for how many years of school a text assumes; the ceiling is the highest grade a page may reach. The limit is the most words one sentence may hold. An idiom is a phrase whose meaning is not the meaning of its words. A formal phrase is a long way of saying something short. A passive is a sentence that hides who acts. A scan is the same check over every page at once. A dial is a setting, and the dials file is the project's one file of settings. A departure is a page declared there as one that must stand as written.
+In plain words: Vale is a free program that checks prose. After every write of a Markdown page, it reads the page and reports what a non-native reader would stumble on. A Flesch–Kincaid grade is a score for how many years of school a text assumes. The ceiling is the highest grade a page may reach. The limit is the most words one sentence may hold. An idiom is a phrase whose meaning is not the meaning of its words. A formal phrase is a long way of saying something short. A passive is a sentence that hides who acts. A scan is the same check over every page at once. A dial is a setting, and the dials file is the project's one file of settings. A departure is a page declared there as one that must stand as written.
 
 <a id="a2"></a>
 ## Why use it
@@ -30,13 +30,13 @@ The skill `plain-language` is for loading before prose is written in a covered d
 <a id="a4"></a>
 ## How it works
 
-**The hook after a write.** This hook runs after every `Write` and `Edit` of a covered Markdown file. It blanks the file's front matter and every Vale comment, and copies the document to a temporary folder. It generates the five rules for Vale from the dials and runs Vale once. It maps each result back to the document's own line and prints the findings. A page that is still above the ceiling, but below its grade in the last commit, gets a note and no red, so a long page can come down one edit at a time. It needs the `vale` tool on the machine, version 3.23 or newer. A missing tool is reported as a failure with the install command, never as a silent pass. The hook cannot see a file written by a shell command or another person. The grade is Flesch–Kincaid as Vale counts words, sentences and syllables, over the prose outside headings, code and tables, and a heading counts as a sentence for the word limit. Other tools give the same text a grade a year or two apart, so a ceiling means "grade N by Vale".
+**The hook after a write.** This hook runs after every `Write` and `Edit` of a covered Markdown file. It blanks the file's front matter and every Vale comment, and copies the document to a temporary folder. It generates the five rules for Vale from the dials and runs Vale once. It maps each result back to the document's own line and prints the findings. A page that is still above the ceiling, but below its grade in the last commit, gets a note and no red. So a long page can come down one edit at a time. It needs the `vale` tool on the machine, version 3.23 or newer. A missing tool is reported as a failure with the install command, never as a silent pass. The hook cannot see a file written by a shell command or another person. The grade is Flesch–Kincaid as Vale counts words, sentences and syllables, over the prose outside headings, code and tables. A heading counts as a sentence for the word limit. Other tools give the same text a grade a year or two apart, so a ceiling means "grade N by Vale".
 
 **The scan.** The same check over every covered document, from the command line. It exits with code 2 on a finding at level error. A rule at level warning prints notes and never turns it red. Run it in CI and before a merge, on a runner that has Vale.
 
 **The skill.** A procedure in prose. Nothing in it blocks. After every red the check names it, so that it is loaded when a finding is read.
 
-**The hook at session start.** It prints one line that names the skill and says when to load it: before prose is written in a covered document, and when the check reports a finding. It judges nothing and carries no rule.
+**The hook at session start.** It prints one line that names the skill and says when to load it. That is before prose is written in a covered document, and when the check reports a finding. It judges nothing and carries no rule.
 
 **The hook at a subagent's start.** It gives the same line to each subagent as context, since a subagent starts without what the session was told.
 

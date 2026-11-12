@@ -31,8 +31,12 @@ On 2026-11-11 the session read section 7 of every module document, to learn what
   - **Pros:** it ends the merge by hand; it is the one shape a consumer has used; one file to keep valid.
   - **Cons:** "pick a profile" has one choice; a repository that already has documents gets no help.
 - **B. Two profiles, `new-project.yaml` and `existing-repository.yaml`.** The second is the first with `severity: warn` on every gate that runs in a hook.
-  - **Pros:** it covers both cases the intent page names, an existing project and a new one; the second file sets dials that are easy to miss by hand.
-  - **Cons:** no project has yet adopted the kit onto existing documents, so the second profile is unproven; `warn` alone may not be enough there, since the scans still read every Markdown file.
+  - **Pros:**
+    - **it covers both cases the intent page names**, an existing project and a new one;
+    - **the second file sets dials that are easy to miss by hand**.
+  - **Cons:**
+    - **no project has yet adopted the kit onto existing documents**, so the second profile is unproven;
+    - `warn` alone may not be enough there, since the scans still read every Markdown file.
 - **C. Three profiles after the kernel's examples.** `solo-agents`, `small-team` and `regulated`, which would differ in severity and in who decides.
   - **Pros:** it matches the kernel's sentence word for word.
   - **Cons:** the dials that tell a team's shape name people, which no profile can hold; the differences would be invented, with no consumer behind them.
@@ -59,19 +63,26 @@ The session keeps one objection. Two of the nine gates are not about documents w
 The session first told the decider that a project could copy a whole profile at step 4 of the guide. A probe on a scratch repository had shown that this works: a namespace written before its policy claims nothing until that policy exists, and the gates say so in a note. The session then found that this goes against R3 of [dec-0102-bootstrap-recommends-and-copies-the-kernel-first](dec-0102-bootstrap-recommends-and-copies-the-kernel-first.md#r3). That ruling has the bootstrap claim each further territory only once its kind has a policy.
 
 - **A. In the guide's order.** Step 4 writes from the profile the lines that need no policy, and step 6 adds each policy's lines after that policy. A comment in the profile names the step that writes each line.
-  - **Pros:** the earlier ruling stands; the guide agrees with the order that module [`const-locations`](../requirements.md#const-locations) teaches; the gates print no note about a policy that does not exist yet; the profile is still the checked, finished file, so the merge by hand ends.
+  - **Pros:**
+    - **the earlier ruling stands**;
+    - **the guide agrees with the order** that module [`const-locations`](../requirements.md#const-locations) teaches;
+    - **the gates print no note about a policy that does not exist yet**;
+    - **the profile is still the checked, finished file**, so the merge by hand ends.
   - **Cons:** taking a profile is several copies, not one.
 - **B. Whole, at step 4.** The project copies the file once, and this record reverses the earlier ruling for a project that takes a profile.
   - **Pros:** one copy.
-  - **Cons:** it reverses a ruling made on 2026-10-24; the territories stand before their policies, the exception the decider rejected then; the gates print a note on every write until each policy exists.
+  - **Cons:**
+    - **it reverses a ruling made on 2026-10-24**;
+    - **the territories stand before their policies**, the exception the decider rejected then;
+    - **the gates print a note on every write until each policy exists**.
 
 The session recommended A, since the order was the point of the earlier ruling. The decider chose A in chat on 2026-11-11.
 
-<a id="r6"></a>**R6.** A project takes the lines of a profile in the order of the guide's steps. Step 4 writes the lines marked for it. They are the lines which R3 of [dec-0102-bootstrap-recommends-and-copies-the-kernel-first](dec-0102-bootstrap-recommends-and-copies-the-kernel-first.md#r3) lists for step 4, and from `existing-repository.yaml` each module's `severity` line too. A `severity` line claims no territory, so that ruling stands. For `const-task-close`, which that ruling lists, `new-project.yaml` gives no line, and `existing-repository.yaml` gives its `severity` line alone. Step 6 writes each further policy, and after it the lines of that policy. A comment in the profile marks the step that writes a line, and a line with no mark goes with the nearest marked line above it. The guide names the two profiles in its step 4, in prose, in place of the block that showed the changed keys. With the answer no to its first question, a project writes the guide's block by hand. Its `check=dials` block stays the one that its check writes.
+<a id="r6"></a>**R6.** A project takes the lines of a profile in the order of the guide's steps. Step 4 writes the lines marked for it. They are the lines which R3 of [dec-0102-bootstrap-recommends-and-copies-the-kernel-first](dec-0102-bootstrap-recommends-and-copies-the-kernel-first.md#r3) lists for step 4, and from `existing-repository.yaml` each module's `severity` line too. A `severity` line claims no territory, so that ruling stands. For `const-task-close`, which that ruling lists, `new-project.yaml` gives no line, and `existing-repository.yaml` gives its `severity` line alone. Step 6 writes each further policy, and after it the lines of that policy. A comment in the profile marks the step that writes a line. A line with no mark goes with the nearest marked line above it. The guide names the two profiles in its step 4, in prose, in place of the block that showed the changed keys. With the answer no to its first question, a project writes the guide's block by hand. Its `check=dials` block stays the one that its check writes.
 
 ## Applied
 
-The change that creates this record applies every ruling. It adds the two profiles and the check, joins the check to the gate list, changes the `mentions` entry of the kit's dials file, states that exception in rule 6 of the root policy, and rewrites step 4 and the last section of the install guide. It adds a row for `profiles/` to the map of the root README, which binds nothing. The record is born `inactive`.
+The change that creates this record applies every ruling. It adds the two profiles and the check. It joins the check to the gate list. It changes the `mentions` entry of the kit's dials file. It states that exception in rule 6 of the root policy. It rewrites step 4 and the last section of the install guide. It adds a row for `profiles/` to the map of the root README, which binds nothing. The record is born `inactive`.
 
 ## Carry list
 

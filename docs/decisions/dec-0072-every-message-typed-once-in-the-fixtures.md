@@ -11,9 +11,9 @@ decider: Eugene Chernyshov
 
 ## Context
 
-A module's fixture runner builds many expected lines by calling the same message function the gate calls. Such an expectation proves that the gate chose the right message; it cannot catch a defect inside the message's own text, since gate and test print the same wrong line. A fixture covers the text only where it compares output with a line typed by hand.
+A module's fixture runner builds many expected lines by calling the same message function the gate calls. Such an expectation proves that the gate chose the right message. It cannot catch a defect inside the message's own text, since gate and test print the same wrong line. A fixture covers the text only where it compares output with a line typed by hand.
 
-On 2026-10-07 a subagent counted it for the kit as `main` then stood. For each message function of the shared code and of the eleven modules, it looked for the function's longest fixed text, 15 characters or more, as a string of the fixtures that run it, then checked at least five functions per module by hand; the hand check corrected four of the script's hits. Of 388 message functions, 341 had their text typed in a fixture and 47 were checked only through their own function: 12 shared, 10 of const-catalogs, 12 of const-referencing and 13 across seven other modules, most of them failures of a malformed dial. None was untested.
+On 2026-10-07 a subagent counted it for the kit as `main` then stood. For each message function of the shared code and of the eleven modules, it looked for the function's longest fixed text, 15 characters or more, as a string of the fixtures that run it, then checked at least five functions per module by hand. The hand check corrected four of the script's hits. Of 388 message functions, 341 had their text typed in a fixture and 47 were checked only through their own function: 12 shared, 10 of const-catalogs, 12 of const-referencing and 13 across seven other modules, most of them failures of a malformed dial. None was untested.
 
 The decider was asked in chat on 2026-10-07 whether the kit should do more than fill the 47.
 
@@ -22,8 +22,10 @@ The decider was asked in chat on 2026-10-07 whether the kit should do more than 
 - **A. Fill the 47, no rule.**
   - **Pros:** the least work; closes the gap counted.
   - **Cons:** nothing stops the next message or module from repeating it.
-- **B. Fill the 47, and a rule held by review.** The template's fixtures rule asks for one line typed by hand per message; the fresh-context review holds it, with the counting script as its aid.
-  - **Pros:** the gap stays closed for new modules; honest under [law 5 of CLAUDE.md](../../CLAUDE.md#law-5), since the check needs judgment and is not dressed as a gate.
+- **B. Fill the 47, and a rule held by review.** The template's fixtures rule asks for one line typed by hand per message. The fresh-context review holds it, with the counting script as its aid.
+  - **Pros:**
+    - **the gap stays closed** for new modules;
+    - **honest** under [law 5 of CLAUDE.md](../../CLAUDE.md#law-5), since the check needs judgment and is not dressed as a gate.
   - **Cons:** a record and its audit; review can miss a case.
 - **C. Fill the 47, and a rule held by a kit check.**
   - **Pros:** mechanical and permanent.

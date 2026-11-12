@@ -17,10 +17,10 @@ Modes:    (hook)          one tool event, JSON on stdin — the written document
                           (default: the current directory), the same way, one Vale run; the last
                           commit is not read, and a grade above the ceiling is a finding.
 Reads:    from the event: hook_event_name, tool_name, tool_input.file_path, .content, .old_string,
-          .new_string and .replace_all, cwd, session_id. From constitution.yaml: this module's dials
-          const-language.severity, .log_dir, .territories, .grade_ceiling, .sentence_words, .levels,
-          .forbidden, .simpler, .exceptions and .departures; the file as a whole is validated as every
-          gate does.
+          .new_string and .replace_all, cwd, session_id, transcript_path. From constitution.yaml: this
+          module's dials const-language.severity, .log_dir, .territories, .grade_ceiling,
+          .sentence_words, .levels, .forbidden, .simpler, .exceptions and .departures; the file as a
+          whole is validated as every gate does.
           From git, in the hook alone: the written document as the last commit holds it, where it
           holds one, by `git cat-file blob HEAD:<path>`, for its grade alone.
           No policy is read; no envelope is judged. The vale binary on PATH, 3.23.0 or newer, is required.

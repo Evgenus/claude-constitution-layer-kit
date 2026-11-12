@@ -2423,10 +2423,9 @@ class Versions:
         printed_lines = io.StringIO()
         with (
             mock.patch.dict(os.environ, env, clear=True),
-            mock.patch.dict(globals(), {"KIT": self.toy.kit if where is None else where}),
             contextlib.redirect_stdout(printed_lines),
         ):
-            status = main([])
+            status = main([], self.toy.kit if where is None else where)
         return status, printed_lines.getvalue().splitlines()
 
 
@@ -4903,7 +4902,7 @@ class SelfTestRun:
         )
         printed_lines = io.StringIO()
         with contextlib.redirect_stdout(printed_lines), contextlib.redirect_stderr(io.StringIO()):
-            ended = main(["--no-such-option"])
+            ended = main(["--no-such-option"], KIT)
         lines = printed_lines.getvalue().splitlines()
         self.case(
             "an option the check does not know: the misinvocation line and the same stop line, exit 1",
@@ -5135,7 +5134,8 @@ def self_test() -> int:
     return SelfTestRun().run()
 
 
-def main(argv: list[str]) -> int:
+def main(argv: list[str], kit: Path) -> int:
+    """The command line over the kit at `kit`: the guide's run, or the self-test."""
     parser = argparse.ArgumentParser(prog="check-install-guide", add_help=False, allow_abbrev=False)
     parser.add_argument("--self-test", action="store_true")
     try:
@@ -5147,7 +5147,7 @@ def main(argv: list[str]) -> int:
     try:
         if args.self_test:
             return self_test()
-        findings, examined, note = run_guide(committed_guide(KIT, dict(os.environ)), KIT, dict(os.environ))
+        findings, examined, note = run_guide(committed_guide(kit, dict(os.environ)), kit, dict(os.environ))
         return report(findings, examined, note)
     except Broken as broken:
         print(f"BROKEN: {broken}{broken.note}")
@@ -5160,4 +5160,4 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(main(sys.argv[1:], KIT))

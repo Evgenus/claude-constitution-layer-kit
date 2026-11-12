@@ -28,7 +28,7 @@ Six session-conduct rules entered this repository's `CLAUDE.md` on 2026-09-14 af
 
 ## Recommendation
 
-Option 1. The decider judged the rules necessary after direct experience, the evidence instrument for chat rules is the session itself, and the rows are cheap to remove if a later authoring session finds one unearned.
+Option 1. The decider judged the rules necessary after direct experience. The evidence instrument for chat rules is the session itself. The rows are cheap to remove if a later authoring session finds one unearned.
 
 ## Choice
 

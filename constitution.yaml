@@ -711,8 +711,8 @@ const-language:                       # the prose of covered documents: a grade 
   log_dir: local/gate-logs
   territories:                        # the documents the gate reads among the Markdown files git lists; a negated pattern takes files out, never a frozen document
     - "*.md"                          # every document, the frozen ones included: an accepted record or a frozen comparison meets the thresholds by wording edits, and what no wording edit reaches stands under a departure below (plc-0004 rule 14, plc-0005 rule 7; decision dec-0048-frozen-documents-take-wording-edits)
-  grade_ceiling: 13                   # the module's default is 10: the kit's own descent to it is a work item after this module, 12 then 10, one step per change (decision dec-0046-language-module-rulings)
-  sentence_words: 100                 # the module's default is 25: the same descent, 60 then 40 then 25
+  grade_ceiling: 10                   # the module's default, written out (decision dec-0046-language-module-rulings): the kit came down to it from 13 in one pass on 2026-11-12, not in steps (decision dec-0127-one-pass-to-the-language-defaults)
+  sentence_words: 25                  # the module's default, written out: the kit came down to it from 100 in the same pass, not in steps (decision dec-0127-one-pass-to-the-language-defaults)
   levels:                             # per rule: error (a finding, red), warning (a note), off; the defaults, written out
     grade: error
     sentence: error
@@ -731,13 +731,165 @@ const-language:                       # the prose of covered documents: a grade 
       allow:
         - sentence
       reason: a list framed by a pair of dashes, or a carry-list entry of homes, which no wording edit splits without changing its meaning
+    - paths:
+        - "/docs/decisions/dec-0001-session-conduct-rows.md"
+        - "/docs/decisions/dec-0002-status-encodes-lifecycle.md"
+        - "/docs/decisions/dec-0004-catalogs-module.md"
+        - "/docs/decisions/dec-0005-reference-forms.md"
+        - "/docs/decisions/dec-0006-accumulating-set-first.md"
+        - "/docs/decisions/dec-0008-policies-by-location.md"
+        - "/docs/decisions/dec-0009-module-routine-validation-and-inputs.md"
+        - "/docs/decisions/dec-0011-one-policy-per-kind.md"
+        - "/docs/decisions/dec-0012-record-references-are-provenance.md"
+        - "/docs/decisions/dec-0013-non-authoritative-status.md"
+        - "/docs/decisions/dec-0014-territory-dialect.md"
+        - "/docs/decisions/dec-0015-pre-module-audit-rulings.md"
+        - "/docs/decisions/dec-0016-yes-on-the-change.md"
+        - "/docs/decisions/dec-0017-records-numbered-now.md"
+        - "/docs/decisions/dec-0019-meta-types-module-rulings.md"
+        - "/docs/decisions/dec-0020-gate-script-rules.md"
+        - "/docs/decisions/dec-0022-output-log-through-logging.md"
+        - "/docs/decisions/dec-0023-shared-gate-code-at-module-two.md"
+        - "/docs/decisions/dec-0024-decision-records-module-rulings.md"
+        - "/docs/decisions/dec-0025-shared-gate-code-linked.md"
+        - "/docs/decisions/dec-0026-imports-at-the-top.md"
+        - "/docs/decisions/dec-0027-record-citations-optional.md"
+        - "/docs/decisions/dec-0028-carrying-a-ruling-is-routine.md"
+        - "/docs/decisions/dec-0029-catalogs-module-rulings.md"
+        - "/docs/decisions/dec-0030-carry-audit-mandatory.md"
+        - "/docs/decisions/dec-0031-record-amended-until-its-yes.md"
+        - "/docs/decisions/dec-0032-work-starts-on-a-branch.md"
+        - "/docs/decisions/dec-0033-referencing-module-rulings.md"
+        - "/docs/decisions/dec-0034-research-and-policies-numbered.md"
+        - "/docs/decisions/dec-0035-locations-module-rulings.md"
+        - "/docs/decisions/dec-0036-task-close-module-rulings.md"
+        - "/docs/decisions/dec-0037-dials-file-block-style.md"
+        - "/docs/decisions/dec-0038-log-record-per-print.md"
+        - "/docs/decisions/dec-0039-policies-state-their-kinds.md"
+        - "/docs/decisions/dec-0041-questions-module-rulings.md"
+        - "/docs/decisions/dec-0042-interaction-module-rulings.md"
+        - "/docs/decisions/dec-0043-kit-plugins-through-project-settings.md"
+        - "/docs/decisions/dec-0045-frozen-documents-stay-in-the-style-scan.md"
+        - "/docs/decisions/dec-0046-language-module-rulings.md"
+        - "/docs/decisions/dec-0047-decision-shape-printed-at-session-start.md"
+        - "/docs/decisions/dec-0048-frozen-documents-take-wording-edits.md"
+        - "/docs/decisions/dec-0049-module-links-held-by-a-kit-check.md"
+        - "/docs/decisions/dec-0050-typo-fixes-and-quoted-ids.md"
+        - "/docs/decisions/dec-0051-module-citation-rule-in-the-guide.md"
+        - "/docs/decisions/dec-0052-doc-budgets-module-rulings.md"
+        - "/docs/decisions/dec-0053-drafts-keep-their-versions.md"
+        - "/docs/decisions/dec-0054-acceptance-items-name-their-rows.md"
+        - "/docs/decisions/dec-0055-promise-audit-fixes.md"
+        - "/docs/decisions/dec-0056-portability-grep-and-gate-lists.md"
+        - "/docs/decisions/dec-0057-pr-flow-merge-names-the-yes.md"
+        - "/docs/decisions/dec-0058-ci-runs-each-check-in-parallel.md"
+        - "/docs/decisions/dec-0059-bare-repo-install-in-ci.md"
+        - "/docs/decisions/dec-0060-ci-installs-from-the-github-remote.md"
+        - "/docs/decisions/dec-0061-ci-runs-one-job-per-module.md"
+        - "/docs/decisions/dec-0062-install-guide-governed-kind.md"
+        - "/docs/decisions/dec-0063-apache-license-with-notice.md"
+        - "/docs/decisions/dec-0064-shared-gate-defects-one-refusal-one-path-rule.md"
+        - "/docs/decisions/dec-0065-shared-envelope-reader-and-markdown-line-endings.md"
+        - "/docs/decisions/dec-0066-interaction-reader-dials-and-entry-matching.md"
+        - "/docs/decisions/dec-0067-task-close-trunk-remote-and-own-closing-clauses.md"
+        - "/docs/decisions/dec-0068-enforcement-tables-destination-classes-and-kit-checks-held.md"
+        - "/docs/decisions/dec-0069-kit-checks-hold-module-lists-floor-clauses-shared-numbers-and-kit-names.md"
+        - "/docs/decisions/dec-0070-runners-import-through-links-in-tests.md"
+        - "/docs/decisions/dec-0071-projects-install-from-github.md"
+        - "/docs/decisions/dec-0072-every-message-typed-once-in-the-fixtures.md"
+        - "/docs/decisions/dec-0073-packages-resolve-their-own-file.md"
+        - "/docs/decisions/dec-0074-install-checks-run-on-the-pinned-claude-code-and-read-its-documented-json.md"
+        - "/docs/decisions/dec-0075-install-checks-read-the-init-event-keep-plugin-variables-and-run-locally-on-the-pin.md"
+        - "/docs/decisions/dec-0076-hooks-give-each-shared-git-call-a-budget.md"
+        - "/docs/decisions/dec-0077-module-readme-pages.md"
+        - "/docs/decisions/dec-0078-landed-collisions-renumber-and-kit-checks-hold-numbers-descriptions-namespaces-and-folders.md"
+        - "/docs/decisions/dec-0079-skills-named-at-their-moment.md"
+        - "/docs/decisions/dec-0080-fixtures-run-through-check-aspects.md"
+        - "/docs/decisions/dec-0081-rulings-carry-anchors.md"
+        - "/docs/decisions/dec-0082-handle-migration-in-records.md"
+        - "/docs/decisions/dec-0083-handle-forms-held-by-a-kit-check.md"
+        - "/docs/decisions/dec-0084-one-deadline-per-hook-run.md"
+        - "/docs/decisions/dec-0085-policy-pointer-on-a-green-write.md"
+        - "/docs/decisions/dec-0086-three-id-exceptions-partial-surveys-and-three-kit-holds.md"
+        - "/docs/decisions/dec-0087-module-metrics-report.md"
+        - "/docs/decisions/dec-0088-ruff-complexity-limit.md"
+        - "/docs/decisions/dec-0089-module-coverage-report.md"
+        - "/docs/decisions/dec-0090-complexity-marks-split-away.md"
+        - "/docs/decisions/dec-0091-module-fixtures-run-as-pytest.md"
+        - "/docs/decisions/dec-0092-rename-to-claude-constitution-layer-kit.md"
+        - "/docs/decisions/dec-0093-module-evals-with-local-receipts.md"
+        - "/docs/decisions/dec-0094-eval-runs-record-only-what-changes-the-verdict.md"
+        - "/docs/decisions/dec-0095-setup-check-takes-the-app-hooks-path.md"
+        - "/docs/decisions/dec-0096-shared-package-named-constitution-layer-kit.md"
+        - "/docs/decisions/dec-0097-bare-ids-follow-a-renumbering.md"
+        - "/docs/decisions/dec-0098-modules-install-from-a-plugin-subfolder.md"
+        - "/docs/decisions/dec-0099-shared-code-installed-as-a-pip-package.md"
+        - "/docs/decisions/dec-0100-gate-declaration-scoped-to-one-guarded-run.md"
+        - "/docs/decisions/dec-0101-bootstrap-on-a-branch-with-two-questions.md"
+        - "/docs/decisions/dec-0102-bootstrap-recommends-and-copies-the-kernel-first.md"
+        - "/docs/decisions/dec-0103-rollout-plan-status-matrix.md"
+        - "/docs/decisions/dec-0104-public-before-the-ci-bound-proofs.md"
+        - "/docs/decisions/dec-0105-template-gives-the-shapes-modules-fill.md"
+        - "/docs/decisions/dec-0106-two-dials-files-and-kernel-keys.md"
+        - "/docs/decisions/dec-0107-shared-test-files-in-the-distribution.md"
+        - "/docs/decisions/dec-0108-kernel-at-docs-constitution.md"
+        - "/docs/decisions/dec-0109-mature-project-proofs-after-the-switch.md"
+        - "/docs/decisions/dec-0110-new-document-command-granted-by-a-hook.md"
+        - "/docs/decisions/dec-0111-worktrees-and-scratch-folders.md"
+        - "/docs/decisions/dec-0112-email-forks-and-pypi-before-the-switch.md"
+        - "/docs/decisions/dec-0113-module-effect-is-rules-applied-not-bypassed.md"
+        - "/docs/decisions/dec-0114-module-effect-report-design.md"
+        - "/docs/decisions/dec-0115-long-documents-split-and-carry-entries-follow-moved-text.md"
+        - "/docs/decisions/dec-0116-tokens-per-commit-counted-by-ccusage.md"
+        - "/docs/decisions/dec-0117-change-cost-module-rulings.md"
+        - "/docs/decisions/dec-0118-two-ceilings-follow-the-dials-file.md"
+        - "/docs/decisions/dec-0119-pinned-tool-files-in-the-plugin-root.md"
+        - "/docs/decisions/dec-0120-two-profiles-taken-in-the-guides-order.md"
+        - "/docs/decisions/dec-0121-falling-grade-after-a-write-is-a-note.md"
+        - "/docs/decisions/dec-0122-module-mutation-report.md"
+        - "/docs/decisions/dec-0123-commit-hash-stands-in-dated-text.md"
+        - "/docs/decisions/dec-0124-renamed-record-accepted-again.md"
+        - "/docs/decisions/dec-0125-turn-end-report-waits-while-agents-run.md"
+        - "/docs/decisions/dec-0126-each-handler-holds-its-own-hook-budget.md"
+        - "/docs/research/res-0001-const-meta-types.md"
+        - "/docs/research/res-0002-const-decision-records.md"
+        - "/docs/research/res-0003-const-catalogs.md"
+        - "/docs/research/res-0004-const-referencing.md"
+        - "/docs/research/res-0005-const-locations.md"
+        - "/docs/research/res-0006-const-task-close.md"
+        - "/docs/research/res-0008-const-interaction.md"
+        - "/docs/research/res-0010-const-language.md"
+        - "/docs/research/res-0011-const-doc-budgets.md"
+        - "/docs/research/res-0012-const-interaction.md"
+        - "/docs/research/res-0013-fixture-runner.md"
+        - "/docs/research/res-0014-const-locations.md"
+        - "/docs/research/res-0015-const-change-cost.md"
+        - "/docs/research/res-0016-mutation-score.md"
+      allow:
+        - sentence
+      reason: frozen documents, accepted records and frozen comparisons, that took every wording edit their policies list on 2026-11-12; the sentences left hang on a colon, a pair of dashes or a relative clause, or quote a text, and no listed edit splits them (rule 14 of plc-0004-decision-records, rule 7 of plc-0005-research)
+    - paths:
+        - "/docs/decisions/dec-0010-module-research-per-module.md"
+      allow:
+        - sentence
+        - grade
+      reason: an accepted record that took every wording edit its policy lists on 2026-11-12 and still reads above grade 10; its long sentences stand for the reason of the entry above (rule 14 of plc-0004-decision-records)
 
 const-doc-budgets:                    # a character ceiling per group of documents, measured after the fact (MODULE.md §7)
   severity: block                     # values: block | warn — block: a finding reaches the model as a block after the write; warn: as context
   log_dir: local/gate-logs
-  ceilings:                           # the founding entries set 2026-09-29 by the report --scan --since 2026-09-14, a later entry on the day its own comment names, over its own `window`; each by the rule: the window's longest plus 10 %, rounded up to 1,000; at warning until 30 days of data; an entry at error re-set 2026-11-08 by the report --scan --since 2026-10-09, its window those 30 days, a group moving to error in the change that brings it under its number (rollout plan item 9.9); every Markdown file git lists stands under one ceiling (decision dec-0052-doc-budgets-module-rulings)
+  ceilings:                           # the founding entries set 2026-09-29 by the report --scan --since 2026-09-14, a later entry on the day its own comment names, over its own `window`; each by the rule: the window's longest plus 10 %, rounded up to 1,000; at warning until 30 days of data; an entry at error re-set 2026-11-08 by the report --scan --since 2026-10-09, its window those 30 days, save an entry whose own comment names a later re-set; a group moving to error in the change that brings it under its number (rollout plan item 9.9); every Markdown file git lists stands under one ceiling (decision dec-0052-doc-budgets-module-rulings)
+    # By decision dec-0128-thirteen-ceilings-follow-the-dials-file, the number, the level and the window of thirteen
+    # founding ceilings are those of their entries: comparisons, kernel, intent, requirements, style-guide, readme,
+    # module-skills, install-notes, kit-agents, kit-skills, templates, rollout-plan and module-documents. Two of them,
+    # requirements and module-documents, were re-set again on 2026-11-12, as their own comments say. A later re-set
+    # of any of them by the rule at this key is routine: a new window, the number that rule gives from it, and the level.
+    # The change that makes the re-set writes its day and its reason in a comment at that entry. A change of such an
+    # entry by another measure, such as a number set from a shortened document, is priced by its stakes like any other change.
     # records, 2026-11-09: kept at 34,000, the number the decider's pick D13 of 2026-11-08 kept, and moved to error; the two
     # frozen records over it stand under departures below (decision dec-0115-long-documents-split-and-carry-entries-follow-moved-text, R8 and R10).
+    # A third, over it since the wording edits of 2026-11-12, stands under a departure below too, with its reason there
+    # (decision dec-0127-one-pass-to-the-language-defaults, R4).
     - name: records   # the accepted records among them frozen: wording edits only (plc-0004 rule 14)
       paths: *decisions
       max: 34000
@@ -764,13 +916,22 @@ const-doc-budgets:                    # a character ceiling per group of documen
     # module-documents, 2026-11-08: set from the seven documents shortened as far as their rulings allow (the decider's
     # picks D5 to D11 of 2026-11-08 in chat): the longest after the cut, modules/const-referencing/MODULE.md at 81,583
     # characters, plus 10 %, rounded up to 1,000. Not the window's longest, 89,175 on 2026-10-12, before an earlier cut.
+    # Re-set 2026-11-12 by the rule at the key `ceilings` after the language descent split the documents' sentences: the longest,
+    # modules/const-change-cost/MODULE.md at 90,261 characters, plus 10 %, rounded up to 1,000 (the decider's pick of
+    # 2026-11-12 in chat).
+    # By decision dec-0127-one-pass-to-the-language-defaults, the number, the level and the window of this ceiling are
+    # those of this entry, and of no record. A later re-set by the rule at the key `ceilings` is routine: a new window, the
+    # number that rule gives from it (the window's longest plus 10 %, rounded up to 1,000), and the level (warning until
+    # 30 days of data, error in the change that brings the group under its number). The change that makes the re-set
+    # writes its day and its reason in this comment. A change of this entry by another measure, such as a number set from
+    # a shortened document, is priced by its stakes like any other change.
     - name: module-documents
       paths: *module_documents
-      max: 90000
+      max: 100000
       level: error
       window:
-        from: 2026-10-09
-        to: 2026-11-08
+        from: 2026-10-13
+        to: 2026-11-12
     - name: kernel
       paths: *kernel
       max: 16000
@@ -801,13 +962,21 @@ const-doc-budgets:                    # a character ceiling per group of documen
       window:
         from: 2026-10-09
         to: 2026-11-08
+    # requirements, 2026-11-12: re-set by the rule after the language descent split the sentences of its rows: the
+    # document at 46,607 characters, plus 10 %, rounded up to 1,000 (the decider's pick of 2026-11-12 in chat).
+    # By decision dec-0127-one-pass-to-the-language-defaults, the number, the level and the window of this ceiling are
+    # those of this entry, and of no record. A later re-set by the rule at the key `ceilings` is routine: a new window, the
+    # number that rule gives from it (the window's longest plus 10 %, rounded up to 1,000), and the level (warning until
+    # 30 days of data, error in the change that brings the group under its number). The change that makes the re-set
+    # writes its day and its reason in this comment. A change of this entry by another measure, such as a number set from
+    # a shortened document, is priced by its stakes like any other change.
     - name: requirements
       paths: *requirements
-      max: 46000
+      max: 52000
       level: error
       window:
-        from: 2026-10-09
-        to: 2026-11-08
+        from: 2026-10-13
+        to: 2026-11-12
     # rollout-plan, 2026-11-08: kept at 48,000 and moved to error once the plan's done items were trimmed to the form of
     # rule 5 of plc-0008-rollout-plan, which took the plan from about 50,700 to about 40,900 characters (the decider's
     # pick D16 of 2026-11-08 in chat). The number is not the window's longest plus 10 %: the window's longest is the size
@@ -945,6 +1114,11 @@ const-doc-budgets:                    # a character ceiling per group of documen
       allow:
         - records
       reason: accepted records, frozen by rule 14 of plc-0004-decision-records, which no wording edit it lists brings under 34,000 (decision dec-0115-long-documents-split-and-carry-entries-follow-moved-text, R8)
+    - paths:
+        - "/docs/decisions/dec-0117-change-cost-module-rulings.md"
+      allow:
+        - records
+      reason: an accepted record, frozen by rule 14 of plc-0004-decision-records, that the wording edits of the language descent took from 33,987 to 34,500 characters on 2026-11-12 (the decider's pick of that day; decision dec-0127-one-pass-to-the-language-defaults, R4)
 
 const-locations:                      # creates documents; blocks nothing, so no severity (MODULE.md §7)
   log_dir: local/gate-logs

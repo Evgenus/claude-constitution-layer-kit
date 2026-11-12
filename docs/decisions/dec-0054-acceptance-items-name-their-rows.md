@@ -25,7 +25,10 @@ The decider asked for every row of the matrix of [constitution-requirements](../
   - **Pros:** a status readable without running anything.
   - **Cons:** a new document kind, with its own policy, that goes stale at the next commit.
 
-The session recommended A. <a id="r1"></a>**R1.** A, chosen by the decider in chat on 2026-09-29: a row's status is derived by a kit script on each run and stored nowhere; the matrix gains no column, and a module's progress stays in the rollout plan.
+The session recommended A. <a id="r1"></a>**R1.** A, chosen by the decider in chat on 2026-09-29:
+
+- **a row's status is derived** by a kit script on each run and stored nowhere;
+- **the matrix gains no column**, and a module's progress stays in the rollout plan.
 
 ## 2. What proves a row
 
@@ -39,13 +42,19 @@ The session recommended A. <a id="r1"></a>**R1.** A, chosen by the decider in ch
   - **Pros:** a row's verdict comes from the items that prove it.
   - **Cons:** a template change, and judgment on every item of eleven modules.
 
-The session recommended C. <a id="r2"></a>**R2.** C, chosen by the decider in chat on 2026-09-29: every acceptance item of a module document names the rows it proves; a row's result combines its items across every module that holds a part of it; a row a module's rows section holds and no item of that module names is a finding.
+The session recommended C. <a id="r2"></a>**R2.** C, chosen by the decider in chat on 2026-09-29:
+
+- **every acceptance item** of a module document names the rows it proves;
+- **a row's result combines** its items across every module that holds a part of it;
+- **a row a module's rows section holds** and no item of that module names is a finding.
 
 ## 3. How an item names its rows
 
 - **A. A `rows` column in the acceptance table**, each cell linking the rows the item proves.
   - **Pros:** the tag stands beside its item; the script reads one cell.
-  - **Cons:** a link costs about 40 characters, since a bare row handle may stand only in the requirements document; about 1,000 to 2,000 characters per module document.
+  - **Cons:**
+    - **a link costs about 40 characters**, since a bare row handle may stand only in the requirements document;
+    - **about 1,000 to 2,000 characters** per module document.
 - **B. Row links inside the text of "what it proves".**
   - **Pros:** no change to the table's shape.
   - **Cons:** the script cannot tell a proved row from a row mentioned for context.
@@ -99,7 +108,10 @@ Some items prove packaging, not a row: the shape of the hooks file, the manifest
   - **Pros:** evidence for the portability rows.
   - **Cons:** it solves part of the slot, and the gate needs an exception.
 
-The session recommended A. <a id="r5"></a>**R5.** A, chosen by the decider in chat on 2026-09-29: an item that proves no row of its module holds `none` in its `rows` cell; the report lists such items per module outside every row's verdict, and a red one still makes the run red.
+The session recommended A. <a id="r5"></a>**R5.** A, chosen by the decider in chat on 2026-09-29:
+
+- **an item that proves no row** of its module holds `none` in its `rows` cell;
+- **the report lists such items** per module outside every row's verdict, and a red one still makes the run red.
 
 ## 6. How the script reads the runners
 
@@ -110,7 +122,12 @@ The session recommended A. <a id="r5"></a>**R5.** A, chosen by the decider in ch
   - **Pros:** an exact contract.
   - **Cons:** it fails the admission test of [rule 2 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r2) as written, and ships kit-only code to consumers.
 
-The session recommended A. <a id="r6"></a>**R6.** A, chosen by the decider in chat on 2026-09-29: the script reads each runner's `[ok]` and `[FAIL]` item lines and its last line; an item line out of that format, a count of item lines that differs from the total of the last line, or an exit other than 0 or 2 is a configuration failure, never a pass. A fixture item's handle is its runner number, bare or under `T` or `S`: `T12` and a bare `12` are item 12, `S101` is item 101. The shared harness does not change.
+The session recommended A. <a id="r6"></a>**R6.** A, chosen by the decider in chat on 2026-09-29:
+
+- **the script reads each runner's** `[ok]` and `[FAIL]` item lines and its last line;
+- **an item line out of that format**, a count of item lines that differs from the total of the last line, or an exit other than 0 or 2 is a configuration failure, never a pass.
+
+A fixture item's handle is its runner number, bare or under `T` or `S`: `T12` and a bare `12` are item 12, `S101` is item 101. The shared harness does not change.
 
 ## 7. Gate or report
 
@@ -124,13 +141,20 @@ The session recommended A. <a id="r6"></a>**R6.** A, chosen by the decider in ch
   - **Pros:** every commit proves every row.
   - **Cons:** minutes added to every such commit.
 
-The session recommended B. <a id="r7"></a>**R7.** B, chosen by the decider in chat on 2026-09-29: a plain run is a gate over the module documents and the matrix, running no runner, one line of the gate list. It is red on a row a module's rows section holds that no item of that module names; on an item whose `rows` cell is empty, or holds anything but row links or `none`; on a link to a row the matrix does not hold; and on an item that names a row its module's rows section does not hold. What the full run needs to read the tables is red too: an acceptance table without the `rows` column; an item cell that is not a list of handles and closed ranges, such as `T1–T4, T7`; a kind that is none of `fixture`, `kit check`, `live`, `live, deferred` and `review`; a fixture item whose handle is no runner number. So is a row the matrix gives a module that no module's rows section holds. The full run, with results, is on request, beside the module runners.
+The session recommended B. <a id="r7"></a>**R7.** B, chosen by the decider in chat on 2026-09-29: a plain run is a gate over the module documents and the matrix, running no runner, one line of the gate list. It is red on a row a module's rows section holds that no item of that module names; on an item whose `rows` cell is empty, or holds anything but row links or `none`; on a link to a row the matrix does not hold; and on an item that names a row its module's rows section does not hold. What the full run needs to read the tables is red too:
+
+- **an acceptance table** without the `rows` column;
+- **an item cell that is not a list** of handles and closed ranges, such as `T1–T4, T7`;
+- **a kind that is none** of `fixture`, `kit check`, `live`, `live, deferred` and `review`;
+- **a fixture item whose handle** is no runner number.
+
+So is a row the matrix gives a module that no module's rows section holds. The full run, with results, is on request, beside the module runners.
 
 <a id="r8"></a>**R8.** The gate runs in the kit's CI with the other kit checks once CI is wired.
 
 ## 8. The script's name and flags
 
-The session first proposed `scripts/check-rows.py`, a plain run the gate and `--run` the report, against the `report-rows.py … --no-run` of the planning session, since the kit's other gates are `check-*.py` run plain. The decider found "rows" too bound to the matrix's own context and proposed "aspects"; the session recommended `check-requirements.py`, since the unit judged is the row, which the kit cites as a requirement.
+The session first proposed `scripts/check-rows.py`, a plain run the gate and `--run` the report, against the `report-rows.py … --no-run` of the planning session, since the kit's other gates are `check-*.py` run plain. The decider found "rows" too bound to the matrix's own context and proposed "aspects". The session recommended `check-requirements.py`, since the unit judged is the row, which the kit cites as a requirement.
 
 <a id="r9"></a>**R9.** `scripts/check-aspects.py`, chosen by the decider in chat on 2026-09-29: kit tooling, never shipped in a module. A plain run is the gate of R7; `--run` also runs the runners and prints the report; `--module <name>` limits `--run` to one module; `--self-test` is its fixture.
 
@@ -140,7 +164,7 @@ These follow the plan the decider saw, and stay open to override.
 
 <a id="r10"></a>**R10.** The report gives each row its destination from the matrix, the modules that hold a part of it with their manifest versions, its items with their kind and result, and one verdict. A row is `red` when an item of it is red. It is `green` when at least one of its items was run and every item run was green, the items no run examines listed beside. A row whose items are none of them run takes their kinds: `live, done <date>`, `live` for a live item that names no date, `live, deferred`, `review`, `kit check`, or `fixture, not read` for a fixture item the runner did not print. A row a module holds and no item names is `no item`. A row no module holds is counted as `no module`, shows its destination and its enforcement cell as the matrix states them — definitional, config, review, a kit CI not yet built — and is never green.
 
-<a id="r11"></a>**R11.** An item names a row only where it proves what the module's reading of that row in [template §3](../../module-template/MODULE.md#t3) says the module ships — a gate, a carrier, an assist. The judgment of an advisory row is proved by its boundary examples at the review item, never by a fixture, so a fixture green on an advisory row proves its carrier alone.
+<a id="r11"></a>**R11.** An item names a row only where it proves what the module's reading of that row in [template §3](../../module-template/MODULE.md#t3) says the module ships — a gate, a carrier, an assist. The judgment of an advisory row is proved by its boundary examples at the review item, never by a fixture. A fixture green on an advisory row proves its carrier alone.
 
 <a id="r12"></a>**R12.** In a full run, a runner's item that no row of the module's acceptance table names, and a fixture item a table names that the runner did not print, are findings.
 
@@ -161,7 +185,12 @@ The first full run over the eleven runners gave 40 rows `green`, twelve of them 
   - **Pros:** nothing is green that a run did not prove.
   - **Cons:** the tables are edited again, and the proof that a carrier works leaves the row.
 
-The session recommended C. <a id="r13"></a>**R13.** C, chosen by the decider in chat on 2026-09-29: a row whose enforcement cell in the matrix opens with the word `advisory` and holds the word `gate` or `gates` nowhere takes `carrier green` where R10 would give it `green`; the report counts it apart. The words are matched whole, so "ungateable" is no gate and "gate-lite" is one.
+The session recommended C. <a id="r13"></a>**R13.** C, chosen by the decider in chat on 2026-09-29:
+
+- **a row whose enforcement cell** in the matrix opens with the word `advisory` and holds the word `gate` or `gates` nowhere takes `carrier green` where R10 would give it `green`;
+- **the report counts it apart.**
+
+The words are matched whole, so "ungateable" is no gate and "gate-lite" is one.
 
 ## Carry list
 

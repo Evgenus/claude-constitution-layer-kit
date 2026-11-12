@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-The install guide told a project to register a local clone of the kit as its marketplace and to install each module at project scope; it said each install copies the module into the plugin cache, and that a later edit in the kit reaches the project only through an update. Limit 3 of [kit-shared-gate-code §4](../../shared/GATE.md#g4) said the opposite for the kit's own sessions: a relative-path entry of a marketplace added from a local folder runs from its source. The two could not both hold for a project, and the guide's check, `scripts/check-install-guide.py`, looked only at the cache, never at what a session runs.
+The install guide told a project to register a local clone of the kit as its marketplace and to install each module at project scope. It said each install copies the module into the plugin cache, and that a later edit in the kit reaches the project only through an update. Limit 3 of [kit-shared-gate-code §4](../../shared/GATE.md#g4) said the opposite for the kit's own sessions: a relative-path entry of a marketplace added from a local folder runs from its source. The two could not both hold for a project, and the guide's check, `scripts/check-install-guide.py`, looked only at the cache, never at what a session runs.
 
 On 2026-10-07, on Claude Code 2.1.286, the session ran both forms in throwaway configurations, a marked file in each place a session might read:
 
@@ -23,8 +23,13 @@ Two questions followed, put to the decider in chat that day, one per message.
 ## 1. Which form the guide gives a project
 
 - **A. GitHub first, the local clone a named live mode.** The bootstrap installs from the repository; a short passage says a registered clone runs live.
-  - **Pros:** a project runs the frozen, versioned copy the modules' design assumes; the update section becomes true; the live form stays available with its risk stated.
-  - **Cons:** a project needs read access to the repository, private today; a fix found in a draft's live proof reaches the project only after a reinstall.
+  - **Pros:**
+    - **a project runs the frozen, versioned copy** the modules' design assumes;
+    - **the update section becomes true**;
+    - **the live form stays available** with its risk stated.
+  - **Cons:**
+    - **a project needs read access to the repository**, private today;
+    - **a fix found in a draft's live proof** reaches the project only after a reinstall.
 - **B. Keep the local clone, state that it runs live.**
   - **Pros:** matches the guide's purpose while modules are drafts; a kit fix is live at once.
   - **Cons:** a project's behaviour changes with every checkout and pull in the clone, unfinished branches included; no version is pinned.
@@ -34,7 +39,7 @@ Two questions followed, put to the decider in chat that day, one per message.
 
 Recommendation: A, since only the GitHub form gives a project a frozen copy per version; the session recommended it. The decider chose A in chat on 2026-10-07.
 
-<a id="r1"></a>**R1.** A project installs the kit's modules from its GitHub repository: the install guide's bootstrap registers `Evgenus/claude-constitution-layer-kit` as the marketplace, and its prerequisites name read access to the repository beside the local clone, from which the guide's commands take the module names, the kernel copy, the scans and the fixtures. A draft's live proof still loads the modules from the kit's path, as rule 4 of [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r4) says; every project, the proof's included, installs from GitHub once the modules are published, at `0.1.0` as [step 10 of the rollout plan](../rollout-plan.md#s10) says, the switch being [its step 11](../rollout-plan.md#s11).
+<a id="r1"></a>**R1.** A project installs the kit's modules from its GitHub repository: the install guide's bootstrap registers `Evgenus/claude-constitution-layer-kit` as the marketplace, and its prerequisites name read access to the repository beside the local clone, from which the guide's commands take the module names, the kernel copy, the scans and the fixtures. A draft's live proof still loads the modules from the kit's path, as rule 4 of [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r4) says. Every project, the proof's included, installs from GitHub once the modules are published, at `0.1.0` as [step 10 of the rollout plan](../rollout-plan.md#s10) says, the switch being [its step 11](../rollout-plan.md#s11).
 
 <a id="r2"></a>**R2.** Registering a local clone as the marketplace is live mode: a session runs each module from the clone's working files in place, so every edit and every branch checked out there reaches the project, a hook script at its next run and the rest at the next session or reload. It serves the kit's own development and a module's live proof — a project that is a draft's proof loads the modules so, and switches to the GitHub install once the modules are published — never a project's working install.
 
@@ -42,7 +47,7 @@ Recommendation: A, since only the GitHub form gives a project a frozen copy per 
 
 Building the check showed one claim it could no longer run. It had held that an update leaves a draft's change at an unchanged version untaken, and a reinstall takes it, by committing a probe into the local clone the marketplace read. With a GitHub source the platform fetches from GitHub alone: on 2026-10-07 `claude plugin marketplace update` ignored the `origin` of its own clone and dropped a local commit there, and a static git server on localhost failed the platform's clone, which read only the server's refs and `HEAD`. A CI job cannot push a probe to GitHub.
 
-- **A. The GitHub form, the update claim narrowed and stated.** The check installs from the change's GitHub branch and holds marketplace, install, a session running the cache copy, kernel, scan, commit and uninstall; for update and reinstall it holds what a run can show, and the guide states the draft behaviour as a platform fact seen that day.
+- **A. The GitHub form, the update claim narrowed and stated.** The check installs from the change's GitHub branch and holds marketplace, install, a session running the cache copy, kernel, scan, commit and uninstall. For update and reinstall it holds what a run can show, and the guide states the draft behaviour as a platform fact seen that day.
   - **Pros:** the check runs the form the guide gives; the new session claim guards the defect found.
   - **Cons:** one claim moves from a probe to a dated observation; CI's job needs git credentials, and a run by hand needs the branch pushed.
 - **B. The GitHub form for the bootstrap, a local marketplace for update and reinstall.**
@@ -58,7 +63,7 @@ Recommendation: A, since it tests the form projects use and adds the claim that 
 
 <a id="r4"></a>**R4.** The check holds that the marketplace is registered from a GitHub source naming the source's repository, that the platform's clone of it holds the same modules at the same versions as the kit's clone — in CI the clone is the job's checkout of the change and the source its head branch — and that a headless session in the trusted project reports each module's path in the plugin cache. The path is reported before the model is called, so the run needs no login.
 
-<a id="r5"></a>**R5.** For update the check holds that every module stays in the plugin cache at its manifest version and enabled; for reinstall, that a module's cached copy holds the same files as the module in the platform's clone of the marketplace, read through its links, byte for byte. That an update leaves a draft's change at an unchanged version untaken is a platform fact the guide states with the version and the date it was seen, and no run of the check exercises it. This replaces, in R4 of [dec-0062-install-guide-governed-kind](dec-0062-install-guide-governed-kind.md#r4), the probe the check committed into its clone of the kit to show that the update leaves the cached draft as it was and the reinstall takes the change.
+<a id="r5"></a>**R5.** For update the check holds that every module stays in the plugin cache at its manifest version and enabled; for reinstall, that a module's cached copy holds the same files as the module in the platform's clone of the marketplace, read through its links, byte for byte. That an update leaves a draft's change at an unchanged version untaken is a platform fact the guide states with the version and the date it was seen. No run of the check exercises it. This replaces, in R4 of [dec-0062-install-guide-governed-kind](dec-0062-install-guide-governed-kind.md#r4), the probe the check committed into its clone of the kit to show that the update leaves the cached draft as it was and the reinstall takes the change.
 
 ## Applied
 

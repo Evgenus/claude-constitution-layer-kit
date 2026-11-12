@@ -8,8 +8,8 @@ Modes:    no arguments  read one event on stdin, reconstruct the document as it 
           --scan [DIR]  judge every covered document of the repository containing DIR (default:
                         the current directory) — the check for CI and before a merge.
 Reads:    from the event: hook_event_name, tool_name, tool_input.file_path, .content, .old_string,
-          .new_string, .replace_all, cwd, session_id. From constitution.yaml: this module's dials
-          const-questions.territories (path patterns; default every Markdown file),
+          .new_string, .replace_all, cwd, session_id, transcript_path. From constitution.yaml: this
+          module's dials const-questions.territories (path patterns; default every Markdown file),
           .markers (the marker texts; default '[decide:', 'TODO', 'TBD', 'FIXME'),
           .severity (block | warn) and .log_dir; .preferences and .boundary_examples are the
           skill's, refused by name only and read by nobody here; the file as a whole is validated

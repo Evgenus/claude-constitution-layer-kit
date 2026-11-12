@@ -20,22 +20,37 @@ The matrix's row, [requirement A4.7](../requirements.md#a4-7), asks that a tree 
 ## Options
 
 - **A. Hold the report while agents work.** While the event lists a running agent, the hook does not report the dirty tree: it is green with a line that gives the count of paths and of agents, and it reports as before at the first turn end with none.
-  - **Pros:** it ends the repeated report in the logged case; the platform documents the field for this purpose, and a run showed it; no state file and no new hook; an event without the field behaves as before.
-  - **Cons:** the session's own uncommitted work also waits until the agents are done; an agent that only reads holds the report too; it narrows a ruling of the module's founding record; the module must read the field from the event itself, since the shared reader does not carry it.
-- **B. Tell the files apart by a write log.** A new hook after each `Write` and `Edit` logs the path with the agent's id, and the turn-end hook leaves out the dirty paths that the log gives to an agent still at work.
+  - **Pros:**
+    - **it ends the repeated report in the logged case**;
+    - **the platform documents the field for this purpose**, and a run showed it;
+    - **no state file and no new hook**;
+    - **an event without the field behaves as before**.
+  - **Cons:**
+    - **the session's own uncommitted work also waits until the agents are done**;
+    - **an agent that only reads holds the report too**;
+    - **it narrows a ruling of the module's founding record**;
+    - **the module must read the field from the event itself**, since the shared reader does not carry it.
+- **B. Tell the files apart by a write log.** A new hook after each `Write` and `Edit` logs the path with the agent's id. The turn-end hook leaves out the dirty paths that the log gives to an agent still at work.
   - **Pros:** the session's own files are still reported at once.
-  - **Cons:** it does not see files changed through the shell, so those are still reported as the session's; it adds a hook on every write, a state file for each session and its cleanup; it is not reliable, and it is much code for a draft module.
-- **C. No code change; state the limit.** The module's document gains a limit that nothing reliable tells the files apart, and the skill advises running the subagents that write in their own worktrees.
+  - **Cons:**
+    - **it does not see files changed through the shell**, so those are still reported as the session's;
+    - **it adds a hook on every write**, a state file for each session and its cleanup;
+    - **it is not reliable**, and it is much code for a draft module.
+- **C. No code change; state the limit.** The module's document gains a limit that nothing reliable tells the files apart. The skill advises running the subagents that write in their own worktrees.
   - **Pros:** honest; no ruling changes; a worktree removes the cause where it is used.
   - **Cons:** the report keeps repeating for agents that share the tree, which is the logged case; it is advice only.
 
 ## Recommendation
 
-Option A, recommended by the session. It is the only option that stops the repeated report with a fact the platform states, and its cost is a delay of the report in a session that goes on. Only a session that is closed while its agents run loses it.
+Option A, recommended by the session. It is the only option that stops the repeated report with a fact the platform states. Its cost is a delay of the report in a session that goes on. Only a session that is closed while its agents run loses it.
 
 ## Choice
 
-Option A, chosen by the decider in chat on 2026-11-11, with the session's defaults: the task types that count are `subagent`, `teammate` and `workflow`; only the status `running` counts; the hold is the same under both severities.
+Option A, chosen by the decider in chat on 2026-11-11, with the session's defaults:
+
+- **the task types that count** are `subagent`, `teammate` and `workflow`;
+- **only the status `running` counts**;
+- **the hold is the same under both severities**.
 
 ## Ruling
 
@@ -43,7 +58,7 @@ Option A, chosen by the decider in chat on 2026-11-11, with the session's defaul
 
 <a id="r2"></a>**R2.** The hold is the same under both values of the `severity` dial. Under `block` the model receives nothing and the turn ends. Under `warn` the user's notice waits too.
 
-<a id="r3"></a>**R3.** The held line gives the count of dirty paths and the count of agent tasks that run, and says that the report waits for the first turn end with none. It is a form of the module's message G1.
+<a id="r3"></a>**R3.** The held line gives the count of dirty paths and the count of agent tasks that run. It says that the report waits for the first turn end with none. It is a form of the module's message G1.
 
 <a id="r4"></a>**R4.** The other outcomes of the hook keep their lines and their order. A clean tree is the clean line, whoever runs. The second stop of a turn is asked before the hold and keeps its own line.
 
@@ -59,7 +74,7 @@ Option A, chosen by the decider in chat on 2026-11-11, with the session's defaul
 
 <a id="r10"></a>**R10.** The skill `commit-before-edit` and the module's install note tell that the report waits while an agent of the session runs. The skill adds that the writer commits their own work all the same.
 
-<a id="r11"></a>**R11.** This record narrows one ruling of the module's founding record. Section 3 of that record says that the hook treats any line of the tree's status as dirty at every turn end, and R4 of [dec-0036-task-close-module-rulings](dec-0036-task-close-module-rulings.md#r4) rules its severities. For a turn end while an agent of the session runs, R1 makes the outcome green. R4 of that record stands for every other turn end, and no other ruling of that record changes.
+<a id="r11"></a>**R11.** This record narrows one ruling of the module's founding record. Section 3 of that record says that the hook treats any line of the tree's status as dirty at every turn end. R4 of [dec-0036-task-close-module-rulings](dec-0036-task-close-module-rulings.md#r4) rules its severities. For a turn end while an agent of the session runs, R1 makes the outcome green. R4 of that record stands for every other turn end, and no other ruling of that record changes.
 
 ## Applied
 

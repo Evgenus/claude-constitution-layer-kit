@@ -21,7 +21,10 @@ Three of the documents are long because they hold text that only some readers ne
 
 - **A. Split into two linked pages.** Move the two blocks each into a page of its own, a new document kind with its policy, the guide keeping one line per page that says when to read it.
   - **Pros:** every session loads less than half of the text; each rule keeps one current-state home and stays whole.
-  - **Cons:** a new kind needs a policy first; every record whose rulings live in those blocks must point to the new page; a page read only on demand can be skipped, like a skill.
+  - **Cons:**
+    - **a new kind needs a policy first**;
+    - **every record whose rulings live in those blocks must point to the new page**;
+    - **a page read only on demand can be skipped**, like a skill.
 - **B. Move "Developing a module" into a kit skill, and "The gate list and CI" into a page.**
   - **Pros:** the module procedure loads at its moment.
   - **Cons:** a rule that lives only in a skill drifts when the skill is not loaded, as [dec-0047-decision-shape-printed-at-session-start](dec-0047-decision-shape-printed-at-session-start.md) found.
@@ -36,14 +39,16 @@ The session recommended A, since this file costs every session and the two block
 
 <a id="r1"></a>**R1.** The bullet "The gate list and CI" of `CLAUDE.md` and its section "Developing a module" move whole into two pages, [the gate-list page](../guide/gate-list-and-ci.md) and [the module-development page](../guide/developing-a-module.md). In their place `CLAUDE.md` keeps one line each that says when the page is read and links it.
 
-<a id="r2"></a>**R2.** The two pages are a document kind of their own, the kit's guide pages, under a new policy, [plc-0012-guide-pages](../policies/plc-0012-guide-pages.md), whose territory is `docs/guide/**`. They are `current-state`. A change to a rule they state is a `process` decision, as one to a rule of `CLAUDE.md` is ([law 9 of CLAUDE.md](../../CLAUDE.md#law-9)); a wording edit of them is routine.
+<a id="r2"></a>**R2.** The two pages are a document kind of their own, the kit's guide pages, under a new policy, [plc-0012-guide-pages](../policies/plc-0012-guide-pages.md), whose territory is `docs/guide/**`. They are `current-state`. A change to a rule they state is a `process` decision, as one to a rule of `CLAUDE.md` is ([law 9 of CLAUDE.md](../../CLAUDE.md#law-9)). A wording edit of them is routine.
 
 ## 2. The page of the shared code
 
 `shared/GATE.md` stood at 125,148 characters against its `shared-code` ceiling of 75,000. Its [§3](../../shared/GATE.md#g3), the shared messages, is 28,469 characters, and its [§5](../../shared/GATE.md#g5), the shared acceptance items, 25,945. [Rule 1 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r1) wrote every shared message out "in this document".
 
 - **A. Split the two tables into two pages of their own, beside `GATE.md`.**
-  - **Pros:** a long table into a document of its own is the seam the length module's skill names first; every message and item stays word for word.
+  - **Pros:**
+    - **a long table into a document of its own is the seam the length module's skill names first**;
+    - **every message and item stays word for word**.
   - **Cons:** rule 1 and the policy's territory change; three kit checks that read the tables read them elsewhere; links into moved rows are repaired.
 - **B. Shorten in place.**
   - **Pros:** one page, no policy change.
@@ -56,7 +61,7 @@ The session recommended A, since the tables are a seam the page already has and 
 
 <a id="r3"></a>**R3.** The table of shared messages of [§3 of kit-shared-gate-code](../../shared/GATE.md#g3), with the paragraphs that lead it, moves to [the page of shared messages](../../shared/MESSAGES.md), and the table of shared acceptance items of [its §5](../../shared/GATE.md#g5), with its lead, to [the page of shared items](../../shared/ITEMS.md). The two sections keep their headings and anchors, each with one line that links its page.
 
-<a id="r4"></a>**R4.** Every message the shared code prints is written out, word for word, on the page of shared messages, and the territory of [plc-0009-shared-code](../policies/plc-0009-shared-code.md) holds the three pages. The kit's checks that read those tables — `scripts/check-copies.py`, `scripts/check-aspects.py` and `scripts/check-handle-forms.py` — read them on the new pages.
+<a id="r4"></a>**R4.** Every message the shared code prints is written out, word for word, on the page of shared messages. The territory of [plc-0009-shared-code](../policies/plc-0009-shared-code.md) holds the three pages. The kit's checks that read those tables — `scripts/check-copies.py`, `scripts/check-aspects.py` and `scripts/check-handle-forms.py` — read them on the new pages.
 
 ## 3. The module template
 
@@ -79,7 +84,7 @@ The session recommended A, since the code rules are a clean seam and a cut of th
 
 <a id="r5"></a>**R5.** The sixteen gate-script rules move whole from [§6 of the module template](../../module-template/MODULE.md#t6) to [the page of gate-script rules](../../module-template/gate-script-rules.md), each keeping its number. That section keeps one line that links the page and says that every Python script a module ships follows all sixteen.
 
-<a id="r6"></a>**R6.** The template's slot guidance is cut until the template fits its ceiling of 23,000. A cut takes only text that no record carries and that repeats another home; a carried text the template cannot keep moves to a page of the template folder that the slot links, and keeps its words.
+<a id="r6"></a>**R6.** The template's slot guidance is cut until the template fits its ceiling of 23,000. A cut takes only text that no record carries and that repeats another home. A carried text the template cannot keep moves to a page of the template folder that the slot links, and keeps its words.
 
 ## 4. The decision-record policy
 
@@ -101,7 +106,7 @@ The session recommended A, since it follows the rule of the other picks of the d
 
 ## 5. The two frozen records over their ceiling
 
-[dec-0093-module-evals-with-local-receipts](dec-0093-module-evals-with-local-receipts.md) stood at 35,810 characters and [dec-0099-shared-code-installed-as-a-pip-package](dec-0099-shared-code-installed-as-a-pip-package.md) at 34,030, against the `records` ceiling of 34,000. [Rule 6 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r6) brings an accepted record under its ceiling by the wording edits of rule 14 where they reach, and declares a departure for what they do not.
+[dec-0093-module-evals-with-local-receipts](dec-0093-module-evals-with-local-receipts.md) stood at 35,810 characters and [dec-0099-shared-code-installed-as-a-pip-package](dec-0099-shared-code-installed-as-a-pip-package.md) at 34,030, against the `records` ceiling of 34,000. [Rule 6 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r6) brings an accepted record under its ceiling by the wording edits of rule 14 where they reach. It declares a departure for what they do not.
 
 - **A. The edits rule 14 allows, then a departure for what they do not reach.**
   - **Pros:** the policy's own procedure; the other records keep 34,000.
@@ -119,10 +124,12 @@ The session recommended A for each, since it is the policy's own procedure and k
 
 ## 6. A record's citation of text moved to another document
 
-Sections 1 to 3 move text that records name as the home of their rulings: 41 records name a block of `CLAUDE.md` that section 1 moves, 22 a table of `shared/GATE.md`, 39 the section of the template that section 3 changes. Those records are accepted and frozen. The kernel allows a reference-form migration at any time ([kernel §5](../constitution/CONVENTIONS.md#k5)), but rule 14 of the decision-record policy listed the migrations a record may take, and a section moved into another document was not among them.
+Sections 1 to 3 move text that records name as the home of their rulings: 41 records name a block of `CLAUDE.md` that section 1 moves, 22 a table of `shared/GATE.md`, 39 the section of the template that section 3 changes. Those records are accepted and frozen. The kernel allows a reference-form migration at any time ([kernel §5](../constitution/CONVENTIONS.md#k5)). Rule 14 of the decision-record policy listed the migrations a record may take, and a section moved into another document was not among them.
 
 - **A. A new migration kind in rule 14, applied in the change that moves the text.**
-  - **Pros:** every home stays true, and a reader goes to the text in one step; it is the form the kernel already allows for a moved file.
+  - **Pros:**
+    - **every home stays true**, and a reader goes to the text in one step;
+    - **it is the form the kernel already allows for a moved file**.
   - **Cons:** many frozen records are edited in one change, so the carry audit is large.
 - **B. A forwarding home: the old place keeps a heading that links the page, and no record is edited.**
   - **Pros:** no frozen record is touched.
@@ -140,14 +147,16 @@ The session recommended A, since it keeps every home true, in one step, by the f
 
 ## 7. The ceilings these sections bring under
 
-<a id="r10"></a>**R10.** The ceilings `guide`, `shared-code` and `policies` each move to error in this change, over the window 2026-10-09 to 2026-11-08, each set to the longest of its documents as this change leaves them plus 10 %, rounded up to 1,000: not the window's longest, which is the size before this change. The ceilings `module-template` and `records` keep the numbers the picks of sections 3 and 5 kept, 23,000 and 34,000, and move to error over the same window. The guide pages stand under a ceiling of their own, `guide-pages`, set by the same rule, at warning until 30 days of data stand behind it.
+<a id="r10"></a>**R10.** The ceilings `guide`, `shared-code` and `policies` each move to error in this change, over the window 2026-10-09 to 2026-11-08, each set to the longest of its documents as this change leaves them plus 10 %, rounded up to 1,000: not the window's longest, which is the size before this change. The ceilings `module-template` and `records` keep the numbers the picks of sections 3 and 5 kept, 23,000 and 34,000. They move to error over the same window. The guide pages stand under a ceiling of their own, `guide-pages`, set by the same rule, at warning until 30 days of data stand behind it.
 
 ## 8. A link to text that moved only in part
 
 R9 says where a link goes when the text of the place it names moved whole. It said nothing of a link that names several places, or of one place whose text moved only in part. The audit of this change found such links placed two ways, and four wordings of a rule for them, written into R9 and rule 14 before acceptance, each read two ways by the next confirming reader. The decider was asked on 2026-11-09.
 
-- **A. Keep the old target while any of the cited text still stands there.** A link moves only when nothing it cites is left at its old place, and then takes the place where the first text it cites now stands.
-  - **Pros:** one yes or no question per link, which a reader checks without reading what a ruling's first part is; it matches the rule for a moved file, and it edits the fewest frozen records.
+- **A. Keep the old target while any of the cited text still stands there.** A link moves only when nothing it cites is left at its old place. It then takes the place where the first text it cites now stands.
+  - **Pros:**
+    - **one yes or no question per link**, which a reader checks without reading what a ruling's first part is;
+    - **it matches the rule for a moved file**, and it edits the fewest frozen records.
   - **Cons:** some links lead to a place that states only part of their ruling, so a reader takes a second step through that place's link.
 - **B. Take the place that states most of what the link cites, a judgment the audit's readers hold.**
   - **Pros:** each link leads where most of its text is.
@@ -158,7 +167,7 @@ R9 says where a link goes when the text of the place it names moved whole. It sa
 
 The session recommended A, since it turns each link into one yes or no question a reader can check. The decider chose A in chat on 2026-11-09.
 
-<a id="r11"></a>**R11.** A link that names several places, or one place whose text moved only in part, keeps its target while any text it cites still stands there; when none does, it takes the place where the first text it cites now stands. A heading, or a line that only links where the text moved, is no text of a place and no text a link cites, save where that heading or line itself states a ruling the link cites; in a carry list, the text a link cites is the text that states a ruling of its entry. [Rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) states it beside the moved-place migration.
+<a id="r11"></a>**R11.** A link that names several places, or one place whose text moved only in part, keeps its target while any text it cites still stands there. When none does, it takes the place where the first text it cites now stands. A heading, or a line that only links where the text moved, is no text of a place and no text a link cites, save where that heading or line itself states a ruling the link cites. In a carry list, the text a link cites is the text that states a ruling of its entry. [Rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) states it beside the moved-place migration.
 
 ## Carry list
 

@@ -23,7 +23,10 @@ decider: Eugene Chernyshov
   - **Cons:** one check for eleven modules.
 - **C. The eleven install jobs switch to the GitHub remote in CI; a local run keeps the working folder.**
   - **Pros:** no extra cost; CI tests the copy a consumer runs; one module per check.
-  - **Cons:** CI no longer holds the local-directory copy; each job depends on cloning from GitHub; a pull request from a fork would have no branch to clone.
+  - **Cons:**
+    - **CI no longer holds the local-directory copy;**
+    - **each job depends on cloning from GitHub;**
+    - **a pull request from a fork** would have no branch to clone.
 
 ## Recommendation
 
@@ -35,7 +38,7 @@ C, chosen by the decider in chat on 2026-10-01.
 
 ## Ruling
 
-<a id="r1"></a>**R1.** In the kit's CI, each `install-<module>` job installs the module from the GitHub repository and branch of the change, `<repository>#<branch>` — the pull request's head repository and branch, or the kit's `main` on a push to it — over HTTPS, with git credentials set from the job's own token; Claude Code needs no account login. A fork the token cannot read fails to install; a pull request installs only from its own head repository, the kit's repository serving a push alone. Run by hand with no source named, the check installs from the working folder. `scripts/check-bare-install.py` takes the source from `--from`, else from `CONSTITUTION_KIT_INSTALL_FROM`, else the working folder.
+<a id="r1"></a>**R1.** In the kit's CI, each `install-<module>` job installs the module from the GitHub repository and branch of the change, `<repository>#<branch>` — the pull request's head repository and branch, or the kit's `main` on a push to it — over HTTPS, with git credentials set from the job's own token; Claude Code needs no account login. A fork the token cannot read fails to install. A pull request installs only from its own head repository, the kit's repository serving a push alone. Run by hand with no source named, the check installs from the working folder. `scripts/check-bare-install.py` takes the source from `--from`, else from `CONSTITUTION_KIT_INSTALL_FROM`, else the working folder.
 
 <a id="r2"></a>**R2.** The installed copy is compared with the kit's source at the commit the install came from, which Claude Code's install record names, read from the kit's git history and fetched when the clone lacks it. A branch that moves during a run then changes nothing: the copy is held against its own commit, and the newer commit has a run of its own. An install from a local folder is compared with that folder, and a remote install whose record names no commit with the working folder.
 

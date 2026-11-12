@@ -23,9 +23,16 @@ Two facts were checked before the change. Every `__file__` the module packages r
 
 - **A. Keep the path line.** The runner goes on putting `scripts/` on the import path.
   - **Pros:** no change; no new link to hold.
-  - **Cons:** the one place where a module's runner edits its own import path stays, with six to ten `noqa` markers in each runner; the type check of `tests/` needs `MYPYPATH=../scripts` to find the packages.
+  - **Cons:**
+    - **the one place where a module's runner edits its own import path** stays, with six to ten `noqa` markers in each runner;
+    - **the type check of `tests/` needs `MYPYPATH=../scripts`** to find the packages.
 - **B. Links in `tests/`, held by the shared-links check.** `tests/const_gate` and `tests/<package>` for each of the module's own packages, relative links; `scripts/check-shared-links.py` derives both from the folders and turns red on a missing, copied or misdirected one.
-  - **Pros:** no module file edits its own import path; the imports stand at the top with no marker; the runner reaches the code exactly as it reaches the shared test files; mypy needs no path; a copy of a package left in `tests/` cannot drift from what the gate runs unnoticed.
+  - **Pros:**
+    - **no module file edits its own import path**;
+    - **the imports stand at the top** with no marker;
+    - **the runner reaches the code** exactly as it reaches the shared test files;
+    - **mypy needs no path**;
+    - **a copy of a package left in `tests/`** cannot drift from what the gate runs unnoticed.
   - **Cons:** 22 more links in the tree, and the shared-links check now also holds a link that is no shared code.
 - **C. Links in `tests/`, held by no check.** As B, but a broken link is found only when the runner fails to import.
   - **Pros:** the check stays about shared code alone.
@@ -37,7 +44,7 @@ The decider chose the links in chat on 2026-10-07 ("apply that change for all mo
 
 <a id="r1"></a>**R1.** Each module that uses the shared code has, in `tests/`, the relative link `const_gate` → `shared/const_gate`, and for each folder at the top of its `scripts/`, itself no link, that holds an `__init__.py`, whose name starts with neither `.` nor `_`, save `const_gate`, the relative link `tests/<package>` → `../scripts/<package>`. These links widen the list of item 2 of dec-0025-shared-gate-code-linked, whose ruling otherwise stands.
 
-<a id="r2"></a>**R2.** The runner imports the shared package, the module's own packages and the shared test files through those links, from its own folder. No Python file a module ships edits the import path of its own process, the runner included, and the runner's imports stand at the top with no `E402` marker. The rule binds that process alone: any child process the runner starts may be given a path of its own. Two do so today: shared item 112's shim puts the entry's folder first as Python does for a script, and a case may set `PYTHONPATH` to hide or replace a library for the gate.
+<a id="r2"></a>**R2.** The runner imports the shared package, the module's own packages and the shared test files through those links, from its own folder. No Python file a module ships edits the import path of its own process, the runner included. The runner's imports stand at the top with no `E402` marker. The rule binds that process alone: any child process the runner starts may be given a path of its own. Two do so today: shared item 112's shim puts the entry's folder first as Python does for a script, and a case may set `PYTHONPATH` to hide or replace a library for the gate.
 
 <a id="r3"></a>**R3.** `scripts/check-shared-links.py` holds the links of R1, derived from the folders: a missing link, a copy, a plain file, a dangling, absolute or misdirected link, and one that reaches its source through another link, is red. A finding on a link to the module's own package says why in its own words: the runner must import the code the gate runs.
 
@@ -49,9 +56,11 @@ The decider chose the links in chat on 2026-10-07 ("apply that change for all mo
 
 R2 of [dec-0059-bare-repo-install-in-ci](dec-0059-bare-repo-install-in-ci.md#r2) makes the install check, `scripts/check-bare-install.py`, red when a link of a module's source leads inside the module, so that an installed copy carries all it runs as real files. The link `tests/<package>` → `../scripts/<package>` of R1 is such a link. On the pull request's first CI run, on 2026-10-07, the check was red for every module with one finding each, such as "the link tests/questions_gate is left a link in the installed copy"; its hooks and scans passed. The platform's install copies a link that leads elsewhere in the marketplace as the files it points at, and keeps one that stays inside the plugin as a link, as its documentation says ([kit-shared-gate-code §4](../../shared/GATE.md#g4), limit 3). The kept link leads to a real folder of the same copy.
 
-- **A. Narrow R2 of [dec-0059-bare-repo-install-in-ci](dec-0059-bare-repo-install-in-ci.md#r2) for the runner's links only.** The one inside link of R1 is allowed, and the install check holds that it arrives leading to the module's own package in the copy; every other inside link stays red.
+- **A. Narrow R2 of [dec-0059-bare-repo-install-in-ci](dec-0059-bare-repo-install-in-ci.md#r2) for the runner's links only.** The one inside link of R1 is allowed. The install check holds that it arrives leading to the module's own package in the copy; every other inside link stays red.
   - **Pros:** keeps the runner free of a path edit; matches what the platform does and documents; the exception is narrow and checked.
-  - **Cons:** it narrows an accepted ruling; an installed copy is no longer free of links, though the one link left serves the fixtures alone, never a hook or a scan.
+  - **Cons:**
+    - **it narrows an accepted ruling**;
+    - **an installed copy is no longer free of links**, though the one link left serves the fixtures alone, never a hook or a scan.
 - **B. Keep the path edit for the module's own package only.** `tests/const_gate` stays, the runner keeps one `sys.path` line for its own `scripts/`, and the `tests/<package>` links go.
   - **Pros:** dec-0059 stays as it is; no link is left in an installed copy.
   - **Cons:** half of what the decider asked; the path edit and its markers stay in every runner.
@@ -63,11 +72,11 @@ Recommendation: A, since the kept link leads to a real folder of the same copy, 
 
 The decider answered in chat on 2026-10-07 that the shared files serve only the kit's own development, and that in another project the kernel holds no code and each module ships the common files within itself. The session read that as A: a link from `tests/` to the module's own `scripts/` stays within the module. That the exception covers the runner's links alone, and no other link inside a module, is a default the session took, left open to override at the yes.
 
-<a id="r6"></a>**R6.** R2 of [dec-0059-bare-repo-install-in-ci](dec-0059-bare-repo-install-in-ci.md#r2) is narrowed: a link of the source that leads inside the module is allowed in one shape only, the runner's link `tests/<package>` → `../scripts/<package>` to a package of the module's own as R1 derives it. The install check holds that it arrives in the installed copy as a link leading to that package in the copy, and is red otherwise; every other link inside the module stays red as R2 of [dec-0059-bare-repo-install-in-ci](dec-0059-bare-repo-install-in-ci.md#r2) rules.
+<a id="r6"></a>**R6.** R2 of [dec-0059-bare-repo-install-in-ci](dec-0059-bare-repo-install-in-ci.md#r2) is narrowed: a link of the source that leads inside the module is allowed in one shape only, the runner's link `tests/<package>` → `../scripts/<package>` to a package of the module's own as R1 derives it. The install check holds that it arrives in the installed copy as a link leading to that package in the copy, and is red otherwise. Every other link inside the module stays red as R2 of [dec-0059-bare-repo-install-in-ci](dec-0059-bare-repo-install-in-ci.md#r2) rules.
 
 ## Applied
 
-The commits of this branch apply every item. The first adds the links and edits the 11 runners; the second widens the shared-links check; the third changes the documents and the gate list and adds this record; the commits after the carry audit's first round hold its fixes, the red for a link through another link and the install check's exception among them, each message naming what it changed. The record is born `inactive`.
+The commits of this branch apply every item. The first adds the links and edits the 11 runners. The second widens the shared-links check. The third changes the documents and the gate list and adds this record. The commits after the carry audit's first round hold its fixes, the red for a link through another link and the install check's exception among them, each message naming what it changed. The record is born `inactive`.
 
 ## Carry list
 

@@ -42,7 +42,14 @@ Same moments, same verdicts. Specific to resolution:
 
 ## 4. Territory matching in the gitignore dialect
 
-- **A. `git check-ignore`.** Documented: exit 0 on a match, 1 on none, 128 fatal; `-v` prints the deciding pattern; `-n` adds non-matches; `-z` NUL-separates; `--no-index` skips the index ([git-check-ignore](https://git-scm.com/docs/git-check-ignore)). Sources by precedence: command line, `.gitignore` in the path's directory and parents, `$GIT_DIR/info/exclude`, `core.excludesFile`; last match wins within a level; no re-inclusion under an excluded directory ([gitignore](https://git-scm.com/docs/gitignore)). Experiment in a scratch directory — `git init nullrepo`, `mkdir empty`, territory file `terr.txt` holding `docs/policies/**` and `docs/*.md`, a repository `ci-exp` whose `.gitignore` holds `*.md`:
+- **A. `git check-ignore`.** Documented:
+  - **exit 0 on a match**, 1 on none, 128 fatal;
+  - `-v` prints the deciding pattern;
+  - `-n` adds non-matches;
+  - `-z` NUL-separates;
+  - `--no-index` skips the index ([git-check-ignore](https://git-scm.com/docs/git-check-ignore)).
+
+  Sources by precedence: command line, `.gitignore` in the path's directory and parents, `$GIT_DIR/info/exclude`, `core.excludesFile`; last match wins within a level; no re-inclusion under an excluded directory ([gitignore](https://git-scm.com/docs/gitignore)). Experiment in a scratch directory — `git init nullrepo`, `mkdir empty`, territory file `terr.txt` holding `docs/policies/**` and `docs/*.md`, a repository `ci-exp` whose `.gitignore` holds `*.md`:
   - E1. In `ci-exp`, `git -c core.excludesfile=terr.txt check-ignore -v --no-index README.md` → `.gitignore:1:*.md`, exit 0; the same with `--git-dir=nullrepo/.git --work-tree=ci-exp`. The work tree's ignore files outrank `core.excludesFile`; neither that key nor a foreign git dir isolates the territory list.
   - E2. `git --git-dir=nullrepo/.git --work-tree=empty -c core.excludesfile=terr.txt check-ignore --no-index -v docs/policies/new.md`, cwd `empty` → `terr.txt:1:docs/policies/**`, exit 0; `README.md` → exit 1. **An empty work tree isolates the territory list.** A pattern put in `nullrepo/.git/info/exclude` still matched, so the null repository must be fresh.
   - E3. Paths need not exist: `docs/policies/a/b/c/new.md` matched in the empty tree — a file about to be written is evaluable. A trailing-slash pattern (`docs/policies/`) matched a not-yet-existing file beneath it.
@@ -62,7 +69,7 @@ Same moments, same verdicts. Specific to resolution:
 
 ## 5. Schema validation of the envelope and the dials file
 
-Readers validate against the kernel's two schema files ([kernel §6](../constitution/CONVENTIONS.md#k6)); those live in the kit, and a consumer installs the module without it ([template §6](../../module-template/MODULE.md#t6)), so the schema can only come from inside the plugin:
+Readers validate against the kernel's two schema files ([kernel §6](../constitution/CONVENTIONS.md#k6)). Those live in the kit, and a consumer installs the module without it ([template §6](../../module-template/MODULE.md#t6)), so the schema can only come from inside the plugin:
 
 - **A. Python `jsonschema` against a schema copy in the plugin.** `pip install jsonschema`, Draft 2020-12 ([jsonschema docs](https://python-jsonschema.readthedocs.io/en/stable/)); 4.26.0, Python ≥ 3.10 ([PyPI](https://pypi.org/project/jsonschema/)); local `pip show` lists `attrs`, `jsonschema-specifications`, `referencing`, `rpds-py` (compiled). Cost: a second install command in every teaching error, a platform wheel, a copy that can drift. Absent on a bare interpreter locally.
 - **B. Hand-coded checks with PyYAML only, mirroring the schema field by field.** Envelope: four required keys, two enums, one id pattern, one title length; dials: two kernel keys plus the `territory` and `catalog` shapes. Cost: ~40 lines kept equal to the schema, proven in the kit by running the real schema through `jsonschema` over the module's fixtures (kit developer dependency only). Cannot absorb a kernel extension without a module bump — required anyway.
@@ -84,17 +91,20 @@ Readers validate against the kernel's two schema files ([kernel §6](../constitu
 
 The verified facts are the numbered list below; this section records only where the task's claims and the documentation diverge.
 
-- a. `MultiEdit` is absent from the tools list ([tools reference](https://code.claude.com/docs/en/tools-reference)) and called "the legacy `MultiEdit` tool" ([permissions](https://code.claude.com/docs/en/permissions)) — retired. Matchers of letters, digits, `_`, `-`, spaces, `,`, `|` are exact strings or lists (`Edit|Write` matches "either tool exactly"); any other character makes an unanchored JavaScript regex, `Edit.*` also matching `NotebookEdit` ([hooks reference](https://code.claude.com/docs/en/hooks)).
-- b. `permissionDecision` has a fourth value, `defer`. Exit codes other than 0 and 2 are non-blocking and the transcript shows only the first stderr line, prefixed `Failed with non-blocking status code:`; stderr on exit 0 "goes to the debug log only" ([hooks reference](https://code.claude.com/docs/en/hooks)). So `severity: warn` is exit 0 with `additionalContext` or `systemMessage`, not a non-zero exit.
+- a. `MultiEdit` is absent from the tools list ([tools reference](https://code.claude.com/docs/en/tools-reference)) and called "the legacy `MultiEdit` tool" ([permissions](https://code.claude.com/docs/en/permissions)) — retired. Matchers of letters, digits, `_`, `-`, spaces, `,`, `|` are exact strings or lists (`Edit|Write` matches "either tool exactly"). Any other character makes an unanchored JavaScript regex, `Edit.*` also matching `NotebookEdit` ([hooks reference](https://code.claude.com/docs/en/hooks)).
+- b. `permissionDecision` has a fourth value, `defer`. Exit codes other than 0 and 2 are non-blocking and the transcript shows only the first stderr line, prefixed `Failed with non-blocking status code:`. Stderr on exit 0 "goes to the debug log only" ([hooks reference](https://code.claude.com/docs/en/hooks)). So `severity: warn` is exit 0 with `additionalContext` or `systemMessage`, not a non-zero exit.
 - d. A `PostToolUse` `tool_response.bashEditDiff` listing files a Bash command changed exists but "Requires Claude Code v2.1.269 or later", is "best effort and in public beta", and is "not to enforce a policy" ([hooks reference](https://code.claude.com/docs/en/hooks)) — unfit for a gate.
-- e. A folder of plugins under `--plugin-dir` "requires Claude Code v2.1.265 or later" ([CLI reference](https://code.claude.com/docs/en/cli-reference)); local 2.1.251 predates it, its `--help` showing no folder form. A local-directory marketplace loads a plugin in place with `CLAUDE_PLUGIN_ROOT` at the source; `claude plugin validate <dir>` checks manifest, hooks and frontmatter ([plugins reference](https://code.claude.com/docs/en/plugins-reference)).
+- e. A folder of plugins under `--plugin-dir` "requires Claude Code v2.1.265 or later" ([CLI reference](https://code.claude.com/docs/en/cli-reference)). Local 2.1.251 predates it, its `--help` showing no folder form. A local-directory marketplace loads a plugin in place with `CLAUDE_PLUGIN_ROOT` at the source; `claude plugin validate <dir>` checks manifest, hooks and frontmatter ([plugins reference](https://code.claude.com/docs/en/plugins-reference)).
 - f. Default command timeout is 600 seconds, not 60; hooks run "in the current directory", not the project root ([hooks reference](https://code.claude.com/docs/en/hooks)).
 - g. `updatedInput` replaces the whole tool input before execution ([hooks reference](https://code.claude.com/docs/en/hooks)); silently rewriting an envelope is the opposite of a teaching error — rejected.
 
 ## Recommendations summary
 
 1. [Requirement A1.4](../requirements.md#a1-4) — **CONFIRMED**: gate, `PreToolUse` on `Write|Edit`, exit 2 with the teaching error on stderr; Bash writes fall to scan mode.
-2. [Requirement A1.5](../requirements.md#a1-5) — **CONFIRMED**: advisory skill, `paths: "**/*.md"`; always-on cost is the description; rules files are not a plugin component, a plugin-root CLAUDE.md is not loaded.
+2. [Requirement A1.5](../requirements.md#a1-5) — **CONFIRMED**:
+   - **advisory skill**, `paths: "**/*.md"`;
+   - **always-on cost** is the description;
+   - **rules files** are not a plugin component, a plugin-root CLAUDE.md is not loaded.
 3. [Requirement A2.3](../requirements.md#a2-3) — **CONFIRMED**: same script and invocation, plus on-demand scan mode wired into consumer CI; no `SessionStart` scan. Territory via `git check-ignore` against a fresh null repository with an empty work tree, one run per policy, `core.ignorecase=false`, `--no-index`, verdicts from `-v`. Schema checks are a PyYAML-only mirror proven equal by kit fixtures.
 
 Platform facts for the module document's slot (all verified 2026-09-18):

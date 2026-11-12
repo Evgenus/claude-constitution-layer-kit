@@ -25,7 +25,11 @@ On 2026-11-10 the carry audit of that module's records found the gap ([item 9.37
 
 <a id="r1"></a>**R1.** A pinned third-party tool's own files are parts of the plugin root. They are of two kinds: its configuration, which the code that runs the tool reads or hands to the tool, and its pin, the files that name the exact version an install takes. This adds them to the parts that R1 of [dec-0098-modules-install-from-a-plugin-subfolder](dec-0098-modules-install-from-a-plugin-subfolder.md#r1) lists.
 
-<a id="r2"></a>**R2.** Each such file stands in one of three places: at the plugin root, `plugin/<file>`; among the scripts, `plugin/scripts/<file>`; or in a folder of the plugin root named for the tool, `plugin/<tool>/<file>`.
+<a id="r2"></a>**R2.** Each such file stands in one of three places:
+
+- **at the plugin root**, `plugin/<file>`;
+- **among the scripts**, `plugin/scripts/<file>`;
+- **or in a folder of the plugin root named for the tool**, `plugin/<tool>/<file>`.
 
 <a id="r3"></a>**R3.** A file that the platform acts on when it stands at a plugin root stands in the tool's folder, never at the root. A `package.json` with its lockfile is the case the kit has met. The module's platform facts name what the platform does at a plugin root, with its source.
 

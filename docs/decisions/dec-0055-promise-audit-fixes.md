@@ -25,7 +25,7 @@ On 2026-09-30 the decider asked whether every row of the matrix of [constitution
   - **Pros:** each small.
   - **Cons:** about six audits reading the same records again.
 
-The session recommended B. The decider chose B in chat on 2026-09-30. <a id="r1"></a>**R1.** This record carries the fixes; the check that every module scan stands in the gate list and the CI list, and the grep of [requirement A12.1](../requirements.md#a12-1) as a kit script, come in a change of their own. F8 — that grep, run by hand as the row words it, hits in-plugin relative paths in messages and example dial paths in install notes, though it finds no project reference — moves there, since its fix is the grep's own design.
+The session recommended B. The decider chose B in chat on 2026-09-30. <a id="r1"></a>**R1.** This record carries the fixes. The check that every module scan stands in the gate list and the CI list, and the grep of [requirement A12.1](../requirements.md#a12-1) as a kit script, come in a change of their own. F8 — that grep, run by hand as the row words it, hits in-plugin relative paths in messages and example dial paths in install notes, though it finds no project reference — moves there, since its fix is the grep's own design.
 
 ## 2. The bare aspect handle
 
@@ -56,9 +56,15 @@ Each carries a clause a row states, or corrects a text the audit found wrong; no
 
 <a id="r8"></a>**R8.** F6: the CI of rollout step 10 runs the scan of every module that ships one, not only the reference scan and the range check.
 
-<a id="r9"></a>**R9.** F7, [requirement A9.4](../requirements.md#a9-4): the row's text says that, once module [`const-language`](../requirements.md#const-language) is installed, a checkable default about words may graduate to a Vale rule, each at its first need, and that the markup signatures the styling scan detects stay the scan's — the ruling R10 of [dec-0046-language-module-rulings](dec-0046-language-module-rulings.md#r10), section 7; the row is amended under [rule 2 of plc-0007-requirements](../policies/plc-0007-requirements.md#r2), its rule having changed.
+<a id="r9"></a>**R9.** F7, [requirement A9.4](../requirements.md#a9-4):
 
-<a id="r10"></a>**R10.** F9 and F10, two readings corrected: in module [`const-interaction`](../requirements.md#const-interaction) the daggers of [requirement A8.1](../requirements.md#a8-1) and [requirement A8.2](../requirements.md#a8-2) are still an open test, as its rows section says; in module [`const-task-close`](../requirements.md#const-task-close) the row's "blocking is a dial" is kept by a stronger hold, the scan exiting 2 on every finding, while the shared `severity` governs only the turn-end hook.
+- **the row's text says** that, once module [`const-language`](../requirements.md#const-language) is installed, a checkable default about words may graduate to a Vale rule, each at its first need, and that the markup signatures the styling scan detects stay the scan's — the ruling R10 of [dec-0046-language-module-rulings](dec-0046-language-module-rulings.md#r10), section 7;
+- **the row is amended** under [rule 2 of plc-0007-requirements](../policies/plc-0007-requirements.md#r2), its rule having changed.
+
+<a id="r10"></a>**R10.** F9 and F10, two readings corrected:
+
+- **in module [`const-interaction`](../requirements.md#const-interaction)** the daggers of [requirement A8.1](../requirements.md#a8-1) and [requirement A8.2](../requirements.md#a8-2) are still an open test, as its rows section says;
+- **in module [`const-task-close`](../requirements.md#const-task-close)** the row's "blocking is a dial" is kept by a stronger hold, the scan exiting 2 on every finding, while the shared `severity` governs only the turn-end hook.
 
 F11 needs no edit: module [`const-catalogs`](../requirements.md#const-catalogs) records the research's verdict against the matrix row as it then stood, and the row was amended afterwards — a history line, not a stale claim.
 

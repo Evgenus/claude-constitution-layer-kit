@@ -10,7 +10,7 @@ Modes:    no arguments  read one SessionStart event on stdin and print, after th
                         constitution.yaml, an empty destructive dial — then one line for each
                         default wrapper or shell the wrappers and shells dials drop or replace,
                         and the project's own boundary examples, numbered.
-Reads:    from the event: cwd, session_id. From constitution.yaml: this module's dials
+Reads:    from the event: cwd, session_id, transcript_path. From constitution.yaml: this module's dials
           const-interaction.destructive, .wrappers, .shells, .boundary_examples and .verbosity,
           the whole namespace validated;
           the file as a whole is validated as every gate does.

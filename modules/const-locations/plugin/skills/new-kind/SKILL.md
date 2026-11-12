@@ -12,25 +12,25 @@ description: >
 # New kind
 
 A document of a kind no policy covers is not created until the kind has its policy. The order
-matters: a policy states what the kind is and what its documents hold, its territory says
-where they live, and only then can a document be born at its home with a valid envelope. Doing
+matters. A policy states what the kind is and what its documents hold, and its territory says
+where they live. Only then can a document be born at its home with a valid envelope. Doing
 it backwards — the document first, the policy "later" — is how kinds without homes and
 documents without governance accumulate. Adding, removing or re-scoping a policy is a
-`process`-stakes decision under the constitution's conventions page the project adopted: a
+`process`-stakes decision under the constitution's conventions page the project adopted. It takes a
 decision record and one human yes.
 
 ## 1. Price it
 
 State the kind in one sentence: what documents it holds, what shape they share, what rule set
 governs them. If an existing policy already covers that — the same shape, the same rules — the
-kind exists and the document goes there; use the `new-document` skill of this plugin. If not,
-this is a `process` decision: write the record through the project's decision procedure if it
-has one, otherwise as the conventions page describes, naming the decider, and get the yes.
+kind exists and the document goes there. Use the `new-document` skill of this plugin. If not,
+this is a `process` decision. Write the record through the project's decision procedure if it
+has one, otherwise as the conventions page describes, naming the decider. Then get the yes.
 
 ## 2. Create the policy
 
 A policy is a document in the root policy's territory. Create it with this plugin's command,
-the root policy being its kind: the root policy is the file `root_policy` names in
+the root policy being its kind. The root policy is the file `root_policy` names in
 `constitution.yaml`, and its `id` is the kind to give.
 
 ```bash
@@ -40,8 +40,8 @@ sh ${CLAUDE_PLUGIN_ROOT}/scripts/new-document.sh --kind <root policy id> --stem 
 (`--type` is not taken when the project's `const-locations.templates` names a template for
 the root policy's kind; the template decides.) Run it alone, each value plain or in single
 quotes: this plugin approves that form and no other. Fill the body: one paragraph saying which kind
-it governs, then its rules, one per numbered item — the envelope its documents carry, their
-shape, when they are created and changed, what is enforced by which check and what is
+it governs, then its rules, one per numbered item. The rules cover the envelope its documents carry, their
+shape, and when they are created and changed. They also say what is enforced by which check and what is
 judgment. If the kind is numbered, say so and follow the project's numbering procedure for
 the policy's own stem.
 
@@ -56,7 +56,7 @@ with one `territory` line:
 ```
 
 The pattern is gitignore syntax, relative to the repository root. Write it as `<dir>/**` (or
-`<dir>/**/*.md`) so that a home follows from it for every new document; a territory of one
+`<dir>/**/*.md`) so that a home follows from it for every new document. A territory of one
 path holds one document and nothing is born there. It must not overlap any other territory —
 the root's included: two policies claiming one path is a defect every check reports. Do not
 rewrite the file with a script: a YAML round trip loses its comments and renames its anchors.
@@ -74,7 +74,7 @@ so the first document is written from it.
 
 A repository with no `constitution.yaml` governs nothing, and the command refuses until it
 exists. Bootstrap by hand, once — this is the only time a policy is written without the
-command; the paths below are an example, any layout inside the repository works:
+command. The paths below are an example, any layout inside the repository works:
 
 1. `constitution.yaml` at the repository root:
    ```yaml
