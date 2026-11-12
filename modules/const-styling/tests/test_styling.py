@@ -248,7 +248,8 @@ def test_t4() -> None:
 @item(5, "a skipped level and a second H1 are red; stepping back up is green")
 def test_t5() -> None:
     """Y5 for a level-three heading under the title; Y6 for a second level-one heading, after a
-    byte-order mark before the title, and right after a fence closes; stepping back up by any number
+    byte-order mark before the title, right after a fence closes, with nothing after the hash, and
+    around a comment on its line, echoed with the comment blanked; stepping back up by any number
     green"""
     one_finding(
         {"docs/notes/s.md": "# T\n\n### B\n"}, "docs/notes/s.md:3: a heading of level 3, skipping a level"
@@ -265,13 +266,21 @@ def test_t5() -> None:
         {"docs/notes/s.md": "# T\n\n```text\nx\n```\n# U\n"},
         "docs/notes/s.md:6: a second level-one heading — U",
     )
+    one_finding(  # a bare second `#` echoes nothing
+        {"docs/notes/s.md": "# T\n\n#\n"}, "docs/notes/s.md:3: a second level-one heading — "
+    )
+    one_finding(  # a comment on the heading's line is blanked to as many spaces as it is long
+        {"docs/notes/s.md": "# T\n\n# U <!-- c --> V\n"},
+        "docs/notes/s.md:3: a second level-one heading — U" + " " * 12 + "V",
+    )
 
 
 @item(6, "a fence without a language is red; text, nested, attributed and indented fences green")
 def test_t6() -> None:
     """Y7 for a backtick fence and for a tilde fence with no language; `text`, a nested fence closed
     by a longer one, an info string with attributes, a fence indented inside a list item and under a
-    nested item, and a fence that a fence with an info string does not close, green"""
+    nested item, a fence that a fence with an info string does not close, and a tilde fence whose
+    info string holds a backtick, green"""
     one_finding(
         {"docs/notes/k.md": "# T\n\n```\nls\n```\n"},
         "docs/notes/k.md:3: a fenced block that names no language",
@@ -280,6 +289,8 @@ def test_t6() -> None:
         {"docs/notes/k.md": "# T\n\n~~~\nls\n~~~\n"},
         "docs/notes/k.md:3: a fenced block that names no language",
     )
+    # a tilde fence may hold a backtick in its info
+    no_finding({"docs/notes/k.md": "# T\n\n~~~ a`b\n* x\n~~~\n"})
     no_finding(
         {
             "docs/notes/k.md": "# T\n\n```text\ntree\n```\n\n````markdown\n```\nnested\n```\n````\n\n"
@@ -372,7 +383,8 @@ def test_t9() -> None:
     autolink and an HTML comment on one line or across lines green; a comment opener inside a fence
     or a code span hides nothing after it, a closer inside a code span closes and the comment is
     masked, a second opener after a closed comment opens, and a comment's closing line is hidden
-    whole"""
+    whole; a code span before an opener that runs on, and a comment with emphasis touching its
+    delimiters, green or red as the comment's place decides"""
     one_finding(
         {"docs/notes/e.md": "# T\n\nSome _quiet_ words.\n"},
         "docs/notes/e.md:3: emphasis by underscores — quiet",
@@ -413,6 +425,11 @@ def test_t9() -> None:
         {"docs/notes/e.md": "# T\n\nt <!-- a --> _x_ <!-- b\n_hidden_\n-->\n"},
         "docs/notes/e.md:3: emphasis by underscores — x",
     )
+    one_finding(  # a code span is blanked, not removed, so the opener's place is right
+        {"docs/notes/e.md": "# T\n\n`ab` _c_ <!-- x\n-->\n"},
+        "docs/notes/e.md:3: emphasis by underscores — c",
+    )
+    no_finding({"docs/notes/e.md": "# T\n\n<!--_c_-->\n"})  # the whole comment is masked, its edges too
 
 
 @item(10, "a short row, an empty cell and a short delimiter row are red; a keyed table green")
