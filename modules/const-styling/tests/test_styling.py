@@ -190,8 +190,8 @@ def test_t1() -> None:
 
 @item(2, "a math fence and a $$ line are red; pseudocode is green; $$ in code is code")
 def test_t2() -> None:
-    """red and green: a math fence and a $$ line are red (Y2); a pseudocode fence is green; $$ inside a
-    fence of another language is code."""
+    """red and green: a math, latex or tex fence and a $$ line are red (Y2); a pseudocode fence is
+    green; $$ inside a fence of another language is code."""
     one_finding(
         {"docs/notes/f.md": "# T\n\n```math\nE = mc^2\n```\n"},
         "docs/notes/f.md:3: a formula, where the shipped default is pseudocode — ```math",
@@ -199,6 +199,14 @@ def test_t2() -> None:
     one_finding(
         {"docs/notes/f.md": "# T\n\n$$ E = mc^2 $$\n"},
         "docs/notes/f.md:3: a formula, where the shipped default is pseudocode — $$ E = mc^2 $$",
+    )
+    one_finding(
+        {"docs/notes/f.md": "# T\n\n```latex\nx\n```\n"},
+        "docs/notes/f.md:3: a formula, where the shipped default is pseudocode — ```latex",
+    )
+    one_finding(
+        {"docs/notes/f.md": "# T\n\n```tex\nx\n```\n"},
+        "docs/notes/f.md:3: a formula, where the shipped default is pseudocode — ```tex",
     )
     no_finding({"docs/notes/f.md": "# T\n\n```text\nenergy = mass * c * c\n```\n\n```bash\necho $$\n```\n"})
 
@@ -480,7 +488,7 @@ def test_t11() -> None:
     document alone; an entry allowing one signature does not allow another; a stale entry is N2,
     typed by hand, first on stdout, and the scan green; an entry over documents a negated pattern
     took out of the territory is stale too; a stale pattern of 110 characters with a backslash is
-    cut at 80 with the cut said, then escaped"""
+    cut at 80 with the cut said, then escaped; a stale entry of two patterns names both"""
     files = {
         "docs/notes/a.md": PLANTUML_FENCE,
         "docs/notes/b.md": PLANTUML_FENCE,
@@ -543,12 +551,22 @@ def test_t11() -> None:
         "note: const-styling.departures entry 1 (docs\\\\gone/" + "p" * 70 + "… [110 characters]) matches no"
         " covered document; the documents it allowed were deleted or moved, or the pattern is wrong"
     )
+    two = scan(
+        {"docs/notes/a.md": MERMAID},
+        own(departures=[{"paths": ["docs/gone/**", "docs/old/**"], "allow": ["plantuml"], "reason": "was"}]),
+    )
+    two_note = (
+        "note: const-styling.departures entry 1 (docs/gone/**, docs/old/**) matches no covered document; the"
+        " documents it allowed were deleted or moved, or the pattern is wrong"
+    )
+    two_ok = two.code == 0 and two.stdout.splitlines()[0] == two_note
     cut_ok = cut.code == 0 and cut.stdout.splitlines()[0] == cut_note
     assert territory_ok, by_territory.stdout
     assert path_ok, by_path.stdout
     assert stale_ok, f"{stale.code}: {stale.stdout}"
     assert outside_ok, outside.stdout
     assert cut_ok, cut.stdout
+    assert two_ok, two.stdout
 
 
 @item(12, "territories: a negated pattern drops the count; a README at the top; guides validated")
@@ -568,10 +586,10 @@ def test_t12() -> None:
 def test_t13() -> None:
     """This module's C5 lines typed by hand — a key that is no dial, `severity`, `territories`
     empty, `guides` not a list, `departures` not a list, an entry not a mapping, an unknown field,
-    `paths` empty, a pattern git would misread in `territories`, in `guides` with its line break
-    shown escaped, and in `paths`, an unknown signature key, an empty reason, a reason broken by a
-    line feed or a carriage return — each exit 1. A reason with a line break at its end is taken,
-    trimmed"""
+    `paths` or `allow` empty, a reason missing or no string, a pattern git would misread in
+    `territories`, in `guides` with its line break shown escaped, and in `paths`, an unknown
+    signature key, an empty reason, a reason broken by a line feed or a carriage return — each
+    exit 1. A reason with a line break at its end is taken, trimmed"""
     entry_fix = (
         "write the entry as paths: [<patterns>], allow: [<signature keys>], reason: <one line saying why"
         " these documents depart>; the keys are plantuml, formula, callout, deep-heading, skipped-level,"
@@ -648,6 +666,21 @@ def test_t13() -> None:
             own(departures=[{"paths": ["a.md"], "allow": ["plantuml"], "reason": " "}]),
             "BROKEN: constitution.yaml: const-styling.departures entry 1: reason must be one non-empty line"
             f" saying why — fix: {entry_fix}",
+        ),
+        (
+            own(departures=[{"paths": ["a.md"], "allow": ["plantuml"], "reason": 5}]),
+            "BROKEN: constitution.yaml: const-styling.departures entry 1: reason must be one non-empty line"
+            f" saying why — fix: {entry_fix}",
+        ),
+        (
+            own(departures=[{"paths": ["a.md"], "allow": ["plantuml"]}]),
+            "BROKEN: constitution.yaml: const-styling.departures entry 1: reason must be one non-empty line"
+            f" saying why — fix: {entry_fix}",
+        ),
+        (
+            own(departures=[{"paths": ["a.md"], "allow": [], "reason": "r"}]),
+            "BROKEN: constitution.yaml: const-styling.departures entry 1: allow must be a non-empty list of"
+            f" signature keys — fix: {entry_fix}",
         ),
         (
             own(territories=["#docs/**"]),
