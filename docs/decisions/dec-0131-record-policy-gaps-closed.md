@@ -70,11 +70,11 @@ A commit of this change, `2e3e8ff5`, stopped that note once the record is accept
 - **B. Revert the commit.** Rule 5 and the two records stand as written.
   - **Pros:** no new ruling, and nothing more to audit.
   - **Cons:** the note for that old id prints again on every run.
-- **C. Keep the code and justify it as routine.**
+- **C. Keep the code and justify it as routine.** No text changes.
   - **Pros:** no edit and no record.
   - **Cons:** rule 1 prices an added condition as a ruling, so the gate would contradict rule 5.
 
-The session recommended A: the note's end removes a false note, and this record already closes the record policy's gaps on renames. <a id="r7"></a>**R7.** A, chosen by the decider in chat on 2026-11-12. Once a renumbered or renamed record is accepted again under its new id, the note for its old id stops. It stops where git's rename detection follows the old id's file to a record that stands. A commit that holds the last rename must accept that record. A deleted or misspelt id keeps its note. So does a rename that git does not detect, one never accepted again, and one accepted only before the rename.
+The session recommended A: the note's end removes a note that taught nothing, and this record already closes the record policy's gaps on renames. <a id="r7"></a>**R7.** A, chosen by the decider in chat on 2026-11-12. Once a renumbered or renamed record is accepted again under its new id, the note for its old id stops. It stops where git's rename detection follows the old id's file to a record that stands. It stops only if a commit that holds the last rename accepts that record. A deleted or misspelt id keeps its note. So does the old id of a rename that git does not detect. So does that of a record never accepted again, or accepted only before its last rename.
 
 <a id="r8"></a>**R8.** R7 narrows R3 of [dec-0124-renamed-record-accepted-again](dec-0124-renamed-record-accepted-again.md#r3) in that one point. It narrows R8 of [dec-0078-landed-collisions-renumber-and-kit-checks-hold-numbers-descriptions-namespaces-and-folders](dec-0078-landed-collisions-renumber-and-kit-checks-hold-numbers-descriptions-namespaces-and-folders.md#r8) the same way. Those records are not touched.
 
