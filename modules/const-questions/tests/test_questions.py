@@ -34,6 +34,7 @@ from constitution_layer_kit.testing.harness import (
     red_lines,
 )
 from constitution_layer_kit.testing.items import (
+    EntryFile,
     PatternDial,
     Subject,
     fake_claude,
@@ -262,6 +263,15 @@ def test_one_hit_per_line_in_order() -> None:
         f"RED: 2 finding(s) — 1 document examined ({DOC})",
     ]
     assert result.code == 2 and red_lines(result.stderr) == wanted, result.stderr[:600]
+    # a code span before the marker is blanked at its own length: the finding quotes from the marker on
+    spanned = wrote("Use `x` then TODO here.\n")
+    result, _ = gate_on(spanned)
+    at = line_of(spanned.text, "Use")
+    wanted = [
+        f"RED: docs/notes/a.md:{at}: open question marker 'TODO' — TODO here.",
+        "RED: 1 finding(s) — 1 document examined (docs/notes/a.md)",
+    ]
+    assert result.code == 2 and red_lines(result.stderr) == wanted, result.stderr[:600]
 
 
 @item(10, "the markers dial replaces the defaults")
@@ -274,6 +284,14 @@ def test_own_markers() -> None:
     glued = wrote("Really??\n")
     blocked(glued, q1(glued, "??", "Really", "??"), dials_patch=patch)
     passes(wrote("TODO and TBD pass under the project's own markers.\n"), dials_patch=patch)
+    # two markers that start at the same column: the one listed first is named
+    tied = wrote("TODO: x\n")
+    result, _ = gate_on(tied, dials_patch=own(markers=["TODO", "TODO:"]))
+    wanted = [
+        f"RED: docs/notes/a.md:{line_of(tied.text, 'TODO')}: open question marker 'TODO' — TODO: x",
+        "RED: 1 finding(s) — 1 document examined (docs/notes/a.md)",
+    ]
+    assert result.code == 2 and red_lines(result.stderr) == wanted, result.stderr[:600]
 
 
 @item(11, "territories decide coverage; a top-level README is covered")
@@ -336,6 +354,14 @@ def test_dial_failures() -> None:
         ),
         (
             own(markers=["TO\nDO"]),
+            "BROKEN: constitution.yaml: const-questions.markers must be a non-empty list of non-empty"
+            " one-line texts"
+            ' — fix: write the marker texts to look for, one per line under "- ", in single quotes, or'
+            " leave the key out for the defaults '[decide:', 'TODO', 'TBD', 'FIXME'; an empty list would"
+            " examine nothing in silence",
+        ),
+        (
+            own(markers=["TO\rDO"]),
             "BROKEN: constitution.yaml: const-questions.markers must be a non-empty list of non-empty"
             " one-line texts"
             ' — fix: write the marker texts to look for, one per line under "- ", in single quotes, or'
@@ -704,19 +730,30 @@ def test_effect_path_bypass() -> None:
     found = effect_lines(root, {sid: lines}, no_plugins())
     wanted = "  W1 (pattern): 5 moment(s): 1 applied, 4 bypassed, 0 missed — B1 4"
     assert wanted in found, found
+    # with no dials file the gate skips every file, so no write is a moment
+    bare = H.fresh_consumer()
+    (bare.root / "constitution.yaml").unlink()
+    bare.commit()
+    alone = [tr_call("s21b", bare.root, WAY_AT, "t1", "Write", bare.root / "docs" / "a.md")]
+    found = effect_lines(bare.root, {"s21b": alone}, no_plugins())
+    assert "  W1 (pattern): 0 moment(s): 0 applied, 0 bypassed, 0 missed" in found, found
 
 
 @item(22, "W2: the plugin disabled, or a dial of the gate loosened, is bypassed by B2")
 def test_effect_switch_off() -> None:
-    """Seven commits of the dials file, the namespace changed at each: severity block (applied); the
-    defaults written out with no severity (applied); severity warn where none stood, so from the default
-    block (bypassed); the markers cut to one (bypassed); a marker added (applied); a negated territory added
-    (bypassed); that negation removed (applied). A fake plugin list that lists the gate for this project
-    disabled adds one more, bypassed. The lines are typed by hand."""
+    """Eight commits of the dials file, the namespace changed at each: the namespace added at severity warn,
+    an adoption that lowers nothing (applied); severity block (applied); the defaults written out with no
+    severity (applied); severity warn where none stood, so from the default block (bypassed); the markers cut
+    to one (bypassed); a marker added (applied); a negated territory added (bypassed); that negation removed
+    (applied). A fake plugin list that lists the gate for this project disabled adds one more, bypassed.
+    Then a second project, whose commits tell each loosened dial apart: adopted at block (applied); the
+    markers cut to one (bypassed); a territory pattern added (applied); that pattern dropped (bypassed). The
+    lines are typed by hand."""
     consumer = H.fresh_consumer()
     root = consumer.root
     defaults = ["[decide:", "TODO", "TBD", "FIXME"]
     steps = [
+        own(severity="warn"),
         own(severity="block"),
         own(markers=defaults),
         own(markers=defaults, severity="warn"),
@@ -729,10 +766,21 @@ def test_effect_switch_off() -> None:
         consumer.write_dials(step)
         consumer.commit()
     found = effect_lines(root, {}, no_plugins())
-    assert "  W2 (pattern): 7 moment(s): 4 applied, 3 bypassed, 0 missed — B2 3" in found, found
+    assert "  W2 (pattern): 8 moment(s): 5 applied, 3 bypassed, 0 missed — B2 3" in found, found
     disabled = json.dumps([{"id": f"{NAMESPACE}@m", "enabled": False, "projectPath": str(root)}])
     again = effect_lines(root, {}, no_plugins(disabled))
-    assert "  W2 (pattern): 8 moment(s): 4 applied, 4 bypassed, 0 missed — B2 4" in again, again
+    assert "  W2 (pattern): 9 moment(s): 5 applied, 4 bypassed, 0 missed — B2 4" in again, again
+    other = H.fresh_consumer()
+    for step in [
+        own(severity="block"),
+        own(markers=["TODO"]),
+        own(markers=["TODO"], territories=["*.md", "docs/**"]),
+        own(markers=["TODO"], territories=["*.md"]),
+    ]:
+        other.write_dials(step)
+        other.commit()
+    told = effect_lines(other.root, {}, no_plugins())
+    assert "  W2 (pattern): 4 moment(s): 2 applied, 2 bypassed, 0 missed — B2 2" in told, told
 
 
 @item(
@@ -800,7 +848,8 @@ def test_effect_skill_after_red() -> None:
 def test_effect_skill_before_options() -> None:
     """A message of lettered options after a Skill call for ask-or-decide, in full or bare, is applied; one
     with no load before it, and one after a load of another skill, are missed; a load after the message
-    does not count for it; a message with no lettered options is no moment. The line is typed by hand."""
+    does not count for it; a message with no lettered options is no moment. One load counts for every later
+    message of its session. The line is typed by hand."""
     root = H.fresh_consumer().root
     chosen = options(option("A"), option("B"))
     sessions = {
@@ -812,9 +861,14 @@ def test_effect_skill_before_options() -> None:
             tr_say("s25d", root, chosen),
         ],
         "s25e": [tr_say("s25e", root, "I did it, and nothing is left to choose.")],
+        "s25f": [
+            tr_tool("s25f", root, "k", "Skill", skill=SKILL_NAME),
+            tr_say("s25f", root, chosen),
+            tr_say("s25f", root, chosen),
+        ],
     }
     found = effect_lines(root, sessions, no_plugins())
-    assert "  W5 (pattern): 4 moment(s): 2 applied, 0 bypassed, 2 missed — B5 2" in found, found
+    assert "  W5 (pattern): 6 moment(s): 4 applied, 0 bypassed, 2 missed — B5 2" in found, found
 
 
 @item(
@@ -822,12 +876,13 @@ def test_effect_skill_before_options() -> None:
     "W6: lettered options are applied when they show Pros and Cons, a recommendation, the decider",
 )
 def test_effect_decision_shape() -> None:
-    """The whole shape is applied. Each of these is missed by B6: options with no sub-bullets, one option
-    with no Cons, no recommendation, no decider. A plain question with no letters, and one whose bold letters
-    are not a run from A, are no moment. The line is typed by hand."""
+    """The whole shape, twice, is applied. Each of these is missed by B6: options with no sub-bullets, one
+    option with no Cons, no recommendation, no decider. A plain question with no letters, and one whose bold
+    letters are not a run from A, are no moment. The line is typed by hand."""
     root = H.fresh_consumer().root
     whole = options(option("A"), option("B"))
     texts = [
+        whole,
         whole,
         options(option("A", pros=False, cons=False), option("B", pros=False, cons=False)),
         options(option("A"), option("B", cons=False)),
@@ -838,7 +893,7 @@ def test_effect_decision_shape() -> None:
     ]
     lines = [tr_say("s26", root, text) for text in texts]
     found = effect_lines(root, {"s26": lines}, no_plugins())
-    assert "  W6 (pattern): 5 moment(s): 1 applied, 0 bypassed, 4 missed — B6 4" in found, found
+    assert "  W6 (pattern): 6 moment(s): 2 applied, 0 bypassed, 4 missed — B6 4" in found, found
 
 
 @item(
@@ -869,11 +924,11 @@ def test_effect_escape() -> None:
 
 @item(28, "W8: each message that puts a question is a moment for the reader, who judges it with --reader")
 def test_effect_reader_rule() -> None:
-    """Four messages put a question: one that ends in a question mark, one of lettered options with none, one
-    whose last line is a question inside bold, and one with a question after a code block. Three do not: a
-    statement, a question mark inside a code span, a question mark inside a fenced block. Without `--reader`
-    the four are counted and not judged; a fake reader that answers APPLIED judges them. The lines are typed
-    by hand."""
+    """Five messages put a question: one that ends in a question mark, one of lettered options with none, one
+    whose last line is a question inside bold, one with a question after a code block, and one whose question
+    mark stands before a code span. Five do not: three statements, a question mark inside a code span, a
+    question mark inside a fenced block. Without `--reader` the five are counted and not judged; a fake
+    reader that answers APPLIED judges them, each by W8's own text. The lines are typed by hand."""
     root = H.fresh_consumer().root
     sid = "s28"
     texts = [
@@ -881,17 +936,46 @@ def test_effect_reader_rule() -> None:
         options(option("A"), option("B"), closing=""),
         "I read this as the first. **Is that right?**",
         "```\nwhat?\n```\nWhich do you want?",
+        "Shall I run this? `make check`",
         "The change is made.",
+        "The tests pass.",
+        "The file is saved.",
         "Run `git status ?` to see it.",
         "```\nIs this a question?\n```\nIt is not.",
     ]
     lines = [tr_turn(sid, root, WAY_AT, "start"), *(tr_say(sid, root, text) for text in texts)]
     plain = effect_lines(root, {sid: lines}, no_plugins())
-    assert "  W8 (reader): 4 moment(s), not judged — run again with --reader to judge them" in plain, plain
-    env, _ = reader_fake(H.scratch_dir(), "claude.ai", json.dumps({"result": "APPLIED"}))
-    judged = effect_lines(root, {sid: lines}, env, "--reader")
-    assert "  W8 (reader): 4 moment(s): 4 applied, 0 bypassed, 0 missed" in judged, judged
+    assert "  W8 (reader): 5 moment(s), not judged — run again with --reader to judge them" in plain, plain
+    folder = H.scratch_dir()
+    prompts = folder / "prompts"
+    body = (
+        'case "$1" in\n'
+        '  --version) echo "9.9.9 (Claude Code)" ;;\n'
+        '  auth) echo \'{"authMethod": "claude.ai"}\' ;;\n'
+        f"  -p) printf '%s\\n<end>\\n' \"$2\" >> {shlex.quote(str(prompts))}\n"
+        '      echo \'{"result": "APPLIED"}\' ;;\n'
+        "esac\n"
+    )
+    judged = effect_lines(root, {sid: lines}, fake_claude(folder, body), "--reader")
+    assert "  W8 (reader): 5 moment(s): 5 applied, 0 bypassed, 0 missed" in judged, judged
+    # the reader judges by W8's own text, typed by hand
+    rule = (
+        "A question is put to the user only at recorded stakes or at a genuine blocker; below that line the"
+        " session makes the reasonable call and notes it in the commit message."
+    )
+    asked = prompts.read_text(encoding="utf-8").split("\n<end>\n")[:-1]
+    assert len(asked) == 5, asked
+    for prompt in asked:
+        assert prompt.split("The rule:\n", 1)[1].split("\n\nThe moment", 1)[0] == rule, prompt
+    # a reader that answers MISSED counts every moment missed
+    env, _ = reader_fake(H.scratch_dir(), "claude.ai", json.dumps({"result": "MISSED"}))
+    missed = effect_lines(root, {sid: lines}, env, "--reader")
+    assert "  W8 (reader): 5 moment(s): 0 applied, 0 bypassed, 5 missed" in missed, missed
 
+
+# The module's other entry files, beside the harness's, each with its clause and closing line typed by hand:
+# the shared items about the interpreter's floor and the shared package run each.
+ENTRY_FILES = (EntryFile("effect-report.py", "", "BROKEN: the report could not run — no rule counted"),)
 
 SUBJECT = Subject(
     harness=H,
@@ -913,4 +997,7 @@ SUBJECT = Subject(
     skill="ask-or-decide",  # the skill a red names (F10), typed by hand
     effect="effect-report.sh",  # no `effect_reader`: its reader rule W8 has a moment for each question put,
     # and the shared items about a reader rule need one for each human turn
+    entries=ENTRY_FILES,
+    effect_clause="until then the effect report is not made",  # its C2 clause, typed by hand
+    scan_skill="ask-or-decide",  # the skill a red of the scan names (F10), typed by hand
 )

@@ -6,7 +6,7 @@ Modes:    no arguments  read one PreToolUse event on stdin, reconstruct the docu
                         will be after the write, and judge it;
           --scan [DIR]  judge every Markdown document in claimed territory of the
                         repository containing DIR (default: the current directory).
-Reads:    from the event: tool_name, tool_input.file_path, .content, .old_string,
+Reads:    from the event: hook_event_name, tool_name, tool_input.file_path, .content, .old_string,
           .new_string, .replace_all, cwd, session_id, transcript_path. From constitution.yaml: module_prefix,
           root_policy, territory_dialect, territory of every policy namespace, and this module's dials
           const-meta-types.severity (block | warn) and const-meta-types.log_dir.
