@@ -1771,5 +1771,6 @@ SUBJECT = Subject(
     skill="catalog-item",  # the skill a red names (F10), typed by hand
     effect="effect-report.sh",  # no `effect_reader`: the module has no reader rule
     entries=ENTRY_FILES,
+    effect_clause="until then the effect report is not made",  # its C2 clause, typed by hand
     scan_skill="catalog-item",  # the skill a red of the scan names (F10), typed by hand
 )

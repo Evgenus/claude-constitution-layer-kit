@@ -2103,5 +2103,6 @@ SUBJECT = Subject(
     # no effect_reader: the shared reader items need a moment for each human turn of a session that holds
     # no text of the assistant, and W7 judges the final text of the assistant (item 32 proves it)
     entries=ENTRY_FILES,
+    effect_clause="until then the effect report is not made",  # its C2 clause, typed by hand
     scan_skill="plain-language",  # the skill a red of the scan names (F10), typed by hand
 )

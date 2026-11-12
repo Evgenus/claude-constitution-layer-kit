@@ -2473,4 +2473,5 @@ SUBJECT = Subject(
     effect="effect-report.sh",  # no `effect_reader`: its reader rule W4 has a moment for the last reply
     # before each human turn, and the shared items about a reader rule need a moment for each human turn
     entries=ENTRY_FILES,
+    effect_clause="until then the effect report is not made",  # its C2 clause, typed by hand
 )

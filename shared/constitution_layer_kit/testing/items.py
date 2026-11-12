@@ -344,6 +344,9 @@ class Subject:
     # moment for each human turn of a session; empty leaves the items about the reader out
     effect_hook: str = ""  # the file name of the script a hook of the module runs on a call, where it is not
     # the harness's wrapper, as a grant's is not; empty: the wrapper's
+    effect_clause: str | None = None  # what closes the effect entry's C2 behind " — ", typed by hand: the
+    # clause of the identity it runs under; None: the item about the line holds it up to the clause, which
+    # must follow
     entries: Sequence[EntryFile] | None = None  # the module's other entry files, each with its clause and its
     # closing line typed by hand; declared, every Python file at the top of the harness's scripts folder is
     # the harness's entry or one of these, and the items about the floor and the package run each; None:
@@ -4764,9 +4767,10 @@ def test_effect_shared_entry(subject: Subject) -> None:
 def test_effect_library_absent(subject: Subject) -> None:
     """The module's effect entry run with a `yaml` first on PYTHONPATH that fails to import, as item 114
     runs the gate's: stderr is the two lines and nothing else, `C2` naming PyYAML and the plugin's
-    requirements file, typed by hand up to the closing clause of the entry's identity, then the report's
-    closing line; nothing on stdout. A shared module or a module's rule imported before the preflight ends
-    the run in a traceback instead, which this item holds red."""
+    requirements file, then the report's closing line; nothing on stdout. `C2` is typed by hand whole, its
+    clause the Subject's `effect_clause`, or, where the Subject gives none, up to that clause, which must
+    follow. A shared module or a module's rule imported before the preflight ends the run in a traceback
+    instead, which this item holds red."""
     it = shared(subject, "effect_library_absent")
     root = it.h.fresh_consumer().root
     shadow = it.h.scratch_dir()
@@ -4777,12 +4781,17 @@ def test_effect_library_absent(subject: Subject) -> None:
         f" '{preflight.requirements_file()}' — "
     )
     lines = result.stderr.splitlines()
+    clause = it.s.effect_clause
+    whole = (
+        lines[0] == line + clause
+        if clause is not None
+        else lines[0].startswith(line) and len(lines[0]) > len(line)
+    )
     ok = (
         result.code == 1
         and result.stdout == ""
         and len(lines) == 2
-        and lines[0].startswith(line)
-        and len(lines[0]) > len(line)
+        and whole
         and lines[1] == "BROKEN: the report could not run — no rule counted"
     )
     assert ok, f"exit {result.code}; stdout {result.stdout!r}; stderr {result.stderr.strip()[-600:]!r}"

@@ -2807,4 +2807,5 @@ SUBJECT = Subject(
     act_args=["--all"],
     effect="effect-report.sh",
     entries=ENTRY_FILES,
+    effect_clause="until then the effect report is not made",  # its C2 clause, typed by hand
 )

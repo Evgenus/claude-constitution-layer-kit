@@ -1240,6 +1240,7 @@ SUBJECT = Subject(
     effect="effect-report.sh",
     effect_hook="grant-new-document.sh",  # the hook runs the grant, not the generator the harness wraps
     entries=ENTRY_FILES,
+    effect_clause="until then the effect report is not made",  # its C2 clause, typed by hand
 )
 
 

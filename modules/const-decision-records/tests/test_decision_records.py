@@ -1211,5 +1211,6 @@ SUBJECT = Subject(
     effect="effect-report.sh",  # no `effect_reader`: its reader rule W7 has a moment for the human turns that
     # answer lettered options, and the shared items about a reader rule need one for each human turn
     entries=ENTRY_FILES,
+    effect_clause="until then the effect report is not made",  # its C2 clause, typed by hand
     scan_skill="record-decision",  # the skill a red of the scan names (F10), typed by hand
 )

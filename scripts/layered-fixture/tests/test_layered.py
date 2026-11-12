@@ -1126,4 +1126,5 @@ SUBJECT = Subject(
     effect="effect-report.sh",
     effect_reader="W2",
     entries=ENTRY_FILES,
+    effect_clause="until then Markdown writes pass unchecked",  # its C2 clause, typed by hand
 )

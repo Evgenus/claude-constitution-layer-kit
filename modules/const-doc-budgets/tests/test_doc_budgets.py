@@ -1508,5 +1508,6 @@ SUBJECT = Subject(
     skill="set-ceilings",  # the skill a red names (F10), typed by hand
     effect="effect-report.sh",
     entries=ENTRY_FILES,
+    effect_clause="until then the effect report is not made",  # its C2 clause, typed by hand
     scan_skill="set-ceilings",  # the skill a red of the scan names (F10), typed by hand
 )
