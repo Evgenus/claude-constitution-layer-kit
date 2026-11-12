@@ -1560,11 +1560,11 @@ def test_id_repair_leaves_an_ambiguous_id_alone() -> None:
     assert kept and messages.v4_count(0, 0, 0) in done.stdout, done.stdout + done.stderr
     # the letters round a link's text are the text's own: `Xnote-oneX` is no id, though `note-one` is one
     letters = moving_consumer()
-    kept = "See [Xnote-oneX](gone.md) and [Xnote-one](gone.md) and [note-oneX](gone.md).\n"
-    letters.write("docs/notes/three.md", note("# T\n\n" + kept, "note-three"))
+    unchanged = "See [Xnote-oneX](gone.md) and [Xnote-one](gone.md) and [note-oneX](gone.md).\n"
+    letters.write("docs/notes/three.md", note("# T\n\n" + unchanged, "note-three"))
     letters.commit()
     mover(letters, "--ids")
-    assert kept in (letters.root / "docs/notes/three.md").read_text()
+    assert unchanged in (letters.root / "docs/notes/three.md").read_text()
 
 
 @item(64, "every refusal of the mover is exit 1 and changes nothing")
