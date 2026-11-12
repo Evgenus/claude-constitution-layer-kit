@@ -19,10 +19,10 @@ A line that starts `BROKEN: const-doc-budgets needs the Python package constitut
    document a ceiling holds and hands an excess back to the model. It never refuses a write. The
    skill, `set-ceilings`, is offered to the model when a ceiling is set and when a finding is read.
 2. **Switch the check on: zero configuration measures nothing.** With no ceiling set, the hook skips
-   every write and says why, and the scan counts zero. One line at session start also says that no
-   document is measured. A number no data stand behind would be a target, so the module ships none.
-   Without a `constitution.yaml` every run is a visible skip naming it. The dial `ceilings` switches
-   the check on.
+   every write and says why, and the scan counts zero. With no ceiling set, one line at session
+   start also says that no document is measured. A number no data stand behind would be a target,
+   so the module ships none. Without a `constitution.yaml` every run is a visible skip naming it.
+   The dial `ceilings` switches the check on.
 3. **What is measured.** The length of a document in characters, as the project's conventions
    define one. It is the Unicode code points of the file read as UTF-8, with a CRLF counted as
    one. It is the whole file — envelope, code, tables and link targets — since a reader loads

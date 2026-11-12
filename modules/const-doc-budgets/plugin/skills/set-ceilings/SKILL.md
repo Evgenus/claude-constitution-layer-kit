@@ -42,16 +42,17 @@ except the checks named in steps 1 and 2.
 A ceiling stays at `level: warning` until 30 days of data stand behind it: the check refuses
 `error` on a window shorter than 30 days. At warning an excess is a note that reaches the model
 after the write and is listed by the scan, never red. After 30 days, run the report again, set
-the number from it, widen the window, and move the level to `error`. Do it in a change of its own
-that names the number and the reason.
+the number from it, widen the window, and move the level to `error`. Make those edits in a change
+of their own that names the number and the reason.
 
 ## 3. Reading a finding
 
 - **Over a ceiling at error** — the finding names the document, its length, the ceiling and how
   much to cut. Cut or split; never squeeze. A shorter document that says less clearly is the
-  wrong fix. Split along a seam the document already has. Move a long table into a document of
-  its own, linked from the first. Replace a rule restated from its home by a link to that home.
-  Move a procedure that loads only when its activity occurs into a skill.
+  wrong fix. Split along a seam the document already has. A seam may be a long table, moved into
+  a document of its own and linked from the first. It may be a rule restated from its home,
+  replaced by a link to that home. It may be a procedure that loads only when its activity
+  occurs, moved into a skill.
 - **Over a ceiling at warning** — the same numbers in a note. Cut or split before the ceiling
   blocks; the note repeats after every write until then.
 - **A document already over,** written again for another reason: the finding repeats the length,
@@ -76,6 +77,7 @@ frozen document needs that document's departure in the same change.
 
 ## What the check does not judge
 
-Whether a long document says what it needs to, and whether a split left each part readable.
-Whether the declared window is where the number came from. A file written by a shell command,
-which the scan sees and the hook does not. Those are the writer's and the reviewer's.
+The check does not judge whether a long document says what it needs to, or whether a split left
+each part readable. Nor does it judge whether the declared window is where the number came from.
+Nor does it judge a file written by a shell command, which the scan sees and the hook does not.
+Those are the writer's and the reviewer's.
