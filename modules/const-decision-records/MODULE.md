@@ -141,12 +141,12 @@ The advisory rules beside it, as a numbered list under the handles `R-a` to `R-f
 |---|---|---|---|
 | `severity` | `block` | gate | `block`: a finding exits 2 and the write is blocked. `warn`: the finding is reported to Claude and to the user and the write proceeds — the adoption path onto a repository with legacy records. The scan ignores it. |
 | `log_dir` | absent | gate | A repository-relative directory for the output log. The gate verifies with git that the directory is ignored and reports a configuration failure otherwise. Absent: the log goes to the platform's per-plugin data directory; where that is absent too (CI), nowhere, and stdout is the record. |
-| `record_policies` | `[]` | gate | The ids of the policies that govern decision records. Empty: nothing is examined and every run says so. An id with no policy behind it claims nothing and earns a note; so does a policy whose namespace declares no territory, its note naming the line to write. |
+| `record_policies` | `[]` | gate | The ids of the policies that govern decision records. Empty: nothing is examined and every run says so. An id with no policy behind it claims nothing and earns a note. So does a policy whose namespace declares no territory, its note naming the line to write. |
 | `boundary_examples` | `[]` | skill | The project's own routine / recorded pairs ([A3.5](../../docs/requirements.md#a3-5)): a list of `{routine: …, recorded: …}`. Absent or empty: the skill uses the seed pairs of [§8](#t8). |
 | `deciders` | `{}` | skill | Who may decide at each stakes level ([A3.7](../../docs/requirements.md#a3-7)): `{process: […], product: […], architecture: […]}`. Absent or empty, as a whole or at one level: the skill has the agent ask who decides. |
 | `note_trailer` | `""` | skill | The commit-message trailer key under which routine notes carry a theme, if the project uses one. Absent or empty: the promotion skill reads the log only. |
 
-The gate validates the three dials it reads at each read, and a key of this namespace that is none of the six above is a configuration failure: a misspelt `record_policy:` would otherwise read as the dial unset. The three skill-read dials are refused by name only — a key that is not theirs — and read by the agent as written; nothing validates their shape ([§9](#t9), limit 7). Territory, the root policy, the dialect and the module prefix are the kernel-owned keys and the policy namespaces of [kernel §6](../../docs/constitution/CONVENTIONS.md#k6), not dials of this module.
+The gate validates the three dials it reads at each read. A key of this namespace that is none of the six above is a configuration failure. A misspelt `record_policy:` would otherwise read as the dial unset. The three skill-read dials are refused by name only — a key that is not theirs — and read by the agent as written. Nothing validates their shape ([§9](#t9), limit 7). Territory, the root policy, the dialect and the module prefix are not dials of this module. They are the kernel-owned keys and the policy namespaces of [kernel §6](../../docs/constitution/CONVENTIONS.md#k6).
 
 <a id="t8"></a>
 ## 8. Boundary examples
@@ -160,25 +160,25 @@ The gate validates the three dials it reads at each read, and a key of this name
 
 **R-b** — **a real choice or not** (which body shape):
 
-5. Three mechanisms were compared and one picked → options, pros and cons, one recommendation, the choice / a schema gains the key a ruling already requires → ruling and reasoning, *not* two invented alternatives.
+5. Three mechanisms were compared and one picked → options, pros and cons, one recommendation, the choice. / A schema gains the key a ruling already requires → ruling and reasoning, *not* two invented alternatives.
 6. The decider overruled the recommendation → the record keeps both and says why / *not* a record rewritten so that the recommendation matches the choice.
 
-7. One option was ever on the table, and a second is added "for balance" → *not* shape one; ruling and reasoning / two options were weighed in the dialog and one dismissed quickly → shape one, the dismissed option kept with the reason it fell.
+7. One option was ever on the table, and a second is added "for balance" → *not* shape one; ruling and reasoning. / Two options were weighed in the dialog and one dismissed quickly → shape one, the dismissed option kept with the reason it fell.
 
 **R-e** — **in place or a new record:**
 
-8. A link form changes across every record, rulings untouched → in place, the commit names it a migration / the substance of an accepted record's ruling changes → a new record naming the old one.
-9. A typo in an accepted record — past the yes or the review its stakes ask for, or a `product` record once committed — → in place, the commit names it a typo fix / an accepted record's `stakes` or `decider` "corrected" after the fact → *not* in place without saying so in the commit; if the ruling's price or owner was genuinely different, that is a new record.
+8. A link form changes across every record, rulings untouched → in place, the commit names it a migration. / The substance of an accepted record's ruling changes → a new record naming the old one.
+9. A typo in an accepted record — past the yes or the review its stakes ask for, or a `product` record once committed — → in place. The commit names it a typo fix. / An accepted record's `stakes` or `decider` "corrected" after the fact → *not* in place without saying so in the commit. If the ruling's price or owner was genuinely different, that is a new record.
 
-10. An accepted record cites a document that has since moved → in place, a migration / an accepted record's ruling no longer holds because a later ruling replaced it → *not* an edit and not a status flip: the later record names it, and the old one stays as written.
+10. An accepted record cites a document that has since moved → in place, a migration. / An accepted record's ruling no longer holds because a later ruling replaced it → *not* an edit and not a status flip. The later record names it, and the old one stays as written.
 
-11. A validation before the yes finds a ruling item wrong → in place, the documents it changed corrected in the same commit, the commit saying so / the same finding after the yes → a new record naming the old one.
+11. A validation before the yes finds a ruling item wrong → in place, the documents it changed corrected in the same commit. The commit says so. / The same finding after the yes → a new record naming the old one.
 
 **R-f** — **promote or leave** (the promotion loop):
 
-12. Three commit notes answer "where does this kind of file go", each a little differently → a recurring theme, and a missing ruling: record it / three notes mention the same directory while answering unrelated questions → they share a word, not a theme: leave them.
-13. Two notes answer the same question in opposite ways → promote now, disagreement is the stronger signal / five notes give the same answer and every session finds it without asking → stable and known: leave it.
-14. Everybody does the same thing, and each new session still has to rediscover it → a documented procedure, not a record of a choice nobody contests / the answers vary with who was asked → a ruling is missing: a record.
+12. Three commit notes answer "where does this kind of file go", each a little differently → a recurring theme, and a missing ruling: record it. / Three notes mention the same directory while answering unrelated questions → they share a word, not a theme: leave them.
+13. Two notes answer the same question in opposite ways → promote now, disagreement is the stronger signal. / Five notes give the same answer and every session finds it without asking → stable and known: leave it.
+14. Everybody does the same thing, and each new session still has to rediscover it → a documented procedure, not a record of a choice nobody contests. / The answers vary with who was asked → a ruling is missing: a record.
 
 The field checks are deterministic and need no examples; the fixtures of [§10](#t10) are their contrastive pairs.
 
