@@ -28,6 +28,7 @@ from constitution_layer_kit import messages as shared
 from constitution_layer_kit.effect import History
 from constitution_layer_kit.history import read_transcript
 from constitution_layer_kit.model import Broken, Finding
+from constitution_layer_kit.testing import items as shared_items
 from constitution_layer_kit.testing.acceptance import broken_first_line, expect, failure_of, item
 from constitution_layer_kit.testing.consumer import Consumer
 from constitution_layer_kit.testing.harness import (
@@ -40,7 +41,6 @@ from constitution_layer_kit.testing.harness import (
     red_lines,
 )
 from constitution_layer_kit.testing.items import (
-    HANG_BOUND,
     PatternDial,
     Subject,
     fake_claude,
@@ -1943,7 +1943,7 @@ def test_t13() -> None:
     # a red item, not a hang. An escaped quote closes nothing and opens nothing, a backslash before a
     # letter stays, and an operator inside the quote the escape leaves open drops no body.
     git_push = d1("", "git push", "-f", "git push -f")
-    with H.bounded(HANG_BOUND):
+    with H.bounded(shared_items.HANG_BOUND):
         passed("echo `x")
         passed("echo `a``b`", subcommands=3)
         asked("echo `` `git push -f`", git_push, subcommands=2)
@@ -2067,7 +2067,8 @@ def test_t21() -> None:
 
 @item(22, "territories: a negated pattern takes a document out; a README at the top is covered")
 def test_t22() -> None:
-    """Territories: a negated pattern takes a document out; the default covers every Markdown file."""
+    """Territories: a negated pattern takes a document out; the default covers every Markdown file. A
+    repository with no dials file claims nothing, said by the scan's skip line."""
     out = lists_scan({"docs/notes/a.md": PLAIN}, dials_patch=own(territories=["*.md", "!docs/notes/**"]))
     expect(
         out,
@@ -2078,6 +2079,17 @@ def test_t22() -> None:
     )
     top = lists_scan({"README.md": PLAIN})
     expect(top, 2, "RED: README.md:3: list item without a handle — one item", "stdout")
+    # a repository with no dials file claims nothing: the scan's skip line, typed by hand
+    bare = H.fresh_consumer()
+    (bare.root / "constitution.yaml").unlink()
+    bare.commit()
+    skipped = LISTS.run_gate("", args=["--scan", str(bare.root)])
+    skip_line = (
+        f"GREEN: const-interaction: 0 documents examined — no constitution.yaml in {bare.root}: nothing is"
+        " claimed\n"
+    )
+    skip_ok = skipped.code == 0 and skipped.stdout == skip_line and skipped.stderr == ""
+    assert skip_ok, f"no dials file: exit {skipped.code}: {skipped.stdout}{skipped.stderr}"
 
 
 @item(23, "the list scan as a hook is its own C12; a misinvocation exits 1")
