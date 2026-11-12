@@ -239,15 +239,18 @@ def test_t4() -> None:
     )()
 
 
-@item(5, "wrappers, assignments, a program path and git's global options hide nothing")
+@item(5, "wrappers, assignments, redirections, a program path and git's global options hide nothing")
 def test_t5() -> None:
-    """Wrappers, assignments, a program path, git's global options: none hides the verb.
+    """Wrappers, assignments, redirections, a program path, git's global options: none hides the verb.
 
     The cases, once held by the acceptance table of the module document: wrappers, shells,
     assignments, a program path and the options between a program and its verb hide nothing:
     `sudo /bin/rm -r`, `git -c k=v push -f`, `FOO=1 timeout 5 git stash drop`, `nohup git
     filter-repo`, `git gc --prune=now`, `env -i`, `sudo -k`, `sudo --user root`, `/usr/bin/env`,
-    `bash -lc`, `exec`, `exec -a x rm -r y`, `if ...; then`, a redirection `2>&1`.
+    `bash -lc`, `exec`, `exec -a x rm -r y`, `if ...; then`, a redirection `2>&1`. A redirection
+    before the program, its target attached or the next word, between the program and its verb, or
+    after a wrapper, since 2026-11-13: `2>/dev/null git push -f`, `2> /dev/null git push -f`,
+    `git 2>/dev/null push -f`, `sudo >x git push -f`, `>out.log rm -rf build`.
 
     Git's options are stepped over by the entry's matching: `-C .`, `-c k=v`, `--no-pager -C .`,
     `--git-dir .git` and `--git-dir=.git`, `--work-tree w`, `--namespace n`, and `--exec-path`,
@@ -277,6 +280,16 @@ def test_t5() -> None:
     asked("exec -a x rm -r y", d1("", "rm", "-r", "exec -a x rm -r y"))
     asked("if true; then git push -f; fi", d1("", "git push", "-f", "then git push -f"), subcommands=2)
     asked("git push -f 2>&1", d1("", "git push", "-f", "git push -f 2>&1"))
+    # a redirection is no word of the command, wherever it stands: before the program, its target
+    # attached or the next word, between the program and its verb, after a wrapper
+    for text in (
+        "2>/dev/null git push -f",
+        "2> /dev/null git push -f",
+        "git 2>/dev/null push -f",
+        "sudo >x git push -f",
+    ):
+        asked(text, d1("", "git push", "-f", text))
+    asked(">out.log rm -rf build", d1("", "rm", "-r", ">out.log rm -rf build"))
     # git's options before the verb are skipped by the entry's matching, as for every program
     asked("git -C . push -f", d1("", "git push", "-f", "git -C . push -f"))
     asked("git -c k=v push -f", d1("", "git push", "-f", "git -c k=v push -f"))
@@ -453,7 +466,7 @@ def test_t6() -> None:
     asked("bash +o posix -c 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2)
     asked('bash -o pipefail -c "git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=2)
     asked('bash -eo pipefail -c "git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=2)
-    asked("echo '$(<<EOF'\ngit push -f\nEOF", d1("", "git push", "-f", "git push -f"), subcommands=4)
+    asked("echo '$(<<EOF'\ngit push -f\nEOF", d1("", "git push", "-f", "git push -f"), subcommands=3)
     asked('echo "$(date) a<<EOF"\ngit push -f\nEOF', d1("", "git push", "-f", "git push -f"), subcommands=4)
 
 
@@ -1678,14 +1691,14 @@ def test_t13() -> None:
         "nice -- -n 5 rm -rf b": [("-n", "5", "rm", "-rf", "b")],
         "sh -- -lc 'rm -rf b'": [("sh", "--", "-lc", "rm -rf b")],
         "git push \\\n -f": [("git", "push", "-f")],
-        "ls &> /dev/null; rm -r x": [("ls", "&>", "/dev/null"), ("rm", "-r", "x")],
+        "ls &> /dev/null; rm -r x": [("ls",), ("rm", "-r", "x")],
         "{ git push -f; }": [("git", "push", "-f")],
         "FOO=1": [],
         # a two-letter operator is read before its one-letter prefix: `&&`, `||` and `|&` each cut once,
-        # and the redirection after them keeps its own `&`
-        "a &&> b": [("a",), (">", "b")],
-        "a ||&> b": [("a",), ("&>", "b")],
-        "a |&> b": [("a",), (">", "b")],
+        # and the redirection after them is dropped with its target
+        "a &&> b": [("a",)],
+        "a ||&> b": [("a",)],
+        "a |&> b": [("a",)],
         # each shell word is stripped, by name or by path, so the program after it is read
         "! git push -f": [("git", "push", "-f")],
         "if x; then :; else git push -f; fi": [("x",), (":",), ("git", "push", "-f")],
@@ -1694,20 +1707,21 @@ def test_t13() -> None:
         "until git push -f; do :; done": [("git", "push", "-f"), (":",)],
         "while x; do git push -f; done": [("x",), ("git", "push", "-f")],
         "/bin/do git push -f": [("git", "push", "-f")],
-        # `<&` and `>&` redirect and cut nothing, at the text's start too; a `&` that opens the text cuts
-        "cat <&3 & git push -f": [("cat", "<&3"), ("git", "push", "-f")],
-        "ls >& x; git push -f": [("ls", ">&", "x"), ("git", "push", "-f")],
-        "& ls >": [("ls", ">")],
-        ">& x": [(">&", "x")],
+        # `<&` and `>&` redirect and cut nothing, at the text's start too, and are dropped with their target;
+        # a `&` that opens the text cuts; a redirection with no word after it is dropped alone
+        "cat <&3 & git push -f": [("cat",), ("git", "push", "-f")],
+        "ls >& x; git push -f": [("ls",), ("git", "push", "-f")],
+        "& ls >": [("ls",)],
+        ">& x": [],
         # a heredoc whose terminator is the next line drops nothing but the operator's body, and the lines
         # after it are read; of two operators on one line, the first one's body alone is dropped, so the
         # second body is read as commands, which examines more
-        "cat <<EOF\nEOF\nls": [("cat", "<<EOF"), ("ls",)],
-        "cat <<A <<B\nx\nA\ny\nB\nls": [("cat", "<<A", "<<B"), ("y",), ("B",), ("ls",)],
+        "cat <<EOF\nEOF\nls": [("cat",), ("ls",)],
+        "cat <<A <<B\nx\nA\ny\nB\nls": [("cat",), ("y",), ("B",), ("ls",)],
         # an operator inside quotes at the line's first character drops nothing; one after a closed quote
         # inside `$(…)` drops its body
-        '"<<EOF"\ngit push -f\nEOF': [("<<EOF",), ("git", "push", "-f"), ("EOF",)],
-        'x $("a" <<EOF\nb\nEOF\n)': [("a", "<<EOF"), ("x", "$(a", "<<EOF", ")")],
+        '"<<EOF"\ngit push -f\nEOF': [("git", "push", "-f"), ("EOF",)],
+        'x $("a" <<EOF\nb\nEOF\n)': [("a",), ("x", "$(a", ")")],
         # a backtick opens a quote at the top-level split, so its `;` cuts nothing there; an escape outside
         # quotes takes one character with it, at the text's end too
         "echo `a; git push -f`": [("a",), ("git", "push", "-f"), ("echo", "`a;", "git", "push", "-f`")],
@@ -1749,7 +1763,7 @@ def test_t13() -> None:
             ("git", "push", "-f"),
             ("echo", "$(echo", ")", ")", "$(git", "push", "-f)"),
         ],
-        "elif $( push &> 5 $(": [("push", "&>", "5", "$"), ("$(", "push", "&>", "5", "$(")],
+        "elif $( push &> 5 $(": [("push", "$"), ("$(", "push", "$(")],
         # a wrapper's numbers: one word only and no number leaves it the program; no wrapper but chrt
         # skips a number, and chrt one at most
         "chrt x": [("x",)],
