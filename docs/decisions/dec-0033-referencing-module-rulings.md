@@ -214,11 +214,7 @@ No real choice was put to the decider on these; each is the session's derivation
 
 <a id="r17"></a>**R17.** A negated pattern takes a tree out of `territories` as `!dir/**`; `!dir/` names the directory alone, and the files inside still match. Found by experiment while the install note was written, against what the session had told the decider under section 4.
 
-<a id="r21"></a>**R21.** A path on one machine is read in code and comments too; only the YAML block that opens the file is left out. Put to the decider on 2026-09-22, when they asked whether the module covers all the interim script gave: it did not — the session had stretched the masking accepted under section 6 from bare forms to this check without asking, and a probe showed the script red and the scan green on a home-directory path inside a code span. Options:
-
-- **A**, the check reads code;
-- **B**, the mask stays, and the kit's rule against local paths is held by review inside backticks;
-- **C**, a dial.
+<a id="r21"></a>**R21.** A path on one machine is read in code and comments too; only the YAML block that opens the file is left out. Put to the decider on 2026-09-22, when they asked whether the module covers all the interim script gave: it did not — the session had stretched the masking accepted under section 6 from bare forms to this check without asking, and a probe showed the script red and the scan green on a home-directory path inside a code span. Options: A, the check reads code; B, the mask stays, and the kit's rule against local paths is held by review inside backticks; C, a dial.
 
 The decider chose A: a bare form in code is an illustration, a local path leaks a machine's layout however it is set.
 

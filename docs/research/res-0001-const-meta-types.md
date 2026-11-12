@@ -13,11 +13,7 @@ Scope: the rows of [`const-meta-types`](../requirements.md#const-meta-types) —
 
 ## 1. Write-time envelope gate ([requirement A1.4](../requirements.md#a1-4))
 
-- **A. `PreToolUse` command hook, matcher `Write|Edit`, exit 2 on a defect.** Class: platform hook, deterministic. Maturity:
-  - **documented** — exit 2 "Blocks the tool call" and Claude sees stderr as the reason;
-  - **the input carries** `tool_input.file_path` (always absolute) and, for `Write`, the full `content` ([hooks reference](https://code.claude.com/docs/en/hooks)).
-
-  Cost: one Python process per matched write via `"${CLAUDE_PLUGIN_ROOT}"/scripts/...` ([plugins reference](https://code.claude.com/docs/en/plugins-reference)). Cannot see `Bash` writes (heredocs, `sed -i`); an `Edit` shows only `old_string`/`new_string`, so the script reads the file and applies the replacement itself. Precedent: [claude-code-hooks-mastery](https://github.com/disler/claude-code-hooks-mastery) (Python, `sys.exit(2)`); [@constellos/claude-code-kit](https://registry.npmjs.org/@constellos%2Fclaude-code-kit) (Zod frontmatter schema on `Write|Edit`, TypeScript under `bun`).
+- **A. `PreToolUse` command hook, matcher `Write|Edit`, exit 2 on a defect.** Class: platform hook, deterministic. Maturity: documented — exit 2 "Blocks the tool call" and Claude sees stderr as the reason; the input carries `tool_input.file_path` (always absolute) and, for `Write`, the full `content` ([hooks reference](https://code.claude.com/docs/en/hooks)). Cost: one Python process per matched write via `"${CLAUDE_PLUGIN_ROOT}"/scripts/...` ([plugins reference](https://code.claude.com/docs/en/plugins-reference)). Cannot see `Bash` writes (heredocs, `sed -i`); an `Edit` shows only `old_string`/`new_string`, so the script reads the file and applies the replacement itself. Precedent: [claude-code-hooks-mastery](https://github.com/disler/claude-code-hooks-mastery) (Python, `sys.exit(2)`); [@constellos/claude-code-kit](https://registry.npmjs.org/@constellos%2Fclaude-code-kit) (Zod frontmatter schema on `Write|Edit`, TypeScript under `bun`).
 - **B. `PostToolUse` hook.** Exit 2 "Shows stderr to Claude; the tool already ran" ([hooks reference](https://code.claude.com/docs/en/hooks)). Cannot block; the row says blocked.
 - **C. git `pre-commit` validator.** [check-jsonschema](https://check-jsonschema.readthedocs.io/en/latest/precommit_usage.html) validates JSON/YAML/JSON5; Markdown front matter is not an input ([usage](https://check-jsonschema.readthedocs.io/en/latest/usage.html)). [remark-lint-frontmatter-schema](https://github.com/JulianCataldo/remark-lint-frontmatter-schema) validates front matter against a JSON schema ("Must have required property"), Node runtime, schema by in-file `$schema` key or glob map. Cost: Node or pip on every machine plus a per-clone install a plugin cannot perform. Cannot fire at write time; `--no-verify` bypasses it.
 - **D. CI on pull request.** Cannot teach mid-session — the backstop role (section 3), not the gate.
@@ -83,12 +79,7 @@ Readers validate against the kernel's two schema files ([kernel §6](../constitu
 
 ## 6. Advisory type-selection guidance ([requirement A1.5](../requirements.md#a1-5))
 
-- **A. Plugin skill.** Always-on cost:
-  - `description` plus `when_to_use`, capped at 1,536 characters in the listing;
-  - **the body loads** on invocation and "stays there across later turns";
-  - `paths` limits auto-activation to matching files ([skills](https://code.claude.com/docs/en/skills)) — territory is a runtime dial, so at most `**/*.md`.
-
-  Invoked as `/<plugin>:<skill>` ([plugins](https://code.claude.com/docs/en/plugins)).
+- **A. Plugin skill.** Always-on cost: `description` plus `when_to_use`, capped at 1,536 characters in the listing; the body loads on invocation and "stays there across later turns"; `paths` limits auto-activation to matching files ([skills](https://code.claude.com/docs/en/skills)) — territory is a runtime dial, so at most `**/*.md`. Invoked as `/<plugin>:<skill>` ([plugins](https://code.claude.com/docs/en/plugins)).
 - **B. `SessionStart` hook printing the rules.** The full text on every `startup`, `resume`, `clear`, `compact`, `fork` ([hooks reference](https://code.claude.com/docs/en/hooks)); the contrastive pairs are hundreds of characters most sessions never need.
 - **C. CLAUDE.md pointer line.** Consumer-maintained, version-drifting; permitted as the single pointer of `INSTALL.md` ([template §6](../../module-template/MODULE.md#t6)).
 - **D. `.claude/rules/` with `paths:`.** Loads when Claude reads matching files ([memory](https://code.claude.com/docs/en/memory)); but the plugin component list — skills, commands, agents, hooks, MCP, LSP, monitors, `bin/`, `settings.json` — has no rules directory ([plugins reference](https://code.claude.com/docs/en/plugins-reference)). Not shippable.

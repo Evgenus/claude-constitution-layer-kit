@@ -82,7 +82,7 @@ C and E drop the tests from the install. Each needs an answer to the consumer's 
 
 The session recommended A: it costs one step and keeps the check within reach. The decider chose it with E in chat on 2026-10-21, whose text named the fixtures optional from a kit clone.
 
-<a id="r5"></a>**R5.** A project need not run a module's fixtures, which its install no longer holds. A project that wants to runs them from a clone of the kit, checked out at the commit its install records, `gitCommitSha` in the platform's `installed_plugins.json`, with pytest installed. For a project that loads the modules from its clone, that clone as it is. This replaces the consumer's verification in the second sentence of R11 of [dec-0091-module-fixtures-run-as-pytest](dec-0091-module-fixtures-run-as-pytest.md#r11). Its pins, and its clause that a module's `requirements.txt` names neither pytest nor pytest-xdist, stand.
+<a id="r5"></a>**R5.** A project need not run a module's fixtures, which its install no longer holds. A project that wants to runs them from a clone of the kit, checked out at the commit its install records, `gitCommitSha` in the platform's `installed_plugins.json`, with pytest installed; for a project that loads the modules from its clone, that clone as it is. This replaces the consumer's verification in the second sentence of R11 of [dec-0091-module-fixtures-run-as-pytest](dec-0091-module-fixtures-run-as-pytest.md#r11). Its pins, and its clause that a module's `requirements.txt` names neither pytest nor pytest-xdist, stand.
 
 ## Applied
 

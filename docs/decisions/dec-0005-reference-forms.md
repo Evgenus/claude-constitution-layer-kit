@@ -17,10 +17,7 @@ An inventory of every reference form in use and in chat was made on 2026-09-15 (
 
 ## Rulings on the forms
 
-Two surface rules:
-
-- **in chat**, every reference to something that exists as a file is clickable, and local handles (numbers, letters, keys) are scoped to the message, the decision, or the session;
-- **in documents**, every cross-document reference resolves uniquely, and a bare handle is local to its own document.
+Two surface rules: in chat, every reference to something that exists as a file is clickable, and local handles (numbers, letters, keys) are scoped to the message, the decision, or the session; in documents, every cross-document reference resolves uniquely, and a bare handle is local to its own document.
 
 - <a id="r1"></a>R1 id reference: canonical for governed documents; syntax per sub-decision 2.
 - <a id="r2"></a>R2 path + explicit anchor: the universal cross-document form; absorbs kernel sections (R5), module handles (R7), template sections (R8).

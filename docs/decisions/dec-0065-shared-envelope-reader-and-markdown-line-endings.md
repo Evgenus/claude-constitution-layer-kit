@@ -131,7 +131,7 @@ These items carry no options. Each follows from the answers above or from the ki
 
 <a id="r7"></a>**R7.** The referencing gate masks the envelope from the start of the file to where `envelope_bounds` says it ends, and to the end of the file when it never closes.
 
-<a id="r8"></a>**R8.** The locations generator rewrites the envelope it finds through `envelope_bounds` and `envelope_lines`, writes the rewritten block with line feeds and no byte-order mark before it. It keeps the body as the command read it.
+<a id="r8"></a>**R8.** The locations generator rewrites the envelope it finds through `envelope_bounds` and `envelope_lines`, writes the rewritten block with line feeds and no byte-order mark before it, and keeps the body as the command read it.
 
 <a id="r9"></a>**R9.** The shared acceptance item S164 proves, in every gate that judges envelopes, that a `---` line with trailing whitespace and CRLF endings delimit the envelope, that a break character other than those of R4 before `---` makes no delimiter, and the offsets and line cuts of R1. A gate that judges none leaves it out. Where it blanks or masks the envelope, it proves where the envelope ends in its own items.
 

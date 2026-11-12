@@ -114,7 +114,7 @@ Recommendation A. Chosen A by the decider in chat on 2026-09-18. Applied: the mo
 
 ## 5. The rollout plan was ungoverned and mixed
 
-`docs/rollout-plan.md` was the requirements source of every module by [law 4 of CLAUDE.md](../../CLAUDE.md#law-4), yet carried no envelope, sat in no territory. It mixed normative content (the matrix, the module specifications) with intent not yet real (the phases), which [kernel §2](../constitution/CONVENTIONS.md#k2) keeps out of standing documents.
+`docs/rollout-plan.md` was the requirements source of every module by [law 4 of CLAUDE.md](../../CLAUDE.md#law-4), yet carried no envelope, sat in no territory, and mixed normative content (the matrix, the module specifications) with intent not yet real (the phases), which [kernel §2](../constitution/CONVENTIONS.md#k2) keeps out of standing documents.
 
 - **A. Claim it whole as `current-state`, phases tolerated as a roadmap section.**
   - **Pros:** one policy, no move.

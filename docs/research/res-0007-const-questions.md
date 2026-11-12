@@ -174,7 +174,7 @@ Re-verified today against the Markdown form of each page; quotations from the [s
 Stale, imprecise or missing in the six earlier comparisons, as they bear on this module:
 
 - a. **No earlier comparison surveyed `AskUserQuestion`,** its documented input, its headless absence or its timeout. E6 of [res-0005-const-locations](res-0005-const-locations.md) ran `-p` sessions with skills that never reached for it, consistent with p6 but not recorded as such.
-- b. **The specification's field observation** ("observed 2026-09-15: two of three arguments lost") was made in the desktop app, per the brief for this survey. Nothing in the documentation or the two changelogs speaks to it (b4). No design changes: the fallback stands as a user-triggered rule.
+- b. **The specification's field observation** ("observed 2026-09-15: two of three arguments lost") was made in the desktop app, per the brief for this survey; nothing in the documentation or the two changelogs speaks to it (b4). No design changes: the fallback stands as a user-triggered rule.
 - c. **Option descriptions.** The hooks page's example carries `label` alone; the tool accepts `description` (b2). A module document that states the tool's shape names both, with the second marked as observed.
 - d. **Skill sizes on the platform are stated in tokens** (p3) while the kit states sizes in characters ([law 8 of CLAUDE.md](../../CLAUDE.md#law-8)). The module's document states its own sizes in characters and cites the platform's token budget as the platform's.
 
