@@ -1764,9 +1764,12 @@ def test_effect_switch_off() -> None:
         {"catalogs": [entry(territory=["docs/items/some/**", "!docs/items/some/x/**"], width=5)]},
         {"catalogs": [entry(territory=["docs/items/some/**"], width=5)]},
     ]
-    for step in steps:
+    for number, step in enumerate(steps, start=1):
         consumer.write_dials({NAMESPACE: step})
         consumer.commit()
+        if number == 8:  # read once before the last step, so that two outcomes swapped cannot cancel out
+            eight = effect_lines(root, {}, no_plugins())
+            assert "  W2 (pattern): 8 moment(s): 4 applied, 4 bypassed, 0 missed — B2 4" in eight, eight
     found = effect_lines(root, {}, no_plugins())
     assert "  W2 (pattern): 9 moment(s): 5 applied, 4 bypassed, 0 missed — B2 4" in found, found
     disabled = json.dumps([{"id": f"{NAMESPACE}@m", "enabled": False, "projectPath": str(root)}])
