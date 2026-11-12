@@ -20,8 +20,8 @@ A line that starts `BROKEN: const-task-close needs the Python package constituti
    reported once. Under the default `severity: block` the model receives the finding and the
    turn continues once, for the commit. Under `warn` the user is shown the finding as a notice
    and the model sees nothing. The second stop of a turn always lets it end. While a subagent,
-   a teammate or a workflow of the session still runs, the report waits. The tree may hold
-   that agent's files, so the first turn end with none running reports the tree. The scan, step 5,
+   a teammate or a workflow of the session still runs, the report waits, since the tree may hold
+   that agent's files. The first turn end with none running reports the tree. The scan, step 5,
    examines a change before a merge.
 2. **Zero configuration works** in a repository whose `constitution.yaml` has `module_prefix`,
    whatever else it says. The turn-end hook judges the tree, and the range check examines zero pairs and says so.
@@ -55,10 +55,10 @@ A line that starts `BROKEN: const-task-close needs the Python package constituti
 4. **Adoption.** `severity: warn` shows the turn-end finding to the user as a notice and lets the
    turn end, the model seeing nothing. Use it in a session that must not be asked to commit. In a session that
    cannot ask — `claude -p`, `dontAsk`, `--permission-prompts none` — a block costs that one
-   continuation. It leaves the tree dirty unless the commit the finding teaches is allowed. That commit
-   is the compound `git add -A && git commit …`, and a rule must match each part on its own. So
-   both `Bash(git add *)` and `Bash(git commit *)` go in `permissions.allow` or `--allowedTools`;
-   or set `severity: warn`. The range check ignores `severity` and always reports.
+   continuation. In such a session the block leaves the tree dirty unless the commit the
+   finding teaches is allowed. That commit is the compound `git add -A && git commit …`, and
+   a rule must match each part on its own. So both `Bash(git add *)` and `Bash(git commit *)`
+   go in `permissions.allow` or `--allowedTools`; or set `severity: warn`. The range check ignores `severity` and always reports.
 5. **Run the range check before a merge**, from anywhere in the repository:
    ```bash
    sh <plugin root>/scripts/check-task-close.sh --scan

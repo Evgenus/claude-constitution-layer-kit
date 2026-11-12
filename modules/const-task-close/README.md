@@ -30,11 +30,11 @@ Two skills load on their own. `close-task` loads when a task, a branch or a pull
 <a id="a4"></a>
 ## How it works
 
-**At turn end.** A hook runs when the session's turn ends. It asks git whether the working tree is clean, and reports a dirty tree once per turn with the commit to make. Under the default, louder setting, it is a request the model weighs, not a wall: the second stop of a turn always lets it end. Under the quieter setting, it is a notice to the user alone. While a subagent, a teammate or a workflow of the session still runs, the report waits until none does. The tree may hold that agent's files. It does not fire on a user interrupt, and never in a session that has not loaded the plugin.
+**At turn end.** A hook runs when the session's turn ends. It asks git whether the working tree is clean, and reports a dirty tree once per turn with the commit to make. Under the default, louder setting, it is a request the model weighs, not a wall: the second stop of a turn always lets it end. Under the quieter setting, it is a notice to the user alone. While a subagent, a teammate or a workflow of the session still runs, the report waits until none does. It waits because the tree may hold that agent's files. It does not fire on a user interrupt, and never in a session that has not loaded the plugin.
 
 **At session start.** A hook prints one line that names the two skills and the moment each applies. It reads nothing and checks nothing; it only tells the session when to load a skill. It runs again after a resume, a compaction or a clear.
 
-**At a subagent's start.** A second hook gives the same line to every subagent. A subagent starts with a context of its own and does not see the first line. It checks nothing either.
+**At a subagent's start.** A second hook gives the same line to every subagent. This is because a subagent starts with a context of its own and does not see the first line. It checks nothing either.
 
 **The scan.** The range check, run from the command line. On a branch it examines the commits since the trunk; on the trunk, the last landed change. For each pair of the map it compares the changed paths with the pair's code and documents. It reads the declaration lines from the commits' trailers, or from a file holding the pull request's description. It reports every pair that is neither updated nor declared. It compares commits, so an update still sitting uncommitted in the tree does not count. It holds that a declaration is present, well formed and names a pair. Whether the reason is true stays with the reviewer, and every declaration used is printed for them.
 

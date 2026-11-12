@@ -33,7 +33,7 @@ sh "${CLAUDE_PLUGIN_ROOT}/scripts/check-task-close.sh" --scan
 ```
 
 On a branch it examines the commits since the trunk. The dial `trunk` under `const-task-close` names it, `main` by
-default. It is found as the local branch or as that branch on the remote that `trunk_remote` names, `origin` by
+default. The trunk is found as the local branch or as that branch on the remote that `trunk_remote` names, `origin` by
 default. When both exist, the check takes the remote's if git finds the local one its ancestor or equal to it,
 else the local one. `--since <ref>` names another base; `--change <commit>` examines one landed
 change, a merge by its first-parent diff. Read the verdict: each `RED` line names a pair, the code paths the
@@ -43,7 +43,7 @@ configuration failure to repair first — the message says what.
 
 ## 2. Merge the deltas
 
-For each pair named, open its documents. Change what the code change made false or
+For each pair named, open its documents. Change in them what the code change made false or
 incomplete — a rule, a message, a dial, a path, a limit. Write the state as it now is; never a
 changelog, never "as of this task". Intent that is not yet real belongs in the task's record, not
 in a current-state page.
@@ -51,7 +51,7 @@ in a current-state page.
 ## 3. Declare no impact — only when true
 
 A code change may leave a pair's documents true — comments reworded, a formatter pass, a
-helper the page never describes. Then say so where the check reads it, one line per pair:
+helper the page never describes. In that case, say so where the check reads it, one line per pair:
 
 - **As a trailer** on a commit of the change. It stands in the message's **last paragraph, where every line is
   `Key: value`** — one line without a colon hides the whole paragraph from git:
