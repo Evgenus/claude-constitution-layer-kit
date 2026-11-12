@@ -48,8 +48,27 @@ The session recommended B. Every term the exceptions use then stands in the kern
 
 <a id="r5"></a>**R5.** "Catalog" has one sense in the kernel. One sentence of [kernel §3](../constitution/CONVENTIONS.md#k3) used it for the list of policies. It now reads: "Which policies exist and where territories end are module and project concerns."
 
+## 2. Which profiles the kernel names
+
+[Kernel §6](../constitution/CONVENTIONS.md#k6) named three profiles as examples: `solo-agents`, `small-team` and `regulated`. The kit ships two others, `new-project.yaml` and `existing-repository.yaml`, by R1 of [dec-0120-two-profiles-taken-in-the-guides-order](dec-0120-two-profiles-taken-in-the-guides-order.md#r1). That record weighed the three names as its option C and turned them down. The dials that tell a team's shape name people, and no profile can hold them. Its R5 left the kernel as it was, and it binds nothing. Every project copies the kernel in step 5 of [the install guide](../../INSTALL.md#s2), so a name in the kernel reaches every project.
+
+- **A. The kernel names the two profiles the kit ships.**
+  - **Pros:** the names match what ships; a reader of the kernel finds the files.
+  - **Cons:** a new or renamed profile changes the kernel, which asks the carry audit in full; each project's copy names files only the kit has.
+- **B. The kernel names no profile.** Step 4 of [the install guide](../../INSTALL.md#s2) already names the two.
+  - **Pros:** the smallest edit; the kernel can never drift from the folder again; the names stay in the guide that says how to take them.
+  - **Cons:** a reader of the kernel sees no example, and must open the install guide to learn which profiles exist.
+- **C. The kernel keeps its three names as examples.**
+  - **Pros:** no kernel text changes.
+  - **Cons:** the finding stays, since those files do not exist; the names suggest profiles of a team's shape, which dec-0120 turned down.
+
+The session recommended B. The kernel holds vocabulary and shape, and a list of the kit's files is the install guide's. The decider chose B in chat on 2026-11-12.
+
+<a id="r6"></a>**R6.** [Kernel §6](../constitution/CONVENTIONS.md#k6) names no profile. Its sentence reads: "Profiles are nothing but prewritten `constitution.yaml` files shipped with the kit." The install guide names the profiles the kit ships, in step 4 of its section 2.
+
 ## Carry list
 
 1. R1, R2, R3 — [the kernel](../constitution/CONVENTIONS.md#k1), section 1, the paragraph of the three exceptions to the `id` rule.
 2. R4 — [the requirements](../requirements.md#a13-1), its row of the name's form; [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r3), rule 3.
 3. R5 — [the kernel](../constitution/CONVENTIONS.md#k3), section 3, its last paragraph.
+4. R6 — [the kernel](../constitution/CONVENTIONS.md#k6), section 6; [the install guide](../../INSTALL.md#s2), step 4 of section 2.

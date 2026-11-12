@@ -127,7 +127,7 @@ const-example-aspect:                       # a module's namespace, the plugin's
 
 Schema: `schemas/constitution.schema.json` — the kernel-owned keys and the keys of a policy's namespace; module namespaces are open. Every reader validates the keys it reads against it at each read; a malformed file is a configuration failure, never a silent pass.
 
-Profiles (e.g. solo-agents, small-team, regulated) are nothing but prewritten `constitution.yaml` files shipped with the kit.
+Profiles are nothing but prewritten `constitution.yaml` files shipped with the kit.
 
 **Portability rule:** no file in a module references a project directly. No project paths, names, repositories or values appear anywhere in a module's skills, hooks, scripts or prose. Everything project-specific enters through the module's dials namespace at runtime. The test is mechanical: **a module must install and operate on an empty repository** using only its defaults. Anything that breaks there is a binding leak.
 
