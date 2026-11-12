@@ -25,6 +25,8 @@ from pathlib import Path
 import pytest
 import yaml
 from constitution_layer_kit import messages as shared
+from constitution_layer_kit.effect import History
+from constitution_layer_kit.history import read_transcript
 from constitution_layer_kit.model import Broken, Finding
 from constitution_layer_kit.testing.acceptance import broken_first_line, expect, failure_of, item
 from constitution_layer_kit.testing.consumer import Consumer
@@ -49,7 +51,7 @@ from constitution_layer_kit.testing.items import (
     tr_line,
     tr_turn,
 )
-from interaction_gate import messages, start, tokens
+from interaction_gate import effect_rules, messages, start, tokens
 from interaction_gate.model import (
     DEFAULT_DESTRUCTIVE,
     DEFAULT_READER_LISTS,
@@ -2603,6 +2605,29 @@ def effect_lines(
     return result.stdout.splitlines()
 
 
+def w2_moments(
+    root: Path, sessions: dict[str, list[str]], gone: Sequence[str] = (), raw: dict[str, bytes] | None = None
+) -> list[tuple[str, str, str]]:
+    """W2's moments over the sessions, one transcript each, as (session, outcome, way): the rule's own code
+    run in this process on the sessions as the report reads them. Each moment is told apart, so outcomes
+    that trade places between sessions cannot keep a total. The transcripts named in `gone` are deleted
+    once read; `raw` adds bytes to the end of a transcript."""
+    folder = H.scratch_dir()
+    read = []
+    for name, lines in sorted(sessions.items()):
+        path = folder / f"{name}.jsonl"
+        path.write_bytes(("\n".join(lines) + "\n").encode("utf-8") + (raw or {}).get(name, b""))
+        session = read_transcript(path)
+        assert session is not None, name
+        read.append(session)
+    for name in gone:
+        (folder / f"{name}.jsonl").unlink()
+    history = History(
+        root, frozenset({"check-destructive.sh"}), tuple(read), (), "", NAMESPACE, "constitution.yaml"
+    )
+    return [(m.session, str(m.outcome), str(m.way) if m.way else "") for m in effect_rules.after_ask(history)]
+
+
 @item(
     43, "W1: a change of the module's dials is applied, or bypassed by B2 when a gate or a territory loosens"
 )
@@ -2611,7 +2636,10 @@ def test_effect_switch_off() -> None:
     the destructive list cut to one entry, the defaults gone (bypassed); an entry added (applied); severity
     warn (bypassed); severity back to block, with the territories narrowed to one folder, a pattern of the
     default gone (bypassed); a negated pattern added (bypassed); a handle form added (applied). The plugin
-    list names no plugin."""
+    list names no plugin. Then seven changes judged alone by the module's predicate: an entry replaced by a
+    flagless entry of another command, narrowed to other flags, or a flagless one narrowed to a flag,
+    loosens; a namespace the reader refuses before, after or on both sides, or a negated pattern removed,
+    does not."""
     consumer = H.fresh_consumer()
     rm = {"command": ["rm"], "flags": ["-r"], "teach": "t", "alternative": "a"}
     reset = {"command": ["git", "reset"], "flags": ["--hard"], "teach": "t", "alternative": "a"}
@@ -2629,6 +2657,33 @@ def test_effect_switch_off() -> None:
         consumer.commit()
     found = effect_lines(consumer.root, {})
     assert "  W1 (pattern): 7 moment(s): 3 applied, 4 bypassed, 0 missed — B2 4" in found, found
+    # Each change judged alone, by the module's own predicate of a loosened dial: an entry replaced by a
+    # flagless entry of another command, narrowed to other flags, or a flagless one narrowed to a flag,
+    # loosens; a namespace the reader refuses on either side, or a negated pattern removed, does not.
+    dropdb = {"command": ["dropdb"], "teach": "t", "alternative": "a"}
+    rm_f = {**rm, "flags": ["-f"]}
+    refused: dict[str, object] = {"marker": "x"}
+    changes: tuple[tuple[str, dict[str, object], dict[str, object], bool], ...] = (
+        ("rm replaced by a flagless dropdb", {"destructive": [rm]}, {"destructive": [dropdb]}, True),
+        ("rm -r narrowed to rm -f", {"destructive": [rm]}, {"destructive": [rm_f]}, True),
+        (
+            "dropdb narrowed to -x",
+            {"destructive": [dropdb]},
+            {"destructive": [{**dropdb, "flags": ["-x"]}]},
+            True,
+        ),
+        ("refused before", refused, {"destructive": [rm]}, False),
+        ("refused after", {"destructive": [rm]}, refused, False),
+        ("refused on both sides", refused, refused, False),
+        (
+            "a negated pattern removed",
+            {"territories": ["*.md", "!docs/**"]},
+            {"territories": ["*.md"]},
+            False,
+        ),
+    )
+    wrong = [name for name, old, new, loose in changes if effect_rules.loosened(old, new) is not loose]
+    assert not wrong, f"judged wrongly: {wrong}"
 
 
 @item(
@@ -2643,7 +2698,15 @@ def test_effect_after_ask() -> None:
     bypassed by B3, as is a refused `git push --force origin main`, a refusal recorded as a hook error, then
     `git push -f origin main`. No moment: a human turn first; an ask the user accepted, whose next command
     names the same target; a refused ask followed by commands that name nothing of it; an ask of another
-    plugin's script; a command that the gate asked for and that is another command."""
+    plugin's script; a command that the gate asked for and that is another command.
+
+    Each moment is then told apart, by the rule's own code run in this process, so two outcomes that
+    trade places keep no total. Twenty more sessions: the target from a quoted string, from the first of
+    two commands, of two words, of two letters; `..`, `--`, an option and one letter are no target; the
+    entry's words with the asked option, at the end of the words too; a Read call between ends nothing;
+    an ask with no call, or no result; an accepted ask found ran past a line that is no JSON, a bad
+    byte and another call's result in the same line; a later ask after an accepted one; an accepted
+    ask whose transcript is gone."""
     root = H.fresh_consumer().root
     rm = ("rm -rf build", "rm with -r")
     push = ("git push --force origin main", "git push with --force")
@@ -2695,6 +2758,84 @@ def test_effect_after_ask() -> None:
     }
     found = effect_lines(root, sessions)
     assert "  W2 (pattern): 3 moment(s): 1 applied, 2 bypassed, 0 missed — B3 2" in found, found
+    applied, bypassed = ("applied", ""), ("bypassed", "B3")
+    each = w2_moments(root, sessions)
+    assert each == [("a", *applied), ("b", *bypassed), ("c", *bypassed)], each
+
+    def later(sid: str, asked_command: str, entry: tuple[str, str], *commands: str) -> list[str]:
+        """A refused ask, then the later commands, each its own call."""
+        calls = [tr_tool(sid, root, f"l{n}", "Bash", command=one) for n, one in enumerate(commands)]
+        return [*asked(sid, asked_command, entry), *calls]
+
+    def ran_twice(sid: str, *between: str) -> list[str]:
+        """An ask the user accepted, the lines given after its call, then the same command again."""
+        return [
+            tr_tool(sid, root, "a", "Bash", command=rm[0]),
+            tr_ask(sid, root, "a", rm[0], rm[1]),
+            *between,
+            tr_tool(sid, root, "b", "Bash", command=rm[0]),
+        ]
+
+    other = {"type": "tool_result", "tool_use_id": "o", "content": NO_PROMPT, "is_error": True}
+    ours = {"type": "tool_result", "tool_use_id": "a", "content": "done", "is_error": False}
+    both = tr_line("user", "pair", root, EFFECT_AT, message={"role": "user", "content": [other, ours]})
+    more = {
+        # the target: a quoted string is split into words; the words after the entry's words in the first
+        # command that holds them; `..`, `--`, options and one letter are no target, two letters are one
+        "dots": later("dots", "rm -rf ..", rm, "cd .."),
+        "quoted": later("quoted", "bash -c 'rm -rf build'", rm, "find build -delete"),
+        "two": later("two", "rm -rf build dist", rm, "find build -delete"),
+        "segs": later("segs", "rm -rf build; rm -rf dist", rm, "find build -delete"),
+        "dashes": later("dashes", "rm -r -- build", rm, "rm -- other"),
+        "copy": later("copy", "rm -rf build", rm, "cp -rf a b"),
+        "short": later("short", "rm -rf a", rm, "ls a"),
+        "db": later("db", "rm -rf db", rm, "find db -delete"),
+        # no target: the entry's words with an option the asked command had, at the end of the words too;
+        # without the entry's words, or without the option, it names nothing
+        "form": later("form", "git push --force", push, "git push origin main --force"),
+        "end": later("end", "git push --force", push, "echo --force; git push"),
+        "other": later("other", "git push --force", push, "ls --force"),
+        "plain": later("plain", "git push --force", push, "git push origin main"),
+        # a call that is no shell command, between, ends nothing
+        "read": [
+            *asked("read", rm[0], rm),
+            tr_tool("read", root, "r", "Read", file_path="build/x"),
+            tr_tool("read", root, "b", "Bash", command="find build -delete"),
+        ],
+        # an ask with no call is no moment; an ask with no result did not run, and the same command again
+        # is applied; an accepted ask is found ran past a line that is no JSON, a bad byte in the file, and
+        # another call's result in the same line; a later ask is examined after an accepted one
+        "noc": [tr_ask("noc", root, "z", rm[0], rm[1])],
+        "nores": ran_twice("nores"),
+        "nojson": ran_twice(
+            "nojson", "a tool_result line that is no JSON", tr_result("nojson", root, "a", "done", False)
+        ),
+        "bad": ran_twice("bad", tr_result("bad", root, "a", "done", False)),
+        "pair": ran_twice("pair", both),
+        "after": [
+            *asked("after", rm[0], rm, accepted=True),
+            tr_tool("after", root, "c", "Bash", command="rm -rf dist"),
+            tr_ask("after", root, "c", "rm -rf dist", rm[1]),
+            tr_result("after", root, "c", NO_PROMPT, True),
+            tr_tool("after", root, "d", "Bash", command="rm -rf dist"),
+        ],
+        # an accepted ask whose transcript cannot be read again is taken as not run
+        "gone": ran_twice("gone", tr_result("gone", root, "a", "done", False)),
+    }
+    found_more = w2_moments(root, more, gone=["gone"], raw={"bad": b"\xff\n"})
+    wanted_more = [
+        ("after", *applied),
+        ("db", *bypassed),
+        ("end", *bypassed),
+        ("form", *bypassed),
+        ("gone", *applied),
+        ("nores", *applied),
+        ("quoted", *bypassed),
+        ("read", *bypassed),
+        ("segs", *bypassed),
+        ("two", *bypassed),
+    ]
+    assert found_more == wanted_more, found_more
 
 
 @item(45, "W3: the list scan on each commit of main in a throwaway clone: green applied, red bypassed by B4")
@@ -2726,7 +2867,8 @@ def test_effect_reader_rule() -> None:
     no reply before the third, and a reply after the third. The moments are the second text before the first
     turn and the one before the second turn: two. Without `--reader` they are counted and not judged; a fake
     reader that answers APPLIED judges them, and is given the rules a to i of the start text, taken from the
-    module's `rules.txt`. The lines are typed by hand."""
+    module's `rules.txt`, after the sentence of W4 typed by hand. Without `rules.txt` the sentence alone
+    is given. The lines are typed by hand."""
     root = H.fresh_consumer().root
     sid = "s46"
     lines = [
@@ -2752,10 +2894,22 @@ def test_effect_reader_rule() -> None:
     )
     effect_lines(root, {sid: lines}, spy, "--reader")
     prompts = (asked / "prompts").read_text(encoding="utf-8") if (asked / "prompts").exists() else ""
+    # typed by hand: the sentence of W4, then the rules a to i, each a line of `rules.txt` after its first
+    sentence = (
+        "The last reply before each message of the user follows the rules a to i of the start text, the"
+        " answer shape and the assumptions among them"
+    )
+    rules_text = sentence + ":\n" + "\n".join(RULES.splitlines()[1:])
     assert (
         "a. Classify the shape the question asks for" in prompts
         and "i. Write chat in plain language" in prompts
-    )
+        and rules_text in prompts
+    ), prompts
+    # without `rules.txt` the reader is given the sentence alone, closed by a full stop
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(effect_rules, "RULES_FILE", H.scratch_dir() / "rules.txt")
+        alone = effect_rules._reader_text()  # noqa: SLF001
+    assert alone == sentence + ".", alone
 
 
 # ---------------------------------------------------------------- the runner
