@@ -58,10 +58,11 @@ that coverage.py alone would not see (decision dec-0127-mutation-line-map-blind-
   size limit    in the same run, a test's `resource.setrlimit` of the limit on file size sets the soft
                 value alone. `<work>/python` runs `<file>`, given first, under a soft limit below the
                 hard one through the boot file too, which lifts the soft limit once the file has ended,
-                before coverage.py saves. A child whose soft and hard limits are both set low, as a
-                shell's plain `ulimit -f` sets them, or that is started with an option first, stays
-                unmeasured, and so does the pytest process under a limit it sets on itself. Every
-                other call `<work>/python` hands on unchanged;
+                before coverage.py saves; `-S <file>` takes the boot file whatever the limit. Any other
+                child under a limit on file size stays unmeasured: one whose soft and hard limits are
+                both low, as a shell's plain `ulimit -f` sets them; one started with another option
+                before its file, or by another interpreter; one that lowers its own limit once it has
+                started. Every other call `<work>/python` hands on unchanged;
   no bytecode   a mutant is looked up at those of its lines that hold bytecode. Where none of them
                 does, as in the continuation lines of a constant the compiler folds into one, it is
                 looked up at the first line of the nearest node around it, up to its statement, that
@@ -80,11 +81,11 @@ outcome, the key `status`:
                 seconds more, and never less than 30 seconds; counted with the killed, as a run that
                 does not end does not pass;
   survived      pytest exited 0;
-  not covered   no test that passed reaches a line of the mutant; nothing is run, and no test can kill
-                it. A child started with an environment of its own, without coverage's variable, is not
-                measured, and neither are the runs the line map's paragraph leaves out; a line that only
-                a skipped or failing test runs counts for no test. So this count can be too high and the
-                score too low, never too high;
+  not covered   in the map's run, no line of the mutant ran in a test that passed, nor outside any test;
+                nothing is run, and no test can kill it. A child started with an environment of its own,
+                without coverage's variable, is not measured, and neither are the runs the line map's
+                paragraph leaves out; a line that only a skipped test runs counts for no test. So this
+                count can be too high and the score too low, never too high;
   unsure        with more than one copy alone: the test that failed with the mutant was run again at
                 once on the unmutated file in the same copy, and failed there too, so the load and not
                 the mutant may have failed it. Left out of the score. A kill at collection, where no

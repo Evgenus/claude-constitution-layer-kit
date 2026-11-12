@@ -64,9 +64,9 @@ Modes:  --from <folder>   read the files in <folder>, one per module, and print 
                           then reads every module's file that folder holds;
         --json <path>     the table on stdout and the same numbers as one JSON object in <path>;
         --json -          the JSON object on stdout, and no table;
-        --self-test       prove the report on a small kit of its own: the mutants of each operator, the
-                          line map through a child process, and through a copy of the plugin, a child
-                          under -S, a folded constant and a child under a limit on file size; each
+        --self-test       prove the report on a small kit of its own: the mutants of each operator; the
+                          line map, which sees a child process, a copy of the plugin, a child under -S,
+                          the lines of a folded constant and a child under a limit on file size; each
                           outcome, the files taken back, the budget, the copies, and the table.
 Notes on stderr: with --from, a module folder with no file, which the table leaves out; each module's
 measure, as it starts.
@@ -561,7 +561,7 @@ OUTCOMES = {
     "x_gate/calc.py:23:15:num": "not covered",
 }
 # what the line map once did not see, each run by one test alone: a copy of the plugin's scripts that the
-# test makes and runs; a child under `python3 -S`; the continuation lines of a folded constant; a child
+# test makes and runs; a child under `sys.executable -S`; the continuation lines of a folded constant; a child
 # under a limit on the size of the files it writes, of 4096 bytes, too few for coverage.py's data file
 BLIND = {
     "copy": {"copied.py:1:0:call-del": "killed", "copied.py:1:6:str": "killed"},
