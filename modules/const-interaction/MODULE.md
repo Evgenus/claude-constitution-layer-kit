@@ -151,7 +151,7 @@ The advisory rules stand beside it, each `advisory` in its own text and carried 
 | `boundary_examples` | `[]` | printer | The project's own violates / complies pairs, `{violates: …, complies: …}`, printed numbered after the rules at every session start. Absent or empty: the seed pairs of [§8](#t8) stand, unprinted. |
 | `verbosity` | `triggered` | printer | One value today, `triggered`: the assumption block and the restatement appear only when triggered, never as an empty ritual. It is printed after the rules at every session start, the default where no dials file can be read. Any other value: refused. A second value is deferred with its signal ([§12](#t12)). |
 
-The default entries of `destructive` are fourteen, each as `entry`: "the text D1 teaches" → "the alternative it names". They stand as the code has them word for word (decision [dec-0042-interaction-module-rulings](../../docs/decisions/dec-0042-interaction-module-rulings.md#r8), R8):
+The default entries of `destructive` are fourteen, each as `entry`: `the text D1 teaches` → `the alternative it names`. They stand as the code has them word for word (decision [dec-0042-interaction-module-rulings](../../docs/decisions/dec-0042-interaction-module-rulings.md#r8), R8):
 
 1. `git push` with `--force` or `-f`: `a forced push rewrites the branch on the remote: every other clone of it diverges, and the commits it replaced are unreachable there` → `push with --force-with-lease, which refuses when the remote moved, or push a new branch and open a pull request`
 2. `git reset` with `--hard`: `a hard reset discards every uncommitted change in the working tree and the index, which nothing brings back; with a target such as HEAD~1 it also drops the commits after the target from the branch` → `run git stash first, or reset with --keep, which stops when a change would be lost; with a target, also tag the tip first (git tag keep/<name>)`
@@ -159,11 +159,11 @@ The default entries of `destructive` are fourteen, each as `entry`: "the text D1
 4. `git restore`, the words alone: `git restore discards the working-tree changes of the paths it names; nothing brings them back` → `run git stash first, or git diff to see what would be lost, then restore one path at a time`
 5. `git clean` with `-f` or `--force`: `git clean deletes untracked files, which no commit holds; nothing brings them back` → `run git clean -n first to see what would go, then move what matters out of the tree`
 6. `git branch` with `-D` or `-f` or `--force`: `-D deletes a branch whether or not it is merged, and -f moves one to another commit: the commits left behind become unreachable` → `delete with -d, which refuses an unmerged branch, or tag the tip first (git tag keep/<name>)`
-7. `git stash drop`, the words alone: "a dropped stash is unreachable; nothing lists it again" → "apply it with git stash branch <name>, or leave it in the list"
-8. `git stash clear`, the words alone: "clear drops every stash at once; nothing lists them again" → "drop one at a time after applying it with git stash branch <name>"
+7. `git stash drop`, the words alone: `a dropped stash is unreachable; nothing lists it again` → `apply it with git stash branch <name>, or leave it in the list`
+8. `git stash clear`, the words alone: `clear drops every stash at once; nothing lists them again` → `drop one at a time after applying it with git stash branch <name>`
 9. `git rebase`, the words alone: `a rebase rewrites the commits of the branch: their hashes change, and a branch others hold diverges from theirs` → `tag the tip first (git tag keep/<name>), or make the change on a new branch and merge`
-10. `git filter-branch`, the words alone: "filter-branch rewrites history across every commit it touches" → "clone the repository first, and rewrite the clone"
-11. `git filter-repo`, the words alone: "filter-repo rewrites history across every commit it touches" → "clone the repository first, and rewrite the clone"
+10. `git filter-branch`, the words alone: `filter-branch rewrites history across every commit it touches` → `clone the repository first, and rewrite the clone`
+11. `git filter-repo`, the words alone: `filter-repo rewrites history across every commit it touches` → `clone the repository first, and rewrite the clone`
 12. `git reflog expire`, the words alone: `expiring the reflog removes the record that lets a lost commit be found again` → `leave the reflog; disk is cheaper than a lost commit`
 13. `git gc` with `--prune=now`: `pruning now deletes every unreachable object at once, including those the reflog would have let you recover` → `run git gc without --prune=now, which keeps recent unreachable objects`
 14. `rm` with `-r` or `-R` or `--recursive`: `a recursive rm deletes a directory tree outside git; nothing brings it back` → `use git rm for tracked files, or move the directory to a scratch location first`
