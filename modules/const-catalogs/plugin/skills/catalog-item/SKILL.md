@@ -17,10 +17,10 @@ A project cites its decisions, tasks and the like by number. That works only whi
 means one document, and stands in the one name every reference resolves — the file's. It also
 works only while the number never comes to mean another document later. A numbered kind is a
 kind of document whose every item carries a prefix and a number in its id and its file name.
-A catalog is all the items of one such kind. The constitution's conventions page the project
-adopted defines both. There is no index, no register, no counter file to
-keep in step, and none is ever written. A generated list drifts from the files, and the files
-are the truth.
+A catalog is all the items of one such kind. There is no index, no register, no counter file
+to keep in step, and none is ever written. A generated list drifts from the files, and the
+files are the truth. The constitution's conventions page that the project adopted defines
+both terms.
 
 What is checked and what is not. For every catalog listed under `const-catalogs.catalogs` in
 the project's `constitution.yaml`, this plugin's hook blocks a Markdown document in that
