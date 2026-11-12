@@ -74,15 +74,10 @@ def _list(value: object, default: Sequence[str]) -> list[str]:
     return [str(item) for item in value] if isinstance(value, list) else list(default)
 
 
-def _severity(values: Mapping[str, object]) -> object:
-    return values.get("severity", "block")
-
-
 def loosened(old: Mapping[str, object], new: Mapping[str, object]) -> bool:
-    """A change of the namespace that lets a document through that the gate held: severity from block to
-    warn, a marker no longer listed, a territory pattern removed or a negated one added."""
-    if _severity(old) == "block" and _severity(new) == "warn":
-        return True
+    """A change of the namespace that lets a document through that the gate held, besides severity, which
+    the shared `switch_off` judges, where the commit that adds the namespace at warn lowers nothing: a
+    marker no longer listed, a territory pattern removed or a negated one added."""
     markers_old = _list(old.get("markers"), DEFAULT_MARKERS)
     if set(markers_old) - set(_list(new.get("markers"), DEFAULT_MARKERS)):
         return True

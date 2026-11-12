@@ -708,15 +708,19 @@ def test_effect_path_bypass() -> None:
 
 @item(22, "W2: the plugin disabled, or a dial of the gate loosened, is bypassed by B2")
 def test_effect_switch_off() -> None:
-    """Seven commits of the dials file, the namespace changed at each: severity block (applied); the
-    defaults written out with no severity (applied); severity warn where none stood, so from the default
-    block (bypassed); the markers cut to one (bypassed); a marker added (applied); a negated territory added
-    (bypassed); that negation removed (applied). A fake plugin list that lists the gate for this project
-    disabled adds one more, bypassed. The lines are typed by hand."""
+    """Eight commits of the dials file, the namespace changed at each: the namespace added at severity warn,
+    an adoption that lowers nothing (applied); severity block (applied); the defaults written out with no
+    severity (applied); severity warn where none stood, so from the default block (bypassed); the markers cut
+    to one (bypassed); a marker added (applied); a negated territory added (bypassed); that negation removed
+    (applied). A fake plugin list that lists the gate for this project disabled adds one more, bypassed.
+    Then a second project, whose commits tell each loosened dial apart: adopted at block (applied); the
+    markers cut to one (bypassed); a territory pattern added (applied); that pattern dropped (bypassed). The
+    lines are typed by hand."""
     consumer = H.fresh_consumer()
     root = consumer.root
     defaults = ["[decide:", "TODO", "TBD", "FIXME"]
     steps = [
+        own(severity="warn"),
         own(severity="block"),
         own(markers=defaults),
         own(markers=defaults, severity="warn"),
@@ -729,10 +733,21 @@ def test_effect_switch_off() -> None:
         consumer.write_dials(step)
         consumer.commit()
     found = effect_lines(root, {}, no_plugins())
-    assert "  W2 (pattern): 7 moment(s): 4 applied, 3 bypassed, 0 missed — B2 3" in found, found
+    assert "  W2 (pattern): 8 moment(s): 5 applied, 3 bypassed, 0 missed — B2 3" in found, found
     disabled = json.dumps([{"id": f"{NAMESPACE}@m", "enabled": False, "projectPath": str(root)}])
     again = effect_lines(root, {}, no_plugins(disabled))
-    assert "  W2 (pattern): 8 moment(s): 4 applied, 4 bypassed, 0 missed — B2 4" in again, again
+    assert "  W2 (pattern): 9 moment(s): 5 applied, 4 bypassed, 0 missed — B2 4" in again, again
+    other = H.fresh_consumer()
+    for step in [
+        own(severity="block"),
+        own(markers=["TODO"]),
+        own(markers=["TODO"], territories=["*.md", "docs/**"]),
+        own(markers=["TODO"], territories=["*.md"]),
+    ]:
+        other.write_dials(step)
+        other.commit()
+    told = effect_lines(other.root, {}, no_plugins())
+    assert "  W2 (pattern): 4 moment(s): 2 applied, 2 bypassed, 0 missed — B2 2" in told, told
 
 
 @item(
