@@ -15,8 +15,9 @@ description: >
 
 A project cites its decisions, tasks and the like by number. That works only while a number
 means one document, and stands in the one name every reference resolves — the file's. It also
-works only while the number never comes to mean another document later. A catalog is nothing
-but the set of files that carry its prefix. There is no index, no register, no counter file to
+works only while the number never comes to mean another document later. A numbered kind is a
+kind of document whose every item carries a prefix and a number in its id and its file name.
+A catalog is all the items of one such kind. There is no index, no register, no counter file to
 keep in step, and none is ever written. A generated list drifts from the files, and the files
 are the truth.
 
