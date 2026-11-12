@@ -51,7 +51,7 @@ from constitution_layer_kit.testing.items import (
     tr_hook,
     tr_line,
 )
-from referencing_gate import lychee, messages, start
+from referencing_gate import anchors, links, lint, lychee, masking, mentions, messages, start
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 
@@ -239,6 +239,71 @@ def test_case(case: Case) -> None:
 # ------------------------------------------------------------------ assertions
 
 
+# What the masking leaves readable, for a document each, typed by hand: the words that stay in `blocks`, the
+# text with the block-level regions blanked and the code spans still readable. Each document is the smallest
+# that tells a reading of one rule from the reading next to it.
+READABLE_AFTER_MASKING = {
+    # a fence under a list item closes at a depth a tab counts four columns for, and at nothing deeper
+    "a tab four columns wide in a list fence": (
+        "- a\n    ```\n    x REQ-7\n    \t```\n    y\n    ```\nz\n",
+        ["-", "a", "z"],
+    ),
+    "a list fence is not closed by a line eight columns deep": (
+        "- a\n    ```\n    x\n        ```\n    y\n    ```\nz\n",
+        ["-", "a", "z"],
+    ),
+    "a fence opened at three columns takes no deeper closer": ("   ```\nx\n    ```\ny\n   ```\nz\n", ["z"]),
+    "a closer at three columns closes": ("```\nx\n   ```\nz\n", ["z"]),
+    "a closer with an info string closes nothing": ("```\nREQ-7\n```X\nREQ-8\n```\nz\n", ["z"]),
+    "a longer closer closes": ("```\nx\n````\ny\n", ["y"]),
+    "a closer with trailing spaces closes": ("```\nx\n```   \ny\n", ["y"]),
+    "a fence never closed masks from its opener on": ("REQ-7 first\n```\nREQ-8\n", ["REQ-7", "first"]),
+    "a YAML block never closed masks to the end": ("---\nid: x\nREQ-7\n", []),
+    "the YAML block ends at its closing line, a fence in it shut with it": (
+        "---\nid: x\nnote: |\n  ```\n---\nREQ-7 after\n",
+        ["REQ-7", "after"],
+    ),
+    # an indented line is code after a blank line or after code; after a paragraph or a fence it is text
+    "an indented block after the YAML block's blank line": ("---\nid: x\n---\n\n    REQ-7\nz\n", ["z"]),
+    "an indented first line of a document": ("    REQ-7\nz\n", ["z"]),
+    "an indented line right after the YAML block": ("---\nid: x\n---\n    REQ-7\n", ["REQ-7"]),
+    "an indented line right after a fence": ("```\nx\n```\n    REQ-7\n", ["REQ-7"]),
+    "an indented line right after a paragraph line": ("para\n    REQ-7\nz\n", ["para", "REQ-7", "z"]),
+    "the second line of an indented block": ("para\n\n    a\n    REQ-7\nz\n", ["para", "z"]),
+    # comments
+    "a comment at the first character, then another": ("<!-- c -->\nREQ-7 <!-- x -->\nz\n", ["REQ-7", "z"]),
+    "an empty comment": ("a <!----> REQ-7 <!-- b --> c\n", ["a", "REQ-7", "c"]),
+    "a comment's last characters": ("<!-- see X1 -->\nz\n", ["z"]),
+    "a form glued to a comment's closer": ("<!-- c -->REQ-7\n", ["REQ-7"]),
+    "a second comment": ("<!-- a --> x <!-- REQ-7 -->\n", ["x"]),
+    "an opener overlapping the closer": ("<!-- a <!--> REQ-7 <!-- b --> z\n", ["REQ-7", "z"]),
+    "two comments with nothing between": ("<!-- a --><!-- REQ-7 -->\nz\n", ["z"]),
+    # a code span stays readable in `blocks`: a lone tick pairs with none in another paragraph
+    "a lone tick and another in a later paragraph": (
+        "a ` b\n\nc ` d REQ-7\n",
+        ["a", "`", "b", "c", "`", "d", "REQ-7"],
+    ),
+}
+
+
+def check_masking_units() -> None:
+    wrong = {
+        name: masking.mask(document).blocks.split()
+        for name, (document, readable) in READABLE_AFTER_MASKING.items()
+        if masking.mask(document).blocks.split() != readable
+    }
+    assert not wrong, f"the words left readable differ: {wrong}"
+    # a masked line break stays: the offsets of the document stay the offsets of its mask
+    assert masking.mask("```\nx\n```\ny\n").blocks == "   \n \n   \ny\n"
+    # a code span from the first character; the ticks of a span are counted without the letter X
+    assert masking.mask("`note-a` is\n").spans == (masking.Span(0, 8),)
+    assert masking.mask("a ` b\n\nc ` d\n").spans == ()  # a lone tick pairs with none of another paragraph
+    xs = masking.mask("`Xnote`\n")
+    assert masking.content("`Xnote`\n", xs.spans[0]) == "Xnote"
+    # a line is counted from the first character
+    assert masking.line_of("\nREQ", 1) == 2
+
+
 @item(10, "masked: a fence, an open fence, an indented block, a comment, a code span, a link's text")
 def test_masked_regions() -> None:
     """Every region the checks of form do not read, each holding a bare form and an id. A path
@@ -254,6 +319,7 @@ def test_masked_regions() -> None:
     }
     for text in bodies.values():
         passes(text)
+    check_masking_units()
 
 
 @item(46, "R4 reads code and comments too; only the YAML block that opens the file is not read")
@@ -363,6 +429,8 @@ def test_local_paths_allowed() -> None:
 @item(16, "the document's own id, and a name no covered document carries, pass in backticks")
 def test_own_id_and_unknown_ids_pass() -> None:
     passes(body("This is `note-a`; `not-a-document` is no id of a covered document."))
+    # a code span that is no id ends nothing: an id in backticks after it is still found
+    blocks(body(f"Run `ls` and `{OWNER_ID}`."), R2)
 
 
 @item(17, "R3 passes: ticks and a fragment, a fragment alone, an address with a scheme, angle brackets")
@@ -374,12 +442,37 @@ def test_id_links_that_pass() -> None:
         f"[{OWNER_ID}](<{TO_OWNER}>) in angle brackets",
     ]
     passes("# F\n\n" + "\n".join(lines) + "\n")
+    # the path a destination names: query and fragment are cut, a root-relative one starts at the root
+    assert lint.target_of(DOC, "../policies/notes-policy.md?x=1#k") == OWNER
+    assert lint.target_of(DOC, "/docs/policies/notes-policy.md") == OWNER
+    assert lint.target_of(DOC, "/XRAY.md") == "XRAY.md"
+    assert lint.target_of(DOC, "#k") == DOC
+    assert lint.target_of(DOC, "https://example.com/a") is None
+    # the way from a document at the top of the repository goes down, never up
+    assert lint.path_between("README.md", OWNER) == OWNER
+    assert lint.path_between(DOC, OWNER) == TO_OWNER
 
 
 @item(18, "R3 judges an id written in ticks inside the link's text")
 def test_ticks_in_link_text_are_judged() -> None:
     finding = messages.r3_id_link_astray(DOC, LINE, OWNER_ID, "b.md", OWNER, TO_OWNER)
     blocks(body(f"See [`{OWNER_ID}`](b.md)."), finding)
+    # links side by side: an id in the text of the second is no bare id, whether or not a space parts them
+    to_owner = f"({TO_OWNER})"
+    passes(body(f"[a]{to_owner}[`{OWNER_ID}`]{to_owner}"))
+    passes(body(f"[a]{to_owner} and [`{OWNER_ID}`]{to_owner}"))
+    # R3 reads every link: a reference definition, an href or a link of other text before it ends nothing
+    astray = "../policies/root-policy.md"
+    blocks(body(f'<a href="x.md">x</a> [{OWNER_ID}]({astray})'), R3)
+    blocks(body(f"[plain](https://example.com/p) [{OWNER_ID}]({astray})"), R3)
+    blocks(
+        "# Fixture\n[r]: x.md\n\n" + f"[{OWNER_ID}]({astray})\n",
+        messages.r3_id_link_astray(DOC, LINE + 2, OWNER_ID, astray, OWNER, TO_OWNER),
+    )
+    # the letters around a link's text are the text's own: `XnoteX` is no id, though `note` is one
+    odd = {"docs/notes/x.md": note("# X\n", "note")}
+    letters = gate_on(wrote(body(f"See [XnoteX]({astray}).")), dials_patch=LANES, files=odd)[0]
+    expect(letters, 0, messages.g1_covered(), "stdout")
 
 
 @item(19, "the id of a document that exists is known to the write of another")
@@ -418,6 +511,8 @@ def test_findings_in_reading_order() -> None:
 @item(29, "R4 names the path, not the full stop after it")
 def test_a_path_ends_before_the_sentence_does() -> None:
     blocks(body("Notes are in /Users/someone/notes.md."), R4_PATH)
+    # letters at the end of a path are the path's, whatever they are
+    blocks(body("See /Users/me/BOX."), messages.r4_one_machine(DOC, LINE, "/Users/me/BOX"))
 
 
 @item(22, "a document outside const-referencing.territories, or a new one git ignores, is a visible skip")
@@ -486,6 +581,13 @@ def test_scan_reports_all() -> None:
     expect(red, 2, second.render(), "stdout")
     expect(red, 2, shared.f9_count_scan(2, tail), "stdout")
     expect(green, 0, shared.g1_green_scan(messages.f9_scan_tail(4, 2, 4, 1, 0, 0)), "stdout")
+    # the tails, typed by hand, whole
+    assert green.stdout == (
+        "GREEN: const-referencing: 4 document(s) and 2 link(s) examined, 4 Markdown file(s) scanned,"
+        " 1 lane(s)\n"
+    ), green.stdout
+    count = "RED: 2 finding(s) — 5 document(s) and 0 link(s) examined, 5 Markdown file(s) scanned, 1 lane(s)"
+    assert count in red.stdout.splitlines(), red.stdout
 
 
 @item(24, "the scan ignores severity")
@@ -519,7 +621,11 @@ def test_dial_failures() -> None:
         ),
         (own(territories=[]), messages.c5_territories()),
         (own(territories=["*.md", 3]), messages.c5_territories()),
-        (own(bare_ids="maybe"), messages.c5_switch("bare_ids")),
+        (  # typed by hand
+            own(bare_ids="maybe"),
+            "BROKEN: constitution.yaml: const-referencing.bare_ids must be refuse or allow — fix: write"
+            " bare_ids: allow, or remove the key: refuse is the default",
+        ),
         (own(bare_ids=True), messages.c5_switch("bare_ids")),
         (own(local_paths="off"), messages.c5_switch("local_paths")),
         (  # typed by hand
@@ -621,6 +727,17 @@ def test_control_character_in_a_pattern() -> None:
     assert literal in red.stderr, f"the golden line is not in: {red.stderr.strip()}"
     expect(green, 2, r1().render(), "stderr")
     broken(mention, messages.c5_mention(1, messages.lane_pattern_control("\x08")))
+    # a space is no control character, the delete character is
+    spaced = gate_on(wrote(body("See REQ 7.")), dials_patch=own(lanes=[{**LANE, "pattern": r"REQ [0-9]+"}]))[
+        0
+    ]
+    expect(spaced, 2, "RED: docs/notes/a.md:9: 'REQ 7' cites a requirement by a bare handle\n", "stderr")
+    assert gate_on(VALID, dials_patch=own(mentions=[{"pattern": "see note-[a-z]+"}]))[0].code == 0
+    delete = gate_on(VALID, dials_patch=own(lanes=[{**LANE, "pattern": "REQ\x7f-[0-9]+"}]))[0]
+    assert delete.code == 1 and delete.stderr.startswith(
+        "BROKEN: constitution.yaml: entry 1 of const-referencing.lanes has a pattern holding the control"
+        " character '\\x7f' — "
+    ), delete.stderr
 
 
 @item(26, "a lane's home pattern git would misread is the shared configuration failure")
@@ -633,6 +750,15 @@ def test_lane_home_pattern_git_would_misread() -> None:
         " break; "
         "escape a leading # as \\# bare or in single quotes, "
         "as \\\\# in double quotes, and remove a line break",
+    )
+    # a mention's files pattern is held the same way, and the line names the mention
+    misread = gate_on(VALID, dials_patch=own(mentions=[{**MENTION, "files": ["#tools"]}]))[0]
+    broken_typed(
+        misread,
+        "BROKEN: constitution.yaml: const-referencing.mentions[1].files holds a pattern git would not read as"
+        " one: '#tools' — fix: a pattern may not start with '#' (a comment to git) nor contain a line"
+        " break; escape a leading # as \\# bare or in single quotes, as \\\\# in double quotes, and remove a"
+        " line break",
     )
 
 
@@ -772,6 +898,11 @@ def test_anchor_case_counts() -> None:
     allowed = tree_scan("See [x](t.md#K1).", own(heading_anchors="allow"))
     expect(tree_scan("See [x](t.md#K1)."), 2, finding.render(), "stdout")
     expect(allowed, 2, finding.headline, "stdout")
+    # a second `#` belongs to the fragment, as the document wrote it: `k1#x` is no anchor, named whole
+    two = tree_scan("See [x](t.md#k1#x).")
+    assert two.code == 2 and "RED: docs/notes/s.md:9: t.md#k1#x has no anchor 'k1#x'\n" in two.stdout, (
+        two.stdout
+    )
 
 
 @item(34, "coverage decides whose links are judged, not which targets must exist")
@@ -787,6 +918,13 @@ def test_uncovered_targets() -> None:
         "stdout",
     )
     expect(tree_scan("See [x](gone.md).", only_source), 2, gone.render(), "stdout")
+    # no document covered at all: nothing is handed to the checker, and the scan is green
+    nothing = tree_scan("See [x](gone.md).", own(territories=["nowhere/**"]))
+    green = (
+        "GREEN: const-referencing: 0 document(s) and 0 link(s) examined, 5 Markdown file(s) scanned,"
+        " 0 lane(s)\n"
+    )
+    assert nothing.code == 0 and nothing.stdout == green and nothing.stderr == "", nothing
 
 
 @item(35, "a lychee.toml and a .lycheeignore in the repository change nothing")
@@ -801,6 +939,14 @@ def test_owned_invocation() -> None:
 @item(36, "links inside code are not checked")
 def test_links_in_code_are_not_checked() -> None:
     expect(tree_scan("Shown: `[x](gone.md)`.\n\n```md\n[y](gone.md#a)\n```"), 0, "GREEN: ", "stdout")
+    # a link-shaped text inside a code span hides the links after it from no one
+    shown = "`[a](x.md)` [b](y.md)"
+    found = links.find_links(shown, masking.mask(shown))
+    assert [(link.text, link.destination) for link in found] == [("b", "y.md")]
+    # a link spread over lines is blanked whole, its line breaks kept
+    spread = "[a\nb](x.md)\nREQ 7\n"
+    blanked = links.without_links(masking.mask(spread), links.find_links(spread, masking.mask(spread)))
+    assert blanked == "  \n        \nREQ 7\n"
 
 
 def path_with(lychee_script: str | None) -> dict[str, str]:
@@ -846,8 +992,24 @@ def test_link_checker_unusable() -> None:
         messages.x2_lychee_too_old("0.24.2", "lychee 0.23.0"),
     )
     broken(scan_with(path_with("exit 0\n")), messages.x2_lychee_too_old("0.24.2", ""))
+    broken_typed(  # typed by hand: a version that cannot be read
+        scan_with(path_with("exit 0\n")),
+        "BROKEN: const-referencing needs lychee 0.24.2 or newer, its version could not be read — fix: install"
+        " a current one (https://lychee.cli.rs/installation/), then run the scan — until then no reference is"
+        " checked for resolving",
+    )
     broken(scan_with(path_with_unstartable_lychee()), messages.x2_lychee_too_old("0.24.2", ""))
     broken(scan_with(path_with(usage)), messages.x3_no_report("exit 2", "error: unexpected argument"))
+    # a version probe that exits non-zero is read for what it said, not a defect
+    broken(
+        scan_with(path_with('case "$1" in --version) echo "lychee 0.23.0"; exit 1;; esac\n')),
+        messages.x2_lychee_too_old("0.24.2", "lychee 0.23.0"),
+    )
+    # no report and nothing on stderr: the line has no parenthesis
+    nothing = scan_with(path_with('case "$1" in --version) echo "lychee 0.24.2";; *) exit 3;; esac\n'))
+    assert nothing.code == 1 and nothing.stderr.startswith(
+        "BROKEN: lychee gave no report: exit 3 — fix: this is a defect"
+    ), nothing.stderr
     # lychee's version output is several lines with a backslash: it only points, cut at 80, escaped
     broken_typed(
         scan_with(path_with("printf 'lychee 0.23.0\\nline\\\\two " + "w" * 90 + "\\n'\n")),
@@ -951,6 +1113,37 @@ def test_governed_only_without_root() -> None:
     expect(default, 0, messages.g1_covered(), "stdout")
 
 
+def mentions_over_odd_files() -> None:
+    """A file that is not UTF-8 text is read with its odd bytes replaced, one nobody may read is passed over,
+    and a NUL at the byte the sniff stops before marks no binary file."""
+    consumer = H.fresh_consumer()
+    root = consumer.root
+    consumer.write("constitution.yaml", dials_text(own(mentions=[MENTION])))
+    consumer.write(SOURCE, source("x"))
+    consumer.write("tools/ok.sh", "# see note-s\n")
+    (root / "tools/latin.sh").write_bytes(b"caf\xe9 note-s\n")
+    (root / "tools/edge.dat").write_bytes(b"a" * 8000 + b"\0")  # the NUL is the 8,001st byte: not sniffed
+    (root / "tools/inside.dat").write_bytes(b"a" * 7999 + b"\0")
+    locked = root / "tools/locked.sh"
+    locked.write_text("# note-gone\n", encoding="utf-8")
+    locked.chmod(0)
+    try:
+        result = H.run_gate("", args=["--scan", str(root)])
+        listed = mentions.other_files(root)
+    finally:
+        locked.chmod(0o644)
+    assert result.code == 0 and result.stdout == (
+        "GREEN: const-referencing: 4 document(s) and 0 link(s) examined, 4 Markdown file(s) scanned,"
+        " 0 lane(s), 1 mention pattern(s) over 4 other file(s)\n"
+    ), result.stdout + result.stderr
+    assert listed == [
+        "constitution.yaml",
+        "tools/edge.dat",
+        "tools/latin.sh",
+        "tools/ok.sh",
+    ], listed
+
+
 @item(43, "R8: a name outside Markdown no covered document carries; off by default")
 def test_mentions_outside_markdown() -> None:
     files = {
@@ -968,7 +1161,14 @@ def test_mentions_outside_markdown() -> None:
     expect(red, 2, "1 finding(s)", "stdout")
     expect(odd, 2, messages.r8_unknown_mention("tools/page.sh", 2, "note-lost").render(), "stdout")
     expect(odd, 2, "2 finding(s)", "stdout")
-    expect(fixed, 0, "1 mention pattern(s) over ", "stdout")
+    assert fixed.code == 0 and fixed.stdout == (
+        "GREEN: const-referencing: 4 document(s) and 0 link(s) examined, 4 Markdown file(s) scanned,"
+        " 0 lane(s), 1 mention pattern(s) over 2 other file(s)\n"
+    ), fixed.stdout
+    assert (
+        "  fix: correct the name, or drop the mention and state the rule in words" in red.stdout.splitlines()
+    )
+    mentions_over_odd_files()
     expect(scan_of(files), 0, "GREEN: ", "stdout")
     expect(elsewhere, 0, "GREEN: ", "stdout")
 
@@ -1047,7 +1247,8 @@ def test_own_links_after_write() -> None:
     finding = messages.r5_no_target(SOURCE, LINE, "gone.md")
     fixed = {TARGET: TARGET_TEXT, SOURCE: source("See [x](t.md#k1).")}
     expect(after_write(SOURCE, files), 2, finding.render(), "stderr")
-    expect(after_write(SOURCE, files), 2, after_count(SOURCE, 1, 1), "stderr")
+    uncut = "RED: 1 link(s) of the whole tree examined, 1 finding(s) involve docs/notes/s.md"
+    assert uncut in after_write(SOURCE, files).stderr.splitlines()
     expect(after_write(SOURCE, fixed), 0, messages.g1_covered(), "stdout")
     # the count line is what a later step reads: the path whole, escaped, over 80 characters
     expect(
@@ -1076,6 +1277,16 @@ def test_older_break_elsewhere_is_not_repeated() -> None:
     }
     expect(after_write("docs/notes/u.md", files), 0, messages.g1_covered(), "stdout")
     expect(scan_of(files), 2, messages.r5_no_target(SOURCE, LINE, "gone.md").headline, "stdout")
+    # an older break in a document that sorts before the written one does not end the reading: the written
+    # document's own break is still reported, and it alone
+    both = {**files, "docs/notes/a.md": note(body("See [x](gone-too.md)."), "note-a")}
+    got = after_write(
+        "docs/notes/z.md", {**both, "docs/notes/z.md": note(body("See [x](gone-z.md)."), "note-z")}
+    )
+    assert got.code == 2, got.stderr
+    assert "RED: docs/notes/z.md:9: link target gone-z.md does not exist\n" in got.stderr, got.stderr
+    assert "gone.md" not in got.stderr and "gone-too.md" not in got.stderr, got.stderr
+    assert "RED: 3 link(s) of the whole tree examined, 1 finding(s) involve docs/notes/z.md\n" in got.stderr
 
 
 @item(53, "after the write: a heading-derived anchor is reported")
@@ -1125,9 +1336,17 @@ def test_many_findings_are_cut() -> None:
     assert by_count.code == 2 and by_count.stderr.count("RED: docs/") == 20, (
         "short findings: not twenty printed"
     )
-    assert after_count(SOURCE, 25, 25, 20) in by_count.stderr, "short findings: the count line"
+    short_line = (
+        "RED: 25 link(s) of the whole tree examined, 25 finding(s) involve docs/notes/s.md"
+        " — the first 20 shown"
+    )
+    assert short_line in by_count.stderr.splitlines(), "short findings: the count line"
     assert by_size.code == 2 and 0 < printed < 20, f"long findings: {printed} printed"
-    assert after_count(SOURCE, 25, 25, printed) in by_size.stderr, "long findings: the count line"
+    long_line = (
+        "RED: 25 link(s) of the whole tree examined, 25 finding(s) involve docs/notes/s.md"
+        f" — the first {printed} shown"
+    )
+    assert long_line in by_size.stderr.splitlines(), "long findings: the count line"
     assert len(by_size.stderr) < 10000, f"long findings: {len(by_size.stderr)} characters"
 
 
@@ -1231,6 +1450,19 @@ def test_move_red_green() -> None:
     assert TWO_REPAIRED in two and "[r]: ../moved/deep/first.md" in two, f"inbound links: {two}"
     expect(scan(acted), 0, "GREEN: ", "stdout")
     no_clock(git_timeouts(log))
+    # a document at the top of the repository is reached without a `../`, and reaches down the same way
+    root_move = moving_consumer()
+    root_move.write("README.md", "# R\n\nSee [one](docs/notes/one.md).\n")
+    root_move.commit()
+    to_root = mover(root_move, OLD, "one.md")
+    expect(to_root, 0, "GREEN: ", "stdout")
+    assert "See [one](one.md).\n" in (root_move.root / "README.md").read_text()
+    moved_text = (root_move.root / "one.md").read_text()
+    assert (
+        "See [sib](docs/notes/two.md#k2), [self](one.md#k1), [here](#k1) and [up](constitution.yaml)."
+        in moved_text
+    ), moved_text
+    assert "Back to [note-one](../../one.md#k1)" in (root_move.root / "docs/notes/two.md").read_text()
 
 
 @item(61, "the mover lists what names the old path and changes none of it")
@@ -1257,6 +1489,14 @@ def test_mentions_are_listed_not_changed() -> None:
     assert (outside.root / "other/readme.md").read_text() == f"# Readme\nSee {OLD}.\nOr ../{OLD}.\n", (
         "the uncovered Markdown file was not rewritten"
     )
+    # the destination of a link is no mention, whether or not the mover rewrites it: here it does not
+    shielded = moving_consumer()
+    shielded.write("constitution.yaml", dials_text(own(territories=["docs/**"])))
+    shielded.write("other/o.md", "# O\n\nSee [one](../docs/notes/one.md).\n")
+    shielded.commit()
+    after = mover(shielded, OLD, NEW)
+    assert after.code == 0 and "other/o.md" not in after.stdout, after.stdout
+    assert (shielded.root / "other/o.md").read_text() == "# O\n\nSee [one](../docs/notes/one.md).\n"
 
 
 @item(62, "the fix R5 teaches, pasted as printed, repairs a move made by hand")
@@ -1318,6 +1558,13 @@ def test_id_repair_leaves_an_ambiguous_id_alone() -> None:
     done = mover(consumer, "--ids")
     kept = "See [note-twin](t.md)." in (consumer.root / SOURCE).read_text()
     assert kept and messages.v4_count(0, 0, 0) in done.stdout, done.stdout + done.stderr
+    # the letters round a link's text are the text's own: `Xnote-oneX` is no id, though `note-one` is one
+    letters = moving_consumer()
+    unchanged = "See [Xnote-oneX](gone.md) and [Xnote-one](gone.md) and [note-oneX](gone.md).\n"
+    letters.write("docs/notes/three.md", note("# T\n\n" + unchanged, "note-three"))
+    letters.commit()
+    mover(letters, "--ids")
+    assert unchanged in (letters.root / "docs/notes/three.md").read_text()
 
 
 @item(64, "every refusal of the mover is exit 1 and changes nothing")
@@ -1385,6 +1632,43 @@ def test_refusals_change_nothing() -> None:
     for result, line in typed:
         broken_first_line(result, line)
     assert tree_state(odd) == odd_before, "a refusal of a long path changed the tree"
+    # the refusals that look at git and at the two paths: each asked before anything moves, each typed by hand
+    more = moving_consumer()
+    more.write("docs/notes/untracked.md", "# U\n")  # on disk, no git file
+    more_before = tree_state(more)
+    not_listed = (
+        "is not a file git lists — fix: name a file of this repository, by its path from where you stand"
+    )
+    not_moved = (
+        "BROKEN: --moved says the move was made by hand, yet {old} still exists or {new} does not — fix: to"
+        " make the move and repair the links in one act, run it without --moved"
+    )
+    unknown = (
+        "BROKEN: misinvocation: unrecognized arguments: {given} — fix: run it with <old path> <new path> to"
+        " move a file and repair the links; --moved <old path> <new path> after a move made by hand; --ids to"
+        " point every link whose text is a document's id at that document"
+    )
+    typed_more = [
+        (
+            mover(more, "docs/notes/untracked.md", "docs/notes/u2.md"),
+            f"BROKEN: docs/notes/untracked.md {not_listed}",
+        ),
+        (mover(more, "docs/notes", "docs/other"), f"BROKEN: docs/notes {not_listed}"),
+        (
+            mover(more, "--moved", "docs/notes/none.md", "docs/notes/nothing.md"),
+            not_moved.format(old="docs/notes/none.md", new="docs/notes/nothing.md"),
+        ),
+        (
+            mover(more, "--moved", OLD, "docs/notes/two.md"),
+            not_moved.format(old=OLD, new="docs/notes/two.md"),
+        ),
+        (mover(more, "--id"), unknown.format(given="--id")),
+        (mover(more, "--mov", OLD, NEW), unknown.format(given="--mov")),
+    ]
+    for result, line in typed_more:
+        broken_first_line(result, line)
+        assert STOPPED_NOTHING in result.stderr.splitlines(), result.stderr
+    assert tree_state(more) == more_before, "a refusal changed the tree"
 
 
 @item(65, "with no dials file the mover refuses before it moves")
@@ -1423,7 +1707,11 @@ def test_mover_ends_red_when_the_tree_is() -> None:
 GOLDEN_MOVER = [
     f"MOVED: {OLD} → {NEW}",
     "REWROTE: docs/notes/two.md: 2 link(s)",
-    "names the old path outside a link — read it and decide; nothing was changed",
+    "MENTION: docs/notes/two.md:11: 'Back to [note-one](../moved/deep/first.md#k1), [r] and"
+    " `[shown](one.md)`. Once d… [97 characters]' names the old path outside a link — read it and"
+    " decide; nothing was changed",
+    "MENTION: tools/x.sh:1: '# see docs/notes/one.md' names the old path outside a link — read it and"
+    " decide; nothing was changed",
     "2 file(s) rewritten, 5 link(s), 2 mention(s) listed; the whole tree is checked next",
 ]
 
@@ -1432,7 +1720,7 @@ GOLDEN_MOVER = [
 def test_golden_mover_lines() -> None:
     out = mover(moving_consumer(), OLD, NEW).stdout
     refused = mover(moving_consumer(), OLD, "docs/notes/two.md").stderr
-    missing = [line for line in GOLDEN_MOVER if line not in out]
+    missing = [line for line in GOLDEN_MOVER if line not in out.splitlines()]
     wanted = (
         "BROKEN: docs/notes/two.md already exists — fix: choose a path that is free, or move what lies"
         " there first\nBROKEN: the move could not run — nothing was changed"
@@ -1676,6 +1964,13 @@ def test_mover_asks_before_it_moves() -> None:
     assert porcelain(rootless) == state and (rootless.root / OLD).exists(), "no root policy: the tree changed"
 
 
+STOPPED_NOTHING = "BROKEN: the move could not run — nothing was changed"
+STOPPED_MIDWAY = (  # typed by hand
+    "BROKEN: the act stopped midway — what the lines above name was moved or rewritten, and the check"
+    " of the whole tree has not run: look at git status, repair the cause, then run the scan"
+)
+
+
 @item(81, "a failure after the move says the act stopped midway, never that nothing changed")
 def test_mover_says_when_it_stopped_midway() -> None:
     """A failure after the move must not claim that nothing was changed."""
@@ -1690,17 +1985,28 @@ def test_mover_says_when_it_stopped_midway() -> None:
         env=merged,
         check=False,
     )
-    stopped = (  # typed by hand
-        "BROKEN: the act stopped midway — what the lines above name was moved or rewritten, and the check"
-        " of the whole tree has not run: look at git status, repair the cause, then run the scan"
-    )
     ok = (
         done.returncode == 1
-        and stopped in done.stderr
+        and STOPPED_MIDWAY in done.stderr.splitlines()
         and messages.v4_nothing_changed() not in done.stderr
         and (consumer.root / NEW).exists()
     )
     assert ok, done.stdout + done.stderr
+    # a defect inside the mover is said as one, and then the act is said to have stopped midway
+    readonly = moving_consumer()
+    locked = readonly.root / "docs/notes/two.md"
+    locked.chmod(0o444)
+    try:
+        defect = mover(readonly, OLD, NEW)
+    finally:
+        locked.chmod(0o644)
+    first, second = defect.stderr.splitlines()[:2]
+    assert defect.code == 1 and second == STOPPED_MIDWAY, defect.stderr
+    assert first.startswith("BROKEN: unexpected failure inside the checker: PermissionError: "), first
+    assert first.endswith(
+        " — fix: this is a defect of the gate, not of the repository; report it, with the traceback below, to"
+        " whoever maintains the plugin — until it is fixed do not move documents with it"
+    ), first
 
 
 @item(82, "the mover keeps CRLF and a byte order mark, and leaves a file that is not UTF-8 alone")
@@ -1726,6 +2032,15 @@ def test_mover_keeps_every_other_character() -> None:
         "LEFT ALONE: docs/notes/l\\\\y" + "n" * 80 + ".md is not UTF-8 text — its links, if any, were not"
         " repaired" in done.stdout.splitlines()
     ), done.stdout
+    # a moved file that is no Markdown is moved and nothing in it is rewritten
+    plain = moving_consumer()
+    plain.write("tools/guide.txt", "see [a](../docs/notes/one.md)\n")
+    plain.commit()
+    moved_plain = mover(plain, "tools/guide.txt", "tools/sub/guide.txt")
+    assert (plain.root / "tools/sub/guide.txt").read_text() == "see [a](../docs/notes/one.md)\n"
+    assert "0 file(s) rewritten, 0 link(s), 0 mention(s) listed; the whole tree is checked next" in (
+        moved_plain.stdout.splitlines()
+    ), moved_plain.stdout
 
 
 @item(83, "a new path under a file, and a git mv that git refuses: refused, no directory left behind")
@@ -1780,6 +2095,23 @@ def test_mover_quotes_and_bounds() -> None:
     assert "See [a](new%20name.md)." in b, f"the link: {b}"
     expect(done, 0, messages.v4_count(1, 1, 0), "stdout")
     expect(scan(consumer), 0, "and 1 link(s) examined", "stdout")
+    # the form of a link is kept: a query, a leading slash and angle brackets stay as written, and a document
+    # at the top of the repository is no mention of a path that climbs out of it
+    forms = moving_consumer()
+    forms.write(
+        "README.md",
+        "# R\n\nSee [one](docs/notes/one.md?plain=1#k1), [r](/docs/notes/one.md), [s](<docs/notes/one.md>)"
+        " and [q](docs/notes/one.md?x).\nAlso ../docs/notes/one.md here.\n",
+    )
+    forms.commit()
+    moved = mover(forms, OLD, "docs/moved/new name.md")
+    assert (forms.root / "README.md").read_text() == (
+        "# R\n\nSee [one](docs/moved/new%20name.md?plain=1#k1), [r](/docs/moved/new%20name.md),"
+        " [s](<docs/moved/new name.md>) and [q](docs/moved/new%20name.md?x).\nAlso ../docs/notes/one.md"
+        " here.\n"
+    )
+    assert "REWROTE: README.md: 4 link(s)" in moved.stdout.splitlines(), moved.stdout
+    assert "MENTION: README.md" not in moved.stdout, moved.stdout
 
 
 @item(85, "reference-style links: a usage is a link, and is judged by what its label opens")
@@ -1903,6 +2235,9 @@ def test_anchors_by_name_and_encoded_paths() -> None:
         finding.render(),
         "stdout",
     )
+    # an `id` on any element and a `name` on an `a` are anchors; a `name` on another element is none
+    markup = masking.mask('<span id="k1"></span> <a name="n1"></a> <div name="no"></div> <A NAME="n2"></A>')
+    assert anchors.explicit_anchors(markup) == frozenset({"k1", "n1", "n2"})
 
 
 @item(94, "a byte order mark does not open the YAML block to R4")
@@ -1935,6 +2270,7 @@ def test_a_break_in_words_of_lychee() -> None:
         messages.r5_unresolved(SOURCE, LINE, "/nowhere/x.md", "Some new failure").render(),
         "stdout",
     )
+    lychee_entry_cases()
     expect(
         odd,
         2,
@@ -1944,20 +2280,54 @@ def test_a_break_in_words_of_lychee() -> None:
     )
 
 
-def _lychee_words(text: str, name: str = "x.md") -> Result:
-    report = json.dumps(
-        {
-            "error_map": {
-                "SRC": [
-                    {
-                        "url": f"file:///nowhere/{name}",
-                        "status": {"text": text},
-                        "span": {"line": 9, "column": 5},
-                    }
-                ]
-            }
-        }
+def has_line(result: Result, line: str) -> bool:
+    return line in result.stdout.splitlines()
+
+
+def lychee_entry_cases() -> None:
+    """The report's entries the checker may leave short: each is read for what it holds, and nothing else."""
+    base: dict[str, object] = {"url": "file:///nowhere/x.md", "status": {"text": "T"}, "span": {"line": 9}}
+    head = f"RED: {SOURCE}:9: link target /nowhere/x.md does not resolve: "
+    # a link no link of the document can be told for keeps its fragment, named after the path
+    with_fragment = _lychee_entries([{**base, "url": "file:///nowhere/x.md#frag"}])
+    assert has_line(with_fragment, f"RED: {SOURCE}:9: link target /nowhere/x.md#frag does not resolve: T")
+    assert has_line(
+        with_fragment,
+        "  fix: correct the link so that it names a file of this repository by its relative path",
     )
+    no_words = _lychee_entries([{**base, "status": {}}])
+    assert has_line(no_words, head), no_words.stdout
+    status_is_text = _lychee_entries([{**base, "status": "bad"}])
+    assert has_line(status_is_text, head), status_is_text.stdout
+    no_url = _lychee_entries([{key: value for key, value in base.items() if key != "url"}])
+    assert has_line(no_url, f"RED: {SOURCE}:9: link target  does not resolve: T"), no_url.stdout
+    no_line = _lychee_entries([{**base, "span": {}}])
+    assert has_line(no_line, f"RED: {SOURCE}:0: link target /nowhere/x.md does not resolve: T"), (
+        no_line.stdout
+    )
+    # a missing fragment the report does not name is an anchor with no name
+    nameless = _lychee_entries([{**base, "status": {"text": "Cannot find fragment"}}])
+    assert has_line(nameless, f"RED: {SOURCE}:9: /nowhere/x.md has no anchor ''"), nameless.stdout
+    # two breaks on one line to one target: the one without a fragment comes first
+    order = _lychee_entries(
+        [
+            {**base, "url": "file:///nowhere/x.md#A", "status": {"text": "A"}},
+            {**base, "status": {"text": "B"}},
+        ]
+    )
+    shown = [line for line in order.stdout.splitlines() if line.startswith("RED: docs")]
+    assert shown == [head + "B", f"RED: {SOURCE}:9: link target /nowhere/x.md#A does not resolve: A"], shown
+
+
+def _lychee_words(text: str, name: str = "x.md") -> Result:
+    entry = {"url": f"file:///nowhere/{name}", "status": {"text": text}, "span": {"line": 9, "column": 5}}
+    return _lychee_entries([entry])
+
+
+def _lychee_entries(entries: list[object]) -> Result:
+    """The scan of a document whose checker answers with exactly these entries of its report, for the
+    document `SRC` stands for."""
+    report = json.dumps({"error_map": {"SRC": entries}})
     # the fake's PATH holds no cat: the shell's own read and printf do
     script = (
         'case "$1" in --version) echo "lychee 0.24.2";; *) while read -r _; do :; done;'
@@ -1969,8 +2339,7 @@ def _lychee_words(text: str, name: str = "x.md") -> Result:
     Path(env["PATH"], "lychee.json").write_text(
         report.replace("SRC", str(consumer.root / SOURCE)) + "\n"
     )  # read needs the line closed
-    result = H.run_gate("", args=["--scan", str(consumer.root)], env=env)
-    return result
+    return H.run_gate("", args=["--scan", str(consumer.root)], env=env)
 
 
 @item(97, "the mover's absences: no python3 and no shared code before the guard, no PyYAML inside it")
@@ -2023,7 +2392,9 @@ def test_mover_entry_absences() -> None:
     ), no_shared.stderr
     assert (
         no_library.returncode == 1
-        and library_first.endswith(" — until then nothing is moved")
+        and library_first
+        == "BROKEN: const-referencing needs PyYAML — fix: run: python3 -m pip install -r"
+        f" '{PLUGIN / 'requirements.txt'}' — until then nothing is moved"
         and "pass unchecked" not in no_library.stderr
         and closing in no_library.stderr
     ), no_library.stderr
@@ -2086,8 +2457,8 @@ def test_midway_after_the_move_alone() -> None:
     (by_hand.root / NEW).parent.mkdir(parents=True)
     by_hand.git("mv", OLD, NEW)
     repaired = mover_with(by_hand, DYING, "--moved", OLD, NEW)
-    assert done.code == 1 and messages.v4_stopped_midway() in done.stderr, f"move alone: {done.stderr}"
-    assert repaired.code == 1 and messages.v4_stopped_midway() in repaired.stderr, (
+    assert done.code == 1 and STOPPED_MIDWAY in done.stderr.splitlines(), f"move alone: {done.stderr}"
+    assert repaired.code == 1 and STOPPED_MIDWAY in repaired.stderr.splitlines(), (
         f"--moved: {repaired.stderr}"
     )
     assert "REWROTE: docs/notes/two.md" in repaired.stdout, "--moved rewrote nothing"
@@ -3048,6 +3419,38 @@ def w7_lines() -> list[str]:
     return effect_lines(consumer.root, {}, no_plugins())
 
 
+def effect_counts_that_do_not_cancel() -> None:
+    """Counts that a wrong rule could keep in total: each is asserted, line by line, on a short history."""
+    # a repository with no dials file covers nothing: a write in it is no moment of W1, and no crash
+    bare = H.fresh_consumer()
+    (bare.root / "constitution.yaml").unlink()
+    writes = [
+        tr_call("w", bare.root, WAY_AT, "t1", "Write", bare.root / "docs/notes/a.md"),
+        tr_tool("w", bare.root, "t2", "Bash", command="echo x > docs/notes/c.md"),
+    ]
+    got = effect_lines(bare.root, {"w": writes}, no_plugins())
+    assert "  W1 (pattern): 0 moment(s): 0 applied, 0 bypassed, 0 missed" in got, got
+    # the namespace appears, then a switch turns to allow: one applied and one bypassed, not two applied
+    turned = H.fresh_consumer()
+    for step in (own(severity="block"), own(severity="block", bare_ids="allow")):
+        turned.write_dials(step)
+        turned.commit()
+    got = effect_lines(turned.root, {}, no_plugins())
+    assert "  W2 (pattern): 2 moment(s): 1 applied, 1 bypassed, 0 missed — B2 1" in got, got
+    # a namespace nobody can read is no loosening: the commit is applied
+    unreadable = H.fresh_consumer()
+    for step in (own(severity="block"), own(bare_ids="maybe")):
+        unreadable.write_dials(step)
+        unreadable.commit()
+    got = effect_lines(unreadable.root, {}, no_plugins())
+    assert "  W2 (pattern): 2 moment(s): 2 applied, 0 bypassed, 0 missed" in got, got
+    # a file name written right before a link is still bare
+    root = H.fresh_consumer().root
+    said = ["See [a](docs/a.md).", "Read README.md[a](docs/a.md)."]
+    got = effect_lines(root, {"c": [tr_say("c", root, text) for text in said]}, no_plugins())
+    assert "  W6 (pattern): 2 moment(s): 1 applied, 0 bypassed, 1 missed — B6 1" in got, got
+
+
 @item(9, "effect report: W1 to W7 each count their moments and outcomes, typed by hand")
 def test_effect_rules() -> None:
     """One hand-made history for each rule; the line of the rule is typed by hand. W1 reads the module's own
@@ -3084,6 +3487,7 @@ def test_effect_rules() -> None:
     if count.format(key="W2", n=2, a=1, b=1, m=0, by=" — B2 1") not in plugin:
         missing.append("W2 plugin")
     assert not missing, (missing, got, history, plugin)
+    effect_counts_that_do_not_cancel()
 
 
 SUBJECT = Subject(
