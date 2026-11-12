@@ -13,7 +13,7 @@ Modes:    no arguments  read one PreToolUse event of the Bash tool on stdin and 
                         explain what the dial of the repository containing DIR (default: the
                         current directory) does to the command text: the findings it would
                         raise, or the green line. --scan without --command is a visible skip.
-Reads:    from the event: hook_event_name, tool_name, tool_input.command, cwd, session_id.
+Reads:    from the event: hook_event_name, tool_name, tool_input.command, cwd, session_id, transcript_path.
           From constitution.yaml: this module's dials const-interaction.destructive (a list of
           {command, flags, teach, alternative}; default: the list of the module's document),
           .wrappers and .shells (the programs the reading strips and the shells whose strings it

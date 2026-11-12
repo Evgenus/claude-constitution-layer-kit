@@ -7,7 +7,7 @@ Modes:    no arguments  read one SessionStart event on stdin and print one line 
                         examines nothing in the session's repository — no repository, no
                         constitution.yaml, an empty or absent catalogs dial — and nothing when
                         a catalog is listed.
-Reads:    from the event: cwd, session_id. From constitution.yaml: this module's dial
+Reads:    from the event: cwd, session_id, transcript_path. From constitution.yaml: this module's dial
           const-catalogs.catalogs, the whole namespace validated; the file as a whole is
           validated as every gate does.
 Exit:     0 printed, or nothing to print; 1 configuration failure — the dials could not be

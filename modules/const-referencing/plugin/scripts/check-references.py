@@ -13,7 +13,7 @@ Modes:    no arguments  read one event on stdin. Before the write: reconstruct t
                         (default: the current directory), forms and resolution alike — the
                         check for CI on a pull request, and the gate for resolution.
 Reads:    from the event: hook_event_name, tool_name, tool_input.file_path, .content, .old_string,
-          .new_string, .replace_all, cwd, session_id. From constitution.yaml: this module's
+          .new_string, .replace_all, cwd, session_id, transcript_path. From constitution.yaml: this module's
           dials const-referencing.territories (path patterns; default every Markdown file),
           .governed_only (true | false; true reads the policies too, and needs root_policy),
           .mentions (a list of {pattern, files}; scan only),

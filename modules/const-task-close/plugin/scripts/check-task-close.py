@@ -20,7 +20,7 @@ Modes:    no arguments  read one Stop event on stdin and judge the working tree 
                         itself, the last landed change. --body gives the pull request's
                         description as a file, read for declarations beside the commits'
                         trailers. The check for CI on a pull request, and before a merge.
-Reads:    from the event: hook_event_name, cwd, session_id, stop_hook_active, and of each
+Reads:    from the event: hook_event_name, cwd, session_id, transcript_path, stop_hook_active, and of each
           entry of background_tasks its type and status. From
           constitution.yaml: this module's dials const-task-close.coverage (a list of
           {name, code, docs}), .trunk (a branch name; default main), .trunk_remote (a
