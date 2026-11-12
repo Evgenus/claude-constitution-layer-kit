@@ -34,7 +34,7 @@ Rows another place homes: [A10.2](../../docs/requirements.md#a10-2) is module `c
 <a id="t4"></a>
 ## 4. Decisions
 
-1. [dec-0046-language-module-rulings](../../docs/decisions/dec-0046-language-module-rulings.md) — the module started ahead of its signal. Vale is the instrument. The defaults are 10 and 25, the kit's own 13 and 100, descending. The gate is the hook after the write and the scan, with no gate before it. The chat row is settled with `const-interaction`.
+1. [dec-0046-language-module-rulings](../../docs/decisions/dec-0046-language-module-rulings.md) — the module started ahead of its signal. Vale is the instrument. The defaults are 10 and 25. The kit's own were 13 and 100 at first. The kit came down to the defaults in one pass on 2026-11-12, by a later record. That is [dec-0127-one-pass-to-the-language-defaults](../../docs/decisions/dec-0127-one-pass-to-the-language-defaults.md). The gate is the hook after the write and the scan, with no gate before it. The chat row is settled with `const-interaction`.
 2. [dec-0015-pre-module-audit-rulings](../../docs/decisions/dec-0015-pre-module-audit-rulings.md) — the runtime, the order of the two proofs, the consumer-live proof deferred to the consumer's bootstrap.
 3. [dec-0014-territory-dialect](../../docs/decisions/dec-0014-territory-dialect.md) — `territories` is gitignore syntax.
 4. [dec-0018-dials-schema](../../docs/decisions/dec-0018-dials-schema.md) — every read of the dials file validates the keys read.

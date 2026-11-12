@@ -711,8 +711,8 @@ const-language:                       # the prose of covered documents: a grade 
   log_dir: local/gate-logs
   territories:                        # the documents the gate reads among the Markdown files git lists; a negated pattern takes files out, never a frozen document
     - "*.md"                          # every document, the frozen ones included: an accepted record or a frozen comparison meets the thresholds by wording edits, and what no wording edit reaches stands under a departure below (plc-0004 rule 14, plc-0005 rule 7; decision dec-0048-frozen-documents-take-wording-edits)
-  grade_ceiling: 10                   # the module's default, written out: the kit came down to it from 13 in one pass (decision dec-0046-language-module-rulings; rollout plan item 9.6)
-  sentence_words: 25                  # the module's default, written out: the kit came down to it from 100 in the same pass
+  grade_ceiling: 10                   # the module's default, written out (decision dec-0046-language-module-rulings): the kit came down to it from 13 in one pass on 2026-11-12, not in steps (decision dec-0127-one-pass-to-the-language-defaults)
+  sentence_words: 25                  # the module's default, written out: the kit came down to it from 100 in the same pass, not in steps (decision dec-0127-one-pass-to-the-language-defaults)
   levels:                             # per rule: error (a finding, red), warning (a note), off; the defaults, written out
     grade: error
     sentence: error
@@ -890,6 +890,8 @@ const-doc-budgets:                    # a character ceiling per group of documen
   ceilings:                           # the founding entries set 2026-09-29 by the report --scan --since 2026-09-14, a later entry on the day its own comment names, over its own `window`; each by the rule: the window's longest plus 10 %, rounded up to 1,000; at warning until 30 days of data; an entry at error re-set 2026-11-08 by the report --scan --since 2026-10-09, its window those 30 days, a group moving to error in the change that brings it under its number (rollout plan item 9.9); every Markdown file git lists stands under one ceiling (decision dec-0052-doc-budgets-module-rulings)
     # records, 2026-11-09: kept at 34,000, the number the decider's pick D13 of 2026-11-08 kept, and moved to error; the two
     # frozen records over it stand under departures below (decision dec-0115-long-documents-split-and-carry-entries-follow-moved-text, R8 and R10).
+    # A third, over it since the wording edits of 2026-11-12, stands under a departure below too, with its reason there
+    # (decision dec-0127-one-pass-to-the-language-defaults, R4).
     - name: records   # the accepted records among them frozen: wording edits only (plc-0004 rule 14)
       paths: *decisions
       max: 34000
@@ -919,6 +921,12 @@ const-doc-budgets:                    # a character ceiling per group of documen
     # Re-set 2026-11-12 by the same rule after the language descent split the documents' sentences: the longest,
     # modules/const-change-cost/MODULE.md at 90,261 characters, plus 10 %, rounded up to 1,000 (the decider's pick of
     # 2026-11-12 in chat).
+    # By decision dec-0127-one-pass-to-the-language-defaults, the number, the level and the window of this ceiling are
+    # those of this entry, and of no record. A later re-set by the rule at the key `ceilings` is routine: a new window, the
+    # number that rule gives from it (the window's longest plus 10 %, rounded up to 1,000), and the level (warning until
+    # 30 days of data, error in the change that brings the group under its number). The change that makes the re-set
+    # writes its day and its reason in this comment. A change of this entry by another measure, such as a number set from
+    # a shortened document, is priced by its stakes like any other change.
     - name: module-documents
       paths: *module_documents
       max: 100000
@@ -958,6 +966,12 @@ const-doc-budgets:                    # a character ceiling per group of documen
         to: 2026-11-08
     # requirements, 2026-11-12: re-set by the rule after the language descent split the sentences of its rows: the
     # document at 46,607 characters, plus 10 %, rounded up to 1,000 (the decider's pick of 2026-11-12 in chat).
+    # By decision dec-0127-one-pass-to-the-language-defaults, the number, the level and the window of this ceiling are
+    # those of this entry, and of no record. A later re-set by the rule at the key `ceilings` is routine: a new window, the
+    # number that rule gives from it (the window's longest plus 10 %, rounded up to 1,000), and the level (warning until
+    # 30 days of data, error in the change that brings the group under its number). The change that makes the re-set
+    # writes its day and its reason in this comment. A change of this entry by another measure, such as a number set from
+    # a shortened document, is priced by its stakes like any other change.
     - name: requirements
       paths: *requirements
       max: 52000
@@ -1106,7 +1120,7 @@ const-doc-budgets:                    # a character ceiling per group of documen
         - "/docs/decisions/dec-0117-change-cost-module-rulings.md"
       allow:
         - records
-      reason: an accepted record, frozen by rule 14 of plc-0004-decision-records, that the wording edits of the language descent took from 33,987 to 34,500 characters on 2026-11-12 (the decider's pick of that day)
+      reason: an accepted record, frozen by rule 14 of plc-0004-decision-records, that the wording edits of the language descent took from 33,987 to 34,500 characters on 2026-11-12 (the decider's pick of that day; decision dec-0127-one-pass-to-the-language-defaults, R4)
 
 const-locations:                      # creates documents; blocks nothing, so no severity (MODULE.md §7)
   log_dir: local/gate-logs
