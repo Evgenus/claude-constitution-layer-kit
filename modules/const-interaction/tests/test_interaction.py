@@ -2335,7 +2335,12 @@ def test_t31() -> None:
         and "BROKEN: the session-start line could not be printed — the gate's state is unknown" in bad.stderr
     )
     arg = SESSION.run_gate(session_json(root), args=["--scan"])
-    arg_ok = arg.code == 1 and "BROKEN: misinvocation: unexpected argument --scan" in arg.stderr
+    arg_wanted = (  # typed by hand, the whole stderr
+        "BROKEN: misinvocation: unexpected argument --scan — fix: session-start takes no arguments; it reads"
+        " one SessionStart event on stdin\n"
+        "BROKEN: the session-start line could not be printed — the gate's state is unknown\n"
+    )
+    arg_ok = arg.code == 1 and arg.stderr == arg_wanted
     weird_parent = H.scratch_dir()
     weird_root = Consumer(weird_parent / WEIRD_DIR).build().root  # over 80 characters, a break, a backslash
     (weird_root / "constitution.yaml").unlink()
