@@ -43,7 +43,7 @@ names it and coverage.py's own `.pth` file starts coverage there. `patch = subpr
 expanded, so a child would carry the parent's empty context. A line that runs outside any test, at
 import or during collection, has the context ``. The unmutated tests must be green in that run; a red
 one is a MutationError, since a mutant's red would then mean nothing. Four kinds of run reach the map
-that coverage.py alone would not see (decision dec-0127-mutation-line-map-blind-spots):
+that coverage.py alone would not see (decision dec-0132-mutation-line-map-blind-spots):
   copies        the run measures every file whose path holds a folder named `scripts`, not the module's
                 folder alone. A file measured outside the copy of the kit stands for the module's file
                 that the part of its path after its last such folder names, below plugin/scripts: a
@@ -58,12 +58,12 @@ that coverage.py alone would not see (decision dec-0127-mutation-line-map-blind-
   size limit    in the same run, a test's `resource.setrlimit` of the limit on file size sets the soft
                 value alone. `<work>/python` runs `<file>`, given first, under a soft limit below the
                 hard one through the boot file too, which lifts the soft limit once the file has ended,
-                before coverage.py saves; `-S <file>` takes the boot file whatever the limit. A child
-                stays unmeasured when its limit is still too low for coverage.py's data file as it
-                exits: its hard value is, as when a shell's plain `ulimit -f` sets both values, or its
-                soft value is and no boot file ran to lift it, as for a child started with another
-                option before its file or by another interpreter. Every other call `<work>/python`
-                hands on unchanged;
+                before coverage.py saves; `-S <file>` takes the boot file whatever the limit. Every
+                other call `<work>/python` hands on unchanged. A child stays unmeasured when its limit
+                is still too low for coverage.py's data file as it exits: its hard value is, as when a
+                shell's plain `ulimit -f` sets both values, or its soft value is and no boot file ran
+                to lift it, as for a child started with another option before its file or by another
+                interpreter;
   no bytecode   a mutant is looked up at those of its lines that hold bytecode. Where none of them
                 does, as in the continuation lines of a constant the compiler folds into one, it is
                 looked up at the first line of the nearest node around it, up to its statement, that
@@ -87,8 +87,8 @@ outcome, the key `status`:
                 started with an environment of its own, without coverage's variable, is not measured,
                 and neither are the runs the line map's paragraph leaves out; a line that only a
                 skipped test runs counts for no test. So this count can be too high, and so can the
-                survivors, where another test reaches the line and the unmeasured run would have
-                killed the mutant: the score can be too low, never too high;
+                survivors, where a measured test reaches the line and only an unmeasured run would
+                have killed the mutant: the score can be too low, never too high;
   unsure        with more than one copy alone: the test that failed with the mutant was run again at
                 once on the unmutated file in the same copy, and failed there too, so the load and not
                 the mutant may have failed it. Left out of the score. A kill at collection, where no
