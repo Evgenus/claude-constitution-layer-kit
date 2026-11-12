@@ -21,7 +21,7 @@ judgment from start to finish, except the check named in step 3.
 ## 1. Before writing
 
 - **One idea per sentence.** A sentence carries one idea and stops. The project's limit is the
-  words-per-sentence number of the check; when a sentence passes it, split it at a clause —
+  words-per-sentence number of the check. When a sentence passes it, split it at a clause —
   "and", "which", "so that" — into two.
 - **The short word.** The plain word is the one a reader meets first: `use`, not `utilize`;
   `before`, not `prior to`; `about`, not `with regard to`; `if`, not `in the event that`. The
@@ -29,7 +29,7 @@ judgment from start to finish, except the check named in step 3.
 - **No idiom.** An idiom is a phrase whose meaning is not the meaning of its words: `hit the
   ground running`, `low-hanging fruit`, `circle back`. Say the plain thing.
 - **Name who acts.** "The scan reports the finding", not "the finding is reported". The
-  passive is right where the actor does not matter or is unknown; it is a register, and the
+  passive is right where the actor does not matter or is unknown. It is a register. The
   project sets whether the check reports it, reds it or ignores it.
 - **A term at first use.** A word of the project's own, or of the trade, is defined in one
   clause where it first appears.
@@ -38,10 +38,11 @@ judgment from start to finish, except the check named in step 3.
 
 ## 2. What the grade measures
 
-The check computes the Flesch–Kincaid grade of the document's prose — the years of schooling
-the text assumes — from two counts: words per sentence and syllables per word. Nothing else
-moves it. A document over the ceiling comes down by shorter sentences and shorter words; a
-heading, a code span, a code block and a table cell are left out of the count.
+The check computes the Flesch–Kincaid grade of the document's prose. The grade is the years of
+schooling the text assumes. The check computes it from two counts: words per sentence and
+syllables per word. Nothing else moves it. A document over the ceiling comes down by shorter
+sentences and shorter words. A heading, a code span, a code block and a table cell are left out
+of the count.
 
 ## 3. Read a finding
 
@@ -49,11 +50,11 @@ The check runs after every write of a covered document and in its scan, `check-l
 --scan`. Each finding names the file and line, why the rule exists and the fix:
 
 - **Over the grade ceiling**, reported at line 1: shorten the long sentences first, then the
-  long words; the check prints the grade after the next write. A long document may come down
+  long words. The check prints the grade after the next write. A long document may come down
   one edit at a time. While a write leaves it below its grade in the last commit, the check
-  after the write reports a note with both grades, and the grade is not red. The scan stays red
+  after the write reports a note with both grades. The grade is then not red. The scan stays red
   until the document is at or under the ceiling, so bring it there before the change is merged. A
-  new document has no committed grade: it stays red after each write until it is committed, or is
+  new document has no committed grade. It stays red after each write until it is committed, or is
   at or under the ceiling.
 - **A sentence over the limit**: split it where the finding's echo shows it starts.
 - **A construction plain language avoids**: say it in plain words, or drop it.
@@ -63,29 +64,31 @@ The check runs after every write of a covered document and in its scan, `check-l
   the check blanks the comment before it reads, and reports it.
 
 A phrase the project keeps on purpose — a term of art the plain word would change — is named
-in `const-language.exceptions` of `constitution.yaml`, one line per phrase, and the check stops
-reporting it everywhere. A phrase of the project's own to forbid goes in `const-language.forbidden`;
-a pair of its own in `const-language.simpler`. A document that must stand as it is written — an
-accepted record, a frozen comparison — takes first the wording edits its policy allows (for a
-record, those its records policy lists, as the constitution's conventions page lets it; for another
-kind, those its own policy allows), such as a sentence split, a plain word, a quotation put in a
-code span or a list set as bullets. What no such edit fixes is declared in `const-language.departures`, by path
-or by a pattern over its kind, with the rules it may fail there and the reason in one line; the
-check still reads it for every other rule, and nothing is written into the document.
+in `const-language.exceptions` of `constitution.yaml`, one line per phrase. The check then stops
+reporting it everywhere. `const-language.forbidden` takes a phrase of the project's own to forbid.
+`const-language.simpler` takes a pair of its own. A document that must stand as it is written — an
+accepted record, a frozen comparison — takes first the wording edits its policy allows. For a
+record, those are the edits its records policy lists, as the constitution's conventions page lets
+it. For another kind, they are those its own policy allows. Among them are a sentence split, a
+plain word, a quotation put in a code span or a list set as bullets. What no such edit fixes is
+declared in `const-language.departures`, by path or by a pattern over its kind. The declaration
+gives the rules the document may fail there, and the reason in one line. The check still reads it
+for every other rule, and nothing is written into the document.
 
 ## 4. Adopt the check on a repository
 
-A repository with many findings does not turn every rule red on day one. The path: set the
-thresholds the documents can bear today — `grade_ceiling`, `sentence_words` — and the rules the
-project is not ready for to `warning` under `levels`, so every finding is reported and none is
-red; rewrite the documents kind by kind; lower the numbers and raise the levels in steps, each
-step a change of `constitution.yaml` with its reason in the commit. A document that must not be
-edited — an accepted record, a frozen comparison — beyond the wording edits its policy allows is
-brought under each step by those edits; what they cannot fix is declared as a departure in
-`const-language.departures`, never marked and never taken out of the territory.
+A repository with many findings does not turn every rule red on day one. The path is this. Set
+`grade_ceiling` and `sentence_words` to the thresholds the documents can bear today. Set the
+rules the project is not ready for to `warning` under `levels`, so every finding is reported and
+none is red. Rewrite the documents kind by kind. Lower the numbers and raise the levels in steps.
+Each step is a change of `constitution.yaml` with its reason in the commit. Some documents must
+not be edited beyond the wording edits their policy allows: an accepted record, a frozen
+comparison. Such a document is brought under each step by those edits. What they cannot fix is
+declared as a departure in `const-language.departures`, never marked and never taken out of the
+territory.
 
 ## 5. What the check does not judge
 
-Whether a term is defined at first use, whether a sentence of twenty words holds one idea or
-two, whether a passive was chosen, whether the prose is clear: judgment, yours. The check holds
-the grade, the word count, its two lists and the passive's shape, and claims nothing else.
+Whether a term is defined at first use is judgment, yours. So is whether a sentence of twenty
+words holds one idea or two, whether a passive was chosen, and whether the prose is clear. The
+check holds the grade, the word count, its two lists and the passive's shape, and claims nothing else.

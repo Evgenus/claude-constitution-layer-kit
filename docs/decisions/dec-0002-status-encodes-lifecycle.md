@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-The kernel said two incompatible things about a decision record once applied: [kernel §2](../constitution/CONVENTIONS.md#k2) deleted a closed task-record, [kernel §5](../constitution/CONVENTIONS.md#k5) kept records for in-place supersession. The first record in this repository ([dec-0001-session-conduct-rows](dec-0001-session-conduct-rows.md)) was applied in the commit that created it and sat `active` with no meaning attached. Meanwhile "in-progress vs done" was encoded by existence in the tree, not by any field, so a persisting record had no way to say it was done.
+The kernel said two incompatible things about a decision record once applied: [kernel §2](../constitution/CONVENTIONS.md#k2) deleted a closed task-record, [kernel §5](../constitution/CONVENTIONS.md#k5) kept records for in-place supersession. The first record in this repository ([dec-0001-session-conduct-rows](dec-0001-session-conduct-rows.md)) was applied in the commit that created it and sat `active` with no meaning attached. Meanwhile "in-progress vs done" was encoded by existence in the tree, not by any field. A persisting record had no way to say it was done.
 
 ## Options
 

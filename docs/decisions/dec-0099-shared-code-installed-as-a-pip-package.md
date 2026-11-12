@@ -24,26 +24,56 @@ The session put the questions to the decider one per message, in chat on 2026-10
 How a project's `python3` gets the package.
 
 - **A. A git URL pinned to a tag.** `python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@<tag>#subdirectory=shared"`.
-  - **Pros:** the command names one exact version, the same on every machine; CI needs only a tag; git reads the private repository with the person's own credentials, as the plugin install does; the command stays the same once the repository is public.
-  - **Cons:** pip takes no range here, so the module's own check holds it; each release is a tag pushed to GitHub, an outward act that needs the decider's go-ahead; pip builds from source on every install; another project's CI needs a token while the repository is private.
+  - **Pros:**
+    - **the command names one exact version**, the same on every machine;
+    - **CI needs only a tag**;
+    - **git reads the private repository with the person's own credentials**, as the plugin install does;
+    - **the command stays the same once the repository is public**.
+  - **Cons:**
+    - **pip takes no range here**, so the module's own check holds it;
+    - **each release is a tag pushed to GitHub**, an outward act that needs the decider's go-ahead;
+    - **pip builds from source on every install**;
+    - **another project's CI needs a token while the repository is private**.
 - **B. Wheels found by `--find-links`, from a folder or a GitHub release.** CI builds a wheel on a release tag and attaches it to the release.
   - **Pros:** pip resolves a version range; nothing is built at install time; the command has the form a package index would use.
-  - **Cons:** a release workflow with write access; each release needs the decider's go-ahead; while the repository is private, pip cannot read a release's files, so a project first downloads them with a token.
+  - **Cons:**
+    - **a release workflow with write access**;
+    - **each release needs the decider's go-ahead**;
+    - **while the repository is private**, pip cannot read a release's files, so a project first downloads them with a token.
 - **C. A local path from the kit's clone.** `python3 -m pip install <the kit's clone>/shared`.
-  - **Pros:** no tag, no release, no token beyond the clone the install guide asks for; the guide's check would install the change's own code with no extra step.
+  - **Pros:**
+    - **no tag**, no release, no token beyond the clone the install guide asks for;
+    - **the guide's check would install the change's own code with no extra step**.
   - **Cons:** the version is whatever the clone has checked out, and nothing in the command names it; another project's CI checks out this kit too.
 - **D. Keep the links, and the other project keeps a copy.**
   - **Pros:** nothing changes here; a project installs nothing more.
   - **Cons:** two copies drift, with a sync script and an equality check in the other project; it does not deliver the code through pip.
 - **E. The package index PyPI, under the name R1 of [dec-0096-shared-package-named-constitution-layer-kit](dec-0096-shared-package-named-constitution-layer-kit.md#r1) reserved.**
   - **Pros:** the standard path; pip resolves ranges; no credentials and no clone.
-  - **Cons:** it makes the code public while the repository is private, ahead of the decision step 10 keeps for that; each release is an outward act with an index account and a token; a published version can be withdrawn but never replaced.
+  - **Cons:**
+    - **it makes the code public while the repository is private**, ahead of the decision step 10 keeps for that;
+    - **each release is an outward act with an index account and a token**;
+    - **a published version can be withdrawn but never replaced**.
 
-The session recommended A: one command names the exact version, the kit needs no release machinery, and moving to E later changes only the command. The decider chose A in chat on 2026-10-21, and added three requirements: PyYAML becomes a dependency of the package; each module checks a minimal version; the shared code stays backward compatible from its first release, or the session proposes a reasonable behaviour. The session proposed the behaviour of R3 and the tag's form of R1. On 2026-10-22 the decider put the version check into the shared code, as one function that every module calls right after it imports `cli` and that checks both boundaries.
+The session recommended A: one command names the exact version, the kit needs no release machinery, and moving to E later changes only the command. The decider chose A in chat on 2026-10-21. The decider added three requirements:
+
+- **PyYAML becomes a dependency of the package**;
+- **each module checks a minimal version**;
+- **the shared code stays backward compatible from its first release**, or the session proposes a reasonable behaviour.
+
+The session proposed the behaviour of R3 and the tag's form of R1. On 2026-10-22 the decider put the version check into the shared code, as one function that every module calls right after it imports `cli` and that checks both boundaries.
 
 <a id="r1"></a>**R1.** A project's `python3` gets the shared code as the Python distribution `constitution-layer-kit`, which pip installs from the kit's GitHub repository by a git URL pinned to a release tag: `python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v<version>#subdirectory=shared"`. The tag's form is `constitution-layer-kit-v<version>`, so that it never clashes with a module's version.
 
-<a id="r2"></a>**R2.** `shared/pyproject.toml` describes the distribution, built by `setuptools`: its name; its version, read from `__version__` in `shared/constitution_layer_kit/__init__.py`, the version's one source; `requires-python` at the floor `FLOOR` of `preflight.py` names; one dependency, `PyYAML>=6.0`; one package, `constitution_layer_kit`, with a `py.typed` marker. `scripts/check-copies.py` holds the floor in `requires-python` with the other copies of `FLOOR`.
+<a id="r2"></a>**R2.** `shared/pyproject.toml` describes the distribution, built by `setuptools`:
+
+- **its name**;
+- **its version**, read from `__version__` in `shared/constitution_layer_kit/__init__.py`, the version's one source;
+- `requires-python` at the floor `FLOOR` of `preflight.py` names;
+- **one dependency**, `PyYAML>=6.0`;
+- **one package**, `constitution_layer_kit`, with a `py.typed` marker.
+
+`scripts/check-copies.py` holds the floor in `requires-python` with the other copies of `FLOOR`.
 
 <a id="r3"></a>**R3.** The distribution follows semantic versioning, major.minor.patch, from its first release, `1.0.0`. Before that tag nothing is promised. From it on, a release keeps every module written for an earlier release of the same major working, because it only adds: a module, a function, an optional parameter or field whose default keeps the behaviour, a message key. A message's wording may change; its key and its parameters may not. A name that starts with `_` is no part of the promise. A change that breaks the promise is a new major, and a `process` decision of its own, made only when nothing else serves.
 
@@ -56,11 +86,27 @@ The session recommended A: one command names the exact version, the kit needs no
 ## 2. Where this kit's own modules get the code
 
 - **A. Each plugin imports the package, and only the tests link to the working tree.** `plugin/scripts/constitution_layer_kit` is removed; the links in `tests/` stay.
-  - **Pros:** every project gets the code one way; the version check guards every module for real; the kit's own sessions keep working gates while the working tree's shared code is broken in the middle of a change; fixtures and CI still test modules and shared code of one commit together; it matches the decider's stated intent of 2026-10-12.
-  - **Cons:** every project runs one more pip command before any gate works; a module in the working tree that needs a name not yet released fails in the kit's own sessions until a release is installed; CI installs the change's own package before the install, session and guide checks, and the eval container does too; the first tag must exist right after the merge; [law 3 of CLAUDE.md](../../CLAUDE.md#law-3), the link and install checks, `C15` and every entry file change.
+  - **Pros:**
+    - **every project gets the code one way**;
+    - **the version check guards every module for real**;
+    - **the kit's own sessions keep working gates while the working tree's shared code is broken in the middle of a change**;
+    - **fixtures and CI still test modules and shared code of one commit together**;
+    - **it matches the decider's stated intent of 2026-10-12**.
+  - **Cons:**
+    - **every project runs one more pip command before any gate works**;
+    - **a module in the working tree that needs a name not yet released fails in the kit's own sessions until a release is installed**;
+    - **CI installs the change's own package before the install, session and guide checks, and the eval container does too**;
+    - **the first tag must exist right after the merge**;
+    - [law 3 of CLAUDE.md](../../CLAUDE.md#law-3), the link and install checks, `C15` and every entry file change.
 - **B. Each plugin keeps its link and carries the shared code, and the package serves only another kit's modules.**
-  - **Pros:** projects install nothing new; the install, session and eval checks stay as they are; a module always runs the shared code of its own commit.
-  - **Cons:** two ways to deliver the code; the kit's sessions run the whole working tree, so a broken shared change can stop the gates that guard its own fix; the version check is always met for this kit's modules.
+  - **Pros:**
+    - **projects install nothing new**;
+    - **the install, session and eval checks stay as they are**;
+    - **a module always runs the shared code of its own commit**.
+  - **Cons:**
+    - **two ways to deliver the code**;
+    - **the kit's sessions run the whole working tree**, so a broken shared change can stop the gates that guard its own fix;
+    - **the version check is always met for this kit's modules**.
 
 The session first recommended B, as the cheaper path. The decider answered that local development needs one test of a change's impact on modules and shared code together, that the package is for other projects that use the constitution kit and not for the kit itself, and that the kit's own sessions may rely on the previous stable release. The session read that as A and recommended A. The decider chose A in chat on 2026-10-22.
 
@@ -74,7 +120,9 @@ The session first recommended B, as the cheaper path. The decider answered that 
 
 - **A. Two optional fields of the identity, `dials_file` and `module_prefix`, with today's values as defaults.** A gate reads all of its dials from its identity's file.
   - **Pros:** the smallest widening; no module of this kit changes; another kit's gate that reads only its own dials works on its own file.
-  - **Cons:** such a gate that also resolves policies cannot read `root_policy` from `constitution.yaml` while its dials sit in its own file; the two field names are fixed from the first release on.
+  - **Cons:**
+    - **such a gate that also resolves policies cannot read `root_policy` from `constitution.yaml` while its dials sit in its own file**;
+    - **the two field names are fixed from the first release on**.
 - **B. The kernel keys from `constitution.yaml`, the module's namespace from `dials_file`.**
   - **Pros:** it fits the other kit's own file and its rule that no key stands in both files; a gate there can resolve policies.
   - **Cons:** two files read and validated in each run; designed before the other kit's kernel exists; shared code that no module of this kit needs.
@@ -92,23 +140,31 @@ The session recommended A. Asked when the parameters help, it said only for anot
 
 - **A. A top-level key inside the dials file**, `module_prefix: const-` in `constitution.yaml`.
   - **Pros:** the file says which of its keys are module namespaces; no code names the prefix; each layer's file states its own.
-  - **Cons:** a third key owned by the kernel, so [kernel §6](../constitution/CONVENTIONS.md#k6), the dials schema, the shared copy of the schema and the install guide's example change; a file written today lacks it; a project can set it wrong and change how every gate reads its file.
+  - **Cons:**
+    - **a third key owned by the kernel**, so [kernel §6](../constitution/CONVENTIONS.md#k6), the dials schema, the shared copy of the schema and the install guide's example change;
+    - **a file written today lacks it**;
+    - **a project can set it wrong and change how every gate reads its file**.
 - **B. Inside the context variable, beside the file's name.**
   - **Pros:** no change to the kernel or the schema; no default anywhere; a project's file cannot change how the gates read it.
   - **Cons:** every entry point sets the pair; the file does not say which prefix its modules carry.
 
 The session recommended B: strict, with nothing changed in the kernel or in a project's file. The decider chose A in chat on 2026-10-22: the prefix belongs to the modules, and a module's dials cannot sit in two files.
 
-<a id="r12"></a>**R12.** `module_prefix` is a third key owned by the kernel, beside `root_policy` and `territory_dialect`: the prefix of the module namespaces in that dials file. A top-level key that starts with it and holds a mapping is a module's namespace, read leniently as before. `MODULE_PREFIX` leaves `dials.py`. [Kernel §6](../constitution/CONVENTIONS.md#k6) and its schema name the key, and the shared reader's copy of the schema, `KERNEL_KEYS`, the kit's own `constitution.yaml` and the install guide's dials example carry it. This replaces the count of two kernel-owned keys in ruling 1 of [dec-0014-territory-dialect](dec-0014-territory-dialect.md).
+<a id="r12"></a>**R12.** `module_prefix` is a third key owned by the kernel, beside `root_policy` and `territory_dialect`: the prefix of the module namespaces in that dials file. A top-level key that starts with it and holds a mapping is a module's namespace, read leniently as before. `MODULE_PREFIX` leaves `dials.py`. [Kernel §6](../constitution/CONVENTIONS.md#k6) and its schema name the key. The shared reader's copy of the schema, `KERNEL_KEYS`, the kit's own `constitution.yaml` and the install guide's dials example carry it. This replaces the count of two kernel-owned keys in ruling 1 of [dec-0014-territory-dialect](dec-0014-territory-dialect.md).
 
 ## 5. Whether the prefix is required
 
 - **A. Required.** Every dials file a gate reads names `module_prefix`; a file without it is a configuration failure that names the key to add.
-  - **Pros:** no default anywhere, as for the file's name; a reader of the file always sees the prefix; another layer's file is never read with the wrong prefix.
+  - **Pros:**
+    - **no default anywhere**, as for the file's name;
+    - **a reader of the file always sees the prefix**;
+    - **another layer's file is never read with the wrong prefix**.
   - **Cons:** even a minimal file names it; if it is forgotten, every gate stops until it is added, without blocking in hook mode.
 - **B. Optional, with the default `const-` stated in [kernel §6](../constitution/CONVENTIONS.md#k6)**, as `gitignore` is for `territory_dialect`.
   - **Pros:** every file written today stays valid; the code carries the kernel's default, not a name of this kit.
-  - **Cons:** `const-` sits in the shared code again; another layer's file that forgets the key is read with `const-` in silence, its module namespaces taken for policy namespaces.
+  - **Cons:**
+    - `const-` sits in the shared code again;
+    - **another layer's file that forgets the key is read with `const-` in silence**, its module namespaces taken for policy namespaces.
 
 The session recommended A, since B's misreading would be a silent pass. The decider chose A in chat on 2026-10-22.
 
@@ -121,11 +177,13 @@ The session recommended A, since B's misreading would be a silent pass. The deci
   - **Cons:** the repository's address in every entry file and in the shared messages, so a rename changes them all; the tag's form becomes code.
 - **B. The package and the version, and a pointer to the install guide.**
   - **Pros:** no address in code; a rename touches only documents.
-  - **Cons:** not the exact fix that [law 6 of CLAUDE.md](../../CLAUDE.md#law-6) asks for; the person opens a file to find the command, and a hook shows one line.
+  - **Cons:**
+    - **not the exact fix that [law 6 of CLAUDE.md](../../CLAUDE.md#law-6) asks for**;
+    - **the person opens a file to find the command**, and a hook shows one line.
 
 The session recommended A, for the exact fix. The decider chose B in chat on 2026-10-22.
 
-<a id="r14"></a>**R14.** `C15`, which the entry file prints when the package cannot be imported, and `C16` and `C17` of R5 name the package, the version the module requires, the version found where there is one, and the path of the module's own `INSTALL.md`, and close with the module's clause. A generator's three carry no clause, as its `C14` does. The texts stand in [§3 of kit-shared-gate-code](../../shared/MESSAGES.md#g3).
+<a id="r14"></a>**R14.** `C15`, which the entry file prints when the package cannot be imported, and `C16` and `C17` of R5 name the package, the version the module requires, the version found where there is one, and the path of the module's own `INSTALL.md`. They close with the module's clause. A generator's three carry no clause, as its `C14` does. The texts stand in [§3 of kit-shared-gate-code](../../shared/MESSAGES.md#g3).
 
 <a id="r15"></a>**R15.** Each module's `INSTALL.md` gives the exact command of R1, at the tag of the version the module requires.
 
@@ -134,11 +192,17 @@ The session recommended A, for the exact fix. The decider chose B in chat on 202
 Writing this record, the session found that section 6's choice departs from a rule: a missing interpreter or library exits 1 with the install command in its message, from option B of section 1 of [dec-0015-pre-module-audit-rulings](dec-0015-pre-module-audit-rulings.md), carried in step 4 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s4).
 
 - **A. Keep section 6's choice, and record an exception to the rule for the shared package.**
-  - **Pros:** it is what the decider chose; no message prescribes a command that installs one exact tag, which in one shared environment could replace a newer release that another module needs; the address stays out of code.
+  - **Pros:**
+    - **it is what the decider chose**;
+    - **no message prescribes a command that installs one exact tag**, which in one shared environment could replace a newer release that another module needs;
+    - **the address stays out of code**.
   - **Cons:** a rule now has an exception; the fix is one step further away than `C2`'s.
 - **B. The exact command through `requirements.txt`.** Each module's `requirements.txt` names the package by its git URL at the tag it requires, and the failures say `run: python3 -m pip install -r '<requirements.txt>'`, as `C2` does.
   - **Pros:** the rule holds whole; the exact fix; the address in a data file.
-  - **Cons:** the command installs exactly the module's tag, so it can replace a newer release that another module needs; eleven files carry the address; the shared item S137 must learn the line.
+  - **Cons:**
+    - **the command installs exactly the module's tag**, so it can replace a newer release that another module needs;
+    - **eleven files carry the address**;
+    - **the shared item S137 must learn the line**.
 
 The session recommended A, for the replacement risk. The decider chose A in chat on 2026-10-22.
 
@@ -146,9 +210,17 @@ The session recommended A, for the replacement risk. The decider chose A in chat
 
 ## 8. How the kit's checks get the change's package
 
-- **A. The checks set it up themselves.** A throwaway virtual environment, with the system's packages, whose `.pth` file names the change's `shared/`, its `python3` first on `PATH` for the sessions the checks start; the eval runner the same in its container; one more check builds the package.
-  - **Pros:** a local run checks the working tree's shared code as CI does, and works offline but for the build check; nothing touches the release the developer installed; the build check proves that the package builds, installs and imports.
-  - **Cons:** the install and session checks run the code from a folder and not from a built package, so only the build check sees a packaging mistake; more code in the checks.
+- **A. The checks set it up themselves.**
+  - **A throwaway virtual environment**, with the system's packages, whose `.pth` file names the change's `shared/`, its `python3` first on `PATH` for the sessions the checks start;
+  - **the eval runner the same in its container**;
+  - **one more check builds the package**.
+  - **Pros:**
+    - **a local run checks the working tree's shared code as CI does**, and works offline but for the build check;
+    - **nothing touches the release the developer installed**;
+    - **the build check proves that the package builds, installs and imports**.
+  - **Cons:**
+    - **the install and session checks run the code from a folder and not from a built package**, so only the build check sees a packaging mistake;
+    - **more code in the checks**.
 - **B. The workflow installs it.** Each CI job runs `python3 -m pip install ./shared` first.
   - **Pros:** the least code.
   - **Cons:** a local run uses the release the developer installed, so a local green can hide a red.
@@ -178,16 +250,21 @@ The session first put A with a build in each check. Asked why that needed the ne
 
 Writing the documents, the session found that rule 7 of [plc-0009-shared-code](../policies/plc-0009-shared-code.md#r7), step 4 of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md#s4) and rule 3 of [plc-0002-kernel](../policies/plc-0002-kernel.md#r3) said that a change to the shared code bumps the version of every published module that links or requires it. No plugin links the code now, and nothing above ruled what takes the clause's place.
 
-- **A. A module's version moves only with its own files.** The package's `__version__` records the shared change, and a module that starts to need a later release raises its `REQUIRES`, which edits its entry files and so bumps it.
-  - **Pros:** a module's version says what its plugin holds; no version moves when nothing installed changed; the package's version and the version check carry the shared change to a project.
-  - **Cons:** a project that reads only module versions does not see a shared fix; the texts of [rule 3 of plc-0002-kernel](../policies/plc-0002-kernel.md#r3) and of R1 of [dec-0053-drafts-keep-their-versions](dec-0053-drafts-keep-their-versions.md#r1) no longer agree with the rule.
+- **A. A module's version moves only with its own files.** The package's `__version__` records the shared change. A module that starts to need a later release raises its `REQUIRES`, which edits its entry files and so bumps it.
+  - **Pros:**
+    - **a module's version says what its plugin holds**;
+    - **no version moves when nothing installed changed**;
+    - **the package's version and the version check carry the shared change to a project**.
+  - **Cons:**
+    - **a project that reads only module versions does not see a shared fix**;
+    - **the texts of [rule 3 of plc-0002-kernel](../policies/plc-0002-kernel.md#r3) and of R1 of [dec-0053-drafts-keep-their-versions](dec-0053-drafts-keep-their-versions.md#r1) no longer agree with the rule**.
 - **B. Every published module that requires the package bumps on every shared change.**
   - **Pros:** module versions keep tracking every change to what a gate runs; the texts barely change.
   - **Cons:** a version moves while none of the module's files changed; every shared fix means a release of every module beside the package's tag.
 
 The session recommended A: a module's version then says what its plugin holds. The decider answered in chat on 2026-10-22 that a module's version is bumped when the module loses its consistency with the earlier shared code, most likely as an explicit act for that edge case rather than an automatic one. The session reads that as A.
 
-<a id="r24"></a>**R24.** A change to the shared code bumps no module's version by itself. A module's version is bumped, as an explicit act of the change, when the module stops being consistent with the earlier shared code and raises the version it requires (R6). This replaces, for the shared code, the clause of R1 of [dec-0053-drafts-keep-their-versions](dec-0053-drafts-keep-their-versions.md#r1) that a change to the shared code bumps the version of every published module that links it; a draft still need not be bumped.
+<a id="r24"></a>**R24.** A change to the shared code bumps no module's version by itself. A module's version is bumped, as an explicit act of the change, when the module stops being consistent with the earlier shared code and raises the version it requires (R6). This replaces, for the shared code, the clause of R1 of [dec-0053-drafts-keep-their-versions](dec-0053-drafts-keep-their-versions.md#r1) that a change to the shared code bumps the version of every published module that links it. A draft still need not be bumped.
 
 ## Applied
 

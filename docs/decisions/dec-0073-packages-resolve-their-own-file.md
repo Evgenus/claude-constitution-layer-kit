@@ -21,8 +21,12 @@ On 2026-10-08 all 13 uses of `__file__` in the module packages read it as `Path(
   - **Pros:** the rule stands where module authors read; one sentence; the 13 uses already follow it.
   - **Cons:** a new rule, with a record and its audit; review can miss a case; the template grows while over its ceiling.
 - **B. The clause, and a kit check.** As A, and a kit script reads every package a runner imports through a link and turns red on any other use of `__file__`.
-  - **Pros:** the rule is held by a gate, not by memory; the check is mechanical, since the allowed form is one shape of the syntax tree.
-  - **Cons:** machinery for a failure no consumer has hit, which the guide's "Never in this repository" names; a script, its self-test and a gate-list entry to keep.
+  - **Pros:**
+    - **the rule is held by a gate**, not by memory;
+    - **the check is mechanical**, since the allowed form is one shape of the syntax tree.
+  - **Cons:**
+    - **machinery for a failure** no consumer has hit, which the guide's "Never in this repository" names;
+    - **a script, its self-test and a gate-list entry** to keep.
 - **C. Leave it unstated.**
   - **Pros:** no new rule and no audit.
   - **Cons:** a new module can break it unseen, and a fixture shows it only where it uses the wrong path.
@@ -37,7 +41,7 @@ The decider chose B in chat on 2026-10-08. The session keeps its objection: the 
 
 ## Ruling
 
-<a id="r1"></a>**R1.** A package that the fixture runner imports through a link in `tests/` — a module's own package, the shared package, the shared test files — reads its own place only as `Path(__file__).resolve()`, the name `Path` or `pathlib.Path`, and derives every path from that. Any other use of `__file__` is a defect. Entry files and the runner, run by path, are not bound.
+<a id="r1"></a>**R1.** A package that the fixture runner imports through a link in `tests/` — a module's own package, the shared package, the shared test files — reads its own place only as `Path(__file__).resolve()`, the name `Path` or `pathlib.Path`. It derives every path from that. Any other use of `__file__` is a defect. Entry files and the runner, run by path, are not bound.
 
 <a id="r2"></a>**R2.** The kit's `scripts/check-resolved-paths.py`, kit tooling never shipped in a module, holds R1: it reads every `.py` file of each module's own packages, of `shared/const_gate/` and at the top of `shared/tests/`, and turns red, with why and fix, on each use of `__file__` not of that form. It is an entry of the gate list's gate group, in the job `kit`, with its `--self-test` as its fixture.
 

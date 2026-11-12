@@ -22,7 +22,7 @@ A line that starts `BROKEN: const-<aspect-name> needs the Python package constit
    `module_prefix`. For a module whose defaults examine nothing until a dial is set, this step is
    "Switch the check on" and names that dial.
 3. Adoption, for a module with a hook gate: `severity: warn` reports a finding and lets the write
-   through, while the documents written before the module are fixed; `block` is the default.
+   through, while the documents written before the module are fixed. The default is `block`.
 4. Run the scan in CI and before a merge, from anywhere in the repository:
    `sh <plugin root>/scripts/<entry>.sh --scan`. Exit 0 green, 2 findings, 1 the checker could not
    run. Delete this step for a module with no scan.
@@ -30,7 +30,7 @@ A line that starts `BROKEN: const-<aspect-name> needs the Python package constit
    `const-<aspect-name>.jsonl`, by default in the platform's per-plugin data directory. Set
    `log_dir` to keep it inside the repository; the directory must be git-ignored, and the check
    refuses to run otherwise. Delete this step for a module with no gate.
-6. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the
+6. Optional, the fixtures: the install holds no tests. Run them from a clone of the kit at the
    commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`),
    `python3 -m pytest <kit clone>/modules/const-<aspect-name>/tests -p no:cacheprovider`.
 7. CLAUDE.md line, at most one, only where MODULE.md declares one: `<the line>`, or

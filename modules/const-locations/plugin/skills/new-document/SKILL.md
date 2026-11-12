@@ -14,11 +14,11 @@ arguments: [kind, stem]
 # New document
 
 A document written where the conversation happens to be looking, with the frontmatter the
-model last saw, is retrofit debt: nothing resolves it to a policy, its shape matches no
+model last saw, is retrofit debt. Nothing resolves it to a policy, its shape matches no
 sibling, and the next document of its kind imitates it. This plugin's command makes creation
-an act with a known outcome: it derives the home from the policy's territory, proves before
-writing that the home lies in exactly that policy's territory, that nothing exists there and
-that no document carries the id, and writes the file — from the kind's template when the
+an act with a known outcome. It derives the home from the policy's territory. Before
+writing, it proves that the home lies in exactly that policy's territory, that nothing exists there and
+that no document carries the id. It then writes the file — from the kind's template when the
 project names one, with `id`, `title` and `status` already filled, or from the envelope alone.
 Everything else is yours to fill. Never write a governed document blind — by a shell heredoc,
 by the `Write` tool, by copying a sibling — when this command can create it.
@@ -28,9 +28,9 @@ Kind: `$kind`. Stem: `$stem`. (Empty when invoked without them: derive both belo
 ## 1. Name the kind
 
 A kind is a policy: a document in the root policy's territory, whose `id` is a key of
-`constitution.yaml` carrying that kind's `territory`. Read `constitution.yaml` and the policy
-documents to find the one that governs what is asked for; the policy's body says what the kind
-is and what its documents hold. If no policy covers it, the kind does not exist yet: stop, and
+`constitution.yaml` carrying the `territory` of that kind. Read `constitution.yaml` and the policy
+documents to find the one that governs what is asked for. The policy's body says what the kind
+is and what its documents hold. If no policy covers it, the kind does not exist yet. Stop, and
 follow the `new-kind` skill of this plugin — the policy comes first, then the document.
 
 ## 2. Take the stem from where it is owned
@@ -39,7 +39,7 @@ The stem is the file name without `.md`, kebab-case (`a-z`, `0-9`, single hyphen
 the document's `id` unless you give `--id`.
 
 - **A numbered kind** — its stem carries a number, `<prefix>-<nnnn>-<slug>` — gets its stem from
-  the project's numbering procedure for that kind; take the whole stem from there and give it
+  the project's numbering procedure for that kind. Take the whole stem from there and give it
   as `--stem`. This command allocates no number.
 - **A kind with a free segment** in its territory (`<dir>/*/NAME.md`) takes `--segment <name>`
   instead of `--stem`: the pattern fixes the file name, and the id becomes `name-<segment>`.
@@ -63,23 +63,23 @@ sh ${CLAUDE_PLUGIN_ROOT}/scripts/new-document.sh --kind <policy id> --stem <stem
 - `--segment <name>` for a free-segment kind; `--id <id>` when the id must differ from the stem.
 
 Run it alone, as written: one command, each value plain or in single quotes. This plugin approves
-that form and no other, so a command chained to another (`;`, `&&`, a pipe), a redirection, or a
-value in double quotes or with `$` outside single quotes asks for approval, and a session that
+that form and no other. So a command chained to another (`;`, `&&`, a pipe), a redirection, or a
+value in double quotes or with `$` outside single quotes asks for approval. And a session that
 cannot ask is refused. A title with an apostrophe cannot stand in single quotes: leave the
 apostrophe out, or expect the approval prompt.
 
 Read the lines it prints. `HOME:` is where the document is; `TEMPLATE:` is what it was written
 from, or `none`; `CREATED:` and the count close a write. A `BROKEN:` line is a refusal with the
-fix on the same line, and nothing was written: do what it says — for "is not a policy", the kind
-needs its policy first (`new-kind`); for "two policies would govern it", the project's
-territories overlap and a human narrows one; for "already exists", edit that document or choose
+fix on the same line, and nothing was written. Do what it says. For "is not a policy", the kind
+needs its policy first (`new-kind`). For "two policies would govern it", the project's
+territories overlap and a human narrows one. For "already exists", edit that document or choose
 another stem.
 
 ## 4. Fill the body
 
 Open the created file. The envelope is done: leave `id`, `type` and `status` as they are, and
 change `title` only if the title was wrong. The body carries the template's placeholders — the
-`<…>` prose — where you write; fill each, delete the alternatives the template marks for
+`<…>` prose — where you write. Fill each, delete the alternatives the template marks for
 deletion, and add nothing the template does not ask for. Where the kind has no template, the
 body is the title's heading: write beneath it in the shape the policy describes. A kind whose
 procedure owns fields of its own — a record's `stakes` and `decider`, its options and choice —
@@ -87,7 +87,7 @@ gets them from that procedure, not from here.
 
 ## 5. When the command is not there
 
-In a repository with no `constitution.yaml`, nothing is governed and the command refuses; the
-`new-kind` skill carries the procedure from zero. If the plugin's command cannot run — the first
-`BROKEN:` line names a missing interpreter, library or git — install what it names; do not fall
+In a repository with no `constitution.yaml`, nothing is governed and the command refuses. The
+`new-kind` skill carries the procedure from zero. Sometimes the plugin's command cannot run: the first
+`BROKEN:` line names a missing interpreter, library or git. Then install what it names. Do not fall
 back to writing the file by hand and calling it done.

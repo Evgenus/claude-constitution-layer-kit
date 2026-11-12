@@ -11,12 +11,15 @@ decider: Eugene Chernyshov
 
 ## Context
 
-[dec-0007-territory-declaration](dec-0007-territory-declaration.md) ruling 2 left the pattern dialect and overlap handling to the first module that reads the territory declarations. The pre-module audit of 2026-09-18 found the kit's own `constitution.yaml` already asserting gitignore-style globs, and three modules ([`const-meta-types`](../requirements.md#const-meta-types), [`const-locations`](../requirements.md#const-locations), [`const-catalogs`](../requirements.md#const-catalogs)) reading the same declarations: a dialect chosen per module lets two readers disagree about one path, and a consumer writing a territory finds no dialect in the kernel page. The [`const-meta-types`](../requirements.md#const-meta-types) spec names a Python script, whose `fnmatch` lets `*` cross `/` and has no `**`, so `modules/*/MODULE.md` would mean something else there. This record reverses ruling 2 of territory-declaration; it also supersedes the "one kernel-owned key" wording of [dec-0008-policies-by-location](dec-0008-policies-by-location.md) ruling 1, the file now having two.
+[dec-0007-territory-declaration](dec-0007-territory-declaration.md) ruling 2 left the pattern dialect and overlap handling to the first module that reads the territory declarations. The pre-module audit of 2026-09-18 found the kit's own `constitution.yaml` already asserting gitignore-style globs, and three modules ([`const-meta-types`](../requirements.md#const-meta-types), [`const-locations`](../requirements.md#const-locations), [`const-catalogs`](../requirements.md#const-catalogs)) reading the same declarations: a dialect chosen per module lets two readers disagree about one path, and a consumer writing a territory finds no dialect in the kernel page. The [`const-meta-types`](../requirements.md#const-meta-types) spec names a Python script, whose `fnmatch` lets `*` cross `/` and has no `**`, so `modules/*/MODULE.md` would mean something else there. This record reverses ruling 2 of territory-declaration. It also supersedes the "one kernel-owned key" wording of [dec-0008-policies-by-location](dec-0008-policies-by-location.md) ruling 1, the file now having two.
 
 ## Options — the dialect
 
-- **A. Rule it in the kernel: gitignore semantics.** [Kernel §6](../constitution/CONVENTIONS.md#k6) states it in one sentence; overlaps need no extra rule, since two policies matching one path is already the multi-policy defect of [kernel §3](../constitution/CONVENTIONS.md#k3).
-  - **Pros:** one answer for every reader and every consumer, on the one page they read; git can evaluate the patterns itself, so no new dependency, subject to verification at authoring; the kit's dials file already assumes it.
+- **A. Rule it in the kernel: gitignore semantics.** [Kernel §6](../constitution/CONVENTIONS.md#k6) states it in one sentence. Overlaps need no extra rule, since two policies matching one path is already the multi-policy defect of [kernel §3](../constitution/CONVENTIONS.md#k3).
+  - **Pros:**
+    - **one answer for every reader and every consumer**, on the one page they read;
+    - **git can evaluate the patterns itself**, so no new dependency, subject to verification at authoring;
+    - **the kit's dials file already assumes it**.
   - **Cons:** reverses a standing ruling; the kernel gains a mechanical sentence.
 - **B. Leave it to the first module, strip the comment from the dials file.**
   - **Pros:** follows the standing ruling.
@@ -33,7 +36,11 @@ Recommendation A. Chosen: A, as the **default** dialect only — the decider wan
 ## Options — where a project overrides the default
 
 - **A. A `dialect` key in the root policy's namespace.**
-  - **Pros:** one place; the root governs the policy layer whose territories these are; no second kernel-owned top-level key; readers already fetch the root's namespace first.
+  - **Pros:**
+    - **one place**;
+    - **the root governs the policy layer** whose territories these are;
+    - **no second kernel-owned top-level key**;
+    - **readers already fetch** the root's namespace first.
   - **Cons:** the kernel defines two keys of a policy namespace instead of one.
 - **B. A second kernel-owned top-level key, `territory_dialect`.**
   - **Pros:** visible at the top of the file, beside `root_policy`.
@@ -42,7 +49,7 @@ Recommendation A. Chosen: A, as the **default** dialect only — the decider wan
   - **Pros:** no key.
   - **Cons:** a per-module override, so readers can disagree — the failure the first ruling exists to prevent.
 
-Recommendation A. Chosen: **B**, by the decider in chat on 2026-09-18, against the recommendation. The session's objection — a second top-level key reopens the one-key ruling — is recorded here; the decider's reading is that the dialect is a property of the whole file, not of one policy.
+Recommendation A. Chosen: **B**, by the decider in chat on 2026-09-18, against the recommendation. The session's objection — a second top-level key reopens the one-key ruling — is recorded here. The decider's reading is that the dialect is a property of the whole file, not of one policy.
 
 ## Rulings carried
 

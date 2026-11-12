@@ -13,29 +13,35 @@ decider: Eugene Chernyshov
 
 An audit of the kit's hardcoded logic on 2026-10-02 found these gaps in [`const-task-close`](../requirements.md#const-task-close), each probed again on the trunk on 2026-10-06:
 
-- **The trunk's remote.** A bare scan finds the trunk as a local branch or as `origin/<trunk>`. The name `origin` is fixed in code, so a fork whose real project is the remote `upstream` stops with a configuration failure whose fix names a dial that cannot help.
+- **The trunk's remote.** A bare scan finds the trunk as a local branch or as `origin/<trunk>`. The name `origin` is fixed in code. A fork whose real project is the remote `upstream` stops with a configuration failure whose fix names a dial that cannot help.
 - **A stale local trunk.** When the local trunk exists, it wins, even when it is behind `origin/<trunk>`. A branch cut from the fresher tip then gets a red for commits other people landed. R5 of [dec-0036-task-close-module-rulings](dec-0036-task-close-module-rulings.md#r5) ruled the lookup and listed this as a con: "only more paths examined". The probe shows a false red.
 - **Signature lines.** With `log.showSignature=true`, git prints the signature check before each line the trailer read parses, and a commit's label in a note or a red spans two lines.
 - **An old git.** A git that does not know an option of the trailer read prints the placeholder as text. The scan then blames every commit for a declaration it never wrote.
-- **The closing clause.** Every install-failure line of the gate ends "until then Markdown writes pass unchecked", while the gate checks the tree at a turn's end and a change's documents. The shared rule in [GATE.md §2](../../shared/GATE.md#g2) told a gate with a hook mode to keep that default, and the rule was already broken by the shell gate of [`const-interaction`](../requirements.md#const-interaction).
+- **The closing clause.** Every install-failure line of the gate ends "until then Markdown writes pass unchecked". The gate checks the tree at a turn's end and a change's documents. The shared rule in [GATE.md §2](../../shared/GATE.md#g2) told a gate with a hook mode to keep that default. The rule was already broken by the shell gate of [`const-interaction`](../requirements.md#const-interaction).
 
 The audit also found that item 36 of the module's runner wrote a ref file by hand and crashed under the reftable ref store. It found that const-interaction's document writes out none of its two gates' own clauses.
 
-The change this record rules is on one branch. Every module it touches is a draft, so no version is bumped ([dec-0053-drafts-keep-their-versions](dec-0053-drafts-keep-their-versions.md)), and no shared code changes. The decider kept the audit's recommended fix for the remote, the stale trunk, the signature lines, the old git and the clause when reading the change's plan on 2026-10-06; sections 3 to 5 hold them as the audit argued them. Six questions were put to the decider in chat that day, one per message, each with lettered options and one recommendation, the pick a letter; sections 1, 2 and 6 to 9 hold them. Section 10 holds what the change makes where no choice existed.
+The change this record rules is on one branch. Every module it touches is a draft, so no version is bumped ([dec-0053-drafts-keep-their-versions](dec-0053-drafts-keep-their-versions.md)), and no shared code changes. The decider kept the audit's recommended fix for the remote, the stale trunk, the signature lines, the old git and the clause when reading the change's plan on 2026-10-06. Sections 3 to 5 hold them as the audit argued them. Six questions were put to the decider in chat that day, one per message, each with lettered options and one recommendation, the pick a letter. Sections 1, 2 and 6 to 9 hold them. Section 10 holds what the change makes where no choice existed.
 
 ## 1. One record for the change
 
 The change has `process` stakes: it adds a dial a consumer types, reverses part of a recorded ruling, and changes a shared rule every gate's author follows. The question was how to cut the record.
 
 - **A. One record for all of the change**, one carry audit, one yes on one pull request.
-  - **Pros:** one record and one audit, the least work; the two topics meet in one module document, so one carry list covers both; a record for several topics has been written before.
+  - **Pros:**
+    - **one record and one audit**, the least work;
+    - **the two topics meet in one module document**, so one carry list covers both;
+    - **a record for several topics has been written before**.
   - **Cons:** the record holds two topics that are not related; reversing one later supersedes the record in part.
 - **B. Two records, one pull request**: one for the trunk, one for the shared rule.
   - **Pros:** each record is one topic, easy to cite and to supersede.
   - **Cons:** two records and two carry lists; one more full reader and a second blind pass; about one more hour.
 - **C. The trunk recorded; the shared rule routine**, treated as text brought to the tree.
   - **Pros:** a smaller record and audit; the new rule describes what the tree already does in part.
-  - **Cons:** it changes a rule every module's author follows with no recorded yes; a reader of GATE.md cannot find why the rule changed; the session would price down a `process` call on its own.
+  - **Cons:**
+    - **it changes a rule every module's author follows** with no recorded yes;
+    - **a reader of GATE.md cannot find why the rule changed**;
+    - **the session would price down a `process` call** on its own.
 
 The session recommended A: the two topics touch one module and one documents step, and one record with separate sections is still easy to cite by handle. The decider chose A in chat on 2026-10-06.
 
@@ -65,10 +71,15 @@ The audit argued four ways to let a bare scan find a trunk on a remote that is n
   - **Cons:** a seventh dial; a `process` change.
 - **B. Let `trunk` take a remote form, `upstream/main`.**
   - **Pros:** no new dial.
-  - **Cons:** a branch name can hold a slash, so the value is ambiguous; the on-trunk test must strip the remote; a reader cannot tell which lookup won.
+  - **Cons:**
+    - **a branch name can hold a slash**, so the value is ambiguous;
+    - **the on-trunk test must strip the remote**;
+    - **a reader cannot tell which lookup won**.
 - **C. Search every remote**; one match wins, several fail.
   - **Pros:** no dial in the common case.
-  - **Cons:** a fork has both `origin/main` and `upstream/main`, the very case to fix, so it needs a dial anyway; it is a guess, like the chain dec-0036 turned down.
+  - **Cons:**
+    - **a fork has both `origin/main` and `upstream/main`**, the very case to fix, so it needs a dial anyway;
+    - **it is a guess**, like the chain dec-0036 turned down.
 - **D. Keep the code; fix only the message**, teaching `--since <remote>/<trunk>`.
   - **Pros:** routine; no new dial.
   - **Cons:** forks and other CI keep failing on the bare scan; the stale-trunk red stays.
@@ -85,7 +96,7 @@ The audit recommended A, with the fresher tip taken when both refs exist. The de
 
 The trailer read and the ref check use git options of uncertain age. The audit could not verify their release history and argued two ways.
 
-- **A. Detect, do not declare.** A literal placeholder in the output is a configuration failure naming git; a ref that begins with a dash is refused before git runs, so the option that guarded it is dropped.
+- **A. Detect, do not declare.** A literal placeholder in the output is a configuration failure naming git. A ref that begins with a dash is refused before git runs, so the option that guarded it is dropped.
   - **Pros:** no version table enters the code, so nothing unverified does; the failure names the real fix.
   - **Cons:** it reacts to one known symptom, not to every way an old git may differ.
 - **B. Declare a floor** in the install note and check `git version` at start.
@@ -94,7 +105,7 @@ The trailer read and the ref check use git options of uncertain age. The audit c
 
 The audit recommended A. The decider kept it when reading the change's plan on 2026-10-06.
 
-<a id="r6"></a>**R6.** An old git is detected, never declared. A commit whose trailer field comes back beginning with the literal `%(trailers` is a configuration failure that names git's own version line and the fix "install a newer git"; when `git version` itself fails, its first line stands in that place. No version floor is stated or checked. The guard reads the start of a commit's whole trailer field, so a reason that quotes the placeholder further in, or a later declaration of the same commit that begins with it, is read as before, while a commit whose first declaration begins with it gets the same failure. A ref that begins with a dash is refused before git is asked, with the unknown-ref failure and the detail "a ref cannot begin with a dash"; `--since -x` written as two words is the command line's own misinvocation.
+<a id="r6"></a>**R6.** An old git is detected, never declared. A commit whose trailer field comes back beginning with the literal `%(trailers` is a configuration failure that names git's own version line and the fix "install a newer git". When `git version` itself fails, its first line stands in that place. No version floor is stated or checked. The guard reads the start of a commit's whole trailer field. A reason that quotes the placeholder further in, or a later declaration of the same commit that begins with it, is read as before. A commit whose first declaration begins with it gets the same failure. A ref that begins with a dash is refused before git is asked, with the unknown-ref failure and the detail "a ref cannot begin with a dash". `--since -x` written as two words is the command line's own misinvocation.
 
 ## 5. The gate's closing clause
 
@@ -108,32 +119,41 @@ The audit argued four ways to treat the clause that ends the gate's install-fail
   - **Cons:** the module then breaks the shared rule as written; the next author copies the wrong default again.
 - **C. Keep it**, the module's limit explaining the words.
   - **Pros:** no work; the fix half of each line is already right.
-  - **Cons:** the line names the wrong risk where it matters most, a CI job that cannot run; a limit is used for what the gate can do.
+  - **Cons:**
+    - **the line names the wrong risk** where it matters most, a CI job that cannot run;
+    - **a limit is used for what the gate can do**.
 - **D. Also a count line of the module's own.**
   - **Pros:** the unit would match the scan's.
-  - **Cons:** the count line is printed by the shared guard for every gate, so it widens shared code and bumps every linked module; "0 documents examined" still truly says nothing was examined.
+  - **Cons:**
+    - **the count line is printed by the shared guard** for every gate, so it widens shared code and bumps every linked module;
+    - **"0 documents examined"** still truly says nothing was examined.
 
 The audit recommended A without D. The decider kept it when reading the change's plan on 2026-10-06.
 
-<a id="r7"></a>**R7.** const-task-close names its own `until_installed` clause in its identity, and its entry files carry the same clause in `C1`, `C14` and `C15`; `until_fixed` stays the shared default, "until it is fixed this check does not run", true for this gate. The count line every configuration failure ends with, "0 documents examined", stays the shared one and is read as nothing examined.
+<a id="r7"></a>**R7.** const-task-close names its own `until_installed` clause in its identity. Its entry files carry the same clause in `C1`, `C14` and `C15`. `until_fixed` stays the shared default, "until it is fixed this check does not run", true for this gate. The count line every configuration failure ends with, "0 documents examined", stays the shared one and is read as nothing examined.
 
 ## 6. The shared rule
 
 The rule of [GATE.md §2](../../shared/GATE.md#g2) said the default clauses are a gate's, so a gate with a hook mode never names them, and only a scan alone names its own. The question was how to rewrite it.
 
-- **A. A rule by what passes, the document only.** The default fits a gate whose hook runs on a Markdown write; any other gate names its own clause, carries it in its entry files and writes it out in its module's document.
-  - **Pros:** every gate complies once the change lands; the rule states the real test, so a new kind of hook needs no exception; no shared code.
+- **A. A rule by what passes, the document only.** The default fits a gate whose hook runs on a Markdown write. Any other gate names its own clause, carries it in its entry files and writes it out in its module's document.
+  - **Pros:**
+    - **every gate complies** once the change lands;
+    - **the rule states the real test**, so a new kind of hook needs no exception;
+    - **no shared code**.
   - **Cons:** GATE.md, over its ceiling, grows a little; nothing checks a new gate's clause.
 - **B. A, plus a fixture**: a gate with its own clause has an item of its runner that holds the clause in `C2` and in its entry files.
   - **Pros:** every such clause is held by a test; a later drift turns red.
-  - **Cons:** const-styling has no such item, so the change grows by a piece in a third module; a duty added to the shared interface for wording.
+  - **Cons:**
+    - **const-styling has no such item**, so the change grows by a piece in a third module;
+    - **a duty added to the shared interface** for wording.
 - **C. No default**: every gate names its own clause, the write gates included.
   - **Pros:** no default can be wrong for a new kind of gate.
   - **Cons:** shared code and seven more modules change; the write gates gain nothing; the largest growth.
 
 The session recommended A: it fixes the rule's error with a document edit, and a fixture for every clause could come as its own item. The decider chose B in chat on 2026-10-06.
 
-<a id="r8"></a>**R8.** The default closing clauses fit a gate whose hook runs on a Markdown write, before it or after it; `until_fixed`'s default fits every gate. Any other gate — a scan alone, a hook on the shell, a hook at a turn's end — names `until_installed` with what its failure leaves unchecked. Its entry files carry the same clause in `C1`, `C14` and `C15`, its module's document writes the clause out, and an item of its runner holds it in `C2` and in the entry files. Generators and session-start printers keep their own rules.
+<a id="r8"></a>**R8.** The default closing clauses fit a gate whose hook runs on a Markdown write, before it or after it; `until_fixed`'s default fits every gate. Any other gate — a scan alone, a hook on the shell, a hook at a turn's end — names `until_installed` with what its failure leaves unchecked. Its entry files carry the same clause in `C1`, `C14` and `C15`. Its module's document writes the clause out. An item of its runner holds it in `C2` and in the entry files. Generators and session-start printers keep their own rules.
 
 <a id="r9"></a>**R9.** const-styling's clause, `until then no document is scanned for style`, is held by an item of its runner.
 
@@ -148,7 +168,10 @@ The clause tells a reader what is at risk while the fix waits. The gate checks t
   - **Pros:** the shape of the default and of the shell gate's clause.
   - **Cons:** false in CI, where the job fails; it does not say what goes unchecked.
 - **C. `until then neither the tree at turn end nor a change's documents are checked`.**
-  - **Pros:** a CI maintainer reads that the documents rule is off; a session user reads that the turn-end check is off; true in every mode.
+  - **Pros:**
+    - **a CI maintainer reads** that the documents rule is off;
+    - **a session user reads** that the turn-end check is off;
+    - **true in every mode**.
   - **Cons:** four words longer; a shape unlike the other clauses.
 
 The session recommended C: the clause is the only part of the line that says what is at risk, and only C names the documents. The decider chose C in chat on 2026-10-06.
@@ -192,11 +215,11 @@ The session recommended A: no one is hit today, and the change had grown twice. 
 
 <a id="r13"></a>**R13.** The trailer read asks git without signature lines.
 
-<a id="r14"></a>**R14.** Item 36 of const-task-close's runner holds a broken HEAD in each ref store: a zeroed ref file in a repository of the files store, and a ref to a commit whose object is gone in one of the reftable store. Each half checks the store it runs in, which needs git 2.45 or newer to run the fixtures; on an older git the half is red and the runner goes on.
+<a id="r14"></a>**R14.** Item 36 of const-task-close's runner holds a broken HEAD in each ref store: a zeroed ref file in a repository of the files store, and a ref to a commit whose object is gone in one of the reftable store. Each half checks the store it runs in, which needs git 2.45 or newer to run the fixtures. On an older git the half is red and the runner goes on.
 
 ## Applied
 
-The commits of this branch apply every item. The commits before the one that adds this record changed the code, the tests and the documents; the message of each commit names what it changed and the sentences it added, with the code or test line that makes each true. The commit that adds this record adds const-task-close's row for it in its section 4. The record is born `inactive`.
+The commits of this branch apply every item. The commits before the one that adds this record changed the code, the tests and the documents. The message of each commit names what it changed and the sentences it added, with the code or test line that makes each true. The commit that adds this record adds const-task-close's row for it in its section 4. The record is born `inactive`.
 
 ## Carry list
 

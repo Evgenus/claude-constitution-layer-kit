@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-After [dec-0057-pr-flow-merge-names-the-yes](dec-0057-pr-flow-merge-names-the-yes.md) gave the kit a PR flow on 2026-09-30, the decider asked for CI. [Rollout step 10](../rollout-plan.md#s10) planned CI for the gate list and more. The gate list was written out twice: as the numbered list of the `gate-list-runner` agent and as the CI sentence of step 10, which `scripts/check-gate-lists.py` read. Every gate ran by hand, through the agent, before a commit that touches a document, before a merge and on `main` after it, and several texts said a check runs by hand "until the kit's CI runs it". GitHub's [runner pricing](https://docs.github.com/en/billing/reference/actions-runner-pricing) says it "rounds the minutes and partial minutes each job uses up to the nearest whole minute", and GitHub Pro includes 3,000 minutes a month for private repositories. The two questions below were put in chat, one per message, each with lettered options; the pick was the letter.
+After [dec-0057-pr-flow-merge-names-the-yes](dec-0057-pr-flow-merge-names-the-yes.md) gave the kit a PR flow on 2026-09-30, the decider asked for CI. [Rollout step 10](../rollout-plan.md#s10) planned CI for the gate list and more. The gate list was written out twice: as the numbered list of the `gate-list-runner` agent and as the CI sentence of step 10, which `scripts/check-gate-lists.py` read. Every gate ran by hand, through the agent, before a commit that touches a document, before a merge and on `main` after it. Several texts said a check runs by hand "until the kit's CI runs it". GitHub's [runner pricing](https://docs.github.com/en/billing/reference/actions-runner-pricing) says it "rounds the minutes and partial minutes each job uses up to the nearest whole minute", and GitHub Pro includes 3,000 minutes a month for private repositories. The two questions below were put in chat, one per message, each with lettered options; the pick was the letter.
 
 ## 1. How CI runs the checks
 
@@ -20,7 +20,11 @@ After [dec-0057-pr-flow-merge-names-the-yes](dec-0057-pr-flow-merge-names-the-ye
   - **Cons:** a red shows as one check, and its log names the gate; slower than parallel.
 - **B. One job per check, in parallel.**
   - **Pros:** each check is its own line on the pull request; the wait is the slowest check.
-  - **Cons:** the tools are installed once per job; each job is billed at least a minute; many checks to require; a second copy of the list.
+  - **Cons:**
+    - **the tools are installed once per job;**
+    - **each job is billed at least a minute;**
+    - **many checks to require;**
+    - **a second copy of the list.**
 - **C. A few grouped jobs in parallel.**
   - **Pros:** a red points to its group; a few minutes billed.
   - **Cons:** more setup than A.
@@ -31,9 +35,9 @@ The session recommended A. <a id="r1"></a>**R1.** B, chosen by the decider in ch
 
 <a id="r3"></a>**R3.** One job, `gates`, waits for every other and is green only when every other is. It is the one check the ruleset requires on `main`, so a new entry never changes the ruleset.
 
-<a id="r4"></a>**R4.** Every kit check's entry runs its `--self-test` after its plain run where it has one, and `scripts/check-schema-mirror.py`, the kit check the kernel policy names for the mirror of the dials schema, is an entry of the gate group.
+<a id="r4"></a>**R4.** Every kit check's entry runs its `--self-test` after its plain run where it has one. `scripts/check-schema-mirror.py`, the kit check the kernel policy names for the mirror of the dials schema, is an entry of the gate group.
 
-<a id="r5"></a>**R5.** The workflow runs on every pull request and on every push to `main`, with the whole history fetched, since the carry-lists and range checks read it. Each job installs pinned versions: Python 3.12, PyYAML 6.0.2, ruff 0.16.8, mypy 1.8.0 with the type stubs of PyYAML and jsonschema, jsonschema 4.26.0, referencing 0.37.0, Vale 3.23.0 and lychee 0.24.2. On a pull request a newer push cancels the run still going; on `main` each merge has a run of its own, never cancelled or replaced by the next merge's, so every merge gets its range check.
+<a id="r5"></a>**R5.** The workflow runs on every pull request and on every push to `main`, with the whole history fetched, since the carry-lists and range checks read it. Each job installs pinned versions: Python 3.12, PyYAML 6.0.2, ruff 0.16.8, mypy 1.8.0 with the type stubs of PyYAML and jsonschema, jsonschema 4.26.0, referencing 0.37.0, Vale 3.23.0 and lychee 0.24.2. On a pull request a newer push cancels the run still going. On `main` each merge has a run of its own, never cancelled or replaced by the next merge's, so every merge gets its range check.
 
 <a id="r6"></a>**R6.** `scripts/check-gate-lists.py` reads the gate list from `sh scripts/gate-list.sh --names gate` and `--show`, and holds the CI list as that script, when the workflow builds its jobs from `--json` and runs them with `--run`. The workflow's comments, whole lines or trailing, do not count. That the matrix is built from the one and runs the other is the workflow's own text, held by review and by its run. This replaces where R2 of [dec-0056-portability-grep-and-gate-lists](dec-0056-portability-grep-and-gate-lists.md#r2) read the two lists: the agent's numbered list and the CI sentence of rollout step 10.
 
@@ -43,7 +47,11 @@ The session recommended A. <a id="r1"></a>**R1.** B, chosen by the decider in ch
   - **Pros:** a red is still caught before a push.
   - **Cons:** minutes of session time per commit; the "until CI runs it" texts need rewording.
 - **B. CI takes all three; the local run becomes optional.**
-  - **Pros:** what the "until the kit's CI runs it" texts already said; faster sessions; a required check holds the merge, where the local run was a convention; the write-time hooks still catch most findings.
+  - **Pros:**
+    - **what the "until the kit's CI runs it" texts already said;**
+    - **faster sessions;**
+    - **a required check holds the merge**, where the local run was a convention;
+    - **the write-time hooks still catch most findings.**
   - **Cons:** a red the hooks miss is seen only after a push; fix rounds cost CI minutes.
 - **C. Keep all local runs and add CI.**
   - **Pros:** the strictest.
@@ -57,11 +65,14 @@ The session recommended B. <a id="r7"></a>**R7.** B, chosen by the decider in ch
 
 <a id="r10"></a>**R10.** Items other records left pending on CI are now real: R4 of [dec-0056-portability-grep-and-gate-lists](dec-0056-portability-grep-and-gate-lists.md#r4), R8 of [dec-0055-promise-audit-fixes](dec-0055-promise-audit-fixes.md#r8), R8 of [dec-0054-acceptance-items-name-their-rows](dec-0054-acceptance-items-name-their-rows.md#r8), R3 of [dec-0049-module-links-held-by-a-kit-check](dec-0049-module-links-held-by-a-kit-check.md#r3), the CI half of R2 of [dec-0037-dials-file-block-style](dec-0037-dials-file-block-style.md#r2), and the whole history R11 of [dec-0030-carry-audit-mandatory](dec-0030-carry-audit-mandatory.md#r11) asks CI to fetch.
 
-<a id="r11"></a>**R11.** R7 ends the local runs two accepted records set: the run of the dials-file style check before every commit that touches the file, R2 of [dec-0037-dials-file-block-style](dec-0037-dials-file-block-style.md#r2), whose condition, until the kit's CI runs it, is now met; and the run of the module-links check before every commit that touches a document, R2 of [dec-0049-module-links-held-by-a-kit-check](dec-0049-module-links-held-by-a-kit-check.md#r2), whose hand run had that condition and whose timing R7 reverses.
+<a id="r11"></a>**R11.** R7 ends the local runs two accepted records set:
+
+- **the run of the dials-file style check** before every commit that touches the file, R2 of [dec-0037-dials-file-block-style](dec-0037-dials-file-block-style.md#r2), whose condition, until the kit's CI runs it, is now met;
+- **and the run of the module-links check** before every commit that touches a document, R2 of [dec-0049-module-links-held-by-a-kit-check](dec-0049-module-links-held-by-a-kit-check.md#r2), whose hand run had that condition and whose timing R7 reverses.
 
 ## Applied
 
-The change that adds this record applies every item that binds: the script, the workflow, the check and the agent in the commit before the record's, the rest in the record's own. The ruleset's required check `gates` is set before this change is merged, so that its own merge already needs `gates` green; an open pull request cut from `main` before this merge gets the check with its next push, since its merge ref takes the workflow from `main`. So the record is born `inactive`.
+The change that adds this record applies every item that binds: the script, the workflow, the check and the agent in the commit before the record's, the rest in the record's own. The ruleset's required check `gates` is set before this change is merged, so that its own merge already needs `gates` green. An open pull request cut from `main` before this merge gets the check with its next push, since its merge ref takes the workflow from `main`. So the record is born `inactive`.
 
 ## Carry list
 

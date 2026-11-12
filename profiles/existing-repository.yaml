@@ -10,8 +10,9 @@
 # before a listed destructive command, and const-task-close asks the model to commit a dirty
 # tree. Delete their two lines as soon as the project wants the prompt and the ask.
 #
-# No repository with documents of its own has run the guide's steps yet. The profile sets what
-# the modules name as their adoption path, and nothing else of an adoption.
+# No repository with documents of its own has run the guide's steps yet, and the guide gives no
+# path for one: it waits for the first such project. The profile sets what the modules name as
+# their adoption path, and nothing else of an adoption.
 #
 # The rest is as in new-project. The file holds only what no default gives, beside the nine
 # `severity` lines: the kernel-owned keys, the territory of the first three policies, and two

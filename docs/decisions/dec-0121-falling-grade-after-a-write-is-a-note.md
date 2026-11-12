@@ -20,17 +20,32 @@ Three facts framed the choice. The hook runs after the write and refuses none, s
 ## Options
 
 - **A. Falling against the last commit is a note.** The hook also reads the written document as the last commit holds it. Above the ceiling, but below its grade there, the finding becomes a note that names both grades. A document that is new, that the commit holds at or under the ceiling, or that is not lower stays red.
-  - **Pros:** no hidden state, since the verdict depends on the tree and the last commit alone; one edit at a time works; an edit that makes a committed page worse is still red; the note reaches the model with the numbers.
-  - **Cons:** one more git call and one more file for Vale at a covered write; an edit that raises the grade, but leaves it below the last commit's, is only a note; a new page above the ceiling stays red at each edit until it is committed or under.
+  - **Pros:**
+    - **no hidden state**, since the verdict depends on the tree and the last commit alone;
+    - **one edit at a time works**;
+    - **an edit that makes a committed page worse is still red**;
+    - **the note reaches the model with the numbers**.
+  - **Cons:**
+    - **one more git call and one more file for Vale at a covered write**;
+    - **an edit that raises the grade**, but leaves it below the last commit's, is only a note;
+    - **a new page above the ceiling stays red at each edit until it is committed or under**.
 - **B. Falling against the last check of the session is a note.** The hook keeps the last grade it saw for each page in a state file and compares with that.
   - **Pros:** it compares edit with edit; it covers new pages that no commit holds.
-  - **Cons:** the verdict depends on a hidden file, so the same write can be red or a note; there is no state where neither a log directory nor the plugin's data folder is set; more code and more limits to state.
+  - **Cons:**
+    - **the verdict depends on a hidden file**, so the same write can be red or a note;
+    - **there is no state where neither a log directory nor the plugin's data folder is set**;
+    - **more code and more limits to state**.
 - **C. After a write the grade is always a note.** The scan alone holds the ceiling, and the hook reds only the rules that read one line.
   - **Pros:** the simplest; no baseline and no added cost; no red between edits by construction.
-  - **Cons:** an edit that pushes a good page over the ceiling is no longer red at write time; the module's invariant would hold for the grade at scan time alone.
+  - **Cons:**
+    - **an edit that pushes a good page over the ceiling is no longer red at write time**;
+    - **the module's invariant would hold for the grade at scan time alone**.
 - **D. No code change.** A page under descent gets a temporary entry in the dial `departures`, removed when the page is under the ceiling.
   - **Pros:** no gate change; it works today.
-  - **Cons:** the dials file changes twice for each page; the hook is silent on that page's grade meanwhile, so a rise is not seen either; the defect stays.
+  - **Cons:**
+    - **the dials file changes twice for each page**;
+    - **the hook is silent on that page's grade meanwhile**, so a rise is not seen either;
+    - **the defect stays**.
 
 ## Recommendation
 
@@ -44,7 +59,11 @@ Option A, chosen by the decider in chat on 2026-11-11.
 
 <a id="r1"></a>**R1.** After a write, the hook of module [`const-language`](../requirements.md#const-language) reports a covered document's grade above the ceiling as a note, not as the grade finding, when that grade is below the grade of the same document as the last commit holds it. The run is green where nothing else is found. The rule applies where the grade can be a finding: the grade rule at level error, and no departure that allows it for the document. It holds under either value of the dial `severity`, and for a hook that a consumer wires before the write.
 
-<a id="r2"></a>**R2.** The grade finding stays, after a write, in every other case above the ceiling: a grade equal to the last commit's or higher; a document that the last commit holds at or under the ceiling; and a document that the last commit does not hold, a new document and any document in a repository with no commit among them.
+<a id="r2"></a>**R2.** The grade finding stays, after a write, in every other case above the ceiling:
+
+- **a grade equal to the last commit's or higher**;
+- **a document that the last commit holds at or under the ceiling**;
+- **and a document that the last commit does not hold**, a new document and any document in a repository with no commit among them.
 
 <a id="r3"></a>**R3.** The scan is unchanged. It reads no commit, never gives the note, and is red on every document whose grade is a finding.
 
@@ -58,7 +77,7 @@ Option A, chosen by the decider in chat on 2026-11-11.
 
 <a id="r8"></a>**R8.** The skill and the install note of the module tell the writer that a long document may come down one edit at a time, and that the scan must be green before the change is merged.
 
-<a id="r9"></a>**R9.** This record narrows one ruling of the module's founding record: R3 of [dec-0046-language-module-rulings](dec-0046-language-module-rulings.md#r3), by which a rule at level `error` is a finding. For the grade rule, after a write, R1 makes one case at that level a note. R3 stands for every other case, and no other ruling of that record changes: the note is no finding, so what that record rules for findings holds as written.
+<a id="r9"></a>**R9.** This record narrows one ruling of the module's founding record: R3 of [dec-0046-language-module-rulings](dec-0046-language-module-rulings.md#r3), by which a rule at level `error` is a finding. For the grade rule, after a write, R1 makes one case at that level a note. R3 stands for every other case. No other ruling of that record changes: the note is no finding, so what that record rules for findings holds as written.
 
 ## Applied
 

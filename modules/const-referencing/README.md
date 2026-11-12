@@ -3,14 +3,14 @@
 <a id="a1"></a>
 ## What it gives you
 
-References a machine can follow and a move can repair: one written form per kind of reference, anchors that do not depend on a heading's words, a check of the whole tree after every write and in the scan, and a mover that repairs the links a move breaks. Plus a skill for citing, anchoring and moving, and two always-on sentences about references in chat.
+References a machine can follow and a move can repair. Each kind of reference has one written form, and anchors do not depend on a heading's words. A check reads the whole tree after every write and in the scan, and a mover repairs the links a move breaks. Plus a skill for citing, anchoring and moving, and two always-on sentences about references in chat.
 
-In plain words: a reference is any place where one document points at another. A reference a machine can follow is a link with a target that exists. A written form is the one way the project writes that kind of reference. An anchor is a fixed name placed at a cited place in a document, so a link can name that place. It survives a reworded heading, which a heading's own generated name does not. The module checks links before and after a write. The scan is the same check over every Markdown file in the repository, run by hand or in CI, and the whole tree is that set of files. The mover is a command that moves a document with git and repairs every link to it. The skill is a procedure the session loads when it writes a link, adds a cited section or moves a document. The two always-on sentences are printed at every session start and ask for the same in chat.
+In plain words: a reference is any place where one document points at another. A reference a machine can follow is a link with a target that exists. A written form is the one way the project writes that kind of reference. An anchor is a fixed name placed at a cited place in a document, so a link can name that place. It survives a reworded heading, which a heading's own generated name does not. The module checks links before and after a write. The scan is the same check over every Markdown file in the repository, run by hand or in CI. The whole tree is that set of files. The mover is a command that moves a document with git and repairs every link to it. The skill is a procedure the session loads when it writes a link, adds a cited section or moves a document. The two always-on sentences are printed at every session start and ask for the same in chat.
 
 <a id="a2"></a>
 ## Why use it
 
-A document is moved, a heading is reworded or a page is deleted, and every link that pointed there still reads as a link but leads nowhere, or to a neighbour that carries the old heading's words. Nobody notices at the edit, because the break is in other files, and a reader finds it weeks later. Beside it stands the reference that never was one, such as a bare "see section 4", an id in backticks or a path that exists only on the author's machine, which no tool can follow and a rename cannot find.
+A document is moved, a heading is reworded or a page is deleted. Every link that pointed there still reads as a link. But it leads nowhere, or to a neighbour that carries the old heading's words. Nobody notices at the edit, because the break is in other files, and a reader finds it weeks later. Beside it stands the reference that never was one. Such a reference is a bare "see section 4", an id in backticks or a path that exists only on the author's machine. No tool can follow such a reference, and a rename cannot find it.
 
 With the module installed, a bad reference form is refused at the write, and a link that leads nowhere is reported right after it. A document is moved by the mover, which repairs every link to it. The scan in CI turns red on any link or anchor that does not resolve, so a broken reference never reaches the main branch.
 
@@ -36,7 +36,7 @@ At every session start, two sentences are added to the session's context. In cha
 
 **At session start.** A hook adds two things to the session's context: two sentences about references in chat, and a line that names the skill. It reads nothing and checks nothing, and a failure of it only prints nothing. It also runs again after a compaction or a clear.
 
-**At a subagent's start.** A second hook gives the same line that names the skill to every subagent, which starts with a context of its own and would not see the session's.
+**At a subagent's start.** A second hook gives the same line that names the skill to every subagent. A subagent starts with a context of its own and would not see the session's.
 
 **The scan.** Both checks over every Markdown file git lists, plus one more. An id named in a script or a configuration file, where no link checker looks, must be the id of a document that exists. The scan exits with code 2 on a finding. Run it in CI on every pull request, on a runner that has `lychee`. It does not see a link that a template or a script builds, a remote address, or a link inside code.
 

@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-[Requirement A5.6](../requirements.md#a5-6) let a commit hash stand in three places only: commit messages, record bodies and chat. [Rule 3 of plc-0005-research](../policies/plc-0005-research.md#r3) asks a comparison to name what verified each fact, and one of its three sources is "the kit's own tree at a named commit". The two texts did not agree. The gap was logged on 2026-10-12 in [item 9.24 of the rollout plan](../rollout-plan.md#s9-24), to wait for a signal. The decider's ask of 2026-11-11, to finish the plan with its waiting items, started it without one.
+[Requirement A5.6](../requirements.md#a5-6) let a commit hash stand in three places only: commit messages, record bodies and chat. [Rule 3 of plc-0005-research](../policies/plc-0005-research.md#r3) asks a comparison to name what verified each fact. One of its three sources is "the kit's own tree at a named commit". The two texts did not agree. The gap was logged on 2026-10-12 in [item 9.24 of the rollout plan](../rollout-plan.md#s9-24), to wait for a signal. The decider's ask of 2026-11-11, to finish the plan with its waiting items, started it without one.
 
 The session counted the commit hashes of the tree on 2026-11-11, outside commit messages and decision records:
 
@@ -28,10 +28,15 @@ Every one of these stands in text that belongs to one day. None stands in a sent
   - **Cons:** the hashes of the three module documents and of the plan stay against the row, and need a ruling of their own.
 - **B. Widen the row by principle.** A hash may stand in any dated text: a commit message, a record's body, a dated comparison, a dated statement of evidence or of done work, chat. It never stands in a sentence that states how things are.
   - **Pros:** one rule covers every hash the tree holds today; nothing is left over.
-  - **Cons:** the policies of module documents and of the rollout plan say it for their kinds; the advisory rule and the skill of the module change with the row; whether a statement is dated is judgment, which no gate holds.
+  - **Cons:**
+    - **the policies of module documents and of the rollout plan say it for their kinds**;
+    - **the advisory rule and the skill of the module change with the row**;
+    - **whether a statement is dated is judgment**, which no gate holds.
 - **C. Narrow the research policy instead.** Rule 3 stops naming a commit, and a comparison names the tree by its date.
   - **Pros:** the row and the module stay as they are.
-  - **Cons:** a date does not name one tree, so a reader cannot repeat the check; the frozen comparisons keep their hashes and would stand against the row for good.
+  - **Cons:**
+    - **a date does not name one tree**, so a reader cannot repeat the check;
+    - **the frozen comparisons keep their hashes and would stand against the row for good**.
 
 ## Recommendation
 
@@ -59,7 +64,7 @@ B, by the decider, in chat on 2026-11-11. The decider gave the letter and no rea
 
 ## Applied
 
-The commit that creates this record amends the row and adds the sentences of R2 and R3 to the two policies. Later commits of the same branch change the module's document and skill for R4, set this record `inactive`, and hold the new receipt of the module's eval cases, which the skill's edit made stale. The corrections of the carry audit follow in the same branch, before the yes.
+The commit that creates this record amends the row and adds the sentences of R2 and R3 to the two policies. Later commits of the same branch change the module's document and skill for R4. They set this record `inactive`, and hold the new receipt of the module's eval cases, which the skill's edit made stale. The corrections of the carry audit follow in the same branch, before the yes.
 
 ## Carry list
 

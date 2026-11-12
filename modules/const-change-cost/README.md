@@ -3,7 +3,7 @@
 <a id="a1"></a>
 ## What it gives you
 
-Tokens per commit: for every commit a Claude Code session makes, the tokens that session spent on it — input, output, cache write and cache read — with their total and list cost, counted by a pinned ccusage from the session's own transcripts, kept in the clone, and shared by merge trailer, pull request and git notes.
+Tokens per commit: for every commit a Claude Code session makes, the tokens that session spent on it. They are input, output, cache write and cache read, with their total and list cost. A pinned ccusage counts them from the session's own transcripts. They are kept in the clone, and shared by merge trailer, pull request and git notes.
 
 In plain words: a token is the unit a model reads and writes, and a session spends many of them on one change. Claude Code keeps a transcript of each session, a file with every reply and its token counts. This module works out how many of those tokens went into each commit, and keeps the answer in your clone. Cache write and cache read are tokens the model stores and reuses, and they have their own prices. ccusage is a public tool that reads such transcripts. The list cost is the price on the model's public price page, which may differ from what you pay. A merge trailer is a line at the end of a merge commit's message. A git note is text that git keeps beside a commit without changing it.
 
@@ -17,7 +17,7 @@ With the module installed, each session's start and each commit are logged as th
 <a id="a3"></a>
 ## How Claude behaves with it
 
-At every session start the module logs the session. While your clone does not log commits yet, one line names the two git hooks that are missing, and the session tells you instead of changing your git settings. When you ask to open or merge a pull request, the skill `share-costs` loads, and the session runs the report for the branch. It puts the block in the pull request's description. It puts the trailer lines in the last paragraph of the merge commit's message. It writes git notes, and pushes them, only when you say so. It reads every cost as a list price, and every figure as a lower bound where a compaction or an unpriced model is named.
+At every session start the module logs the session. While your clone does not log commits yet, one line names the two git hooks that are missing. The session then tells you, instead of changing your git settings. When you ask to open or merge a pull request, the skill `share-costs` loads, and the session runs the report for the branch. It puts the block in the pull request's description. It puts the trailer lines in the last paragraph of the merge commit's message. It writes git notes, and pushes them, only when you say so. It reads every cost as a list price, and every figure as a lower bound where a compaction or an unpriced model is named.
 
 ```text
 CHANGE-COST: 2 commit(s) of main..work/report-total, 2 counted, 0 not counted — tokens counted by ccusage 20.0.48, cost at its list price
@@ -33,11 +33,11 @@ total, 2 counted commit(s): input 2,000, output 550, cache write 5,000, cache re
 
 **The setup command.** `setup-commit-log.sh` writes two hooks into the clone's git settings, one on commit and one on merge. Each appends the commit, the time and the session's id to a log. A person runs it, or a session when the person asks. It can check that the hooks stand and remove them, and it leaves the logs.
 
-**The count.** `count-costs.sh` copies one window of one session into a throwaway folder and runs the pinned ccusage over it. It keeps the four counts, their total, the cost, the number of replies, the tokens of each model, the compactions it saw and the models with no price. A compaction is the moment Claude Code shortens a session's history, and its work reaches no transcript, so it is named and not counted. It runs after each turn and at each start, and a person can run it too.
+**The count.** `count-costs.sh` copies one window of one session into a throwaway folder and runs the pinned ccusage over it. It keeps the four counts, their total, the cost and the number of replies. It also keeps the tokens of each model, the compactions it saw and the models with no price. A compaction is the moment Claude Code shortens a session's history. Its work reaches no transcript, so it is named and not counted. It runs after each turn and at each start, and a person can run it too.
 
 **The report.** `cost-report.sh` reads the kept counts and runs no ccusage. It lists a range of commits, names each commit that is not counted with the reason, and shows the total. `--trailer` prints the lines for a merge commit. `--pr` writes a block into a pull request's description through the GitHub command line, or prints it. `--notes` writes git notes. It never pushes.
 
-**The skill `share-costs`.** A procedure in prose: set up the commit log only when asked, share the block and the trailers at the pull request and the merge, write notes only on your word, and read each figure as what it is. It checks nothing. The start line names it where it applies.
+**The skill `share-costs`.** A procedure in prose: set up the commit log only when asked. It also says to share the block and the trailers at the pull request and the merge. It says to write notes only on your word, and to read each figure as what it is. It checks nothing. The start line names it where it applies.
 
 **Settings.** The module has no dials of its own and works with no configuration. Only its effect report reads the project's settings file: the kernel keys, every namespace's territory and, for this module, the keys `severity` and `log_dir`. Leave `log_dir` unset for this module. The ccusage version is pinned, so two clones count alike, and every cost is the list price at that version.
 

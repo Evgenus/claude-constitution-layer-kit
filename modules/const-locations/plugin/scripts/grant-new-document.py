@@ -15,7 +15,7 @@ Modes:    no arguments  read one PreToolUse event on stdin; when its command is 
                         environment variable CLAUDE_PLUGIN_ROOT, an absolute path of ASCII
                         letters, digits and _ . / @ + -, a trailing slash ignored; any other root
                         is matched by nothing.
-Reads:    from the event: hook_event_name, tool_name, tool_input.command, session_id. No
+Reads:    from the event: hook_event_name, tool_name, tool_input.command, session_id, transcript_path. No
           constitution.yaml and no dial: the grant does not depend on the repository it runs in.
 Exit:     0 the answer was given, or the call is not this plugin's command and nothing is printed;
           1 the grant could not run — nothing is granted, and the platform asks for the call as for

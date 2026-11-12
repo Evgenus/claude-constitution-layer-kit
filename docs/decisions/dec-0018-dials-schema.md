@@ -15,7 +15,11 @@ decider: Eugene Chernyshov
 
 ## Options
 
-- **A. Kernel schema, validated at each read.** `kernel/schemas/constitution.schema.json` states the kernel-owned keys and the policy-namespace keys, module namespaces open; every reader checks the keys it reads by hand, so no validator library enters a module; a malformed file is a configuration failure; the kit's CI validates the kit's own file with a real validator.
+- **A. Kernel schema, validated at each read.**
+  - **`kernel/schemas/constitution.schema.json` states** the kernel-owned keys and the policy-namespace keys, module namespaces open;
+  - **every reader checks the keys it reads by hand**, so no validator library enters a module;
+  - **a malformed file is a configuration failure**;
+  - **the kit's CI validates the kit's own file** with a real validator.
   - **Pros:** one authoritative shape beside the envelope schema; a consumer can validate in the editor; the moment named exists.
   - **Cons:** documentation plus discipline until CI runs it; a kernel sentence and a record.
 - **B. No schema; readers validate by hand; rows say so.**

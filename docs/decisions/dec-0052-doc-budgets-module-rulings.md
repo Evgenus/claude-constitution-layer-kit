@@ -11,11 +11,11 @@ decider: Eugene Chernyshov
 
 ## Context
 
-The module [`const-doc-budgets`](../requirements.md#const-doc-budgets) is authored from 2026-09-28 in the kit, the eleventh and last module of the set. The decider asked for it in the handoff of that day. Its rows are [requirement A11.1](../requirements.md#a11-1), [requirement A11.2](../requirements.md#a11-2) and [requirement A11.3](../requirements.md#a11-3); its research comparison is [res-0011-const-doc-budgets](../research/res-0011-const-doc-budgets.md). The questions below were put to the decider in chat, one per message, each with lettered options; the pick was the letter, as the kit's preferences ask. Sections 1 to 3 were decided on 2026-09-28, the rest on 2026-09-29. Every ruling is stated in the documents the carry list names; this record holds the options and the reasoning.
+The module [`const-doc-budgets`](../requirements.md#const-doc-budgets) is authored from 2026-09-28 in the kit, the eleventh and last module of the set. The decider asked for it in the handoff of that day. Its rows are [requirement A11.1](../requirements.md#a11-1), [requirement A11.2](../requirements.md#a11-2) and [requirement A11.3](../requirements.md#a11-3); its research comparison is [res-0011-const-doc-budgets](../research/res-0011-const-doc-budgets.md). The questions below were put to the decider in chat, one per message, each with lettered options. The pick was the letter, as the kit's preferences ask. Sections 1 to 3 were decided on 2026-09-28, the rest on 2026-09-29. Every ruling is stated in the documents the carry list names; this record holds the options and the reasoning.
 
 ## 1. Start without the signal
 
-The specification says the module enters "when bloat is observed, with data", and the row asked for a month of data; the kit had two weeks, and no commit note had named length as a problem.
+The specification says the module enters "when bloat is observed, with data". The row asked for a month of data. The kit had two weeks, and no commit note had named length as a problem.
 
 - **A. Start now, measure and report only,** no ceiling until a month of data.
   - **Pros:** breaks no row; the report builds the data the row needs.
@@ -27,11 +27,11 @@ The specification says the module enters "when bloat is observed, with data", an
   - **Pros:** follows the growth rule of [CLAUDE.md](../../CLAUDE.md) exactly.
   - **Cons:** the set stays incomplete; the growth of the session guide stays unmeasured.
 
-The session recommended A. <a id="r1"></a>**R1.** B, chosen by the decider in chat on 2026-09-28; the session's objection stands: no friction signal on document length existed, the condition the guide names for growth.
+The session recommended A. <a id="r1"></a>**R1.** B, chosen by the decider in chat on 2026-09-28. The session's objection stands: no friction signal on document length existed, the condition the guide names for growth.
 
 ## 2. How B meets the month of the row
 
-B set ceilings from less data than the row asked for, while the specification's "Ships" line allowed a ceiling before a month so long as it did not block.
+B set ceilings from less data than the row asked for. The specification's "Ships" line allowed a ceiling before a month so long as it did not block.
 
 - **A. Amend the row in writing:** a ceiling from less than the data asked warns, and blocks only on that much data.
   - **Pros:** explicit; the row and the specification agree.
@@ -62,13 +62,18 @@ Forty of the kit's 128 Markdown files lay in no policy's territory, the session 
   - **Pros:** covers A and a meta-type where wanted.
   - **Cons:** a feature nothing asks for yet.
 
-The session recommended A. <a id="r3"></a>**R3.** A, chosen by the decider in chat on 2026-09-28: a ceiling is an entry of the dial `ceilings` whose `paths` name its documents in the dials file's dialect; the module reads no policy and no envelope, and [requirement A11.2](../requirements.md#a11-2) now names a group of documents by path patterns, a document kind or any other group.
+The session recommended A. <a id="r3"></a>**R3.** A, chosen by the decider in chat on 2026-09-28:
+
+- **a ceiling is an entry of the dial** `ceilings` whose `paths` name its documents in the dials file's dialect;
+- **the module reads no policy and no envelope**, and [requirement A11.2](../requirements.md#a11-2) now names a group of documents by path patterns, a document kind or any other group.
 
 ## 4. The phrase "one per meta-type at most"
 
 Under path keys the phrase capped the number of ceilings, and the kit's data proposed ten groups.
 
-- **A. Replace it in writing,** in the same amendment as section 2: each ceiling covers a named group and is set from that group's data; how many there are is review.
+- **A. Replace it in writing,** in the same amendment as section 2:
+  - **each ceiling covers a named group** and is set from that group's data;
+  - **how many there are is review**.
   - **Pros:** explicit; fits the key of section 3.
   - **Cons:** drops a limit on how many ceilings exist.
 - **B. Keep the cap of three,** one per meta-type.
@@ -91,11 +96,15 @@ The check reads one number per file; the kit's whole scan took about 0.2 s.
   - **Pros:** the model is told at the moment it makes a document longer; the kit's pattern.
   - **Cons:** more code; a warning after a write must travel as `additionalContext`; a document already over is reported after every write.
 
-A gate before the write was rejected in the comparison, since it would refuse every partial cut. The session recommended B. <a id="r5"></a>**R5.** B, chosen by the decider in chat on 2026-09-29: the hook measures the written document after the write and never refuses it; the scan measures every held document; every policy's enforcement rule names the gate, after a write and in its scan.
+A gate before the write was rejected in the comparison, since it would refuse every partial cut. The session recommended B. <a id="r5"></a>**R5.** B, chosen by the decider in chat on 2026-09-29:
+
+- **the hook measures the written document** after the write and never refuses it;
+- **the scan measures every held document**;
+- **every policy's enforcement rule names the gate**, after a write and in its scan.
 
 ## 6. How the warn-then-block steps are held
 
-The shared `severity` says how a finding travels after a write, and the scan ignores it; a scan red in the first month would block before the data the amended row asks for.
+The shared `severity` says how a finding travels after a write, and the scan ignores it. A scan red in the first month would block before the data the amended row asks for.
 
 - **A. A level per ceiling, set by hand;** review holds the month.
   - **Pros:** the simplest dial.
@@ -110,7 +119,11 @@ The shared `severity` says how a finding travels after a write, and the scan ign
   - **Pros:** nothing declared falsely.
   - **Cons:** a shallow clone changes the verdict; a walk of history at every write.
 
-The session recommended B. <a id="r6"></a>**R6.** B, chosen by the decider in chat on 2026-09-29: each ceiling has a `level`, `warning` a note that is never red, `error` a finding, and a `window` of two dates; a ceiling at `error` on a window shorter than 30 days is a configuration failure at every read; the shared `severity` keeps its one meaning.
+The session recommended B. <a id="r6"></a>**R6.** B, chosen by the decider in chat on 2026-09-29:
+
+- **each ceiling has a** `level`, `warning` a note that is never red, `error` a finding, and a `window` of two dates;
+- **a ceiling at** `error` on a window shorter than 30 days is a configuration failure at every read;
+- **the shared** `severity` keeps its one meaning.
 
 ## 7. What a month is
 
@@ -153,7 +166,7 @@ The session recommended A. <a id="r9"></a>**R9.** A, chosen by the decider in ch
 
 ## 10. Where the definition of a character lives
 
-The kernel said sizes are characters and never said what one is, while the template's always-on budget and the shared code's cut count characters too.
+The kernel said sizes are characters and never said what one is. The template's always-on budget and the shared code's cut count characters too.
 
 - **A. In this module's document only.**
   - **Pros:** no kernel change.
@@ -162,11 +175,14 @@ The kernel said sizes are characters and never said what one is, while the templ
   - **Pros:** the kernel's own word defined where it is used.
   - **Cons:** a kernel change, always recorded, and a larger audit.
 
-The session recommended B. <a id="r10"></a>**R10.** B, chosen by the decider in chat on 2026-09-29: a character is one Unicode code point of the file read as UTF-8, a CRLF line ending counts as one, nothing is normalized or left out, with the clause of R9; [requirement A11.1](../requirements.md#a11-1) points there.
+The session recommended B. <a id="r10"></a>**R10.** B, chosen by the decider in chat on 2026-09-29:
+
+- **a character is one Unicode code point** of the file read as UTF-8, a CRLF line ending counts as one, nothing is normalized or left out, with the clause of R9;
+- [requirement A11.1](../requirements.md#a11-1) points there.
 
 ## 11. How one document is let over a ceiling
 
-An accepted record or a frozen comparison takes only the edits its policy lists; the kit's pattern keeps such a document in a gate's territory with a reason ([dec-0045-frozen-documents-stay-in-the-style-scan](dec-0045-frozen-documents-stay-in-the-style-scan.md), [dec-0048-frozen-documents-take-wording-edits](dec-0048-frozen-documents-take-wording-edits.md)).
+An accepted record or a frozen comparison takes only the edits its policy lists. The kit's pattern keeps such a document in a gate's territory with a reason ([dec-0045-frozen-documents-stay-in-the-style-scan](dec-0045-frozen-documents-stay-in-the-style-scan.md), [dec-0048-frozen-documents-take-wording-edits](dec-0048-frozen-documents-take-wording-edits.md)).
 
 - **A. A `departures` dial in the siblings' shape,** `paths`, `allow`, `reason`.
   - **Pros:** the kit's shipped pattern; one wording across three gates.
@@ -175,7 +191,14 @@ An accepted record or a frozen comparison takes only the edits its policy lists;
   - **Pros:** every document keeps a limit; no third parser.
   - **Cons:** a shape unlike the siblings'.
 
-The session recommended B. <a id="r11"></a>**R11.** A, chosen by the decider in chat on 2026-09-29: an entry of the dial `departures` lifts the ceilings it names for the documents it matches, with a one-line reason; it names only ceilings that exist; an entry that lifts nothing — it matches no document a ceiling it names holds — is a note on every scan; the kit's dial holds none, every ceiling sitting above its frozen documents. The two policies with frozen documents say that such a document over its ceiling is brought under it by the wording edits its policy allows where they reach it, and otherwise stays as it is and is declared so, as R3 of [dec-0048-frozen-documents-take-wording-edits](dec-0048-frozen-documents-take-wording-edits.md#r3) rules for every later threshold.
+The session recommended B. <a id="r11"></a>**R11.** A, chosen by the decider in chat on 2026-09-29:
+
+- **an entry of the dial** `departures` lifts the ceilings it names for the documents it matches, with a one-line reason;
+- **it names only ceilings that exist**;
+- **an entry that lifts nothing** — it matches no document a ceiling it names holds — is a note on every scan;
+- **the kit's dial holds none**, every ceiling sitting above its frozen documents.
+
+The two policies with frozen documents say that such a document over its ceiling is brought under it by the wording edits its policy allows where they reach it, and otherwise stays as it is and is declared so, as R3 of [dec-0048-frozen-documents-take-wording-edits](dec-0048-frozen-documents-take-wording-edits.md#r3) rules for every later threshold.
 
 ## 12. How the observed data is shown
 
@@ -193,7 +216,7 @@ The session recommended B. <a id="r12"></a>**R12.** B, chosen by the decider in 
 
 ## 13. How a ceiling's number is derived
 
-A number some documents break on its first day is a target for the rest; wording edits had lengthened frozen documents by up to 1.5 %.
+A number some documents break on its first day is a target for the rest. Wording edits had lengthened frozen documents by up to 1.5 %.
 
 - **A. The window's longest plus 10 %, rounded up to 1,000.**
   - **Pros:** no document over on the first day; the backtest's rule.
@@ -208,7 +231,12 @@ A number some documents break on its first day is a target for the rest; wording
   - **Pros:** freedom.
   - **Cons:** numbers nobody can repeat.
 
-The session recommended A. <a id="r13"></a>**R13.** A, chosen by the decider in chat on 2026-09-29: the rule of thumb is the window's longest document plus 10 %, rounded up to a multiple of 1,000; the number is review, the module teaching the rule and the report printing it. The window's longest is read as its longest committed version, a stated assumption of the session.
+The session recommended A. <a id="r13"></a>**R13.** A, chosen by the decider in chat on 2026-09-29:
+
+- **the rule of thumb is the window's longest document** plus 10 %, rounded up to a multiple of 1,000;
+- **the number is review**, the module teaching the rule and the report printing it.
+
+The window's longest is read as its longest committed version, a stated assumption of the session.
 
 ## 14. The kit's own ceilings
 
@@ -222,11 +250,14 @@ The session recommended A. <a id="r13"></a>**R13.** A, chosen by the decider in 
   - **Pros:** the smallest set.
   - **Cons:** the kit tests one entry.
 
-The session recommended B. <a id="r14"></a>**R14.** B, chosen by the decider in chat on 2026-09-29: eighteen ceilings, at `warning` with the window 2026-09-14 to 2026-09-29, each number the rule of R13 applied to the report over that window, hold all 129 Markdown files of the tree, one each; kinds with an anchored territory are reached by alias, and six policy territories gained an anchor for it.
+The session recommended B. <a id="r14"></a>**R14.** B, chosen by the decider in chat on 2026-09-29:
+
+- **eighteen ceilings**, at `warning` with the window 2026-09-14 to 2026-09-29, each number the rule of R13 applied to the report over that window, hold all 129 Markdown files of the tree, one each;
+- **kinds with an anchored territory** are reached by alias, and six policy territories gained an anchor for it.
 
 ## 15. How a warning note after a write reaches the model
 
-The hooks page says the plain stdout of most events goes to the debug log; headless runs on 2026-09-29 confirmed it for `PostToolUse` and `PreToolUse`, and confirmed that `additionalContext` arrives. The shared `green_hook` printed its notes plain, so the warning notes of module [`const-language`](../requirements.md#const-language) never reached the model; the shared warn channel would label a note as a finding.
+The hooks page says the plain stdout of most events goes to the debug log. Headless runs on 2026-09-29 confirmed it for `PostToolUse` and `PreToolUse`, and confirmed that `additionalContext` arrives. The shared `green_hook` printed its notes plain, so the warning notes of module [`const-language`](../requirements.md#const-language) never reached the model. The shared warn channel would label a note as a finding.
 
 - **A. Widen the shared green** to hand notes over as JSON after a write, for every gate.
   - **Pros:** the protocol stays shared; one fix for both modules.
@@ -238,7 +269,11 @@ The hooks page says the plain stdout of most events goes to the debug log; headl
   - **Pros:** no new code.
   - **Cons:** a false text; a note counted as a finding.
 
-The session recommended A. <a id="r15"></a>**R15.** A, chosen by the decider in chat on 2026-09-29: a green hook run on a write event with notes — `green_hook`, or `skip` given the event's name — prints one JSON object whose `additionalContext` holds the notes and the green line; a run without notes, and a scan, print as before; the shared item S159 proves it.
+The session recommended A. <a id="r15"></a>**R15.** A, chosen by the decider in chat on 2026-09-29:
+
+- **a green hook run on a write event with notes** — `green_hook`, or `skip` given the event's name — prints one JSON object whose `additionalContext` holds the notes and the green line;
+- **a run without notes**, and a scan, print as before;
+- **the shared item S159 proves it**.
 
 ## 16. The dial names
 

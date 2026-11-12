@@ -11,7 +11,13 @@ decider: Eugene Chernyshov
 
 ## Context
 
-The kit was named `constitution-kit`: its GitHub repository, `Evgenus/constitution-kit`; its marketplace, so every module's id ended in `@constitution-kit`; and the folder the install guide writes for the kit's clone, `~/dev/constitution-kit`. On 2026-10-16 the decider asked to rename it `claude-constitution-layer-kit`. The name should say that the kit is made for Claude, and a second layer kit is planned beside it.
+The kit was named `constitution-kit`:
+
+- **its GitHub repository**, `Evgenus/constitution-kit`;
+- **its marketplace**, so every module's id ended in `@constitution-kit`;
+- **and the folder the install guide writes for the kit's clone**, `~/dev/constitution-kit`.
+
+On 2026-10-16 the decider asked to rename it `claude-constitution-layer-kit`. The name should say that the kit is made for Claude, and a second layer kit is planned beside it.
 
 At the cut of this change the old name stood 72 times in 15 files git tracks. Eleven of them were in six accepted records. CI takes the repository's name from GitHub at run time, so its workflow names no repository. The kit's checks read the marketplace's name from `.claude-plugin/marketplace.json` and type it nowhere.
 
@@ -25,8 +31,13 @@ The platform refuses a marketplace name that imitates an official one ([marketpl
   - **Pros:** the smallest change; no module id changes; no exposure to the platform's rule on imitated names.
   - **Cons:** the name a user types, `const-x@constitution-kit`, still lacks the word Claude; the second kit's marketplace would follow no common pattern.
 - **B. The repository and the marketplace.** A, the marketplace's name and the clone's folder in the install guide; the variables `CONSTITUTION_KIT_*` and the prose name "constitution kit" stay.
-  - **Pros:** the name a user types matches the repository; the second kit can follow the pattern; the repository is private and has no consumer, so changing the ids breaks nothing.
-  - **Cons:** about sixty edits and a record; the platform's rule on imitated names is not written as an exact test, so a later version could refuse a name that starts with `claude-`.
+  - **Pros:**
+    - **the name a user types matches the repository**;
+    - **the second kit can follow the pattern**;
+    - **the repository is private and has no consumer**, so changing the ids breaks nothing.
+  - **Cons:**
+    - **about sixty edits and a record**;
+    - **the platform's rule on imitated names is not written as an exact test**, so a later version could refuse a name that starts with `claude-`.
 - **C. Everything.** B, the 89 uses of the variables `CONSTITUTION_KIT_*` and the 17 uses of the prose name, in either case.
   - **Pros:** one name everywhere.
   - **Cons:** about twice the size of B, for names no user sees.
@@ -58,12 +69,14 @@ The session first proposed to keep the eleven mentions in the six accepted recor
 - **A. A one-time exception in this record.** This record orders the edit, names the rules it breaks, and sets no precedent.
   - **Pros:** the smallest change; no rule changes; the usual carry audit.
   - **Cons:** the kit breaks its own kernel on purpose, against [law 1 of CLAUDE.md](../../CLAUDE.md#law-1); the next rename needs a record of its own.
-- **B. A new migration kind in the kernel and in rule 14.** A renamed repository, marketplace or plugin id is followed in records, as a moved document already is; [kernel §5](../constitution/CONVENTIONS.md#k5) and rule 14 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) both change.
+- **B. A new migration kind in the kernel and in rule 14.** A renamed repository, marketplace or plugin id is followed in records, as a moved document already is. [Kernel §5](../constitution/CONVENTIONS.md#k5) and rule 14 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) both change.
   - **Pros:** the edit follows the rules; the second kit's rename is ruled in advance; it matches how the kit treats a moved document.
   - **Cons:** a kernel change, so the carry audit reads every record; the new wording must pass its own audit.
 - **C. The new kind in rule 14 alone.** A renamed repository is read as a moved document under the kernel's present words.
   - **Pros:** no kernel change; a smaller audit than B.
-  - **Cons:** it rests on a reading, not on a rule; a module's id is no citation of a document, so the reading is weak for most of the mentions.
+  - **Cons:**
+    - **it rests on a reading**, not on a rule;
+    - **a module's id is no citation of a document**, so the reading is weak for most of the mentions.
 
 ### Recommendation
 
@@ -75,7 +88,7 @@ A, chosen by the decider in chat on 2026-10-16, over the recommendation. The ses
 
 ### Ruling
 
-<a id="r5"></a>**R5.** This change rewrites, in place, the eleven mentions of the old repository's or marketplace's name in [dec-0042-interaction-module-rulings](dec-0042-interaction-module-rulings.md), [dec-0043-kit-plugins-through-project-settings](dec-0043-kit-plugins-through-project-settings.md), [dec-0057-pr-flow-merge-names-the-yes](dec-0057-pr-flow-merge-names-the-yes.md), [dec-0059-bare-repo-install-in-ci](dec-0059-bare-repo-install-in-ci.md), [dec-0060-ci-installs-from-the-github-remote](dec-0060-ci-installs-from-the-github-remote.md) and [dec-0071-projects-install-from-github](dec-0071-projects-install-from-github.md). Each now names `claude-constitution-layer-kit`, the five dated facts included, though the repository had the old name on those dates; git keeps each record as it was accepted. No other word of those records changes.
+<a id="r5"></a>**R5.** This change rewrites, in place, the eleven mentions of the old repository's or marketplace's name in [dec-0042-interaction-module-rulings](dec-0042-interaction-module-rulings.md), [dec-0043-kit-plugins-through-project-settings](dec-0043-kit-plugins-through-project-settings.md), [dec-0057-pr-flow-merge-names-the-yes](dec-0057-pr-flow-merge-names-the-yes.md), [dec-0059-bare-repo-install-in-ci](dec-0059-bare-repo-install-in-ci.md), [dec-0060-ci-installs-from-the-github-remote](dec-0060-ci-installs-from-the-github-remote.md) and [dec-0071-projects-install-from-github](dec-0071-projects-install-from-github.md). Each now names `claude-constitution-layer-kit`, the five dated facts included, though the repository had the old name on those dates. Git keeps each record as it was accepted. No other word of those records changes.
 
 <a id="r6"></a>**R6.** The edit of R5 is an exception to [kernel §5](../constitution/CONVENTIONS.md#k5) and to rule 14 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14), which stand unchanged. It sets no precedent: a later rename of a repository, a marketplace or a plugin id leaves accepted records as they stand, save the mechanical edits [kernel §5](../constitution/CONVENTIONS.md#k5) allows.
 

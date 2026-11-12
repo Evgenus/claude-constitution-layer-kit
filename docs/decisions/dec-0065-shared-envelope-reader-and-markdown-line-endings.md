@@ -13,7 +13,7 @@ decider: Eugene Chernyshov
 
 An audit of the kit's hardcoded logic on 2026-10-02 found that four places read where the envelope ends, each in its own way. The shared reader ignored trailing whitespace on a `---` line and split lines with Python's `splitlines()`. [`const-language`](../requirements.md#const-language) compared each line with `== "---"` and split on line feeds only. So a closing line `--- ` made the language gate grade the title as prose, a false red on the wrong line. Worse, with a later `---` in the body, it blanked everything down to that line, so the first section was never read: a false green. [`const-referencing`](../requirements.md#const-referencing) and [`const-locations`](../requirements.md#const-locations) kept copies that agreed with the shared reader on common input. An inventory made before any code found a fifth site, a second test in the referencing gate. It also found a second drift: Python's `splitlines()` breaks a line at a form feed, U+2028 and six other characters, which Vale and Markdown do not.
 
-The change this record rules is on one branch. Every module is a draft at `0.0.x`, so no version is bumped ([dec-0053-drafts-keep-their-versions](dec-0053-drafts-keep-their-versions.md)). [Rule 2 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r2) admits code to the shared source when it implements a kernel section and two or more modules need it, and lets a shared part be widened for one module when the widening keeps a rule the part carries for all. The choice of section 1 is the decider's instruction, given on the options the audit had argued. Four more questions, in sections 2 to 5, were put to the decider in chat, one per message, each with lettered options and one recommendation, the pick a letter. Section 6 holds what the change makes where no choice existed.
+The change this record rules is on one branch. Every module is a draft at `0.0.x`, so no version is bumped ([dec-0053-drafts-keep-their-versions](dec-0053-drafts-keep-their-versions.md)). [Rule 2 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r2) admits code to the shared source when it implements a kernel section and two or more modules need it. It lets a shared part be widened for one module when the widening keeps a rule the part carries for all. The choice of section 1 is the decider's instruction, given on the options the audit had argued. Four more questions, in sections 2 to 5, were put to the decider in chat, one per message, each with lettered options and one recommendation, the pick a letter. Section 6 holds what the change makes where no choice existed.
 
 ## 1. Whether the envelope's bounds are shared
 
@@ -23,11 +23,17 @@ The audit's item on this defect argued three ways to fix it.
   - **Pros:** routine stakes; proven green on a copy; the module's own limit that claims to read the envelope as the shared reader does becomes true.
   - **Cons:** four copies of the rule stay; the next copy can drift the same way.
 - **B. One shared helper that says where the envelope stands, used by every reader that finds its end.**
-  - **Pros:** one definition, so the modules cannot disagree; a shared acceptance item proves it in every gate that judges envelopes; admission under rule 2 holds, class K, since it implements the frontmatter block of [kernel section 1](../constitution/CONVENTIONS.md#k1) and three modules need it.
+  - **Pros:**
+    - **one definition**, so the modules cannot disagree;
+    - **a shared acceptance item proves it** in every gate that judges envelopes;
+    - **admission under rule 2 holds**, class K, since it implements the frontmatter block of [kernel section 1](../constitution/CONVENTIONS.md#k1) and three modules need it.
   - **Cons:** it touches shared code and three modules; `process` stakes, so a record and a yes.
 - **C. Normalise the text once in the shared pipeline.** Every line's trailing whitespace stripped, or CRLF turned into LF, before any module sees it.
   - **Pros:** one point fixes CRLF for every gate.
-  - **Cons:** it changes what every gate reads, not only the envelope; a trailing double space is a Markdown line break, and a length count must see the file as written; it hides the rule instead of naming it.
+  - **Cons:**
+    - **it changes what every gate reads**, not only the envelope;
+    - **a trailing double space is a Markdown line break**, and a length count must see the file as written;
+    - **it hides the rule** instead of naming it.
 
 **Recommendation.** B, by the audit's session on 2026-10-02: the drift came from copies, and only one definition stops the next one.
 
@@ -40,7 +46,10 @@ The audit's item on this defect argued three ways to fix it.
 The same audit item found a defect of the same class in [`const-doc-budgets`](../requirements.md#const-doc-budgets): its history report measures a symbolic link as the length of its target's path. It shares no code with the envelope reader.
 
 - **A. Its own item, later.** It stays out of this change and is fixed as a small routine change of its own.
-  - **Pros:** the change keeps the scope set at its start, a lesson of the change before it; this record and its audit cover one idea; another module, so the two cannot block each other.
+  - **Pros:**
+    - **the change keeps the scope set at its start**, a lesson of the change before it;
+    - **this record and its audit cover one idea**;
+    - **another module**, so the two cannot block each other.
   - **Cons:** the history report stays wrong a little longer; one more branch and pull request.
 - **B. Inside this change.** The history report follows a link inside the tree in the same branch.
   - **Pros:** one pull request closes both halves of the audit item; fixed sooner.
@@ -82,21 +91,27 @@ The helper returns offsets, so line numbers stay right whatever it calls a line.
   - **Pros:** the four gates built on the shared reader keep exactly their verdicts; the smallest change; the false green goes.
   - **Cons:** a `\x0c---` line closes the envelope where GitHub and Vale see no closer, so a gate is green on an envelope a renderer shows as text.
 - **B. Markdown's line endings only: a line feed, a CRLF, a lone carriage return.** Trailing whitespace on a delimiter is still ignored.
-  - **Pros:** the gates read the file as GitHub, Vale and every Markdown renderer do; an envelope a renderer would break is red; the false green goes.
+  - **Pros:**
+    - **the gates read the file as GitHub, Vale and every Markdown renderer do**;
+    - **an envelope a renderer would break is red**;
+    - **the false green goes**.
   - **Cons:** the shared reader's verdict changes on such rare files, in four modules; one more case in the new shared item.
 
 **Recommendation.** B, by the session: a gate's green should mean a Markdown reader sees the same envelope.
 
 **Choice.** B, by the decider, in chat on 2026-10-04.
 
-<a id="r4"></a>**R4.** A line ends at a line feed, a CRLF or a lone carriage return, and nowhere else. The envelope opens when the first line, leading byte-order marks aside, is `---` with its trailing whitespace ignored, and ends at the first later line that is `---` the same way. A line that holds one of the other characters before `---`, or after it with text, such as `\x0c---`, is no delimiter.
+<a id="r4"></a>**R4.** A line ends at a line feed, a CRLF or a lone carriage return, and nowhere else. The envelope opens when the first line, leading byte-order marks aside, is `---` with its trailing whitespace ignored. It ends at the first later line that is `---` the same way. A line that holds one of the other characters before `---`, or after it with text, such as `\x0c---`, is no delimiter.
 
 ## 5. A second copy of the line rule
 
 The verifier of the locations generator's piece found that `filling.py` held its own copy of R4's line-ending pattern, to cut the envelope into lines. No input reaches it today, since the command reads templates in a way that turns every ending into a line feed. But nothing tied the two copies together.
 
 - **A. Fix it inside this change.** The shared reader makes its line splitter public, and the generator uses it and drops its pattern.
-  - **Pros:** the rule lives once, the purpose of this change; small, inside R1's scope; the documents were not written yet, so they name it at no extra cost.
+  - **Pros:**
+    - **the rule lives once**, the purpose of this change;
+    - **small**, inside R1's scope;
+    - **the documents were not written yet**, so they name it at no extra cost.
   - **Cons:** one more public shared function for one module, to be justified under rule 2; one more commit and verifier.
 - **B. Log it as an item of its own and leave the copy.**
   - **Pros:** no more work in this change; no reachable harm today.
@@ -112,17 +127,17 @@ The verifier of the locations generator's piece found that `filling.py` held its
 
 These items carry no options. Each follows from the answers above or from the kit's rules, and each stands open to the decider's override before the yes.
 
-<a id="r6"></a>**R6.** The language gate blanks exactly the envelope `envelope_bounds` returns. Everything before its end is replaced by one empty line for each line feed it holds, so the text after it keeps the count of line feeds before it. A carriage return in the envelope is deleted, not turned into a space, so prose after a closer that ends with a lone carriage return is read and never taken for indented code. An envelope that never closes is not blanked.
+<a id="r6"></a>**R6.** The language gate blanks exactly the envelope `envelope_bounds` returns. Everything before its end is replaced by one empty line for each line feed it holds. The text after it keeps the count of line feeds before it. A carriage return in the envelope is deleted, not turned into a space. Prose after a closer that ends with a lone carriage return is read and never taken for indented code. An envelope that never closes is not blanked.
 
 <a id="r7"></a>**R7.** The referencing gate masks the envelope from the start of the file to where `envelope_bounds` says it ends, and to the end of the file when it never closes.
 
 <a id="r8"></a>**R8.** The locations generator rewrites the envelope it finds through `envelope_bounds` and `envelope_lines`, writes the rewritten block with line feeds and no byte-order mark before it, and keeps the body as the command read it.
 
-<a id="r9"></a>**R9.** The shared acceptance item S164 proves, in every gate that judges envelopes, that a `---` line with trailing whitespace and CRLF endings delimit the envelope, that a break character other than those of R4 before `---` makes no delimiter, and the offsets and line cuts of R1. A gate that judges none leaves it out, and where it blanks or masks the envelope, it proves where the envelope ends in its own items.
+<a id="r9"></a>**R9.** The shared acceptance item S164 proves, in every gate that judges envelopes, that a `---` line with trailing whitespace and CRLF endings delimit the envelope, that a break character other than those of R4 before `---` makes no delimiter, and the offsets and line cuts of R1. A gate that judges none leaves it out. Where it blanks or masks the envelope, it proves where the envelope ends in its own items.
 
 ## Applied
 
-The commits of this branch apply every item. The code of R1 and R4 to R9 was applied by the commits before the one that adds this record. That commit and the fixes of its carry audit added sentences that state the items in the documents, and the message of each commit names the sentences it added. The record is born `inactive`.
+The commits of this branch apply every item. The code of R1 and R4 to R9 was applied by the commits before the one that adds this record. That commit and the fixes of its carry audit added sentences that state the items in the documents. The message of each commit names the sentences it added. The record is born `inactive`.
 
 ## Carry list
 

@@ -11,23 +11,30 @@ decider: Eugene Chernyshov
 
 ## Context
 
-An audit of the kit's hardcoded logic on 2026-10-02 found three gaps in the shell gate of [`const-interaction`](../requirements.md#const-interaction). First, an entry of the dial `destructive` written as a path, `[./scripts/deploy.sh]`, or behind a wrapper, `[sudo, rm]`, loaded without a word and could never match. The reader takes those forms off a command before it compares. Second, an entry matched only when its words were the first words of a command, so `kubectl -n prod delete pod x` passed an entry `[kubectl, delete]`; only git's options before its verb were skipped. Third, the reader knew a fixed set of twelve wrappers and five shells, so `fish -c 'git push -f'` or `ionice -c3 rm -rf build` passed green. Two smaller findings came with them: a shell comment is read as a command, and on Windows without Git Bash, where the shell tool is `PowerShell`, the gate never runs.
+An audit of the kit's hardcoded logic on 2026-10-02 found three gaps in the shell gate of [`const-interaction`](../requirements.md#const-interaction). First, an entry of the dial `destructive` written as a path, `[./scripts/deploy.sh]`, or behind a wrapper, `[sudo, rm]`, loaded without a word and could never match. The reader takes those forms off a command before it compares. Second, an entry matched only when its words were the first words of a command. `kubectl -n prod delete pod x` passed an entry `[kubectl, delete]`; only git's options before its verb were skipped. Third, the reader knew a fixed set of twelve wrappers and five shells, so `fish -c 'git push -f'` or `ionice -c3 rm -rf build` passed green. Two smaller findings came with them: a shell comment is read as a command, and on Windows without Git Bash, where the shell tool is `PowerShell`, the gate never runs.
 
-The change this record rules is on one branch. The module is a draft at `0.0.1`, so no version is bumped ([dec-0053-drafts-keep-their-versions](dec-0053-drafts-keep-their-versions.md)). The decider kept the audit's recommended fix for the first two gaps when reading the change's plan on 2026-10-05; sections 1 and 3 hold them. Eleven more questions were put to the decider in chat, one per message, each with lettered options and one recommendation, the pick a letter; sections 2, 4 to 12 and 14 hold them. Section 13 holds what the change makes where no choice existed. The kit's own `constitution.yaml` sets no `destructive` entries, so nothing in the kit is refused.
+The change this record rules is on one branch. The module is a draft at `0.0.1`, so no version is bumped ([dec-0053-drafts-keep-their-versions](dec-0053-drafts-keep-their-versions.md)). The decider kept the audit's recommended fix for the first two gaps when reading the change's plan on 2026-10-05. Sections 1 and 3 hold them. Eleven more questions were put to the decider in chat, one per message, each with lettered options and one recommendation, the pick a letter. Sections 2, 4 to 12 and 14 hold them. Section 13 holds what the change makes where no choice existed. The kit's own `constitution.yaml` sets no `destructive` entries, so nothing in the kit is refused.
 
 ## 1. An entry the reader can never produce
 
 The audit argued four ways to treat an entry whose words the reader would never give back.
 
 - **A. Refuse it when the dials load.** The reader itself is the test: an entry that does not read as itself is a configuration failure, and the message names the entry to write.
-  - **Pros:** explicit; one rule covers paths, wrappers, assignments and shell words; the reader is its own test, so the two cannot drift; the fix names the exact entry.
+  - **Pros:**
+    - **explicit**;
+    - **one rule** covers paths, wrappers, assignments and shell words;
+    - **the reader is its own test**, so the two cannot drift;
+    - **the fix names the exact entry**.
   - **Cons:** a dials file that loaded before now fails; one new message to design.
 - **B. Rewrite each entry through the reader when it loads, in silence.**
   - **Pros:** no new message; old dials files keep working.
   - **Cons:** the consumer wrote one thing and the gate holds another, unseen; `[sudo]` alone would become an empty entry that matches every command.
 - **C. Match a path entry against the program as written.**
   - **Pros:** a consumer can gate one script and not another of the same name.
-  - **Cons:** it overturns the base-name reading of R6 of [dec-0042-interaction-module-rulings](dec-0042-interaction-module-rulings.md#r6); three spellings of one path, each missed one a silent pass; it fixes the path case only.
+  - **Cons:**
+    - **it overturns the base-name reading** of R6 of [dec-0042-interaction-module-rulings](dec-0042-interaction-module-rulings.md#r6);
+    - **three spellings of one path**, each missed one a silent pass;
+    - **it fixes the path case only**.
 - **D. Only state it as a limit.**
   - **Pros:** no code.
   - **Cons:** the gate stays a silent no-op for a consumer who misses the line, while the module already refuses a misspelt key for this reason.
@@ -43,11 +50,18 @@ The audit argued four ways to treat an entry whose words the reader would never 
 Option-tolerant matching reopens the matching of [res-0008-const-interaction](../research/res-0008-const-interaction.md), and the `PowerShell` tool is a platform fact that comparison never names. [Rule 7 of plc-0005-research](../policies/plc-0005-research.md#r7) asks a new survey for a module revision that reopens a mechanism.
 
 - **A. A new survey, limited to the reopened mechanisms.**
-  - **Pros:** meets both triggers of rule 7; the PowerShell facts and the man pages' dates are checked before code; the later questions rest on checked facts.
+  - **Pros:**
+    - **meets both triggers of rule 7**;
+    - **the PowerShell facts and the man pages' dates are checked** before code;
+    - **the later questions rest on checked facts**.
   - **Cons:** one more agent run and a long document, about an hour more; the first replacement of a survey in the kit.
 - **B. No survey; this record's context carries the reasoning.**
   - **Pros:** faster; fewer documents; the audit had already measured the false prompts.
-  - **Cons:** it arguably breaks rule 7; the PowerShell and man-page facts stay unchecked; the audit's measure came from local session files, not a dated public source; res-0008 stays active while it no longer describes the module.
+  - **Cons:**
+    - **it arguably breaks rule 7**;
+    - **the PowerShell and man-page facts stay unchecked**;
+    - **the audit's measure came from local session files**, not a dated public source;
+    - **res-0008 stays active** while it no longer describes the module.
 
 **Recommendation.** A, by the session: both triggers hold, the PowerShell question turns on platform behaviour the kit never takes from memory, and an hour is cheaper than an audit round that finds an unchecked fact.
 
@@ -57,10 +71,21 @@ Option-tolerant matching reopens the matching of [res-0008-const-interaction](..
 
 ## 3. Options between an entry's words
 
-The survey weighed five ways in its section 2: skip option words between an entry's words; a field per entry listing its program's options that take a value; a dial of wrappers; match the entry anywhere in the command; or state the limit only. The dial of wrappers is the question of section 6, so four ways are argued here.
+The survey weighed five ways in its section 2:
+
+- **skip option words** between an entry's words;
+- **a field per entry** listing its program's options that take a value;
+- **a dial of wrappers**;
+- **match the entry anywhere** in the command;
+- **or state the limit only**.
+
+The dial of wrappers is the question of section 6, so four ways are argued here.
 
 - **A. Skip options between an entry's words.**
-  - **Pros:** closes the gap for every program without a new dial; lets an entry name a runner; on 1,281 commands it added one prompt, a true one.
+  - **Pros:**
+    - **closes the gap for every program** without a new dial;
+    - **lets an entry name a runner**;
+    - **on 1,281 commands** it added one prompt, a true one.
   - **Cons:** a rare false prompt where an option's value equals the next entry word.
 - **B. A field per entry listing its program's options that take a value.**
   - **Pros:** exact, no false prompt.
@@ -83,7 +108,11 @@ The survey weighed five ways in its section 2: skip option words between an entr
 The reader skipped git's global options before its verb by a fixed list. With R3, the matcher skips them for every program. Checked on a copy, R3 alone matched every git form the tests used, and it also caught `git --exec-path push -f`, which the list let through.
 
 - **A. Remove git's skip; R3 covers it.**
-  - **Pros:** one list and one special case fewer; git under the same rule as every program; the `--exec-path` miss fixed with no list to keep; an entry such as `[git, -C]` then reads as itself.
+  - **Pros:**
+    - **one list and one special case fewer**;
+    - **git under the same rule as every program**;
+    - **the `--exec-path` miss fixed** with no list to keep;
+    - **an entry such as `[git, -C]`** then reads as itself.
   - **Cons:** a contrived false prompt such as `git -C restore status`; the explain shows git's options; the survey had advised keeping the exact skip.
 - **B. Keep the skip in code, its `--exec-path` fixed.**
   - **Pros:** exact; the explain reads as before; the survey's advice.
@@ -174,7 +203,7 @@ Proposed as a shape to accept or override.
 
 **Choice.** A, by the decider, in chat on 2026-10-05.
 
-<a id="r8"></a>**R8.** A wrapper entry has `command` (one or more words), `with_value`, `positionals`, `numbers`, `command_flags` and `drop`; a shell entry has `command` (one word), `with_value`, `command_flags` and `drop`. For both, `--` ends the options and `--name=value` is one word. In a wrapper's short cluster the first letter that is in `with_value` or `command_flags` ends it, its value the rest of the word or else the next word. A wrapper's command follows its options, then `positionals` words, then up to `numbers` words that are numbers; a command flag's value and the words after it are the command. A shell's short cluster is read two ways, and every string either way finds is read: bash's, where each valued letter takes the next word, and the way of zsh and ksh, where the cluster's command-flag letters are taken out first and the first valued letter of those left takes the letters after it, else the next word. A command-flag letter anywhere in the cluster counts in both, and a command flag then takes its string (R10).
+<a id="r8"></a>**R8.** A wrapper entry has `command` (one or more words), `with_value`, `positionals`, `numbers`, `command_flags` and `drop`; a shell entry has `command` (one word), `with_value`, `command_flags` and `drop`. For both, `--` ends the options and `--name=value` is one word. In a wrapper's short cluster the first letter that is in `with_value` or `command_flags` ends it, its value the rest of the word or else the next word. A wrapper's command follows its options, then `positionals` words, then up to `numbers` words that are numbers. A command flag's value and the words after it are the command. A shell's short cluster is read two ways, and every string either way finds is read: bash's, where each valued letter takes the next word, and the way of zsh and ksh, where the cluster's command-flag letters are taken out first and the first valued letter of those left takes the letters after it, else the next word. A command-flag letter anywhere in the cluster counts in both, and a command flag then takes its string (R10).
 
 ## 9. Whether a replaced default is named
 
@@ -244,7 +273,7 @@ A replaced default can weaken the gate: `{command: [sudo]}` takes away sudo's op
 
 **Choice.** "A, but no PowerShell for now", by the decider, in chat on 2026-10-05. Asked which reading was meant, the decider confirmed: no PowerShell in this change, the gap stated, the widening later.
 
-<a id="r12"></a>**R12.** The gate's matcher stays `Bash`. Wherever the `PowerShell` tool is the shell, the gate examines nothing and says nothing; the module states this as a limit, and the widening is deferred with its signal.
+<a id="r12"></a>**R12.** The gate's matcher stays `Bash`. Wherever the `PowerShell` tool is the shell, the gate examines nothing and says nothing. The module states this as a limit, and the widening is deferred with its signal.
 
 ## 13. What the change makes where no choice existed
 
@@ -252,7 +281,19 @@ These items carry no options. Each follows from the answers above or from the mo
 
 <a id="r13"></a>**R13.** `--` ends a wrapper's or a shell's options, as the programs do. `exec` is a wrapper, its `-a` taking a value, and no longer a shell word.
 
-<a id="r14"></a>**R14.** A reader dial that would load and do nothing is a configuration failure at every entry point. The shapes are: not a list or a mapping; an unknown field; a bad `command`; a wrapper or a shell whose word the reader takes off first, a shell word or an assignment; a bad option; one word in both `with_value` and `command_flags`; a shell with no `command_flags`; a count that is not a whole number; a bad `drop`, or one naming no default; one command twice; one word both a wrapper and a shell.
+<a id="r14"></a>**R14.** A reader dial that would load and do nothing is a configuration failure at every entry point. The shapes are:
+
+- **not a list or a mapping**;
+- **an unknown field**;
+- **a bad `command`**;
+- **a wrapper or a shell** whose word the reader takes off first, a shell word or an assignment;
+- **a bad option**;
+- **one word in both** `with_value` and `command_flags`;
+- **a shell with no `command_flags`**;
+- **a count that is not a whole number**;
+- **a bad `drop`**, or one naming no default;
+- **one command twice**;
+- **one word both a wrapper and a shell**.
 
 <a id="r15"></a>**R15.** The module states as limits what the reader does not see or reads more than runs: runners such as `uv run` unless a dial names them, `watch`, `script`, `nix-shell --run`, an option between a multi-word wrapper's words, an abbreviated long option, fish's attached short value (`fish -c'…'`), and a POSIX shell given `-c` twice, which reads the later string too.
 
@@ -261,7 +302,11 @@ These items carry no options. Each follows from the answers above or from the mo
 The module document grew from 64,248 to about 85,000 characters, past its 66,000 `module-documents` ceiling, at warning. Most of the growth carries the rulings above.
 
 - **A. Leave it at warning; shorten it as work of its own.**
-  - **Pros:** this change keeps to the rulings it was opened for; nothing blocks; the shortening is audited on its own; the same call as for the shared-code page.
+  - **Pros:**
+    - **this change keeps to the rulings** it was opened for;
+    - **nothing blocks**;
+    - **the shortening is audited on its own**;
+    - **the same call as for the shared-code page**.
   - **Cons:** the document stands over its ceiling until then; the warning shows on every edit.
 - **B. Shorten it inside this change.**
   - **Pros:** the change closes within its ceiling.
@@ -274,11 +319,11 @@ The module document grew from 64,248 to about 85,000 characters, past its 66,000
 
 **Choice.** A, by the decider, in chat on 2026-10-05.
 
-<a id="r16"></a>**R16.** The module document stands over its ceiling at warning after this change; its shortening, which moves text that repeats the code or another section and keeps every ruling, is a work item of its own.
+<a id="r16"></a>**R16.** The module document stands over its ceiling at warning after this change. Its shortening, which moves text that repeats the code or another section and keeps every ruling, is a work item of its own.
 
 ## Applied
 
-The commits of this branch apply every item. The commits before the one that adds this record changed the code and wrote the documents' sentences; the message of each commit names what it changed and the sentences it added. The commit that adds this record adds the module document's row for it and the pending entry of R16. The record is born `inactive`.
+The commits of this branch apply every item. The commits before the one that adds this record changed the code and wrote the documents' sentences. The message of each commit names what it changed and the sentences it added. The commit that adds this record adds the module document's row for it and the pending entry of R16. The record is born `inactive`.
 
 ## Carry list
 

@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-[Rule 5 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r5) said that a renumbered record is accepted again under its new id. It said nothing of a renamed one. [Kernel §1](../constitution/CONVENTIONS.md#k1) lets an item's `id` change in three cases, and the third is a rename: a catalog whose form changes, as when its width grows, renames each of its items once. After such a rename, every earlier `Accepted:` trailer names an id that no record carries. The gap was logged on 2026-10-12 in [item 9.24 of the rollout plan](../rollout-plan.md#s9-24), to wait for a signal. The decider's ask of 2026-11-11, to finish the plan with its waiting items, started it without one. No catalog of the kit has changed its form yet.
+[Rule 5 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r5) said that a renumbered record is accepted again under its new id. It said nothing of a renamed one. [Kernel §1](../constitution/CONVENTIONS.md#k1) lets an item's `id` change in three cases. The third is a rename: a catalog whose form changes, as when its width grows, renames each of its items once. After such a rename, every earlier `Accepted:` trailer names an id that no record carries. The gap was logged on 2026-10-12 in [item 9.24 of the rollout plan](../rollout-plan.md#s9-24), to wait for a signal. The decider's ask of 2026-11-11, to finish the plan with its waiting items, started it without one. No catalog of the kit has changed its form yet.
 
 The kit's `scripts/check-carry-lists.py` already treats a renamed record as it treats a renumbered one. It reads a file under a new name as a record the change adds: its audit scope lists the record in full under that name, and it refuses a receipt pinned to a commit where the record stood under its old id. Its docstring and its note said "renumbered" alone.
 
@@ -22,10 +22,14 @@ The kit's `scripts/check-carry-lists.py` already treats a renamed record as it t
   - **Cons:** a rename of a whole catalog means every record is read in full and accepted again in one merge, which is a large audit.
 - **B. Accepted again, but the audit reads only the rename.** The readers check the new id and the file name, not the record's body.
   - **Pros:** a rename of many records stays cheap; rule 14 of the same policy says a rename is no edit of a record's body.
-  - **Cons:** the check's scope must tell a renamed record from an added one, which is new code for a case nobody has met; two rules for two kinds of id change.
+  - **Cons:**
+    - **the check's scope must tell a renamed record from an added one**, which is new code for a case nobody has met;
+    - **two rules for two kinds of id change**.
 - **C. A renamed record keeps its acceptance.** The check follows the old id to the new one, and no second yes is asked.
   - **Pros:** no second yes for a record whose rulings did not change.
-  - **Cons:** the check must read renames from the history, which is new machinery for a failure nobody has hit; an old trailer would count for an id it never named.
+  - **Cons:**
+    - **the check must read renames from the history**, which is new machinery for a failure nobody has hit;
+    - **an old trailer would count for an id it never named**.
 
 ## Recommendation
 

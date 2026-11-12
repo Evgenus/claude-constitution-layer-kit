@@ -18,7 +18,10 @@ The first module, [`const-meta-types`](../requirements.md#const-meta-types), was
 The [A1.4](../requirements.md#a1-4) row read "declares a valid type"; the module's invariant says an id is "never reused". The draft blocked a write whose id is already carried by another governed document in the present tree. The validator called this beyond the row.
 
 - **A. Keep it, present tree only, and amend the row text** to "declares a valid envelope (id unique in the tree, type, title, status)".
-  - **Pros:** catches the copy-paste of an old envelope at the moment it happens, the accumulating failure; one frontmatter read per governed document per write; the module's invariant named it.
+  - **Pros:**
+    - **catches the copy-paste of an old envelope** at the moment it happens, the accumulating failure;
+    - **one frontmatter read** per governed document per write;
+    - **the module's invariant named it**.
   - **Cons:** the kernel schema has no uniqueness rule; machinery before a consumer hit it; a per-write cost growing with the repository.
 - **B. Drop it to the module's deferred list** with the signal "a consumer commit note on a duplicated id".
   - **Pros:** exactly the row as written; less code; the kernel-literal reading.
@@ -54,7 +57,10 @@ Recommendation A. Chosen A by the decider in chat on 2026-09-18. Applied: the mo
   - **Cons:** the evident intent to govern goes unmet quietly; the signal is a note, easy to miss.
 - **B. Configuration failure in both modes whenever the namespace exists.**
   - **Pros:** loud at the first write and in CI; a one-document fix, named.
-  - **Cons:** a module rules what the kernel ruled otherwise ([law 1 of CLAUDE.md](../../CLAUDE.md#law-1)); every write reports it; a `territory` key in a non-policy namespace is legal per the schema.
+  - **Cons:**
+    - **a module rules what the kernel ruled otherwise** ([law 1 of CLAUDE.md](../../CLAUDE.md#law-1));
+    - **every write reports it**;
+    - **a `territory` key in a non-policy namespace** is legal per the schema.
 - **C. Amend the kernel** to call such a namespace a defect, then B.
   - **Pros:** the loud posture with the kernel's authority.
   - **Cons:** a kernel change before any consumer hit the failure; delays the module's yes.

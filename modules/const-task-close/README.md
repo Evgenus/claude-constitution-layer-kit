@@ -3,7 +3,7 @@
 <a id="a1"></a>
 ## What it gives you
 
-Task close as a single act: a change that touches code covered by current-state documents updates them or declares no impact; a close procedure that merges deltas, deletes working files and sets the record inactive; and a dirty tree at turn end warned or blocked.
+Task close as a single act. A change that touches code covered by current-state documents updates them or declares no impact. A close procedure merges deltas, deletes working files and sets the record inactive. At turn end, a dirty tree gets a warning or a block.
 
 In plain words: a current-state document is a page that says how things are now. When code changes, the page that describes it changes in the same change, one reviewed set of commits. Otherwise a line in a commit declares no impact and says why. A skill closes a task as one act. It merges into those pages what the change made different, the deltas. It deletes the working files, the scratch files made for the task. It sets the task's record, the file that tracks the task, to inactive, which means the task is history. At the end of every turn, one reply of Claude, a dirty tree, which holds uncommitted changes, is reported. Under the default, louder setting the session is asked to commit what is finished. Under the quieter setting the user sees a notice.
 
@@ -30,17 +30,17 @@ Two skills load on their own. `close-task` loads when a task, a branch or a pull
 <a id="a4"></a>
 ## How it works
 
-**At turn end.** A hook runs when the session's turn ends. It asks git whether the working tree is clean, and reports a dirty tree once per turn with the commit to make. Under the default, louder setting, it is a request the model weighs, not a wall: the second stop of a turn always lets it end. Under the quieter setting, it is a notice to the user alone. While a subagent, a teammate or a workflow of the session still runs, the report waits until none does, because the tree may hold that agent's files. It does not fire on a user interrupt, and never in a session that has not loaded the plugin.
+**At turn end.** A hook runs when the session's turn ends. It asks git whether the working tree is clean, and reports a dirty tree once per turn with the commit to make. Under the default, louder setting, it is a request the model weighs, not a wall: the second stop of a turn always lets it end. Under the quieter setting, it is a notice to the user alone. While a subagent, a teammate or a workflow of the session still runs, the report waits until none does. It waits because the tree may hold that agent's files. It does not fire on a user interrupt, and never in a session that has not loaded the plugin.
 
 **At session start.** A hook prints one line that names the two skills and the moment each applies. It reads nothing and checks nothing; it only tells the session when to load a skill. It runs again after a resume, a compaction or a clear.
 
-**At a subagent's start.** A second hook gives the same line to every subagent, since a subagent starts with a context of its own and does not see the first line. It checks nothing either.
+**At a subagent's start.** A second hook gives the same line to every subagent. This is because a subagent starts with a context of its own and does not see the first line. It checks nothing either.
 
 **The scan.** The range check, run from the command line. On a branch it examines the commits since the trunk; on the trunk, the last landed change. For each pair of the map it compares the changed paths with the pair's code and documents. It reads the declaration lines from the commits' trailers, or from a file holding the pull request's description. It reports every pair that is neither updated nor declared. It compares commits, so an update still sitting uncommitted in the tree does not count. It holds that a declaration is present, well formed and names a pair. Whether the reason is true stays with the reviewer, and every declaration used is printed for them.
 
-**The skill `close-task`.** A procedure in prose for the close of a task: name what the change owes, merge the deltas, declare no impact only where it is true, delete the working files, set the record inactive, commit as one change, and check again. It checks nothing. The module names it at session start, at each subagent's start and after every red of the scan, so it is loaded when a task is being finished.
+**The skill `close-task`.** A procedure in prose for the close of a task. Name what the change owes, merge the deltas, declare no impact only where it is true. Delete the working files, set the record inactive, commit as one change, and check again. It checks nothing. The module names it at session start, at each subagent's start and after every red of the scan. So it is loaded when a task is being finished.
 
-**The skill `commit-before-edit`.** A procedure in prose for committing first: commit a dirty tree before the first edit of any change, commit again after each coherent change, never end a turn dirty, and roll back through git. It checks nothing. The module names it in the same places and after every red of the turn-end hook.
+**The skill `commit-before-edit`.** A procedure in prose for committing first. Commit a dirty tree before the first edit of any change, and commit again after each coherent change. Never end a turn dirty, and roll back through git. It checks nothing. The module names it in the same places and after every red of the turn-end hook.
 
 **Settings.** The module works with no configuration in a repository that has a `constitution.yaml` naming `module_prefix: const-` at least. The turn-end hook then judges the tree, and the range check examines zero pairs and says so. With no such file, the hook and the scan skip, and each says so. The coverage map switches the range check on. Other dials name the trunk branch and the remote whose copy of it is read. Two more name the key of the declaration line, and patterns of a task's working files. The scan lists such files while they are still tracked. Two dials are every gate's: how loud the turn-end finding is, and where the log goes.
 
