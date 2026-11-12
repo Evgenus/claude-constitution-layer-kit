@@ -282,7 +282,7 @@ What the module counts of its own effect in a project that installs it, [aspect 
 | W5 | the skill `ask-or-decide` is loaded before a message that puts lettered options | each message of the assistant with bold letters A and B opening bullets | `pattern` | B5 |
 | W6 | a choice is put as lettered options, each with Pros and Cons sub-bullets, one recommendation, the decider named | each message of lettered options | `pattern` | B6 |
 | W7 | the main branch holds no document that carries an open-question marker | each first-parent commit of the main branch in the window, the last 50, scanned by the module's `--scan` | `pattern` | B4 |
-| W8 | a question is put to the user only at recorded stakes or at a genuine blocker. Below that line the session decides and notes it in the commit message | each message of the assistant that puts a question | `reader` | B6 |
+| W8 | `A question is put to the user only at recorded stakes or at a genuine blocker; below that line the session makes the reasonable call and notes it in the commit message.` | each message of the assistant that puts a question | `reader` | B6 |
 
 **Judge** *(template rule)*. As [template §13](../../module-template/MODULE.md#t13) says; W8 is the one reader rule.
 

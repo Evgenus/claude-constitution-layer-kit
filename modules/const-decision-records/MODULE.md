@@ -297,7 +297,7 @@ This section says what the module counts of its own effect in a project that ins
 | W4 | after a block, the skill `record-decision` that the block names is loaded before the file is touched | each block whose text names the skill | `pattern` | B5 |
 | W5 | the skill `record-decision` is loaded before a decision record is written | each Write of a Markdown file in record territory | `pattern` | B5 |
 | W6 | the main branch holds no decision record with a missing or invalid type, stakes or decider | each first-parent commit of the main branch in the window, the last 50, scanned by the module's `--scan` | `pattern` | B4 |
-| W7 | a ruling the user makes in chat at recorded stakes is written down as a record. One below that line is left as a commit note | each human turn that answers a message of lettered options with one of its letters | `reader` | B6 |
+| W7 | `A ruling the user makes in chat at recorded stakes (process, product, architecture) is written down as a decision record, and one below that line is left as a commit note.` | each human turn that answers a message of lettered options with one of its letters | `reader` | B6 |
 
 **Judge** *(template rule)*. As [template §13](../../module-template/MODULE.md#t13) says; W7 is the one reader rule.
 
