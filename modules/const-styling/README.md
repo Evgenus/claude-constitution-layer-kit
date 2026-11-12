@@ -3,7 +3,7 @@
 <a id="a1"></a>
 ## What it gives you
 
-One style guide every governed document follows. It covers diagrams, prose against lists and tables, list and table format, headings, code blocks, emphasis and callouts. Departures are declared per territory or per document in the dials file, with a reason. A scan reports the traces of the defaults that no departure allows. Plus a skill that applies the defaults before a diagram, a table, a formula or a template is written.
+One style guide every governed document follows — diagrams, prose against lists and tables, list and table format, headings, code blocks, emphasis, callouts — with departures declared per territory or per document in the dials file with a reason; a scan reports the traces of the defaults that no departure allows. Plus a skill that applies the defaults before a diagram, a table, a formula or a template is written.
 
 In plain words: the project owns one style guide, copied from the text the module ships, and every governed document follows it. A governed document is a Markdown file that the project's rules cover. A territory is the group of such files that share a path pattern. A default is one rule of the guide, with a pair of examples. A skill is a procedure that Claude loads when a task needs it. This one brings the guide to the session before it draws a diagram or writes a table. A scan is a check that reads the whole repository and reports what it finds. It looks for twelve traces of a broken default. A trace is a line shape, such as a fenced block with no language. A departure is a place where a document may break a default. It is declared in the dials file with its reason. The dials file is the project's `constitution.yaml`, which holds each module's settings.
 
