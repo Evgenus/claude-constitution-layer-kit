@@ -687,9 +687,9 @@ def report(findings: list[Finding], documents: int) -> int:
     return EXIT_GREEN
 
 
-RECORD_PATH = "docs/decisions/dec-0016-sample-ruling.md"
+RECORD_PATH = "docs/decisions/dec-0016-yes-on-the-change.md"
 NOTE_PATH = "docs/policies/p.md"
-BAD_NO_ANCHOR = "See R7 of [dec-0016-sample-ruling](../decisions/dec-0016-sample-ruling.md) here.\n"
+BAD_NO_ANCHOR = "See R7 of [dec-0016-yes-on-the-change](../decisions/dec-0016-yes-on-the-change.md) here.\n"
 GATE_PATH = "shared/MESSAGES.md"
 MODULE_PATH = "modules/const-x/MODULE.md"
 SHARED_LINES = (  # the shared messages page in miniature: a table, and the paragraph of g3a
@@ -771,162 +771,164 @@ def cases_forms(tally: Tally) -> None:
     red: dict[str, tuple[str, str, str, tuple[int, ...]]] = {  # case: path, green, red, lines by hand
         "a ruling of a record linked with no anchor": (
             NOTE_PATH,
-            "See R7 of [dec-0016-sample-ruling](../decisions/dec-0016-sample-ruling.md#r7) here.\n",
+            "See R7 of [dec-0016-yes-on-the-change](../decisions/dec-0016-yes-on-the-change.md#r7) here.\n",
             BAD_NO_ANCHOR,
             (1,),
         ),
         "a ruling linked to another ruling's anchor": (
             NOTE_PATH,
-            "See R7 of [dec-0016-sample-ruling](../decisions/dec-0016-sample-ruling.md#r7) here.\n",
-            "See R7 of [dec-0016-sample-ruling](../decisions/dec-0016-sample-ruling.md#r8) here.\n",
+            "See R7 of [dec-0016-yes-on-the-change](../decisions/dec-0016-yes-on-the-change.md#r7) here.\n",
+            "See R7 of [dec-0016-yes-on-the-change](../decisions/dec-0016-yes-on-the-change.md#r8) here.\n",
             (1,),
         ),
         "a ruling called an item, with no anchor": (
             NOTE_PATH,
-            "The deferred item R7 of [dec-0016-sample-ruling](dec-0016-sample-ruling.md#r7) holds.\n",
-            "The deferred item R7 of [dec-0016-sample-ruling](dec-0016-sample-ruling.md) holds.\n",
+            "The deferred item R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7) holds.\n",
+            "The deferred item R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md) holds.\n",
             (1,),
         ),
         "a range with a hyphen linking its last ruling": (
             NOTE_PATH,
-            "R1-R4 of [dec-0018-sample-range](dec-0018-sample-range.md#r1) holds.\n",
-            "R1-R4 of [dec-0018-sample-range](dec-0018-sample-range.md#r4) holds.\n",
+            "R1-R4 of [dec-0018-dials-schema](dec-0018-dials-schema.md#r1) holds.\n",
+            "R1-R4 of [dec-0018-dials-schema](dec-0018-dials-schema.md#r4) holds.\n",
             (1,),
         ),
         "a range with a spaced dash, read as its last ruling": (
             NOTE_PATH,
-            "R2–R3 of [dec-0018-sample-range](dec-0018-sample-range.md#r2) holds.\n",
-            "R2 – R3 of [dec-0018-sample-range](dec-0018-sample-range.md#r2) holds.\n",
+            "R2–R3 of [dec-0018-dials-schema](dec-0018-dials-schema.md#r2) holds.\n",
+            "R2 – R3 of [dec-0018-dials-schema](dec-0018-dials-schema.md#r2) holds.\n",
             (1,),
         ),
         "a range linking its last ruling": (
             NOTE_PATH,
-            "R18 to R27 of [dec-0018-sample-range](dec-0018-sample-range.md#r18) holds.\n",
-            "R18 to R27 of [dec-0018-sample-range](dec-0018-sample-range.md#r27) holds.\n",
+            "R18 to R27 of [dec-0018-dials-schema](dec-0018-dials-schema.md#r18) holds.\n",
+            "R18 to R27 of [dec-0018-dials-schema](dec-0018-dials-schema.md#r27) holds.\n",
             (1,),
         ),
         "a list with 'and' linking its second ruling": (
             NOTE_PATH,
-            "R5 and R34 of [dec-0020-sample-list](dec-0020-sample-list.md#r5) hold.\n",
-            "R5 and R34 of [dec-0020-sample-list](dec-0020-sample-list.md#r34) hold.\n",
+            "R5 and R34 of [dec-0020-gate-script-rules](dec-0020-gate-script-rules.md#r5) hold.\n",
+            "R5 and R34 of [dec-0020-gate-script-rules](dec-0020-gate-script-rules.md#r34) hold.\n",
             (1,),
         ),
         "a list with a comma and 'or' linking no anchor": (
             NOTE_PATH,
-            "R5, R6 or R7 of [dec-0020-sample-list](dec-0020-sample-list.md#r5) hold.\n",
-            "R5, R6 or R7 of [dec-0020-sample-list](dec-0020-sample-list.md) hold.\n",
+            "R5, R6 or R7 of [dec-0020-gate-script-rules](dec-0020-gate-script-rules.md#r5) hold.\n",
+            "R5, R6 or R7 of [dec-0020-gate-script-rules](dec-0020-gate-script-rules.md) hold.\n",
             (1,),
         ),
         "a list with an en dash linking a wrong anchor": (
             NOTE_PATH,
-            "R5–R7 of [dec-0020-sample-list](dec-0020-sample-list.md#r5) hold.\n",
-            "R5–R7 of [dec-0020-sample-list](dec-0020-sample-list.md#r7) hold.\n",
+            "R5–R7 of [dec-0020-gate-script-rules](dec-0020-gate-script-rules.md#r5) hold.\n",
+            "R5–R7 of [dec-0020-gate-script-rules](dec-0020-gate-script-rules.md#r7) hold.\n",
             (1,),
         ),
         "a citation wrapped over two lines": (
             NOTE_PATH,
-            "Text R7 of\n[dec-0016-sample-ruling](dec-0016-sample-ruling.md#r7) here.\n",
-            "Text R7 of\n[dec-0016-sample-ruling](dec-0016-sample-ruling.md) here.\n",
+            "Text R7 of\n[dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7) here.\n",
+            "Text R7 of\n[dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md) here.\n",
             (1,),
         ),
         "a citation in a list item's continuation line": (
             NOTE_PATH,
-            "- a note\n    R7 of [dec-0016-sample-ruling](dec-0016-sample-ruling.md#r7)\n",
-            "- a note\n    R7 of [dec-0016-sample-ruling](dec-0016-sample-ruling.md)\n",
+            "- a note\n    R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7)\n",
+            "- a note\n    R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md)\n",
             (2,),
         ),
         "a citation on an indented line that continues a paragraph": (
             NOTE_PATH,
-            "Text.\n    R7 of [dec-0016-sample-ruling](dec-0016-sample-ruling.md#r7)\n",
-            "Text.\n    R7 of [dec-0016-sample-ruling](dec-0016-sample-ruling.md)\n",
+            "Text.\n    R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7)\n",
+            "Text.\n    R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md)\n",
             (2,),
         ),
         "a citation in a list item's paragraph after a blank line, indented four spaces": (
             NOTE_PATH,
-            "- item\n\n    R7 of [dec-0016-sample-ruling](dec-0016-sample-ruling.md#r7)\n",
-            "- item\n\n    R7 of [dec-0016-sample-ruling](dec-0016-sample-ruling.md)\n",
+            "- item\n\n    R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7)\n",
+            "- item\n\n    R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md)\n",
             (3,),
         ),
         "a record linked, then its handle, with no anchor": (
             NOTE_PATH,
-            "[dec-0016-sample-ruling](dec-0016-sample-ruling.md#r7) R7 holds.\n",
-            "[dec-0016-sample-ruling](dec-0016-sample-ruling.md) R7 holds.\n",
+            "[dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7) R7 holds.\n",
+            "[dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md) R7 holds.\n",
             (1,),
         ),
         "a record linked, then its handle, with another anchor": (
             NOTE_PATH,
-            "[dec-0016-sample-ruling](dec-0016-sample-ruling.md#r7) R7 holds.\n",
-            "[dec-0016-sample-ruling](dec-0016-sample-ruling.md#r6) R7 holds.\n",
+            "[dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7) R7 holds.\n",
+            "[dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r6) R7 holds.\n",
             (1,),
         ),
         "a record's 's handle with another anchor": (
             NOTE_PATH,
-            "[dec-0016-sample-ruling](dec-0016-sample-ruling.md#r24)'s R24 holds.\n",
-            "[dec-0016-sample-ruling](dec-0016-sample-ruling.md#r4)'s R24 holds.\n",
+            "[dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r24)'s R24 holds.\n",
+            "[dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r4)'s R24 holds.\n",
             (1,),
         ),
         "a ruling of a record named by its bare id": (
             NOTE_PATH,
-            "See R7 of [dec-0016-sample-ruling](dec-0016-sample-ruling.md#r7) here.\n",
-            "See R7 of dec-0016-sample-ruling here.\n",
+            "See R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7) here.\n",
+            "See R7 of dec-0016-yes-on-the-change here.\n",
             (1,),
         ),
         "a ruling of a record named by a short bare id": (
             NOTE_PATH,
-            "See R7 of [dec-0016-sample-ruling](dec-0016-sample-ruling.md#r7) here.\n",
+            "See R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7) here.\n",
             "See R7 of dec-0016 here.\n",
             (1,),
         ),
         "two findings on two lines, one correct between them": (
             NOTE_PATH,
-            "R1 of [dec-0016-sample-ruling](dec-0016-sample-ruling.md#r1)\n"
-            "R2 of [dec-0016-sample-ruling](dec-0016-sample-ruling.md#r2)\n"
-            "R3 of [dec-0016-sample-ruling](dec-0016-sample-ruling.md#r3)\n",
-            "R1 of dec-0016-sample-ruling\n"
-            "R2 of [dec-0016-sample-ruling](dec-0016-sample-ruling.md#r2)\n"
-            "R3 of dec-0016-sample-ruling\n",
+            "R1 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r1)\n"
+            "R2 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r2)\n"
+            "R3 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r3)\n",
+            "R1 of dec-0016-yes-on-the-change\n"
+            "R2 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r2)\n"
+            "R3 of dec-0016-yes-on-the-change\n",
             (1, 3),
         ),
         "a citation after the section Carry list ends": (
-            "docs/decisions/dec-0005-sample-path.md",
-            "## Carry list\n\nR7 of dec-0016-sample-ruling\n\n## After\n\n"
-            "R7 of [dec-0016-sample-ruling](dec-0016-sample-ruling.md#r7)\n",
-            "## Carry list\n\nR7 of dec-0016-sample-ruling\n\n## After\n\nR7 of dec-0016-sample-ruling\n",
+            "docs/decisions/dec-0005-reference-forms.md",
+            "## Carry list\n\nR7 of dec-0016-yes-on-the-change\n\n## After\n\n"
+            "R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7)\n",
+            "## Carry list\n\nR7 of dec-0016-yes-on-the-change\n\n## After\n\n"
+            "R7 of dec-0016-yes-on-the-change\n",
             (7,),
         ),
         "a citation after a fenced block closes": (
             NOTE_PATH,
-            "```\nR7 of dec-0016-sample-ruling\n```\n"
-            "R7 of [dec-0016-sample-ruling](dec-0016-sample-ruling.md#r7)\n",
-            "```\nR7 of dec-0016-sample-ruling\n```\nR7 of dec-0016-sample-ruling\n",
+            "```\nR7 of dec-0016-yes-on-the-change\n```\n"
+            "R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7)\n",
+            "```\nR7 of dec-0016-yes-on-the-change\n```\nR7 of dec-0016-yes-on-the-change\n",
             (4,),
         ),
         "a citation after a code span on the same line": (
             NOTE_PATH,
-            "`R1 of dec-0016-sample-ruling` and "
-            "R7 of [dec-0016-sample-ruling](dec-0016-sample-ruling.md#r7)\n",
-            "`R1 of dec-0016-sample-ruling` and R7 of dec-0016-sample-ruling\n",
+            "`R1 of dec-0016-yes-on-the-change` and "
+            "R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7)\n",
+            "`R1 of dec-0016-yes-on-the-change` and R7 of dec-0016-yes-on-the-change\n",
             (1,),
         ),
         "a citation after a comment closes": (
             NOTE_PATH,
-            "<!-- R7 of dec-0016-sample-ruling -->\n"
-            "R7 of [dec-0016-sample-ruling](dec-0016-sample-ruling.md#r7)\n",
-            "<!-- R7 of dec-0016-sample-ruling -->\nR7 of dec-0016-sample-ruling\n",
+            "<!-- R7 of dec-0016-yes-on-the-change -->\n"
+            "R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7)\n",
+            "<!-- R7 of dec-0016-yes-on-the-change -->\nR7 of dec-0016-yes-on-the-change\n",
             (2,),
         ),
     }
     wrong = (
-        "R7 of dec-0016-sample-ruling and R7 of [dec-0016-sample-ruling](dec-0016-sample-ruling.md#r8) R7.\n"
+        "R7 of dec-0016-yes-on-the-change"
+        " and R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r8) R7.\n"
     )
     green: dict[str, tuple[str, str]] = {  # case: path, text with the wrong spelling not read
         "a research comparison": ("docs/research/r.md", wrong),
         "the section Carry list": (
-            "docs/decisions/dec-0005-sample-path.md",
+            "docs/decisions/dec-0005-reference-forms.md",
             "## Carry list\n\n1. " + wrong,
         ),
         "a section Carry list of a deeper heading, up to the end": (
-            "docs/decisions/dec-0005-sample-path.md",
+            "docs/decisions/dec-0005-reference-forms.md",
             "## Rulings\n\n### Carry list\n\n" + wrong + "\n#### Inside\n\n" + wrong,
         ),
         "a fenced block": (NOTE_PATH, "```\n" + wrong + "```\n"),
@@ -934,20 +936,20 @@ def cases_forms(tally: Tally) -> None:
         "an indented code block": (NOTE_PATH, "Text.\n\n    " + wrong),
         "a code span": (
             NOTE_PATH,
-            "Write `R7 of dec-0016-sample-ruling`, never `[a](dec-0016-sample-ruling.md) R7`.\n",
+            "Write `R7 of dec-0016-yes-on-the-change`, never `[a](dec-0016-yes-on-the-change.md) R7`.\n",
         ),
-        "a double-backtick code span": (NOTE_PATH, "Write `` R7 of dec-0016-sample-ruling ``.\n"),
+        "a double-backtick code span": (NOTE_PATH, "Write `` R7 of dec-0016-yes-on-the-change ``.\n"),
         "an HTML comment": (NOTE_PATH, "<!-- " + wrong + "-->\n"),
         "an HTML comment over several lines": (NOTE_PATH, "<!--\n" + wrong + "-->\n"),
         "a handle with a suffix letter": (
             NOTE_PATH,
-            "R4b of dec-0016-sample-ruling and R4b of [a](dec-0016-sample-ruling.md).\n",
+            "R4b of dec-0016-yes-on-the-change and R4b of [a](dec-0016-yes-on-the-change.md).\n",
         ),
         "a record's own ruling": (NOTE_PATH, "R3 holds, R3 of this record too, and that record's R3.\n"),
         "a key qualified by its kind": (
             NOTE_PATH,
-            "The table keys R1 to R4 of [a](dec-0016-sample-ruling.md) and message\n"
-            "R4 of dec-0016-sample-ruling.\n",
+            "The table keys R1 to R4 of [a](dec-0016-yes-on-the-change.md) and message\n"
+            "R4 of dec-0016-yes-on-the-change.\n",
         ),
         "a link to what is no record": (
             NOTE_PATH,
@@ -956,30 +958,30 @@ def cases_forms(tally: Tally) -> None:
         ),
         "a link to a record with the right anchor, then 'R7'": (
             NOTE_PATH,
-            "[dec-0016-sample-ruling](dec-0016-sample-ruling.md#r7) R7 and"
-            " [dec-0016-sample-ruling](dec-0016-sample-ruling.md#r7)'s R7.\n",
+            "[dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7) R7 and"
+            " [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7)'s R7.\n",
         ),
         "a link at a line's end, a handle at the next line's start": (
             NOTE_PATH,
-            "[dec-0016-sample-ruling](dec-0016-sample-ruling.md)\nR7 holds, see below.\n",
+            "[dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md)\nR7 holds, see below.\n",
         ),
         "a range linking its first ruling": (
             NOTE_PATH,
-            "R18 to R27 of [dec-0018-sample-range](dec-0018-sample-range.md#r18), R5 and R34 of"
-            " [dec-0020-sample-list](dec-0020-sample-list.md#r5).\n",
+            "R18 to R27 of [dec-0018-dials-schema](dec-0018-dials-schema.md#r18), R5 and R34 of"
+            " [dec-0020-gate-script-rules](dec-0020-gate-script-rules.md#r5).\n",
         ),
-        "a handle with no 'of' after it": (NOTE_PATH, "R3 and the record dec-0016-sample-ruling, R7.\n"),
+        "a handle with no 'of' after it": (NOTE_PATH, "R3 and the record dec-0016-yes-on-the-change, R7.\n"),
         "a link with a title": (
             NOTE_PATH,
-            'R7 of [dec-0016-sample-ruling](dec-0016-sample-ruling.md#r7 "t") holds.\n',
+            'R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7 "t") holds.\n',
         ),
         "a link whose destination stands in <>": (
             NOTE_PATH,
-            "R7 of [dec-0016-sample-ruling](<dec-0016-sample-ruling.md#r7>).\n",
+            "R7 of [dec-0016-yes-on-the-change](<dec-0016-yes-on-the-change.md#r7>).\n",
         ),
         "a citation in a list item, indented four spaces": (
             NOTE_PATH,
-            "- item\n\n    R7 of [dec-0016-sample-ruling](dec-0016-sample-ruling.md#r7)\n",
+            "- item\n\n    R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7)\n",
         ),
     }
     for name, (path, good, bad, lines) in red.items():
@@ -1012,51 +1014,51 @@ def cases_reports(tally: Tally) -> None:
             BAD_NO_ANCHOR,
             [
                 "RED: docs/policies/c.md:1: the citation"
-                ' "R7 of [dec-0016-sample-ruling](../decisions/dec-0016-sample-ruling.md)"'
+                ' "R7 of [dec-0016-yes-on-the-change](../decisions/dec-0016-yes-on-the-change.md)"'
                 ' links no anchor where the anchor of R7 is "#r7"',
                 why_line,
                 "  fix: link the anchor of the first ruling named, with the destination"
-                " ../decisions/dec-0016-sample-ruling.md#r7",
+                " ../decisions/dec-0016-yes-on-the-change.md#r7",
                 "RED: 1 finding(s) — 3 document(s) examined",
             ],
         ),
         "the last ruling of a range": (
             "docs/policies/c.md",
-            "R5 and R34 of [dec-0016-sample-ruling](dec-0016-sample-ruling.md#r34).\n",
+            "R5 and R34 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r34).\n",
             [
                 "RED: docs/policies/c.md:1: the citation"
-                ' "R5 and R34 of [dec-0016-sample-ruling](dec-0016-sample-ruling.md#r34)"'
+                ' "R5 and R34 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r34)"'
                 ' links "#r34" where the anchor of R5 is "#r5"',
                 why_line,
                 "  fix: link the anchor of the first ruling named, with the destination"
-                " dec-0016-sample-ruling.md#r5",
+                " dec-0016-yes-on-the-change.md#r5",
                 "RED: 1 finding(s) — 3 document(s) examined",
             ],
         ),
         "a range with a spaced dash": (
             "docs/policies/c.md",
-            "R2 – R3 of [dec-0016-sample-ruling](dec-0016-sample-ruling.md#r2).\n",
+            "R2 – R3 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r2).\n",
             [
                 "RED: docs/policies/c.md:1: the citation"
-                ' "R2 – R3 of [dec-0016-sample-ruling](dec-0016-sample-ruling.md#r2)"'
+                ' "R2 – R3 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r2)"'
                 ' spaces the dash of its range, so it reads as a citation of R3 alone, and links "#r2"'
                 ' where the anchor of R3 is "#r3"',
                 why_line,
                 '  fix: write the range with an unspaced dash, "R2–R3", as the kit writes its ranges, and'
-                " link the anchor of its first ruling, with the destination dec-0016-sample-ruling.md#r2",
+                " link the anchor of its first ruling, with the destination dec-0016-yes-on-the-change.md#r2",
                 "RED: 1 finding(s) — 3 document(s) examined",
             ],
         ),
         "a handle after the link": (
             "docs/policies/c.md",
-            "[dec-0016-sample-ruling](../decisions/dec-0016-sample-ruling.md#r6)'s R7 holds.\n",
+            "[dec-0016-yes-on-the-change](../decisions/dec-0016-yes-on-the-change.md#r6)'s R7 holds.\n",
             [
                 "RED: docs/policies/c.md:1: the citation"
-                ' "[dec-0016-sample-ruling](../decisions/dec-0016-sample-ruling.md#r6)\'s R7"'
+                ' "[dec-0016-yes-on-the-change](../decisions/dec-0016-yes-on-the-change.md#r6)\'s R7"'
                 ' links "#r6" where the anchor of R7 is "#r7"',
                 why_line,
                 "  fix: link the anchor of the first ruling named, with the destination"
-                " ../decisions/dec-0016-sample-ruling.md#r7",
+                " ../decisions/dec-0016-yes-on-the-change.md#r7",
                 "RED: 1 finding(s) — 3 document(s) examined",
             ],
         ),
@@ -1068,18 +1070,18 @@ def cases_reports(tally: Tally) -> None:
                 " with no link",
                 why_line,
                 "  fix: write R7 and R8 of"
-                " [dec-0016-sample-ruling](../decisions/dec-0016-sample-ruling.md#r7)",
+                " [dec-0016-yes-on-the-change](../decisions/dec-0016-yes-on-the-change.md#r7)",
                 "RED: 1 finding(s) — 3 document(s) examined",
             ],
         ),
         "a bare id of a record not in the tree": (
             "docs/policies/c.md",
-            "See R9 of dec-0004-sample-bare here.\n",
+            "See R9 of dec-0004-catalogs-module here.\n",
             [
-                'RED: docs/policies/c.md:1: the citation "R9 of dec-0004-sample-bare"'
+                'RED: docs/policies/c.md:1: the citation "R9 of dec-0004-catalogs-module"'
                 " names the record by its id with no link",
                 why_line,
-                "  fix: write R9 of [dec-0004-sample-bare](<path to that record>#r9)",
+                "  fix: write R9 of [dec-0004-catalogs-module](<path to that record>#r9)",
                 "RED: 1 finding(s) — 3 document(s) examined",
             ],
         ),
