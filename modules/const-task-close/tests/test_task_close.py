@@ -2411,16 +2411,21 @@ def test_effect_after_turn_end_red() -> None:
             tr_tool("k", root, "1", "Write", file_path="x.md", content="x"),
             tr_turn("k", root, EFFECT_AT, "x"),
         ),
-        # the commit right after the red is the answer, a human turn after it changes nothing: applied
+    }
+    assert sid
+    found = effect_lines(root, sessions)
+    assert "  W2 (pattern): 9 moment(s): 4 applied, 5 bypassed, 0 missed — B3 5" in found, found
+    # read alone, so that its outcome cannot cancel another's: the commit right after the red is the
+    # answer, and a human turn after it changes nothing
+    alone = {
         "m": case(
             "m",
             tr_tool("m", root, "1", "Bash", command="git commit -qam y"),
             tr_turn("m", root, EFFECT_AT, "x"),
-        ),
+        )
     }
-    assert sid
-    found = effect_lines(root, sessions)
-    assert "  W2 (pattern): 10 moment(s): 5 applied, 5 bypassed, 0 missed — B3 5" in found, found
+    found_alone = effect_lines(root, alone)
+    assert "  W2 (pattern): 1 moment(s): 1 applied, 0 bypassed, 0 missed" in found_alone, found_alone
 
 
 @item(
