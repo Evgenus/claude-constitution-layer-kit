@@ -1,13 +1,13 @@
 ---
 id: dec-0131-record-policy-gaps-closed
 type: task-record
-title: A record's body holds a commit hash as the row on reference forms allows
+title: Commit hashes in a record's body follow the reference row, and a lost acceptance after an id change is mended like a wrong receipt
 status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
 
-# A record's body holds a commit hash as the row on reference forms allows
+# Commit hashes in a record's body follow the reference row, and a lost acceptance after an id change is mended like a wrong receipt
 
 This record answers questions on [plc-0004-decision-records](../policies/plc-0004-decision-records.md) that [item 9.38 of the rollout plan](../rollout-plan.md#s9-38) logged. Each has a section of its own.
 
@@ -28,11 +28,27 @@ The session recommended A: the kit's own records follow the row, and a rule its 
 
 <a id="r2"></a>**R2.** R1 reverses R5 of [dec-0123-commit-hash-stands-in-dated-text](dec-0123-commit-hash-stands-in-dated-text.md#r5) for rule 12 of the policy only. The rest of that ruling, on rule 3 of plc-0005-research, stands. That record is not touched.
 
+## 2. A renumbering or rename merged without its new acceptance
+
+[Rule 5 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r5) says that a renumbered or renamed record is accepted again under its new id. That happens in the merge commit of the change that gives the new id. It says how a wrong receipt is mended: by accepting again in the merge commit of a new pull request. It said nothing of a merge that lacks the new acceptance. The check then reports only that the record awaits its yes, as a note, so nothing turns red.
+
+- **A. Mended as a wrong receipt is.** A new pull request's merge commit accepts the record under its new id. Its receipt is for a carry audit that reads the record in full.
+  - **Pros:** the path rule 5 gives a wrong receipt; it keeps the full read that dec-0124 ruled; no new code.
+  - **Cons:** a full audit for a record whose rulings did not change.
+- **B. Mended by a light acceptance.** The new pull request's audit reads only the new id, the file name and the links to it.
+  - **Pros:** cheap, since only the id changed.
+  - **Cons:** a lighter audit for a mend than for the change itself, against the full read that dec-0124 ruled; two rules for one act.
+
+The session recommended A: it is the path rule 5 already gives a wrong receipt, and it keeps dec-0124 as ruled. <a id="r3"></a>**R3.** A, chosen by the decider in chat on 2026-11-12. A renumbering or a rename that merged without the acceptance under the new id is mended as a wrong receipt is. The merge commit of a new pull request accepts the record under its new id. Its receipt is for a carry audit that reads the record in full.
+
+<a id="r4"></a>**R4.** The receipt of R3 names a commit at which the record already stood under its new id. R6 of [dec-0124-renamed-record-accepted-again](dec-0124-renamed-record-accepted-again.md#r6) asks the same.
+
 ## Applied
 
-The commit that creates this record rewords the sentence on hashes in rule 12 of the policy. The record is born `inactive`.
+The commit that creates this record rewords the sentence on hashes in rule 12 of the policy. A later commit of the same branch adds section 2, its sentences in rule 5 and in step 8 of the carry-audit skill. The record is born `inactive`.
 
 ## Carry list
 
 1. R1 — [rule 12 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r12), its sentences on a commit hash.
 2. R2 — history only: the reversal in part of an earlier ruling, which binds nothing once R1 is carried.
+3. R3, R4 — [rule 5 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r5), its sentences on a lost acceptance after an id change. Also [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md), step 8.

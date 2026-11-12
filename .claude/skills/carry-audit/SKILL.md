@@ -67,6 +67,8 @@ kit's own reading of it is rule 2 of [plc-0004-decision-records](../../../docs/p
    `x + j = f` must hold. For a `product` record, which has no yes, the `Carry-Audit:` trailer stands alone. It stands on the merge
    commit of the change that holds the fixes. The newest acceptance of a record is the one that counts. A
    wrong receipt is mended by accepting again, in the merge commit of a new pull request.
+   So is a renumbering or rename that merged without the acceptance under the new id. That audit
+   reads the record in full.
 9. **Run the gate:** `python3 scripts/check-carry-lists.py`. Red is fixed before the turn ends.
 
 ## Prompt A — a reader of `full` records
