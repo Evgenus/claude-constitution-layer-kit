@@ -25,9 +25,8 @@ A line that starts `BROKEN: const-doc-budgets needs the Python package constitut
    the check on.
 3. **What is measured.** The length of a document in characters, as the project's conventions
    define one. It is the Unicode code points of the file read as UTF-8, with a CRLF counted as
-   one. It is the whole file — envelope, code, tables and link targets — since a reader loads the
-   whole file. Never
-   tokens, never bytes, never lines.
+   one. It is the whole file — envelope, code, tables and link targets — since a reader loads
+   the whole file. Never tokens, never bytes, never lines.
 4. **Set the first ceilings from data.** Write each group at `level: warning` with a generous
    `max`, then run the history report over the repository's history:
    ```bash

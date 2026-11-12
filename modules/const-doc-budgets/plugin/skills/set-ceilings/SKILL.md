@@ -71,8 +71,8 @@ scan: remove it or fix its names.
 ## 5. Lowering a ceiling
 
 A ceiling is lowered only from data — the report showing the group smaller for a while. The
-lowering is a change of its own with the number and the reason. A lower number that falls below a frozen
-document needs that document's departure in the same change.
+lowering is a change of its own with the number and the reason. A lower number that falls below a
+frozen document needs that document's departure in the same change.
 
 ## What the check does not judge
 
