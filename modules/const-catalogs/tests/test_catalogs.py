@@ -29,7 +29,7 @@ import pytest
 import yaml
 from catalogs_gate import messages, start
 from catalogs_gate.history import HOOK_SECONDS
-from catalogs_gate.model import Advice, Catalog, NameToTake, Reach, Read
+from catalogs_gate.model import Advice, Catalog, NameToTake, Reach
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.envelope import yaml_error_line
 from constitution_layer_kit.model import Broken, EnvelopeState, Finding
@@ -327,6 +327,15 @@ def scan_of(files: dict[str, str], dials_patch: dict[str, object] | None = None)
     return H.run_gate("", args=["--scan", str(consumer.root)])
 
 
+def whole(result: Result, code: int, line: str, where: str = "stdout") -> None:
+    """The run exited `code` and printed `line` as one whole line on `where`: not a text that merely contains
+    it, so a prefix or a tail added to a typed line fails."""
+    lines = (result.stdout if where == "stdout" else result.stderr).splitlines()
+    assert result.code == code and line in lines, (
+        f"wanted exit {code} and the line {line!r}; got exit {result.code}: {lines}"
+    )
+
+
 def broken(result: Result, failure: Broken) -> None:
     broken_typed(result, failure.render())
 
@@ -360,6 +369,16 @@ def test_not_an_item() -> None:
     result, _ = gate_on(Write(ELSEWHERE, NO_ENVELOPE))
     skip = messages.g1_skip_not_an_item(ELSEWHERE, [CATALOG])
     expect(result, 0, shared.g1_green_skip(skip), "stdout")
+    # two catalogs listed: the prefixes are joined by a comma and a space
+    two, _ = gate_on(
+        Write(ELSEWHERE, NO_ENVELOPE), dials_patch=catalogs(entry(), entry("note", ["docs/notes/**"]))
+    )
+    whole(
+        two,
+        0,
+        "GREEN: const-catalogs: 0 documents examined — docs/elsewhere/a.md lies in no catalog's territory"
+        " (itm, note)",
+    )
     # a path over 80 characters holding a line break: the skip line stays whole, the break escaped
     long_path = "docs/elsewhere/a\n" + "b" * 100 + ".md"
     long_result, _ = gate_on(Write(long_path, NO_ENVELOPE))
@@ -535,13 +554,11 @@ def test_two_catalogs() -> None:
     """Two kinds, two prefixes, one sequence each: the same number in both is no collision."""
     patch = catalogs(entry(), entry("note", ["docs/notes/**"]))
     files = {ITEM_A: item(), "docs/notes/note-0001-first.md": item("note-0001-first")}
-    expect(
+    whole(  # typed by hand
         scan_of(files, patch),
         0,
-        shared.g1_green_scan(
-            messages.f9_scan_tail(2, 2 + BASE_MARKDOWN, [reach(1), reach(1, catalog=NOTES)])
-        ),
-        "stdout",
+        "GREEN: const-catalogs: 2 catalogued item(s) examined, 5 Markdown file(s) scanned, 2 catalog(s):"
+        " itm up to itm-0001, note up to note-0001",
     )
 
 
@@ -619,8 +636,11 @@ def test_scan_gap_is_legitimate() -> None:
 @acceptance_item(49, "scan: a listed catalog with no item yet is named, with a zero count")
 def test_scan_empty_catalog() -> None:
     """A listed catalog with no item yet is named as such: a visible zero, and the first number is 1."""
-    expect(
-        scan_of({}), 0, shared.g1_green_scan(messages.f9_scan_tail(0, BASE_MARKDOWN, [reach(None)])), "stdout"
+    whole(  # typed by hand
+        scan_of({}),
+        0,
+        "GREEN: const-catalogs: 0 catalogued item(s) examined, 3 Markdown file(s) scanned, 1 catalog(s):"
+        " itm none yet",
     )
 
 
@@ -777,8 +797,15 @@ def test_scan_names_history() -> None:
     would stand in front of the name of the first file the commit added, and a name without a folder
     — an item in the top folder — would carry it as part of its stem and lose its number."""
     result = H.run_gate("", args=["--scan", str(top_deleted().root)])
-    wanted = shared.g1_green_scan(messages.f9_scan_tail(1, 1 + BASE_MARKDOWN, [reach(1, 2)]))
-    top = shared.g1_green_scan(messages.f9_scan_tail(1, 1 + BASE_MARKDOWN, [reach(1, 2, TOP_LEVEL)]))
+    wanted = (  # typed by hand; a top-folder catalog is the same line
+        "GREEN: const-catalogs: 1 catalogued item(s) examined, 4 Markdown file(s) scanned, 1 catalog(s):"
+        " itm up to itm-0001, itm-0002 in history"
+    )
+    top = wanted
+    only = H.fresh_consumer((*SETUP, VALID))  # the one item deleted: the tree holds none, history held 1
+    only.git("rm", "-q", ITEM_A)
+    only.commit()
+    gone = H.run_gate("", args=["--scan", str(only.root)])
     signed = top_level_deleted(signed=True)
     shown = subprocess.run(
         ["git", "log", "-1", "--format=%h"], cwd=signed.root, capture_output=True, text=True, check=False
@@ -787,9 +814,15 @@ def test_scan_names_history() -> None:
         pytest.fail(f"git log did not print the check: {shown.stdout}{shown.stderr}")
     plain = H.run_gate("", args=["--scan", str(top_level_deleted(signed=False).root)])
     after = H.run_gate("", args=["--scan", str(signed.root)])
-    expect(result, 0, wanted, "stdout")
-    expect(plain, 0, top, "stdout")
-    expect(after, 0, top, "stdout")
+    whole(result, 0, wanted)
+    whole(plain, 0, top)
+    whole(after, 0, top)
+    whole(  # typed by hand: the tree holds no item and history held number 1, which the line must say
+        gone,
+        0,
+        "GREEN: const-catalogs: 0 catalogued item(s) examined, 3 Markdown file(s) scanned, 1 catalog(s):"
+        " itm none yet, itm-0001 in history",
+    )
 
 
 @acceptance_item(54, "a name an item was renamed to counts as added: rename detection is off")
@@ -802,8 +835,11 @@ def test_renamed_name_is_history() -> None:
     consumer.git("rm", "-q", at("itm-0007-first"))
     consumer.commit()
     result = H.run_gate("", args=["--scan", str(consumer.root)])
-    expect(
-        result, 0, shared.g1_green_scan(messages.f9_scan_tail(0, BASE_MARKDOWN, [reach(None, 7)])), "stdout"
+    whole(  # typed by hand
+        result,
+        0,
+        "GREEN: const-catalogs: 0 catalogued item(s) examined, 3 Markdown file(s) scanned, 1 catalog(s):"
+        " itm none yet, itm-0007 in history",
     )
 
 
@@ -815,8 +851,12 @@ def test_shallow_clone_says_so() -> None:
         ["git", "clone", "-q", "--depth", "1", source, str(clone)], check=True, capture_output=True
     )
     result = H.run_gate("", args=["--scan", str(clone)])
-    tail = messages.f9_scan_tail(1, 1 + BASE_MARKDOWN, [reach(1)], Read.SHALLOW)
-    expect(result, 0, shared.g1_green_scan(tail), "stdout")
+    whole(  # typed by hand
+        result,
+        0,
+        "GREEN: const-catalogs: 1 catalogued item(s) examined, 4 Markdown file(s) scanned, 1 catalog(s):"
+        " itm up to itm-0001; history incomplete in a shallow clone",
+    )
 
 
 @acceptance_item(56, "a repository with no commit yet: no history, no failure")
@@ -996,11 +1036,11 @@ def test_unread_history_in_the_scan() -> None:
     consumer = H.fresh_consumer((*SETUP, VALID))
     env, _ = fake_git(on_log="exit 97")
     result = H.run_gate("", args=["--scan", str(consumer.root)], env=env)
-    expect(
+    whole(  # typed by hand
         result,
         0,
-        shared.g1_green_scan(messages.f9_scan_tail(1, 1 + BASE_MARKDOWN, [reach(1)], Read.NOT)),
-        "stdout",
+        "GREEN: const-catalogs: 1 catalogued item(s) examined, 4 Markdown file(s) scanned, 1 catalog(s):"
+        " itm up to itm-0001; history could not be read",
     )
 
 
@@ -1055,6 +1095,14 @@ def test_full_catalog_is_named() -> None:
     )
     ok = result.code == 0 and tail in result.stdout
     assert ok, f"exit {result.code}: {tail}"
+    # one number short of full: width 1 and itm-8 as the highest, itm-9 is still free, so no "(full"
+    short = scan_of({at("itm-8-eighth"): item("itm-8-eighth")}, catalogs(entry(width=1)))
+    whole(  # typed by hand
+        short,
+        0,
+        "GREEN: const-catalogs: 1 catalogued item(s) examined, 4 Markdown file(s) scanned, 1 catalog(s):"
+        " itm up to itm-8",
+    )
 
 
 @acceptance_item(60, "adoption: the next number goes above a number a malformed name shows")
@@ -1171,31 +1219,49 @@ LEGACY_ZERO = at("ITM-0-zero")
 
 # whole stderr lines typed by hand, to their last word: a text cut short, or changed at its end, fails
 GOLDEN_LINES = {
-    "K1 fix": "  fix: name the file itm-0001-<slug>.md: itm-0001 is the catalog's next number, one more than the"
-    f" highest it has held, deleted items included; {SLUG_THEN_ID}",
-    "K4 fix": f"  fix: {ITEM_A} keeps its number; name the file itm-0002-<slug>.md: itm-0002 is the catalog's next"
-    f" number, one more than the highest it has held, deleted items included; {SLUG_THEN_ID}",
-    "not read": "  fix: name the file itm-0001-<slug>.md: itm-0001 is one more than the highest number seen — this"
-    " clone's history is incomplete or could not be read (a shallow clone, a history too long to read in"
-    " time, or a git that gave no list), so check that no deleted item went higher; " + SLUG_THEN_ID,
-    "keep": "  fix: rename the file with git mv to itm-0006-<slug>.md: it keeps its number, which others may"
-    " already cite, written in lowercase with exactly 4 digit(s), zero-padded; the slug is lowercase words"
-    " and digits joined by '-'; then set id to that name without .md, and rewrite the links to the old name",
-    "keep zero": "  fix: rename the file with git mv to itm-0000-<slug>.md: it keeps its number, which others may"
-    " already cite, written in lowercase with exactly 4 digit(s), zero-padded; the slug is lowercase words"
-    " and digits joined by '-'; then set id to that name without .md, and rewrite the links to the old name",
-    "contested": f"  fix: the name shows number 6, and so does {at('itm-0006-new')}: only one of the two can be"
-    " itm-0006. The one that others already cite by that number keeps it — rename it with git mv to"
-    " itm-0006-<slug>.md; the other takes one more than the highest the catalog has held, which the scan's"
-    f" last line names; {SLUG_THEN_ID}",
-    "contested zero": f"  fix: the name shows number 0, and so does {at('itm-0000-new')}: only one of the two can be"
-    " itm-0000. The one that others already cite by that number keeps it — rename it with git mv to"
-    " itm-0000-<slug>.md; the other takes one more than the highest the catalog has held, which the scan's"
-    f" last line names; {SLUG_THEN_ID}",
-    "K2 unterminated": f"RED: {ITEM_A}: id cannot be read: the file's YAML block is opened with '---' but never"
-    " closed",
-    "K2 unterminated fix": "  fix: close the YAML block with a line holding only '---'; the block carries id:"
-    f" {STEM_A}",
+    "K1 fix": (
+        "  fix: name the file itm-0001-<slug>.md: itm-0001 is the catalog's next number, one more than the"
+        f" highest it has held, deleted items included; {SLUG_THEN_ID}"
+    ),
+    "K4 fix": (
+        f"  fix: {ITEM_A} keeps its number; name the file itm-0002-<slug>.md: itm-0002 is the catalog's"
+        f" next number, one more than the highest it has held, deleted items included; {SLUG_THEN_ID}"
+    ),
+    "not read": (
+        "  fix: name the file itm-0001-<slug>.md: itm-0001 is one more than the highest number seen — this"
+        " clone's history is incomplete or could not be read (a shallow clone, a history too long to read"
+        " in time, or a git that gave no list), so check that no deleted item went higher; " + SLUG_THEN_ID
+    ),
+    "keep": (
+        "  fix: rename the file with git mv to itm-0006-<slug>.md: it keeps its number, which others may"
+        " already cite, written in lowercase with exactly 4 digit(s), zero-padded; the slug is lowercase"
+        " words and digits joined by '-'; then set id to that name without .md, and rewrite the links to"
+        " the old name"
+    ),
+    "keep zero": (
+        "  fix: rename the file with git mv to itm-0000-<slug>.md: it keeps its number, which others may"
+        " already cite, written in lowercase with exactly 4 digit(s), zero-padded; the slug is lowercase"
+        " words and digits joined by '-'; then set id to that name without .md, and rewrite the links to"
+        " the old name"
+    ),
+    "contested": (
+        f"  fix: the name shows number 6, and so does {at('itm-0006-new')}: only one of the two can be"
+        " itm-0006. The one that others already cite by that number keeps it — rename it with git mv to"
+        " itm-0006-<slug>.md; the other takes one more than the highest the catalog has held, which the"
+        f" scan's last line names; {SLUG_THEN_ID}"
+    ),
+    "contested zero": (
+        f"  fix: the name shows number 0, and so does {at('itm-0000-new')}: only one of the two can be"
+        " itm-0000. The one that others already cite by that number keeps it — rename it with git mv to"
+        " itm-0000-<slug>.md; the other takes one more than the highest the catalog has held, which the"
+        f" scan's last line names; {SLUG_THEN_ID}"
+    ),
+    "K2 unterminated": (
+        f"RED: {ITEM_A}: id cannot be read: the file's YAML block is opened with '---' but never closed"
+    ),
+    "K2 unterminated fix": (
+        f"  fix: close the YAML block with a line holding only '---'; the block carries id: {STEM_A}"
+    ),
     "K2 yaml fix": f"  fix: repair the YAML between the '---' lines; the block carries id: {STEM_A}",
 }
 
