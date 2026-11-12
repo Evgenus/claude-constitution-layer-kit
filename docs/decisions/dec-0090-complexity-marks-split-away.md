@@ -20,11 +20,20 @@ On 2026-10-14 the decider asked to remove every mark. This change splits the oth
 ## Options
 
 - **A. A record that reverses the marking ruling.** This record states that the marked functions were split and lost their marks, and CLAUDE.md is reworded to match.
-  - **Pros:** the ruling and the code agree without a reading of the marking ruling; the record also covers the two marks of `work/simplify-complexity`; it follows the decider's habit of picking the explicit rule.
+  - **Pros:**
+    - **the ruling and the code agree** without a reading of the marking ruling;
+    - **the record also covers** the two marks of `work/simplify-complexity`;
+    - **it follows the decider's habit** of picking the explicit rule.
   - **Cons:** a carry audit and a record for a change that keeps the rule in force — the limit of 15, a mark with its reason held by review — as it is.
 - **B. Routine: the marking ruling read as a fact of its day.** No record; CLAUDE.md gets a one-line change, and the commit says how the marking ruling was read.
-  - **Pros:** fast; R1, R3 and R4 of [dec-0088-ruff-complexity-limit](dec-0088-ruff-complexity-limit.md#r1) stay as they are; the words "when the rule came in" allow the reading.
-  - **Cons:** it rests on a reading of an accepted ruling; a later carry audit may find the marking ruling without its home; the decider has picked the explicit rule over a reading before.
+  - **Pros:**
+    - **fast**;
+    - **R1, R3 and R4** of [dec-0088-ruff-complexity-limit](dec-0088-ruff-complexity-limit.md#r1) stay as they are;
+    - **the words "when the rule came in"** allow the reading.
+  - **Cons:**
+    - **it rests on a reading** of an accepted ruling;
+    - **a later carry audit may find** the marking ruling without its home;
+    - **the decider has picked the explicit rule** over a reading before.
 
 ## Recommendation
 
@@ -40,7 +49,7 @@ The decider chose A in chat on 2026-10-14.
 
 <a id="r2"></a>**R2.** The last sentence of R2 of [dec-0088-ruff-complexity-limit](dec-0088-ruff-complexity-limit.md#r2) stands: a reason in a module's files or in the shared code names no record.
 
-<a id="r3"></a>**R3.** Any function above the limit, one of the 22 included, carries `# noqa: C901` only where a change marks it under R3 of [dec-0088-ruff-complexity-limit](dec-0088-ruff-complexity-limit.md#r3); no mark stands from the day the rule came in, 2026-10-13.
+<a id="r3"></a>**R3.** Any function above the limit, one of the 22 included, carries `# noqa: C901` only where a change marks it under R3 of [dec-0088-ruff-complexity-limit](dec-0088-ruff-complexity-limit.md#r3). No mark stands from the day the rule came in, 2026-10-13.
 
 ## Applied
 
