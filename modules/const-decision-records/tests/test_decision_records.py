@@ -30,6 +30,7 @@ from constitution_layer_kit.testing.consumer import BASE_MARKDOWN, Consumer, env
 from constitution_layer_kit.testing.harness import Case, Edit, Harness, Result, Write, event_json, red_lines
 from constitution_layer_kit.testing.items import (
     NO_ENVELOPE,
+    EntryFile,
     Subject,
     fake_claude,
     git_patch,
@@ -1182,6 +1183,17 @@ def test_effect_reader_rule() -> None:
     assert "  W7 (reader): 4 moment(s): 4 applied, 0 bypassed, 0 missed" in judged, judged
 
 
+# The module's other entry files, beside the harness's, each with its clause and closing line typed by hand:
+# the shared items about the interpreter's floor and the shared package run each.
+ENTRY_FILES = (
+    EntryFile("effect-report.py", "", "BROKEN: the report could not run — no rule counted"),
+    EntryFile(
+        "session-start.py",
+        "until then the gate's state is not said at session start",
+        "BROKEN: the session-start line could not be printed — the gate's state is unknown",
+    ),
+)
+
 SUBJECT = Subject(
     harness=H,
     gate_on=gate_on,
@@ -1198,4 +1210,7 @@ SUBJECT = Subject(
     skill="record-decision",  # the skill a red names (F10), typed by hand
     effect="effect-report.sh",  # no `effect_reader`: its reader rule W7 has a moment for the human turns that
     # answer lettered options, and the shared items about a reader rule need one for each human turn
+    entries=ENTRY_FILES,
+    effect_clause="until then the effect report is not made",  # its C2 clause, typed by hand
+    scan_skill="record-decision",  # the skill a red of the scan names (F10), typed by hand
 )

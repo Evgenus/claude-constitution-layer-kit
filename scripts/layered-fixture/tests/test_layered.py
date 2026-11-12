@@ -26,6 +26,7 @@ from constitution_layer_kit.testing.consumer import ROOT_POLICY, Consumer, docum
 from constitution_layer_kit.testing.harness import Edit, Harness, Result, Write, event_json
 from constitution_layer_kit.testing.items import (
     NO_ENVELOPE,
+    EntryFile,
     Subject,
     fake_claude,
     log_record,
@@ -1095,6 +1096,16 @@ def test_since_sessions() -> None:
     ), head
 
 
+# The fixture's other entry file, beside the harness's, its clause and closing line typed by hand: the shared
+# items about the interpreter's floor and the shared package run it too.
+ENTRY_FILES = (
+    EntryFile(
+        "effect-report.py",
+        "until then the effect report is not made",
+        "BROKEN: the report could not run — no rule counted",
+    ),
+)
+
 SUBJECT = Subject(
     harness=H,
     gate_on=gate_on,
@@ -1114,4 +1125,6 @@ SUBJECT = Subject(
     outside="docs/notes/a.md is outside claimed territory",
     effect="effect-report.sh",
     effect_reader="W2",
+    entries=ENTRY_FILES,
+    effect_clause="until then Markdown writes pass unchecked",  # its C2 clause, typed by hand
 )

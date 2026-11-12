@@ -27,6 +27,7 @@ import time
 from collections.abc import Callable, Sequence
 from contextlib import nullcontext
 from dataclasses import dataclass, replace
+from functools import partial
 from pathlib import Path
 from typing import Protocol
 
@@ -51,7 +52,7 @@ from constitution_layer_kit.model import (
 from constitution_layer_kit.output import ROTATE_AT, log_name
 from constitution_layer_kit.repository import list_markdown
 
-from .acceptance import broken_first_line, expect, item
+from .acceptance import broken_first_line, expect, failure_of, item
 from .consumer import CONSTITUTION_FILE, CONSTITUTION_PREFIX, ROOT_POLICY, own_prefix
 from .harness import (
     SHARED,
@@ -254,6 +255,30 @@ class PatternDial:
 
 
 @dataclass(frozen=True)
+class EntryFile:
+    """An entry file of the module beside the harness's own, in the same scripts folder: an effect report,
+    a session-start printer, a grant, a generator, a mover, a second gate. The items about the interpreter's
+    floor and the shared package (C14 to C17) run it as they run the harness's entry, and hold its whole
+    stderr: the failure's line, then the closing line, and nothing else."""
+
+    file: str  # its file name in the scripts folder: "effect-report.py"
+    clause: str  # what closes its C14, C15, C16 and C17 behind " — ", typed by hand; empty: nothing does
+    closing: str  # the line that closes its failures, typed by hand: "BROKEN: the report could not run — …"
+
+
+@dataclass(frozen=True)
+class EntryRun:
+    """One entry file as the items about the floor and the package run it: where it is, the clause behind
+    its lines with the dash ("" for none), its closing line, and whether it is the harness's own entry,
+    which runs in place through the harness's wrapper."""
+
+    path: Path
+    clause: str
+    closing: str
+    main: bool
+
+
+@dataclass(frozen=True)
 class Subject:
     harness: Harness
     gate_on: GateOn
@@ -319,6 +344,19 @@ class Subject:
     # moment for each human turn of a session; empty leaves the items about the reader out
     effect_hook: str = ""  # the file name of the script a hook of the module runs on a call, where it is not
     # the harness's wrapper, as a grant's is not; empty: the wrapper's
+    effect_clause: str | None = None  # what closes the effect entry's C2 behind " — ", typed by hand: the
+    # clause of the identity it runs under; None: the item about the line holds it up to the clause, which
+    # must follow
+    entries: Sequence[EntryFile] | None = None  # the module's other entry files, each with its clause and its
+    # closing line typed by hand; declared, every Python file at the top of the harness's scripts folder is
+    # the harness's entry or one of these, and the items about the floor and the package run each; None:
+    # not declared, and those items run the harness's entry alone
+    scan_skill: str | None = None  # the skill a red of the scan names after its count line (F10), typed by
+    # hand, for a gate with a hook mode; empty: the scan names none, and no such line follows its count
+    # line; None leaves the scan's half of the item about the line out
+    scan_red: Callable[[], Result] | None = None  # a scan the gate reports, for a gate whose scan judges no
+    # file the hook judges — one driven by Stop or by the shell tool; None: `red` written into the consumer
+    # `gate_on` prepares for it and `--scan` run there
 
 
 AS_ROOT = (
@@ -443,12 +481,11 @@ class SharedItems:
     def broken(self, result: Result, failure: Broken) -> None:
         self.broken_as_typed(result, failure.render())
 
-    def broken_as_typed(self, result: Result, line: str, label: str = "") -> None:
-        """The failure's line first — typed by hand where the item types it — then the closing line."""
-        broken_first_line(result, line, label)
-        counted = self.s.closing in result.stderr  # a run that examined, or changed, nothing says so
-        said = f"no count line after: {result.stderr.strip()}"
-        assert counted, f"{label}: {said}" if label else said
+    def broken_as_typed(self, result: Result, line: str, label: str = "", closing: str | None = None) -> None:
+        """The failure's line — typed by hand where the item types it — then the closing line, the Subject's
+        unless `closing` names an entry file's own, and nothing else on stderr: a run that examined, or
+        changed, nothing says so, and a failure that went on past its line shows."""
+        broken_first_line(result, line, label, self.s.closing if closing is None else closing)
 
     def bin_with(self, *tools: str) -> str:
         """A PATH directory holding only the named tools, to simulate the absence of the rest."""
@@ -470,33 +507,71 @@ class SharedItems:
         """The install note the lines send to: `INSTALL.md` in the folder above the entry file's."""
         return self.h.entry.parent.parent / "INSTALL.md"
 
-    def package_missing(self, guide: Path) -> str:
+    def entry_runs(self) -> list[EntryRun]:
+        """The entry files the items about the floor and the package run: the harness's own, then each the
+        Subject names in `entries`. Where it names them, every Python file at the top of the scripts folder
+        must be one of them, and each must be there: an entry file the list forgets is run by no item."""
+        main = EntryRun(self.h.entry, self.clause(), self.s.closing, True)
+        if self.s.entries is None:
+            return [main]
+        folder = self.h.entry.parent
+        named = [entry.file for entry in self.s.entries]
+        present = sorted(path.name for path in folder.glob("*.py") if path.is_file())
+        unnamed = [name for name in present if name != self.h.entry.name and name not in named]
+        absent = [name for name in named if name not in present]
+        twice = sorted({name for name in named if named.count(name) > 1 or name == self.h.entry.name})
+        assert not (unnamed or absent or twice), (
+            f"Subject.entries names {named} beside the harness's {self.h.entry.name}; unnamed: {unnamed},"
+            f" no file of {folder}: {absent}, named twice or the harness's own: {twice} — fix: name each"
+            " other entry file of the scripts folder once in Subject.entries, its clause and closing line"
+            " typed by hand"
+        )
+        others = [
+            EntryRun(folder / entry.file, f" — {entry.clause}" if entry.clause else "", entry.closing, False)
+            for entry in self.s.entries
+        ]
+        return [main, *others]
+
+    def run_entry(
+        self, entry: EntryRun, stdin: str, env: dict[str, str] | None = None, path: Path | None = None
+    ) -> Result:
+        """`entry` run with `stdin`: the harness's own in place through its wrapper, every other one, or a
+        copy of any at `path`, by the interpreter at hand; `env` as `run_gate` takes it."""
+        if entry.main and path is None:
+            return self.h.run_gate(stdin, env=env)
+        return self.h.run_gate(stdin, env=env, command=[sys.executable, str(path or entry.path)])
+
+    def package_missing(self, guide: Path, entry: EntryRun | None = None) -> str:
         """`C15` as the entry file prints it, typed by hand: the version it requires and that version's
-        major, the path of the plugin's own install note, escaped, and the module's clause."""
-        required = entry_requires(self.h.entry)
+        major, the path of the plugin's own install note, escaped, and the entry's clause — the harness's
+        entry's where `entry` is None."""
+        entry = entry or self.entry_runs()[0]
+        required = entry_requires(entry.path)
         return (
             f"BROKEN: {self.ns} needs the Python package constitution-layer-kit {required} or a later"
             f" {required.partition('.')[0]}.x release, and python3 cannot import it — fix: install it for"
-            f" python3 as {messages.escaped(str(guide))} says{self.clause()}"
+            f" python3 as {messages.escaped(str(guide))} says{entry.clause}"
         )
 
-    def package_too_old(self, found: str, guide: Path) -> str:
+    def package_too_old(self, found: str, guide: Path, entry: EntryRun | None = None) -> str:
         """`C16` as the entry file prints it, typed by hand, for an installed release `found`."""
-        required = entry_requires(self.h.entry)
+        entry = entry or self.entry_runs()[0]
+        required = entry_requires(entry.path)
         return (
             f"BROKEN: {self.ns} needs constitution-layer-kit {required} or a later"
             f" {required.partition('.')[0]}.x release, found {found} — fix: install one for python3 as"
-            f" {messages.escaped(str(guide))} says{self.clause()}"
+            f" {messages.escaped(str(guide))} says{entry.clause}"
         )
 
-    def module_too_old(self, found: str, guide: Path) -> str:
+    def module_too_old(self, found: str, guide: Path, entry: EntryRun | None = None) -> str:
         """`C17` as the entry file prints it, typed by hand, for an installed release `found`."""
-        required = entry_requires(self.h.entry)
+        entry = entry or self.entry_runs()[0]
+        required = entry_requires(entry.path)
         return (
             f"BROKEN: {self.ns} was written for constitution-layer-kit {required}, a"
             f" {required.partition('.')[0]}.x release, found {found} — fix: update the plugin to a release"
             f" written for {found.partition('.')[0]}.x, or install a {required.partition('.')[0]}.x release"
-            f" of constitution-layer-kit for python3 as {messages.escaped(str(guide))} says{self.clause()}"
+            f" of constitution-layer-kit for python3 as {messages.escaped(str(guide))} says{entry.clause}"
         )
 
     def release_with(self, version: str) -> dict[str, str]:
@@ -511,6 +586,64 @@ class SharedItems:
         assert text.count(stated) == 1, f"{init} does not state its version as {stated}"
         init.write_text(text.replace(stated, f'__version__ = "{version}"'), encoding="utf-8")
         return {"PYTHONPATH": str(folder)}
+
+    def skill_after_scan_red(self, skill: str) -> None:
+        """A red of the scan — `scan_red`, or `red` written into the consumer `gate_on` prepares for it and
+        that consumer scanned — exits 2 and ends its stdout in the line naming `skill`, typed by hand, right
+        after its count line and once; with no skill, in its count line, and no line names a skill."""
+        if self.s.scan_red is not None:
+            result = self.s.scan_red()
+        else:
+            assert not self.no_file, (
+                f"Subject.scan_red is None for a gate driven by {self.s.event}, whose scan judges no written"
+                " file — fix: give Subject.scan_red, a scan the gate reports"
+            )
+            _, root = self.s.gate_on(self.s.red)  # the consumer as the module prepares it, its dials in it
+            target = root / self.s.red.target
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(self.s.red.text, encoding="utf-8")
+            result = self.h.run_gate("", args=self.scan_args(root))
+        lines = result.stdout.splitlines()
+        named = f"{self.ns}: load the skill"
+        if skill:
+            line = f"{named} {self.ns}:{skill} before you fix this — it teaches the rule and the fix"
+            tail_ok = len(lines) >= 2 and lines[-1] == line and lines.count(line) == 1
+            count = lines[-2] if len(lines) >= 2 else ""
+        else:
+            tail_ok = bool(lines) and not any(each.startswith(named) for each in lines)
+            count = lines[-1] if lines else ""
+        ok = result.code == 2 and tail_ok and count.startswith("RED: ")  # the count line, as in the hook's
+        said = f"the scan's red: exit {result.code}, the last lines {lines[-2:]}, stderr {result.stderr!r}"
+        assert ok, said
+
+    def release_lines(self, found: str | None, line_of: Callable[[str, Path, EntryRun], str]) -> None:
+        """Each entry file run with a copy of the shared package at `found` first on PYTHONPATH — or, where
+        `found` is None, at the major above the one that entry requires — in place, and alone in a folder of
+        its own with none of the module's packages beside it: `line_of(found, note, entry)`, then the entry's
+        closing line, and nothing else on stderr. Every run is gathered, so that one's red hides no other."""
+        stdin = self.payload(self.h.fresh_consumer().root, self.s.valid)
+        failed = []
+        for entry in self.entry_runs():
+            version = found or f"{int(entry_requires(entry.path).split('.')[0]) + 1}.0.0"
+            env = self.release_with(version)
+            alone = self.h.scratch_dir() / "plugin"
+            (alone / "scripts").mkdir(parents=True)
+            shutil.copy(entry.path, alone / "scripts" / entry.path.name)
+            runs = {
+                "in place": (self.run_entry(entry, stdin, env=env), self.guide()),
+                "the entry file alone": (
+                    self.run_entry(entry, stdin, env=env, path=alone / "scripts" / entry.path.name),
+                    alone / "INSTALL.md",
+                ),
+            }
+            for what, (result, note) in runs.items():
+                line = line_of(version, note, entry)
+                said = failure_of(
+                    partial(self.broken_as_typed, result, line, f"{entry.path.name}, {what}", entry.closing)
+                )
+                if said is not None:
+                    failed.append(said)
+        assert not failed, " | ".join(failed)
 
     def installed_release(self) -> tuple[dict[str, str], Path, Path]:
         """A release of the shared package where an install puts it, behind every folder of PYTHONPATH: the
@@ -1795,15 +1928,13 @@ def test_python_absent(subject: Subject) -> None:
 
 @item(112, "absence: an interpreter below the floor")
 def test_python_below_floor(subject: Subject) -> None:
-    """The entry file run, under the interpreter at hand, as one a minor below the floor would run it:
-    a shim sets `sys.version_info` to that minor, puts the entry's folder first on the path as a real
-    run does, and runs the entry as `__main__`. The line is C14's, up to its clause."""
+    """Each entry file the Subject names, the harness's first, run under the interpreter at hand as one a
+    minor below the floor would run it: a shim sets `sys.version_info` to that minor, puts the entry's
+    folder first on the path as a real run does, and runs the entry as `__main__`. Its stderr is C14, typed
+    by hand with the entry's clause, then its closing line, and nothing else; each entry is gathered, so
+    that one's red hides no other."""
     it = shared(subject, "python_below_floor")
     floor, below = preflight.FLOOR, (preflight.FLOOR[0], preflight.FLOOR[1] - 1)
-    line = (
-        f"BROKEN: {it.ns} needs Python {floor[0]}.{floor[1]} or newer, found {below[0]}.{below[1]}"
-        " — fix: install a current Python 3 (https://www.python.org/downloads/) and put it first on PATH"
-    )
     shim = (
         "import os, runpy, sys\n"
         "entry, below = sys.argv[1], tuple(int(n) for n in sys.argv[2].split('.'))\n"
@@ -1812,19 +1943,20 @@ def test_python_below_floor(subject: Subject) -> None:
         "sys.path.insert(0, os.path.dirname(entry))\n"
         "runpy.run_path(entry, run_name='__main__')\n"
     )
-    result = it.h.run_gate(
-        "{}", command=[sys.executable, "-c", shim, str(it.h.entry), f"{below[0]}.{below[1]}"]
-    )
-    first = result.stderr.splitlines()[0] if result.stderr else ""
-    ok = result.code == 1 and (first == line or first.startswith(line + " — "))
-    if ok:
-        return
-    pytest.fail(
-        f"wanted exit 1 under a faked Python {below[0]}.{below[1]} with first stderr line {line!r},"
-        f" at its end or followed by ' — ' and a clause; got exit {result.code}, first stderr line"
-        f" {first!r}, stderr ends {result.stderr.strip()[-200:]!r},"
-        f" stdout {result.stdout.strip()[:200]!r}"
-    )
+    failed = []
+    for entry in it.entry_runs():
+        line = (
+            f"BROKEN: {it.ns} needs Python {floor[0]}.{floor[1]} or newer, found {below[0]}.{below[1]}"
+            " — fix: install a current Python 3 (https://www.python.org/downloads/) and put it first on PATH"
+            f"{entry.clause}"
+        )
+        result = it.h.run_gate(
+            "{}", command=[sys.executable, "-c", shim, str(entry.path), f"{below[0]}.{below[1]}"]
+        )
+        said = failure_of(partial(broken_first_line, result, line, entry.path.name, entry.closing))
+        if said is not None:
+            failed.append(said)
+    assert not failed, " | ".join(failed)
 
 
 @item(113, "absence: git")
@@ -1850,41 +1982,57 @@ def test_shared_code_absent(subject: Subject) -> None:
     folder left out with nothing else importable (`-S`, so that no release installed for the developer's
     python3 is found); an empty folder of the package's name as the one candidate; and the plugin in a folder
     whose name holds a backslash, a line feed and a carriage return, whose path the line shows escaped on
-    one line. The note the line sends to exists."""
+    one line. The note the line sends to exists. Each entry file the Subject names runs all four, the
+    harness's in place through its wrapper, each with its own clause and closing line and nothing else on
+    stderr; every run is gathered, so that one's red hides no other."""
     it = shared(subject, "shared_code_absent")
     stdin = it.payload(it.h.fresh_consumer().root, it.s.valid)
     assert it.guide().is_file(), f"the line sends to {it.guide()}, which is no file"
-    wanted = it.package_missing(it.guide())
     failing = it.h.scratch_dir()
     (failing / PACKAGE).mkdir()
     (failing / PACKAGE / "__init__.py").write_text(
         "raise ImportError('simulated absence')\n", encoding="utf-8"
     )
-    it.broken_as_typed(
-        it.h.run_gate(stdin, env={"PYTHONPATH": str(failing)}), wanted, "a package that fails to import"
-    )
-    alone = [sys.executable, "-S", str(it.h.entry)]
     nothing = {"PYTHONPATH": ""}
-    it.broken_as_typed(
-        it.h.run_gate(stdin, env=nothing, command=alone, shared=False), wanted, "the shared folder left out"
-    )
     empty = it.h.scratch_dir()
     (empty / PACKAGE).mkdir()
-    it.broken_as_typed(
-        it.h.run_gate(stdin, env={"PYTHONPATH": str(empty)}, command=alone, shared=False),
-        wanted,
-        "an empty folder of the package's name",
-    )
     odd = it.h.scratch_dir() / "a\\b\nc\rd"
     (odd / "scripts").mkdir(parents=True)
-    shutil.copy(it.h.entry, odd / "scripts" / it.h.entry.name)
-    result = it.h.run_gate(
-        stdin,
-        env=nothing,
-        command=[sys.executable, "-S", str(odd / "scripts" / it.h.entry.name)],
-        shared=False,
-    )
-    it.broken_as_typed(result, it.package_missing(odd / "INSTALL.md"), "a plugin folder with line breaks")
+    failed = []
+    for entry in it.entry_runs():
+        wanted = it.package_missing(it.guide(), entry)
+        alone = [sys.executable, "-S", str(entry.path)]
+        shutil.copy(entry.path, odd / "scripts" / entry.path.name)
+        runs = {
+            "a package that fails to import": (
+                it.run_entry(entry, stdin, env={"PYTHONPATH": str(failing)}),
+                wanted,
+            ),
+            "the shared folder left out": (
+                it.h.run_gate(stdin, env=nothing, command=alone, shared=False),
+                wanted,
+            ),
+            "an empty folder of the package's name": (
+                it.h.run_gate(stdin, env={"PYTHONPATH": str(empty)}, command=alone, shared=False),
+                wanted,
+            ),
+            "a plugin folder with line breaks": (
+                it.h.run_gate(
+                    stdin,
+                    env=nothing,
+                    command=[sys.executable, "-S", str(odd / "scripts" / entry.path.name)],
+                    shared=False,
+                ),
+                it.package_missing(odd / "INSTALL.md", entry),
+            ),
+        }
+        for what, (result, line) in runs.items():
+            said = failure_of(
+                partial(it.broken_as_typed, result, line, f"{entry.path.name}, {what}", entry.closing)
+            )
+            if said is not None:
+                failed.append(said)
+    assert not failed, " | ".join(failed)
 
 
 @item(116, "a failing git is a configuration failure, never a green skip")
@@ -2010,16 +2158,21 @@ def test_outside_any_repository(subject: Subject) -> None:
 
 @item(128, "no dials file: a visible skip")
 def test_no_dials_file(subject: Subject) -> None:
+    """The scan of a consumer without the gate's dials file, and for a gate with a hook mode its hook run
+    on `red` there too: each exits 0 with the skip line on stdout, and its scan with that line alone and
+    nothing on stderr, so a scan that skips in silence fails."""
     it = shared(subject, "no_dials_file")
     consumer = it.h.fresh_consumer()
     (consumer.root / it.file).unlink()  # the gate's own file: a gate of another layer's leaves the other
-    if it.s.scan_only:
-        consumer.write(it.s.red.target, it.s.red.text)
-        result = it.h.run_gate("", args=it.scan_args(consumer.root))
-    else:
-        result = it.h.run_gate(it.payload(consumer.root, it.s.red))
     skip = messages.g1_green_skip(messages.g1_skip_no_dials(str(consumer.root)))
-    expect(result, 0, skip, "stdout")
+    if not it.no_file:
+        consumer.write(it.s.red.target, it.s.red.text)
+    scan = it.h.run_gate("", args=it.scan_args(consumer.root))
+    said = f"the scan: wanted exit 0, {skip!r} alone on stdout; got exit {scan.code}: {scan.stdout!r}"
+    said += f", stderr {scan.stderr!r}"
+    assert (scan.code, scan.stdout, scan.stderr) == (0, skip + "\n", ""), said
+    if not it.s.scan_only:
+        expect(it.h.run_gate(it.payload(consumer.root, it.s.red)), 0, skip, "stdout", label="the hook run")
 
 
 @item(129, "a dials file with no root_policy: a visible skip")
@@ -2091,6 +2244,8 @@ def test_log_in_plugin_data(subject: Subject) -> None:
         set(line) == {"ts", "module", "gate", "mode", "session", "path", "transcript", "stream", "text"}
         and (first in line["text"] if it.s.ask else line["text"].startswith(first))
         and line["module"] == it.ns
+        # the entry's name as the module types it in its harness, the file's name without `.py`
+        and line["gate"] == it.h.entry.stem
         and line["stream"] == verdict_stream
         and line["session"] == ("fixture-session" if hooked else "")
         # the event's own names: the transcript, and the file or the shell command the gate examines,
@@ -2264,8 +2419,8 @@ def test_copy_with_links_followed(subject: Subject) -> None:
 
 @item(141, "not fail-open: an unexpected exception exits 1, BROKEN first, the traceback after")
 def test_unexpected_failure(subject: Subject) -> None:
-    """Not fail-open: an exception nobody planned for exits 1, its BROKEN line first, the
-    traceback after it."""
+    """Not fail-open: an exception nobody planned for exits 1, its BROKEN line first, the closing line
+    after it, then the traceback, and nothing before them."""
     it = shared(subject, "unexpected_failure")
     shadow = it.h.scratch_dir()
     (shadow / "yaml.py").write_text(
@@ -2273,9 +2428,10 @@ def test_unexpected_failure(subject: Subject) -> None:
         encoding="utf-8",
     )
     result, _ = it.s.gate_on(it.s.valid, env={"PYTHONPATH": str(shadow)})
-    failure = messages.c12_unexpected("RuntimeError: simulated defect")
-    it.broken(result, failure)
-    assert "Traceback (most recent call last)" in result.stderr, result.stderr.strip()[:600]
+    head = f"{messages.c12_unexpected('RuntimeError: simulated defect').render()}\n{it.s.closing}\n"
+    ok = result.code == 1 and result.stderr.startswith(head + "Traceback (most recent call last):\n")
+    said = f"wanted exit 1, stderr {head!r} then the traceback; got exit {result.code}: {result.stderr[:600]}"
+    assert ok, said
 
 
 @item(142, "an Edit event without its documented fields is a configuration failure")
@@ -2762,7 +2918,9 @@ def test_git_has_a_budget_in_a_hook(subject: Subject) -> None:
 def test_skill_named_after_red(subject: Subject) -> None:
     """A red names the skill that teaches the rule and its fix in one line right after the count
     line, the last line of the block, the asking reason or the scan; the warn context the model
-    reads holds the line once, the warn note after it."""
+    reads holds the line once, the warn note after it. For a gate with a hook mode whose Subject names
+    `scan_skill`, a red of its scan ends in that skill's line on stdout the same way, or, where the name is
+    empty, ends in its count line."""
     it = shared(subject, "skill_named_after_red")
     line = (
         f"{it.ns}: load the skill {it.ns}:{it.s.skill} before you fix this — it teaches the rule and the fix"
@@ -2778,6 +2936,8 @@ def test_skill_named_after_red(subject: Subject) -> None:
     )
     if not ok:
         pytest.fail(f"exit {result.code}, the last lines: {lines[-2:]}")
+    if it.s.scan_skill is not None and not it.s.scan_only:
+        it.skill_after_scan_red(it.s.scan_skill)
     if it.s.scan_only or it.stop:  # a scan has no warn; a Stop's warn is the user's notice alone
         return
     warned, _ = it.s.gate_on(it.s.red, dials_patch=it.s.own(severity="warn"))
@@ -3817,17 +3977,10 @@ def test_shared_code_too_old(subject: Subject) -> None:
     real entry point: `C16`, typed by hand, naming the version the entry file requires and the one found,
     exit 1, the closing line after it. The entry file alone in a folder of its own, with none of the
     module's packages beside it, gives the same line with the path of its own note: the check comes before
-    the import of the module's own package."""
+    the import of the module's own package. Each entry file the Subject names runs both, each with its own
+    clause and closing line and nothing else on stderr."""
     it = shared(subject, "shared_code_too_old")
-    found = "0.9.0"
-    stdin = it.payload(it.h.fresh_consumer().root, it.s.valid)
-    env = it.release_with(found)
-    it.broken_as_typed(it.h.run_gate(stdin, env=env), it.package_too_old(found, it.guide()), "in place")
-    alone = it.h.scratch_dir() / "plugin"
-    (alone / "scripts").mkdir(parents=True)
-    shutil.copy(it.h.entry, alone / "scripts" / it.h.entry.name)
-    result = it.h.run_gate(stdin, env=env, command=[sys.executable, str(alone / "scripts" / it.h.entry.name)])
-    it.broken_as_typed(result, it.package_too_old(found, alone / "INSTALL.md"), "the entry file alone")
+    it.release_lines("0.9.0", it.package_too_old)
 
 
 @item(185, "C17: the installed release is of a later major than the one the entry file requires")
@@ -3835,17 +3988,11 @@ def test_shared_code_new_major(subject: Subject) -> None:
     """A copy of the shared package whose `__version__` is the next major above the one the entry file
     requires, `<major + 1>.0.0`, under the module's real entry point: `C17`, typed by hand, naming the
     version the entry file requires, its major and the major found, exit 1, the closing line after it. The
-    entry file alone in a folder of its own gives the same line with the path of its own note."""
+    entry file alone in a folder of its own gives the same line with the path of its own note. Each entry
+    file the Subject names runs both, the major found the next above the one it requires, each with its own
+    clause and closing line and nothing else on stderr."""
     it = shared(subject, "shared_code_new_major")
-    found = f"{int(entry_requires(it.h.entry).split('.')[0]) + 1}.0.0"
-    stdin = it.payload(it.h.fresh_consumer().root, it.s.valid)
-    env = it.release_with(found)
-    it.broken_as_typed(it.h.run_gate(stdin, env=env), it.module_too_old(found, it.guide()), "in place")
-    alone = it.h.scratch_dir() / "plugin"
-    (alone / "scripts").mkdir(parents=True)
-    shutil.copy(it.h.entry, alone / "scripts" / it.h.entry.name)
-    result = it.h.run_gate(stdin, env=env, command=[sys.executable, str(alone / "scripts" / it.h.entry.name)])
-    it.broken_as_typed(result, it.module_too_old(found, alone / "INSTALL.md"), "the entry file alone")
+    it.release_lines(None, it.module_too_old)
 
 
 @item(186, "an installed release of a later minor or patch of the same major serves the entry file")
@@ -4620,9 +4767,10 @@ def test_effect_shared_entry(subject: Subject) -> None:
 def test_effect_library_absent(subject: Subject) -> None:
     """The module's effect entry run with a `yaml` first on PYTHONPATH that fails to import, as item 114
     runs the gate's: stderr is the two lines and nothing else, `C2` naming PyYAML and the plugin's
-    requirements file, typed by hand up to the closing clause of the entry's identity, then the report's
-    closing line; nothing on stdout. A shared module or a module's rule imported before the preflight ends
-    the run in a traceback instead, which this item holds red."""
+    requirements file, then the report's closing line; nothing on stdout. `C2` is typed by hand whole, its
+    clause the Subject's `effect_clause`, or, where the Subject gives none, up to that clause, which must
+    follow. A shared module or a module's rule imported before the preflight ends the run in a traceback
+    instead, which this item holds red."""
     it = shared(subject, "effect_library_absent")
     root = it.h.fresh_consumer().root
     shadow = it.h.scratch_dir()
@@ -4633,12 +4781,17 @@ def test_effect_library_absent(subject: Subject) -> None:
         f" '{preflight.requirements_file()}' — "
     )
     lines = result.stderr.splitlines()
+    clause = it.s.effect_clause
+    whole = (
+        lines[0] == line + clause
+        if clause is not None
+        else lines[0].startswith(line) and len(lines[0]) > len(line)
+    )
     ok = (
         result.code == 1
         and result.stdout == ""
         and len(lines) == 2
-        and lines[0].startswith(line)
-        and len(lines[0]) > len(line)
+        and whole
         and lines[1] == "BROKEN: the report could not run — no rule counted"
     )
     assert ok, f"exit {result.code}; stdout {result.stdout!r}; stderr {result.stderr.strip()[-600:]!r}"

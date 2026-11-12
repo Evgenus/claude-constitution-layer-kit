@@ -51,6 +51,7 @@ from constitution_layer_kit.testing.harness import (
 )
 from constitution_layer_kit.testing.items import (
     NO_ENVELOPE,
+    EntryFile,
     PatternDial,
     Subject,
     fake_claude,
@@ -1944,6 +1945,17 @@ def claim(territory: Sequence[str]) -> dict[str, object]:
     return catalogs(entry(territory=list(territory)))
 
 
+# The module's other entry files, beside the harness's, each with its clause and closing line typed by hand:
+# the shared items about the interpreter's floor and the shared package run each.
+ENTRY_FILES = (
+    EntryFile("effect-report.py", "", "BROKEN: the report could not run — no rule counted"),
+    EntryFile(
+        "session-start.py",
+        "until then the gate's state is not said at session start",
+        "BROKEN: the session-start line could not be printed — the gate's state is unknown",
+    ),
+)
+
 SUBJECT = Subject(
     harness=H,
     gate_on=gate_on,
@@ -1961,4 +1973,7 @@ SUBJECT = Subject(
     pattern_dial=PatternDial("catalogs[itm]", lambda pattern: catalogs(entry(territory=[pattern]))),
     skill="catalog-item",  # the skill a red names (F10), typed by hand
     effect="effect-report.sh",  # no `effect_reader`: the module has no reader rule
+    entries=ENTRY_FILES,
+    effect_clause="until then the effect report is not made",  # its C2 clause, typed by hand
+    scan_skill="catalog-item",  # the skill a red of the scan names (F10), typed by hand
 )
