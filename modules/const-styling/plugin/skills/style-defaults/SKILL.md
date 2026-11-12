@@ -12,29 +12,30 @@ description: >
 # Style defaults
 
 A style decision made in one document is made again in the next, differently. This procedure
-reads the project's one style guide before the moment of choice, and puts a departure where it
-belongs — in the dials file, with its reason — so that every document is uniform and every
+reads the project's one style guide before the moment of choice. It puts a departure where it
+belongs, in the dials file with its reason. That way every document is uniform and every
 exception is on record. It is judgment from start to finish, except the scan named in step 4.
 
 ## 1. Find the guide
 
 The style guides are the documents the project names in `const-styling.guides` of
-`constitution.yaml`, path patterns over the repository; where the key is absent, look for a
+`constitution.yaml`, path patterns over the repository. Where the key is absent, look for a
 document titled "Style guide" in the project's documentation folder. Read the guide whole once
-per session — it is short, one numbered entry per default, each defined by its examples. The
-guide is the one statement of the defaults; this page restates none of them — step 4 names the
+per session. It is short, one numbered entry per default, each defined by its examples. The
+guide is the one statement of the defaults. This page restates none of them. Step 4 names the
 scan's traces, which are the mechanical halves of some, not the defaults.
 
 Where the repository has no style guide, the shipped text, `style-guide.md` beside this file,
-applies meanwhile. Create the project's own from it, unless the project has decided to keep none — its decision
-records say so, or the user answered no while the project is or was being set up: such a project
-follows the shipped text and creates nothing. To create one:
-fill its envelope — the `id` a stable kebab-case name — put it where the project's documents of
-that kind live, and name its path in `const-styling.guides`. Write it with the session's file
+applies meanwhile. Create the project's own from it, unless the project has decided to keep none.
+That is the case when its decision records say so, or the user answered no while the project
+is or was being set up. Such a project
+follows the shipped text and creates nothing. To create one,
+fill its envelope, with the `id` a stable kebab-case name. Put it where the project's documents of
+that kind live. Name its path in `const-styling.guides`. Write it with the session's file
 tools, never by a copy in the shell, so that every hook sees the write. That file carries the founding
-entries. A project that governs its documents by policies gives the guide a policy of its own
-first, as its constitution asks for any new kind, has its root policy ask every policy for a
-style rule, and has each kind's policy carry one, binding that kind's documents to the guide.
+entries. A project that governs its documents by policies first gives the guide a policy of its
+own, as its constitution asks for any new kind. Then it has its root policy ask every policy for a
+style rule. It also has each kind's policy carry one, binding that kind's documents to the guide.
 
 ## 2. Before the choice
 
@@ -49,15 +50,15 @@ At each of these moments, open the guide's entry that rules on it and follow it:
 - **A fenced block or a name in prose** — entry 8.
 - **Bold or italic** — entry 9.
 - **A note, tip or warning** — entry 10.
-- **A template** — every entry: a template follows the guide as any document does, and shows a
+- **A template** — every entry. A template follows the guide as any document does. It shows a
   departure only where its kind's departure entry allows it.
 
-A project that added entries beyond the founding ten numbers them on; the guide is the list.
+A project that added entries beyond the founding ten numbers them on. The guide is the list.
 
 ## 3. Declare a departure, never mark it
 
-Where a document must depart from a default — one diagram Mermaid cannot draw, a table whose
-empty cells mean "none" by its own legend — do not mark the document. Add an entry to
+Where a document must depart from a default, do not mark the document. Examples are one diagram
+Mermaid cannot draw, or a table whose empty cells mean "none" by its own legend. Add an entry to
 `const-styling.departures` in `constitution.yaml`:
 
 ```yaml
@@ -68,25 +69,27 @@ const-styling:
       reason: a timing diagram, which Mermaid has no form for
 ```
 
-A departure for a whole kind of document names the kind's territory in `paths`; one for the
-documents a rule of the project freezes — records accepted before the default existed, say —
-names their number range by a character class, `docs/records/rec-00[0-3]*.md`. A frozen
-document takes first the wording edits its policy allows, if any, and the departure covers only
-what those cannot fix; it is never taken out of the scan's territory. A second document needing
-the same one-off departure is the signal to widen the entry to the kind, or to change the default in the guide.
+A departure for a whole kind of document names, in `paths`, the kind's territory. Some
+documents are frozen by a rule of the project, say records accepted before the default existed.
+A departure for them names their number range by a character class.
+`docs/records/rec-00[0-3]*.md` is such a class. A frozen document takes first the wording edits
+its policy allows, if any. The departure covers only what those cannot fix. The document is
+never taken out of the scan's territory. A second document needing the same one-off departure
+is the signal to widen the entry to the kind, or to change the guide's default.
 
 ## 4. Read a finding
 
-The scan, `check-style.sh --scan`, reports twelve traces of the defaults: a PlantUML block, a
-formula, a callout, a heading of level four or deeper, a skipped heading level, a second title,
-a fence without a language, a bullet marker other than a dash, an ordered item out of sequence,
-emphasis by underscores, a table row with the wrong number of cells, an empty table cell. Each
-finding names the file and line, why the default exists and the fix: follow the default, or
-declare the departure as step 3 says. Everything else in the guide — whether prose was due, a
-drawing trivial, a key column first — is judgment, and the scan does not claim it.
+The scan, `check-style.sh --scan`, reports twelve traces of the defaults. They are a PlantUML
+block, a formula, a callout, a heading of level four or deeper, a skipped heading level and a
+second title. Then come a fence without a language, a bullet marker other than a dash, an ordered
+item out of sequence and emphasis by underscores. The last are a table row with the wrong number
+of cells and an empty table cell. Each finding names the file and line, why the default exists
+and the fix. The fix is to follow the default, or to declare the departure as step 3 says.
+Everything else in the guide is judgment, and the scan does not claim it. That is whether prose
+was due, a drawing trivial, or a key column first.
 
 ## 5. Add a default
 
-A question the guide does not answer is answered once, through the project's decision path,
-and added to the guide as the next numbered entry with its examples, born with the document
-that needed it. It is never answered in one document, one template or one commit message alone.
+A question the guide does not answer is answered once, through the project's decision path.
+The answer is added to the guide as the next numbered entry with its examples. It is born with
+the document that needed it. The question is never answered in one document, one template or one commit message alone.
