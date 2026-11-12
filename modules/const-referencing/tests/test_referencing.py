@@ -41,6 +41,7 @@ from constitution_layer_kit.testing.harness import (
 )
 from constitution_layer_kit.testing.items import (
     NO_ENVELOPE,
+    EntryFile,
     PatternDial,
     Subject,
     fake_claude,
@@ -3086,6 +3087,13 @@ def test_effect_rules() -> None:
     assert not missing, (missing, got, history, plugin)
 
 
+# The module's other entry files, beside the harness's, each with its clause and closing line typed by hand:
+# the shared items about the interpreter's floor and the shared package run each.
+ENTRY_FILES = (
+    EntryFile("effect-report.py", "", "BROKEN: the report could not run — no rule counted"),
+    EntryFile("move-document.py", "", "BROKEN: the move could not run — nothing was changed"),
+)
+
 SUBJECT = Subject(
     harness=H,
     gate_on=gate_on,
@@ -3104,4 +3112,7 @@ SUBJECT = Subject(
     pattern_dial=PatternDial("territories", lambda pattern: own(territories=[pattern])),
     skill="referencing",  # the skill a red names (F10), typed by hand
     effect="effect-report.sh",
+    entries=ENTRY_FILES,
+    effect_clause="until then the effect report is not made",  # its C2 clause, typed by hand
+    scan_skill="referencing",  # the skill a red of the scan names (F10), typed by hand
 )

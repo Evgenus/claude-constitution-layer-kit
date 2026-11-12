@@ -24,25 +24,29 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from bisect import bisect_left
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from pathlib import Path
 
 import pytest
 import yaml
 from change_cost_gate import counter as counters
 from change_cost_gate import counting, logs, messages, report, start, windows
-from change_cost_gate.model import PIN, CommitLine, Key, NotCounted, Reason, StartLine
+from change_cost_gate import git as gitpart
+from change_cost_gate import model as gate_model
+from change_cost_gate.model import PIN, CommitLine, Counted, Key, NotCounted, Reason, Report, StartLine
 from constitution_layer_kit import identity
 from constitution_layer_kit.errors import ConfigurationFailure
 from constitution_layer_kit.model import Finding, Mode
 from constitution_layer_kit.output import Output
 from constitution_layer_kit.testing.acceptance import item
 from constitution_layer_kit.testing.harness import Edit, Harness, Result, Write, fake_program
-from constitution_layer_kit.testing.items import Subject, fake_claude, tr_line
+from constitution_layer_kit.testing.items import EntryFile, Subject, fake_claude, tr_line
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 PLUGIN = SCRIPTS.parent
@@ -287,6 +291,14 @@ def installed(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 @pytest.fixture
+def umask022() -> Iterator[None]:
+    """The usual umask, so that a mode the module asks for is the mode it gets."""
+    previous = os.umask(0o022)
+    yield
+    os.umask(previous)
+
+
+@pytest.fixture
 def clone(tmp_path: Path, installed: Path) -> Clone:
     return Clone.make(tmp_path, installed)
 
@@ -365,18 +377,68 @@ def test_windows(clone: Clone) -> None:
     for a third commit that a later record completes. The reply written twice across the first commit is in
     the first window, once. Each window equals a count made apart from ccusage in this file."""
     clone.start(S1, 0)
+    clone.commit("b" * 40, 10.5, S1)  # logged out of the order of time: the windows follow the time
     clone.commit("a" * 40, 5.5, S1)
-    clone.commit("b" * 40, 10.5, S1)
     clone.commit("c" * 40, 13, S1)
+    clone.commit("d" * 40, 13.5, S1)  # a window with no record at all
     done = clone.count("--all")
-    assert (done.code, closing(done)) == (0, counted_line(2, 0, 1, 0)), done.stderr
+    assert (done.code, closing(done)) == (0, counted_line(2, 0, 2, 0)), done.stderr
     assert totals(clone) == [2360, 3375]
     files = [path for path in (FIXTURE / S1).rglob("*.jsonl")] + [FIXTURE / f"{S1}.jsonl"]
-    assert apart(files, S1, 0, [5.5, 10.5, 13]) == [2360, 3375, 2, 0]
+    assert apart(files, S1, 0, [5.5, 10.5, 13, 13.5]) == [2360, 3375, 2, 0, 0]
     clone.append_record(S1, 14)
     later = clone.count("--all")
-    assert (later.code, closing(later)) == (0, counted_line(1, 2, 0, 0)), later.stderr
-    assert totals(clone) == [2360, 3375, 2]
+    assert (later.code, closing(later)) == (0, counted_line(2, 2, 0, 0)), later.stderr
+    assert totals(clone) == [2360, 3375, 2, 0]
+    assert [held["cost"] for held in clone.kept()][3] == 0
+    # what one line of a transcript says: a time with an offset or without one is read as UTC, a line with
+    # no time or of another session is no record, and a reply is its message id and its request id
+    assert windows.milliseconds("2026-01-01T02:00:00+02:00") == 1767225600000
+    assert windows.milliseconds("2026-01-01T00:00:00") == 1767225600000
+    assert windows.milliseconds("2026-01-01T00:00:00.250Z") == 1767225600250
+    when = "2026-01-01T00:00:00Z"
+    reply = {"timestamp": when, "sessionId": S1, "requestId": "r1", "message": {"id": "m1"}}
+    assert windows.read_record(line_of(reply).encode(), S1) == windows.Record(
+        1767225600000, ("m1", "r1"), False
+    )
+    unasked = {key: value for key, value in reply.items() if key != "requestId"}
+    assert windows.read_record(line_of(unasked).encode(), S1) == windows.Record(
+        1767225600000, ("m1", None), False
+    )
+    assert windows.read_record(line_of({**reply, "message": {"id": ""}}).encode(), S1) == windows.Record(
+        1767225600000, None, False
+    )
+    assert windows.read_record(line_of({**reply, "sessionId": S2}).encode(), S1) is None
+    assert windows.read_record(line_of({**reply, "sessionId": ""}).encode(), S1) is not None
+    assert windows.read_record(line_of({"sessionId": S1, "message": {"id": "m1"}}).encode(), S1) is None
+    assert windows.read_record(line_of({**reply, "type": "compact_boundary"}).encode(), S1) == windows.Record(
+        1767225600000, ("m1", "r1"), True
+    )
+    # one message id under two request ids is two replies; a record with no message id is no reply
+    folder = clone.tmp / "keys" / "projects" / "p"
+    folder.mkdir(parents=True)
+    keyed = folder / f"{S1}.jsonl"
+    rows = []
+    for seconds, message, request in (
+        (16, "msg_same", "ra"),
+        (24, "msg_same", "rb"),
+        (12, "", "ra"),
+        (20, "", "ra"),
+    ):
+        rows.append(
+            line_of(
+                {
+                    "type": "assistant",
+                    "timestamp": stamp(seconds),
+                    "sessionId": S1,
+                    "requestId": request,
+                    "message": {"id": message},
+                }
+            )
+        )
+    keyed.write_text("".join(rows), encoding="utf-8")
+    seen = windows.survey(windows.transcripts_of(keyed), S1, at(0))
+    assert seen.first == {("msg_same", "ra"): at(16), ("msg_same", "rb"): at(24)}
 
 
 @item(7, "a fork's two sessions: the fork cut at its start gives 8,430 and the parent 5,737, in either order")
@@ -466,11 +528,26 @@ def test_copy_and_config(tmp_path: Path, installed: Path) -> None:
     for path in copied:
         source = FIXTURE / path.relative_to(folders[0] / "projects" / "p")
         assert path.read_bytes() == source.read_bytes()
+    # two files of one folder in the same window are both copied
+    twin = tmp_path / "twin" / "projects" / "p"
+    shutil.copytree(FIXTURE, twin)
+    shutil.copyfile(twin / S1 / "subagents" / "agent-a1.jsonl", twin / S1 / "subagents" / "agent-a2.jsonl")
+    twin_files = windows.transcripts_of(twin / f"{S1}.jsonl")
+    twin_cut = windows.cut(
+        twin_files, S1, at(0), windows.survey(twin_files, S1, at(0)), [at(60)], {0}, tmp_path / "twin-cut"
+    )
+    assert sorted(path.name for path in twin_cut[0].rglob("*.jsonl")) == sorted(
+        [f"{S1}.jsonl", "agent-a1.jsonl", "agent-a2.jsonl", "agent-w1.jsonl"]
+    )
     # what is no regular file is left out: a link to a .jsonl, a dangling link, a folder named .jsonl, and a
     # session's own transcript given as a link; the copy and the count stay as they were
     hostile = tmp_path / "hostile" / "projects" / "p"
     shutil.copytree(FIXTURE, hostile)
     own = hostile / S1
+    outside = tmp_path / "outside-folder"
+    outside.mkdir()
+    shutil.copyfile(FIXTURE / f"{S2}.jsonl", outside / "other.jsonl")
+    os.symlink(outside, own / "linkdir")  # a link to a folder is not walked
     os.symlink(hostile / f"{S2}.jsonl", own / "subagents" / "link.jsonl")
     os.symlink(hostile / "nowhere.jsonl", own / "dangling.jsonl")
     (own / "folder.jsonl").mkdir()
@@ -549,6 +626,18 @@ def test_compaction(clone: Clone) -> None:
     assert (done.code, closing(done)) == (0, counted_line(3, 0, 0, 0)), done.stderr
     assert [held["compactions"] for held in clone.kept()] == [0, 1, 0]
     assert totals(clone) == [2360, 3375, 2]
+    # a compaction in the very millisecond of the start is the session's own; one marked by `type` is one too
+    edge = [
+        line_of({"type": "compact_boundary", "timestamp": stamp(3), "sessionId": S1}),
+        line_of({"type": "system", "subtype": "compact_boundary", "timestamp": stamp(3), "sessionId": S2}),
+    ]
+    marked = clone.tmp / "marked" / "projects" / "p"
+    marked.mkdir(parents=True)
+    path = marked / f"{S1}.jsonl"
+    path.write_text("".join(edge), encoding="utf-8")
+    found = windows.survey(windows.transcripts_of(path), S1, at(3))
+    assert found.compactions == [at(3)]
+    assert found.newest_ms == at(3)
 
 
 # ------------------------------------------------------------------ T12 to T14: completeness, the kept line
@@ -599,9 +688,10 @@ def test_waits_and_once(tmp_path: Path, installed: Path) -> None:
     twice.append_line("commits.jsonl", {"sha": "d" * 40, "ms": at(13.5), "session": S1, "event": "merge"})
     logged, _ = logs.read_commits(twice.folder)
     assert [line.event for line in counting.commits_of(logged)[S1]] == ["commit"]
+    twice.commit("e" * 40, 13.7, S1)  # logged after the repeated SHA: it is still read
     both = twice.count("--all")
-    assert (both.code, closing(both)) == (0, counted_line(1, 0, 0, 0)), both.stderr
-    assert [held["sha"] for held in twice.kept()] == ["d" * 40]
+    assert (both.code, closing(both)) == (0, counted_line(2, 0, 0, 0)), both.stderr
+    assert [held["sha"] for held in twice.kept()] == ["d" * 40, "e" * 40]
 
 
 @item(
@@ -631,20 +721,65 @@ def test_kept_line_and_unreadable_lines(clone: Clone) -> None:
     assert round(float(str(held["cost"])), 6) == 0.012213
     assert abs(int(str(held["counted_ms"])) - int(datetime.now(UTC).timestamp() * 1000)) < 120_000
     assert list(clone.tmp.iterdir()) == []
+    # a window folder that cannot be removed whole does not end the pass: the counts stand, the exit is 0
+    stuck = Clone.make(clone.root.parent / "stuck", None)
+    stock(
+        stuck.data, PIN, "/bin/mkdir -p locked && echo x > locked/f && /bin/chmod 555 locked\n" + FAKE_REPORT
+    )
+    stuck.start(S1, 0)
+    stuck.append_record(S1, 14)
+    stuck.commit("a" * 40, 13, S1)
+    try:
+        left = stuck.count("--all")
+    finally:
+        for folder in stuck.tmp.rglob("locked"):
+            folder.chmod(0o755)
+    assert (left.code, closing(left)) == (0, counted_line(1, 0, 0, 0)), left.stderr
+    assert totals(stuck) == [10]
+    # models that spent the same tokens are listed by name, whatever order ccusage gave them
+    tied = counting.to_kept(
+        CommitLine("t" * 40, 1, S1, "commit"),
+        Counted(
+            Report((gate_model.Entry("zeta", 1, 2, 3, 4), gate_model.Entry("alpha", 4, 3, 2, 1)), 20, 0.0), ()
+        ),
+        0,
+        "20.0.48",
+        1,
+    )
+    assert [(name.model, name.tokens) for name in tied.models] == [("alpha", 10), ("zeta", 10)]
     # lines that cannot be read, in the two logs and the file of counts, are left out with their note
-    for name, text in (
-        ("starts.jsonl", "this is not JSON\n"),
-        ("commits.jsonl", "[1, 2]\n"),
-        ("counts.jsonl", '{"sha": "x"}\n'),
-    ):
+    commit_ms = {"sha": "b" * 40, "ms": "13", "session": S1, "event": "commit"}
+    whole = {**held, "sha": "c" * 40}
+    texts = {
+        "starts.jsonl": ["this is not JSON\n"],
+        "commits.jsonl": ["[1, 2]\n", line_of(commit_ms)],
+        "counts.jsonl": [
+            '{"sha": "x"}\n',
+            line_of({**whole, "cost": "x"}),
+            line_of({**whole, "models": {"m": "1"}}),
+            line_of({**whole, "models": [1]}),
+            line_of({name: value for name, value in whole.items() if name != "unpriced"}),
+            line_of({**whole, "unpriced": [1]}),
+        ],
+    }
+    for name, lines in texts.items():
         with (clone.folder / name).open("a", encoding="utf-8") as handle:
-            handle.write(text)
+            handle.writelines(lines)
+    with (clone.folder / "starts.jsonl").open("ab") as handle:
+        handle.write(b"\xff\n")  # bytes that are no text are read with replacements, and noted
     after = clone.count("--all")
     shown = f"note: a log line cannot be read and is left out: {clone.folder}"
     assert after.stdout.splitlines() == [
         f"{shown}/starts.jsonl line 2: it is not JSON",
+        f"{shown}/starts.jsonl line 3: it is not JSON",
         f"{shown}/commits.jsonl line 2: it is not a JSON object",
+        f"{shown}/commits.jsonl line 3: the field ms is missing or has the wrong type",
         f"{shown}/counts.jsonl line 2: the field session is missing or has the wrong type",
+        f"{shown}/counts.jsonl line 3: the field cost is missing or has the wrong type",
+        f"{shown}/counts.jsonl line 4: the field models is missing or has the wrong type",
+        f"{shown}/counts.jsonl line 5: the field models is missing or has the wrong type",
+        f"{shown}/counts.jsonl line 6: the field unpriced is missing or has the wrong type",
+        f"{shown}/counts.jsonl line 7: the field unpriced is missing or has the wrong type",
         counted_line(0, 1, 0, 0),
     ]
 
@@ -778,12 +913,24 @@ def test_finding_ccusage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
     again = rig.run(env={"FAKE_CCUSAGE": str(fake)})
     assert (again.code, closing(again)) == (0, counted_line(1, 0, 0, 0)), again.stderr
     assert rig.npm_log.read_text(encoding="utf-8").splitlines() == [f"{rig.clone.data} ci --ignore-scripts"]
+    # the right version and no lockfile copy, as a failed install leaves it: installed again
+    rig = Rig.make(tmp_path / "leftover", npm=FAKE_NPM)
+    stock(rig.clone.data, PIN, "exit 9\n")
+    (rig.clone.data / "package-lock.json").unlink()
+    left = rig.run(env={"FAKE_CCUSAGE": str(fake)})
+    assert left.code == 0 and left.stdout.splitlines() == [
+        f"note: the pinned ccusage {PIN} was installed into {rig.clone.data}",
+        counted_line(1, 0, 0, 0),
+    ], left.stderr
+    assert rig.npm_log.read_text(encoding="utf-8").splitlines() == [f"{rig.clone.data} ci --ignore-scripts"]
     # no ccusage anywhere, the data folder without a lockfile: installed there, once, by npm ci
     rig = Rig.make(tmp_path / "data", npm=FAKE_NPM)
     first = rig.run(env={"FAKE_CCUSAGE": str(fake)})
     note = f"note: the pinned ccusage {PIN} was installed into {rig.clone.data}"
     assert first.code == 0 and first.stdout.splitlines() == [note, counted_line(1, 0, 0, 0)], first.stderr
     assert rig.npm_log.read_text(encoding="utf-8").splitlines() == [f"{rig.clone.data} ci --ignore-scripts"]
+    assert (rig.clone.data / "package.json").read_bytes() == (PINNED / "package.json").read_bytes()
+    npm_edges(tmp_path / "npm-edges", monkeypatch)
     # the lockfile copy is the plugin's now: a pass installs nothing more
     rig.clone.commit("b" * 40, 14.5, S1)
     rig.clone.append_record(S1, 16)
@@ -797,6 +944,15 @@ def test_finding_ccusage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
     third = rig.run(env={"FAKE_CCUSAGE": str(fake)})
     assert third.code == 0 and third.stdout.splitlines()[0] == note, third.stderr
     assert len(rig.npm_log.read_text(encoding="utf-8").splitlines()) == 2
+    # a data folder whose parent folder does not stand yet is made, and ccusage is installed into it
+    rig = Rig.make(tmp_path / "nested", npm=FAKE_NPM)
+    nested = tmp_path / "nested-data" / "inner" / "data"
+    made = rig.run(env={"FAKE_CCUSAGE": str(fake), "CLAUDE_PLUGIN_DATA": str(nested)})
+    assert made.code == 0, made.stderr
+    assert made.stdout.splitlines() == [
+        f"note: the pinned ccusage {PIN} was installed into {nested}",
+        counted_line(1, 0, 0, 0),
+    ]
     assert by_hand(tmp_path / "by-hand", fake) == []
     install_busy(tmp_path / "busy", monkeypatch, fake)
     lock_held_while_ccusage_runs(tmp_path / "running", monkeypatch, fake)
@@ -865,7 +1021,7 @@ def broken_line(what: str, fix: str) -> str:
 
 
 @item(21, "the lock: two passes at once count each commit once; a lock held past 120 s gives J5.2")
-def test_lock(clone: Clone) -> None:
+def test_lock(clone: Clone, monkeypatch: pytest.MonkeyPatch, umask022: None) -> None:
     clone.start(S1, 0)
     clone.append_record(S1, 14)
     for index, seconds in enumerate((5.5, 10.5, 13)):
@@ -886,6 +1042,26 @@ def test_lock(clone: Clone) -> None:
     assert sorted(str(held["sha"]) for held in clone.kept()) == ["0" * 40, "1" * 40, "2" * 40]
     closings = sorted(out.splitlines()[-1] for (out, _), _ in outputs)
     assert closings == [counted_line(0, 3, 0, 0), counted_line(3, 0, 0, 0)]
+    # the logs, the file of counts and the lock are made readable by all and writable by their owner
+    for name in ("starts.jsonl", "commits.jsonl", "counts.jsonl", "counts.lock"):
+        assert (clone.folder / name).stat().st_mode & 0o777 == 0o644, name
+    # a pass that waits for the lock sleeps 0.05 s at a time, not in a spin and not for longer
+    naps: list[float] = []
+    real_nap = time.sleep
+
+    def nap(seconds: float) -> None:
+        naps.append(seconds)
+        real_nap(seconds)
+
+    monkeypatch.setattr(time, "sleep", nap)
+    blocker = os.open(clone.tmp / "wait.lock", os.O_RDWR | os.O_CREAT)
+    fcntl.flock(blocker, fcntl.LOCK_EX)
+    try:
+        with logs.locked(clone.tmp, 0.2, "wait.lock") as got:
+            assert not got
+    finally:
+        os.close(blocker)
+    assert naps and set(naps) == {0.05}
     # a lock another count keeps past its seconds: the pass counts nothing and says so
     held_clone = Clone.make(clone.root.parent / "held", clone.data)
     held_clone.start(S1, 0)
@@ -949,6 +1125,26 @@ def test_session_and_all(clone: Clone) -> None:
         for raw in (clone.data / "const-change-cost.jsonl").read_text(encoding="utf-8").splitlines()
     ]
     assert [held["session"] for held in said if held["text"].startswith("COUNTED")] == [S2, S1, ""]
+    # no session is made up where there is none: an event on stdin that is no JSON, a closed standard
+    # input, and a variable that is unset and not only empty
+    garbled = H.run_gate("not json", args=["--session"], env=clone.environment(None), cwd=clone.root)
+    assert garbled.code == 1 and garbled.stdout == ""
+    assert garbled.stderr.splitlines() == lacking.stderr.splitlines()
+    plain = H.environment(clone.environment(None), True)
+    plain.pop("CLAUDE_CODE_SESSION_ID", None)
+    for stdin in (subprocess.DEVNULL, None):
+        shut = subprocess.run(
+            [H.sh, str(H.wrapper), "--session"],
+            stdin=stdin,
+            capture_output=True,
+            text=True,
+            env=plain,
+            cwd=clone.root,
+            check=False,
+            preexec_fn=(lambda: os.close(0)) if stdin is None else None,
+        )
+        assert shut.returncode == 1 and shut.stdout == "", stdin
+        assert shut.stderr.splitlines() == lacking.stderr.splitlines(), stdin
 
 
 @item(
@@ -971,6 +1167,8 @@ def test_exit_codes(tmp_path: Path, clone: Clone) -> None:
         ((), "one of the arguments --all --session is required"),
         (("--all", "--session"), "argument --session: not allowed with argument --all"),
         (("--bogus",), "one of the arguments --all --session is required"),
+        (("--al",), "one of the arguments --all --session is required"),
+        (("--sess",), "one of the arguments --all --session is required"),
         (("--all", "x"), "unrecognized arguments: x"),
     ):
         misuse = clone.count(*args)
@@ -1035,17 +1233,21 @@ def exit_codes_of_start_and_setup(tmp_path: Path, clone: Clone) -> None:
     assert len(log_lines(clone, "starts.jsonl")) == logged_before, "a start that cannot be read logs nothing"
     outside = tmp_path / "outside-setup"
     outside.mkdir()
-    nowhere = clone.count(harness=HU, cwd=outside, env={"GIT_CEILING_DIRECTORIES": str(tmp_path)})
-    assert nowhere.code == 1 and nowhere.stdout == ""
-    assert nowhere.stderr.splitlines() == [
-        f"BROKEN: {outside} is not inside a git repository — fix: run it inside the clone whose commits it"
-        " counts",
-        SETUP_CLOSING,
-    ]
+    for flags in ((), ("--check",), ("--remove",)):
+        nowhere = clone.count(*flags, harness=HU, cwd=outside, env={"GIT_CEILING_DIRECTORIES": str(tmp_path)})
+        assert nowhere.code == 1 and nowhere.stdout == "", flags
+        assert nowhere.stderr.splitlines() == [
+            f"BROKEN: {outside} is not inside a git repository — fix: run it inside the clone whose commits"
+            " it counts",
+            SETUP_CLOSING,
+        ], flags
     for args, detail in (
         (("--bogus",), "unrecognized arguments: --bogus"),
         (("--remove", "--check"), "argument --check: not allowed with argument --remove"),
         (("x",), "unrecognized arguments: x"),
+        (("--rem",), "unrecognized arguments: --rem"),
+        (("--che",), "unrecognized arguments: --che"),
+        (("--help",), "unrecognized arguments: --help"),
     ):
         wrong = setup_run(clone, *args)
         assert wrong.code == 1 and wrong.stdout == "", args
@@ -1069,6 +1271,20 @@ def exit_codes_of_start_and_setup(tmp_path: Path, clone: Clone) -> None:
         " — fix: repair what git names, such as the file's rights, then run setup-commit-log.sh --check"
     )
     assert HOOK_COMMIT not in git_in(clone.root, "config", "--local", "--list", session=None)
+    git_dir.chmod(0o555)
+    try:
+        stuck = setup_run(clone, "--remove")
+    finally:
+        git_dir.chmod(0o755)
+    assert stuck.code == 1 and stuck.stdout == ""
+    first, closing_line = stuck.stderr.splitlines()
+    assert closing_line == SETUP_CLOSING
+    assert first.startswith(
+        f"BROKEN: git could not write {HOOK_COMMIT} into {git_dir}/config: error: could not lock config file"
+    )
+    assert first.endswith(
+        " — fix: repair what git names, such as the file's rights, then run setup-commit-log.sh --check"
+    )
 
 
 def exit_codes_of_report(parent: Path) -> None:
@@ -1093,6 +1309,11 @@ def exit_codes_of_report(parent: Path) -> None:
         (("--trailer", "a..b", "--pr", "c..d"), "argument --pr: not allowed with argument --trailer"),
         (("a..b", "c..d"), "unrecognized arguments: c..d"),
         (("--pr", "a..b", "c"), "unexpected argument c"),
+        (("--trail", "a..b"), "unrecognized arguments: --trail"),
+        (("--p", "a..b"), "unrecognized arguments: --p"),
+        (("--n", "a..b"), "unrecognized arguments: --n"),
+        (("--help",), "unrecognized arguments: --help"),
+        (("-h",), "unrecognized arguments: -h"),
     ):
         misuse = run_report(clone, *args)
         assert misuse.code == 1 and misuse.stdout == "", args
@@ -1100,6 +1321,10 @@ def exit_codes_of_report(parent: Path) -> None:
             f"BROKEN: misinvocation: {detail} — fix: run it as {usage}",
             REPORT_CLOSING,
         ], args
+    inside = clone.root / "sub"
+    inside.mkdir()
+    deep = clone.count("nowhere..HEAD", harness=HR, cwd=inside)
+    assert deep.code == 1 and f"cannot read the range nowhere..HEAD in {clone.root}: fatal: " in deep.stderr
     for flag in ("", "--trailer", "--pr", "--notes"):
         args = (flag, "nowhere..HEAD") if flag else ("nowhere..HEAD",)
         unreadable = run_report(clone, *args)
@@ -1111,6 +1336,20 @@ def exit_codes_of_report(parent: Path) -> None:
             " — fix: name commits this clone has, such as main..HEAD; a shallow clone may need git fetch"
             " --unshallow"
         )
+    # the output log names the mode of each run: a report only reads, --pr and --notes change something
+    log = clone.data / "const-change-cost.jsonl"
+    for forms, mode in (
+        ((), "report"),
+        (("--trailer", "nowhere..HEAD"), "report"),
+        (("--pr", "nowhere..HEAD"), "act"),
+        (("--pr=nowhere..HEAD",), "act"),
+        (("--notes", "nowhere..HEAD"), "act"),
+        (("--notes=nowhere..HEAD",), "act"),
+    ):
+        seen = len(log.read_text(encoding="utf-8").splitlines())
+        run_report(clone, *(forms or ("nowhere..HEAD",)))
+        added = [json.loads(raw) for raw in log.read_text(encoding="utf-8").splitlines()[seen:]]
+        assert added and {held["mode"] for held in added} == {mode}, (forms, added)
     (clone.root / ".git" / "refs" / "notes").write_text("a file where git wants a folder\n", encoding="utf-8")
     refused = run_report(clone, "--notes", "base..HEAD", env=AUTHOR)
     assert refused.code == 1 and refused.stdout == ""
@@ -1249,10 +1488,16 @@ def payload(session: str, cwd: Path, source: str = "startup", transcript: str = 
     )
 
 
-def git_in(cwd: Path, *args: str, session: str | None = S1, check: bool = True) -> str:
+def git_in(
+    cwd: Path,
+    *args: str,
+    session: str | None = S1,
+    check: bool = True,
+    extra: Mapping[str, str] | None = None,
+) -> str:
     """The real git, in `cwd`, as a session would run it: the variable of the session named, or unset."""
     env = {key: value for key, value in os.environ.items() if key != "CLAUDE_CODE_SESSION_ID"}
-    env.update({**GIT_ENV, **AUTHOR})
+    env.update({**GIT_ENV, **AUTHOR, **(extra or {})})
     if session is not None:
         env["CLAUDE_CODE_SESSION_ID"] = session
     done = subprocess.run(["git", *args], cwd=cwd, env=env, capture_output=True, text=True, check=False)
@@ -1318,6 +1563,16 @@ def test_start_record(tmp_path: Path, clone: Clone) -> None:
         ("hook", S1, "/t/one.jsonl"),
         ("hook", S2, "/t/two.jsonl"),
     ]
+    # a name that is not ASCII is written as it is, not as an escape
+    start_hook(clone, payload(S3, clone.root, "startup", "/t/caf\u00e9.jsonl"))
+    last = (clone.folder / "starts.jsonl").read_text(encoding="utf-8").splitlines()[-1]
+    assert last.endswith(',"source":"startup","transcript_path":"/t/caf\u00e9.jsonl"}'), last
+    # D3: a hook run with another data folder replaces the one it recorded
+    moved = clone.tmp / "moved-data"
+    HS.run_gate(
+        payload(S3, clone.root), env=clone.environment({"CLAUDE_PLUGIN_DATA": str(moved)}), cwd=clone.root
+    )
+    assert (clone.folder / "plugin-data").read_text(encoding="utf-8") == str(moved)
 
 
 @item(2, "J1 with both hooks and with one missing; nothing printed when both stand or outside a repository")
@@ -1357,7 +1612,8 @@ def test_start_line(tmp_path: Path, clone: Clone) -> None:
 @item(
     3, "the setup: J17 with both hooks and nothing else written; J19 both ways; J18 keeping the logs; old git"
 )
-def test_setup(tmp_path: Path, clone: Clone) -> None:
+def test_setup(tmp_path: Path, clone: Clone, monkeypatch: pytest.MonkeyPatch) -> None:
+    git_edges(tmp_path, clone, monkeypatch)
     config = clone.root / ".git" / "config"
     before = local_config(clone.root)
     checked = setup_run(clone, "--check")
@@ -1401,6 +1657,18 @@ def test_setup(tmp_path: Path, clone: Clone) -> None:
         0,
         [f"CHECK: git's configuration lacks {HOOK_MERGE} — setup-commit-log.sh writes them"],
     )
+    setup_run(clone)
+    # a hook with its event and no command, or an empty command, does not stand; a command of bytes that are
+    # no UTF-8 does
+    lacks = [f"CHECK: git's configuration lacks {HOOK_COMMIT} — setup-commit-log.sh writes them"]
+    git_in(clone.root, "config", "--local", "--unset", f"{HOOK_COMMIT}.command", session=None)
+    assert setup_run(clone, "--check").stdout.splitlines() == lacks
+    git_in(clone.root, "config", "--local", f"{HOOK_COMMIT}.command", " ", session=None)
+    assert setup_run(clone, "--check").stdout.splitlines() == lacks
+    git_in(clone.root, "config", "--local", f"{HOOK_COMMIT}.command", "caf\udcff", session=None)
+    assert setup_run(clone, "--check").stdout.splitlines() == [
+        "CHECK: both hooks of the commit log stand in git's configuration"
+    ]
     setup_run(clone)
     clone.start(S1, 0)  # a log the removal must keep
     clone.commit("a" * 40, 1, S1)
@@ -1702,6 +1970,20 @@ def test_no_start_is_made_up(clone: Clone, tmp_path: Path, installed: Path) -> N
         NotCounted("e" * 40, Reason.NO_START, S1),
         NotCounted("f" * 40, Reason.WAITING, S1),
     ]
+    # a commit in the very millisecond of the first start is not before it: it waits, it is not "no start"
+    equal = Clone.make(tmp_path / "equal", installed)
+    equal.start(S1, 5)
+    equal.commit("g" * 40, 5, S1)
+    commits, _ = logs.read_commits(equal.folder)
+    starts, _ = logs.read_starts(equal.folder)
+    tally = counting.Tally()
+    counting.count_session(S1, commits, starts, set(), None, equal.folder, tally)
+    assert tally.not_counted == [NotCounted("g" * 40, Reason.WAITING, S1)]
+    assert report.reason_of("g" * 40, {line.sha: line for line in commits}, {S1: starts}) == NotCounted(
+        "g" * 40, Reason.WAITING, S1
+    )
+    commits, _ = logs.read_commits(early.folder)
+    starts, _ = logs.read_starts(early.folder)
     # the report names it the same way
     commit_of = {line.sha: line for line in commits}
     assert report.reason_of("e" * 40, commit_of, {S1: starts}) == NotCounted("e" * 40, Reason.NO_START, S1)
@@ -1725,6 +2007,13 @@ def test_start_without_a_transcript_path(clone: Clone) -> None:
     not_text = json.dumps({**json.loads(bare), "transcript_path": 7})
     assert start_hook(clone, not_text).code == 0  # a field that is no string is read as absent too
     assert [held["transcript_path"] for held in log_lines(clone, "starts.jsonl")] == ["", ""]
+    # the event's own cwd names the clone, whatever folder the hook runs in; a cwd that is no text is
+    # left out and the folder of the run is used
+    elsewhere = start_hook(clone, payload(S2, clone.root), cwd=clone.tmp)
+    assert (elsewhere.code, elsewhere.stderr) == (0, ""), elsewhere.stderr
+    numeric = start_hook(clone, json.dumps({**json.loads(bare), "session_id": S3, "cwd": 7}))
+    assert (numeric.code, numeric.stderr) == (0, ""), numeric.stderr
+    assert [held["session"] for held in log_lines(clone, "starts.jsonl")] == [S1, S1, S2, S3]
     later = int(str(records[0]["ms"])) + 1000
     clone.append_line("commits.jsonl", {"sha": "a" * 40, "ms": later, "session": S1, "event": "commit"})
     counted = clone.count("--all")  # Path("") would be the current folder: the path is skipped instead
@@ -1897,6 +2186,7 @@ def test_report(tmp_path: Path) -> None:
         "total, 0 counted commit(s): input 0, output 0, cache write 0, cache read 0, total 0 tokens; $0.00 at"
         " list price; 0 replies; models: none; compactions: 0; unpriced: none",
     ]
+    mixed_report(tmp_path / "mixed-rig")
     with (clone.folder / "counts.jsonl").open("a", encoding="utf-8") as handle:
         handle.write("{\n")
     unreadable = run_report(clone)
@@ -1904,6 +2194,71 @@ def test_report(tmp_path: Path) -> None:
     assert unreadable.stderr.splitlines() == [
         f"note: a log line cannot be read and is left out: {clone.folder}/counts.jsonl line 3: it is not JSON"
     ]
+    # with a range, the notes of all three logs come out on stderr, the counts first
+    for name in ("commits.jsonl", "starts.jsonl"):
+        with (clone.folder / name).open("a", encoding="utf-8") as handle:
+            handle.write("this is not JSON\n")
+    noted = run_report(clone, "base..HEAD")
+    assert noted.code == 0
+    shown = f"note: a log line cannot be read and is left out: {clone.folder}"
+    assert noted.stderr.splitlines() == [
+        f"{shown}/counts.jsonl line 3: it is not JSON",
+        f"{shown}/commits.jsonl line 7: it is not JSON",
+        f"{shown}/starts.jsonl line 3: it is not JSON",
+    ]
+
+
+def mixed_report(tmp_path: Path) -> None:
+    """Counts made by two ccusage versions, models that spent the same, two unpriced models and a model
+    name with a bar: the head line, the order of the names, the list of unpriced names and the table row."""
+    clone = bare_clone(tmp_path / "mixed")
+    shas = []
+    git_in(clone.root, "commit", "--allow-empty", "-m", "base", session=None)
+    git_in(clone.root, "tag", "base", session=None)
+    for name in ("one", "two"):
+        git_in(clone.root, "commit", "--allow-empty", "-m", name, session=None)
+        shas.append(git_in(clone.root, "rev-parse", "HEAD", session=None))
+    tied: dict[str, object] = {
+        **COUNTS_OF_ONE,
+        "input": 150,
+        "output": 50,
+        "cache_write": 0,
+        "cache_read": 0,
+        "total": 200,
+        "replies": 2,
+        "models": {"zeta": 100, "alpha|x": 100},
+        "unpriced": ["zeta", "alpha|x"],
+    }
+    clone.append_line("counts.jsonl", {**kept_line(shas[0], S1, tied), "ccusage": "20.0.48"})
+    clone.append_line("counts.jsonl", {**kept_line(shas[1], S1, tied), "ccusage": "20.0.47"})
+    each = (
+        "input 150, output 50, cache write 0, cache read 0, total 200 tokens; at least $0.01 at list price;"
+        " 2 replies; models: zeta 100, alpha|x 100; compactions: 0; unpriced: zeta, alpha|x"
+    )
+    plain = run_report(clone)
+    assert plain.stdout.splitlines() == [
+        "CHANGE-COST: 2 commit(s) counted in this clone — tokens counted by ccusage 20.0.47, 20.0.48, cost at"
+        " its list price",
+        f"{shas[0][:12]}: {each}",
+        f"{shas[1][:12]}: {each}",
+    ], plain.stderr
+    piped = run_report(clone, "--pr", "base..HEAD", path=tool_folder(tmp_path / "mixed-tools"))
+    assert piped.stdout.splitlines() == [
+        "<!-- const-change-cost -->",
+        "**Change cost** — tokens counted by ccusage 20.0.47, 20.0.48, cost at its list price",
+        "",
+        "| commit | input | output | cache write | cache read | total | cost | replies | models |"
+        " compactions | unpriced |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
+        f"| `{shas[0][:12]}` | 150 | 50 | 0 | 0 | 200 | at least $0.01 | 2 | zeta 100, alpha\\|x 100 | 0 |"
+        " zeta, alpha\\|x |",
+        f"| `{shas[1][:12]}` | 150 | 50 | 0 | 0 | 200 | at least $0.01 | 2 | zeta 100, alpha\\|x 100 | 0 |"
+        " zeta, alpha\\|x |",
+        "| total, 2 of 2 | 300 | 100 | 0 | 0 | 400 | at least $0.02 | 4 | alpha\\|x 200, zeta 200 | 0 |"
+        " alpha\\|x, zeta |",
+        "<!-- /const-change-cost -->",
+        "note: gh is not on PATH — the block above is printed for a person to paste",
+    ], piped.stderr
 
 
 def trailer_lines(shas: Mapping[str, str]) -> list[str]:
@@ -2090,6 +2445,69 @@ def test_pr(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     assert failed.stderr.splitlines() == [
         "BROKEN: gh could not write the description of pull request #7: HTTP 401: Bad credentials — fix:"
         " repair what gh names, such as its login, or paste the block printed above into the description",
+        REPORT_CLOSING,
+    ]
+    # the description as it stands: its last letters are kept, an empty or null one gets the block alone,
+    # and of two blocks only the first is replaced
+    joined = "\n".join(block)
+    for text, wanted in (
+        ("Description X", f"Description X\n\n{joined}\n"),
+        ("", f"{joined}\n"),
+        (None, f"{joined}\n"),
+    ):
+        view.write_text(json.dumps({"number": 7, "body": text}), encoding="utf-8")
+        assert run_report(clone, "--pr", "base..HEAD", path=tools, env=env).code == 0
+        assert body.read_text(encoding="utf-8") == wanted, text
+    earlier = "\n".join(block_of_the_rig(clone, shas, "nolog"))
+    view.write_text(
+        json.dumps({"number": 7, "body": f"A\n\n{earlier}\n\nB\n\n{earlier}\n"}), encoding="utf-8"
+    )
+    assert run_report(clone, "--pr", "base..HEAD", path=tools, env=env).code == 0
+    assert body.read_text(encoding="utf-8") == f"A\n\n{joined}\n\nB\n\n{earlier}\n"
+    view.write_text(json.dumps({"number": 7, "body": "Description.\n"}), encoding="utf-8")
+    # the branch asked of gh: a range with three dots or an empty end names its head, a single revision is
+    # taken as it is, and a detached HEAD is "HEAD" while a head spelled "@" stays as it is spelled
+    for range_text in ("base...HEAD", "base..", "HEAD"):
+        log.unlink()
+        assert run_report(clone, "--pr", range_text, path=tools, env=env).code == 0, range_text
+        assert log.read_text(encoding="utf-8").splitlines()[0] == f"pr view {head} --json number,body", (
+            range_text
+        )
+    git_in(clone.root, "checkout", "-q", "--detach", session=None)
+    for range_text, named in (("base..HEAD", "HEAD"), ("base..@", "@")):
+        log.unlink()
+        assert run_report(clone, "--pr", range_text, path=tools, env=env).code == 0, range_text
+        assert log.read_text(encoding="utf-8").splitlines()[0] == f"pr view {named} --json number,body", (
+            range_text
+        )
+    git_in(clone.root, "checkout", "-q", head, session=None)
+    # a gh that cannot be started, one that fails with nothing to say, and one that cannot write
+    garbage = tool_folder(tmp_path / "garbage")
+    (garbage / "gh").write_bytes(b"\x00\x01 not a program\n")
+    (garbage / "gh").chmod(0o755)
+    unstartable = run_report(clone, "--pr", "base..HEAD", path=garbage, env=env)
+    assert unstartable.code == 0 and unstartable.stdout.splitlines() == [
+        *block,
+        f"note: gh failed when asked for the pull request of {head}: [Errno 8] Exec format error: 'gh' — the"
+        " block above is printed for a person to paste",
+    ]
+    silent_view = tool_folder(tmp_path / "silent-view", 'echo "$*" >> "$GH_LOG"\nexit 1\n')
+    quiet = run_report(clone, "--pr", "base..HEAD", path=silent_view, env=env)
+    assert quiet.code == 0 and quiet.stdout.splitlines() == [
+        *block,
+        f"note: gh failed when asked for the pull request of {head}: no message — the block above is printed"
+        " for a person to paste",
+    ]
+    silent_edit = tool_folder(
+        tmp_path / "silent-edit",
+        'case "$1 $2" in\n  "pr view") /bin/cat "$GH_VIEW" ;;\n'
+        '  "pr edit") /bin/cat > /dev/null; exit 1 ;;\nesac\n',
+    )
+    mute = run_report(clone, "--pr", "base..HEAD", path=silent_edit, env=env)
+    assert mute.code == 1 and mute.stdout.splitlines() == block
+    assert mute.stderr.splitlines() == [
+        "BROKEN: gh could not write the description of pull request #7: no message — fix: repair what gh"
+        " names, such as its login, or paste the block printed above into the description",
         REPORT_CLOSING,
     ]
     gh_silent(clone, tmp_path, monkeypatch)
@@ -2386,6 +2804,105 @@ def by_hand(tmp_path: Path, fake: Path) -> list[str]:
     return failures
 
 
+def npm_edges(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An npm that does not answer in time and one that cannot be started: J6.5, the manifest copied in and no
+    lockfile copy left, so that the install is tried again."""
+    original_path, original_seconds = os.environ["PATH"], gate_model.NPM_SECONDS
+    monkeypatch.setattr(counters, "NPM_SECONDS", 0.5)
+    for name, body, detail in (
+        ("slow", "exec /bin/sleep 30\n", "no answer in 120 s"),
+        ("unstartable", None, "[Errno 8] Exec format error: 'npm'"),
+    ):
+        tools = tmp_path / name / "bin"
+        tools.mkdir(parents=True)
+        data = tmp_path / name / "data"
+        if body is not None:
+            fake_program(tools / "npm", body)
+        else:
+            (tools / "npm").write_bytes(b"\x00\x01 not a program\n")
+            (tools / "npm").chmod(0o755)
+        # no other npm stands on this PATH: a file that cannot run would be skipped for the next one found
+        monkeypatch.setenv("PATH", str(tools))
+        with identity.declared(start.COUNT, Mode.ACT), pytest.raises(ConfigurationFailure) as caught:
+            counters.install(PLUGIN, data)
+        assert caught.value.broken.render() == (
+            f"BROKEN: npm could not install the pinned ccusage into {data}: {detail} — fix: repair what npm"
+            " names — the network, the registry, the folder's rights — then start a session again — until"
+            f" then no commit is counted"
+        ), name
+        assert not (data / "package-lock.json").exists()
+        assert (data / "package.json").read_bytes() == (PINNED / "package.json").read_bytes()
+    monkeypatch.setenv("PATH", original_path)
+    monkeypatch.setattr(counters, "NPM_SECONDS", original_seconds)
+
+
+def ccusage_answers(tmp_path: Path) -> list[str]:
+    """What the module makes of ccusage's answers, each detail typed by hand, and how it asks."""
+    failures: list[str] = []
+
+    def detail(call: Callable[[], object]) -> str:
+        with pytest.raises(counters.NotAReport) as caught:
+            call()
+        return caught.value.detail
+
+    whole = '"inputTokens":1,"outputTokens":2,"cacheCreationTokens":3,"cacheReadTokens":4'
+    totals_of = '"totalTokens":10,"totalCost":0.5'
+    for text, said in (
+        ("not json", "it is not JSON"),
+        ("[]", "it is no object"),
+        ('{"entries":1}', "it has no entries list"),
+        ('{"entries":[],"totalCost":0.5}', "it has no totalTokens"),
+        ('{"entries":[],"totalTokens":"10","totalCost":0.5}', "it has no totalTokens"),
+        ('{"entries":[],"totalTokens":true,"totalCost":0.5}', "it has no totalTokens"),
+        ('{"entries":[],"totalTokens":10}', "it has no totalCost"),
+        ('{"entries":[],"totalTokens":10,"totalCost":"0.5"}', "it has no totalCost"),
+        ('{"entries":[],"totalTokens":10,"totalCost":true}', "it has no totalCost"),
+        (f'{{"entries":[7],{totals_of}}}', "an entry is no object"),
+        (f'{{"entries":[{{{whole}}}],{totals_of}}}', "an entry lacks its model"),
+        (
+            f'{{"entries":[{{"model":"m","inputTokens":"1","outputTokens":2,"cacheCreationTokens":3,'
+            f'"cacheReadTokens":4}}],{totals_of}}}',
+            "an entry lacks the whole number inputTokens",
+        ),
+        (
+            f'{{"entries":[{{"model":"m","inputTokens":1,"outputTokens":2.5,"cacheCreationTokens":3,'
+            f'"cacheReadTokens":4}}],{totals_of}}}',
+            "an entry lacks the whole number outputTokens",
+        ),
+        (
+            f'{{"entries":[{{"model":"m","inputTokens":1,"outputTokens":2,"cacheCreationTokens":3,'
+            f'"cacheReadTokens":null}}],{totals_of}}}',
+            "an entry lacks the whole number cacheReadTokens",
+        ),
+    ):
+        got = detail(partial(counters.parse_report, text))
+        if got != said:
+            failures.append(f"{text}: {got}")
+    if counters.parse_report("null") != Report((), 0, 0.0):
+        failures.append("a null report is not an empty one")
+    for text, said in (("not json", "it is not JSON"), ('{"a":1}', "it has no sessions list")):
+        got = detail(partial(counters.parse_unpriced, text))
+        if got != said:
+            failures.append(f"unpriced {text}: {got}")
+    if counters.parse_unpriced("null") != ():
+        failures.append("a null answer names no unpriced model")
+    # bytes that are no UTF-8 are read with replacements; the run is asked with the plugin's own config
+    log = tmp_path / "args.log"
+    tmp_path.mkdir(parents=True)
+    fake = tmp_path / "ccusage"
+    fake_program(fake, f'echo "$@" >> {log}\nprintf \'{{"x":"\\377"}}\'\n')
+    counter = counters.Ccusage(fake, PIN, PLUGIN)
+    with identity.declared(start.COUNT, Mode.ACT):
+        said_text = counters._run(counter, tmp_path, ["--id", S1], S1)
+    if said_text != '{"x":"\ufffd"}':
+        failures.append(f"output with a byte that is no UTF-8: {said_text!r}")
+    if log.read_text(encoding="utf-8").splitlines() != [
+        f"claude session --id {S1} --json --offline --config {PLUGIN}/ccusage.json"
+    ]:
+        failures.append(f"the arguments of the run: {log.read_text(encoding='utf-8')!r}")
+    return failures
+
+
 def ccusage_failures(tmp_path: Path) -> list[str]:
     """J6.1 to J6.6 of the count, each typed by hand: the failures of finding, installing and running"
     " ccusage."""
@@ -2479,6 +2996,7 @@ def ccusage_failures(tmp_path: Path) -> list[str]:
         f" — the network, the registry, the folder's rights — then start a session again — {CLAUSE}"
     )
     assert messages.detail_ccusage_silent() == "no answer in 60 s"
+    failures += ccusage_answers(tmp_path / "answers")
     assert CommitLine("a", 1, "s", "commit") == logs.parse_commit(
         {"sha": "a", "ms": 1, "session": "s", "event": "commit"}
     )
@@ -2486,6 +3004,108 @@ def ccusage_failures(tmp_path: Path) -> list[str]:
         {"session": "s", "ms": 1, "source": "startup", "transcript_path": "/t"}
     )
     return failures
+
+
+# ------------------------------------------------------------------ git's answers that are odd
+
+
+def git_saying(parent: Path, body: str) -> Path:
+    """A folder with a `git` that runs `body` first; what `body` leaves undecided is the real git's."""
+    real = shutil.which("git")
+    assert real
+    parent.mkdir(parents=True)
+    fake_program(parent / "git", f'{body}\nexec {real} "$@"\n')
+    return parent
+
+
+def git_edges(tmp_path: Path, clone: Clone, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The module's git calls against a git that answers oddly: bytes that are no UTF-8, no message on
+    stderr, a version that is no version. The lines are typed by hand."""
+    root = clone.root
+    git_in(root, "commit", "--allow-empty", "-q", "-m", "a")
+    config = root / ".git" / "config"
+    original = os.environ["PATH"]
+    count = 0
+
+    def with_git(body: str) -> None:
+        nonlocal count
+        count += 1
+        fake = git_saying(tmp_path / "git-edges" / str(count), body)
+        monkeypatch.setenv("PATH", f"{fake}{os.pathsep}{original}")
+
+    def broken(action: Callable[[], object]) -> str:
+        with identity.declared(start.COUNT, Mode.ACT), pytest.raises(ConfigurationFailure) as caught:
+            action()
+        return caught.value.broken.render()
+
+    def answer(action: Callable[[], object]) -> object:
+        with identity.declared(start.COUNT, Mode.ACT):
+            return action()
+
+    until = " — until then no commit is counted"
+    where = "BROKEN: git could not answer where the repository is: "
+    where_fix = " — fix: repair the git setup named in the message (configuration, ownership, installation)"
+    with_git('[ "$1" = rev-parse ] && { printf "fatal: caf\\377\\n" >&2; exit 128; }')
+    assert broken(lambda: gitpart.common_or_none(root)) == where + "fatal: caf\ufffd" + where_fix
+    with_git('[ "$1" = rev-parse ] && exit 128')
+    assert broken(lambda: gitpart.common_or_none(root)) == where + "no message" + where_fix
+    with_git('[ "$1" = rev-parse ] && { printf "caf\\377\\n"; exit 0; }')
+    assert answer(lambda: gitpart.common_or_none(root)) == Path(os.path.realpath(root / "caf\ufffd"))
+    bad_range = f"BROKEN: git cannot read the range a..b in {root}: "
+    range_fix = (
+        " — fix: name commits this clone has, such as main..HEAD; a shallow clone may need git fetch"
+        " --unshallow"
+    )
+    with_git('[ "$1" = rev-list ] && { printf "caf\\377\\n" >&2; exit 128; }')
+    assert (
+        broken(lambda: gitpart.range_commits(root, root, "a..b"))
+        == bad_range + "caf\ufffd" + range_fix + until
+    )
+    with_git('[ "$1" = rev-list ] && exit 128')
+    assert (
+        broken(lambda: gitpart.range_commits(root, root, "a..b"))
+        == bad_range + "no message" + range_fix + until
+    )
+    cannot = f"BROKEN: git could not write %s into {config}: %s"
+    write_fix = (
+        " — fix: repair what git names, such as the file's rights, then run setup-commit-log.sh --check"
+    )
+    with_git('[ "$1" = config ] && exit 1')
+    assert broken(lambda: gitpart.set_config(root, root / ".git", "k.x", ["v"])) == (
+        cannot % ("k.x", "no message") + write_fix + until
+    )
+    assert broken(lambda: gitpart.remove_section(root, root / ".git", "k")) == (
+        cannot % ("k", "no message") + write_fix + until
+    )
+    with_git('[ "$1" = config ] && { printf "caf\\377\\n" >&2; exit 1; }')
+    assert broken(lambda: gitpart.remove_section(root, root / ".git", "k")) == (
+        cannot % ("k", "caf\ufffd") + write_fix + until
+    )
+    assert broken(lambda: gitpart.set_config(root, root / ".git", "k.x", ["v"])) == (
+        cannot % ("k.x", "caf\ufffd") + write_fix + until
+    )
+    # a git that names itself in no usual way is named by its own answer, or by "no answer"; 2.54.0 is the
+    # first
+    # that serves hooks set in the configuration
+    for body, text, old in (
+        ('[ "$1" = --version ] && { echo hello; exit 0; }', "hello", True),
+        ('[ "$1" = --version ] && exit 0', "no answer", True),
+        ('[ "$1" = --version ] && { echo "git version 2.53.9"; exit 0; }', "2.53.9", True),
+        ('[ "$1" = --version ] && { echo "git version 2.54.0"; exit 0; }', "2.54.0", False),
+    ):
+        with_git(body)
+        assert answer(lambda: gitpart.version_text(root)) == text
+        assert answer(lambda: gitpart.is_old(root)) is old, text
+    # the name of a branch is read with replacements; a head that is not a branch is its own name
+    with_git('[ "$1" = rev-parse ] && [ "$2" = --abbrev-ref ] && { printf "caf\\377\\n"; exit 0; }')
+    assert answer(lambda: gitpart.branch_of(root, "HEAD")) == "caf\ufffd"
+    monkeypatch.setenv("PATH", original)
+    git_in(root, "checkout", "-q", "-b", "topic", session=None)
+    assert answer(lambda: gitpart.branch_of(root, "HEAD")) == "topic"
+    git_in(root, "checkout", "-q", "--detach", session=None)
+    assert answer(lambda: gitpart.branch_of(root, "@")) == "@"
+    assert answer(lambda: gitpart.branch_of(root, "HEAD")) == "HEAD"
+    git_in(root, "checkout", "-q", "-", session=None)
 
 
 # ------------------------------------------------------------------ T27 to T30: the effect report
@@ -2496,11 +3116,11 @@ SHARE = "const-change-cost:share-costs"
 OTHER_SKILL = "const-task-close:close-task"
 
 
-def tr_call(session: str, cwd: Path, seconds: float, call_id: str, name: str, **given: object) -> str:
+def tr_call(session: str, cwd: Path, seconds: float | str, call_id: str, name: str, **given: object) -> str:
+    """A tool call at `seconds` after the fixture's day start, or at the time text given whole."""
     block = {"type": "tool_use", "id": call_id, "name": name, "input": given}
-    return tr_line(
-        "assistant", session, cwd, stamp(seconds), message={"role": "assistant", "content": [block]}
-    )
+    when = seconds if isinstance(seconds, str) else stamp(seconds)
+    return tr_line("assistant", session, cwd, when, message={"role": "assistant", "content": [block]})
 
 
 def tr_failed(session: str, cwd: Path, seconds: float, call_id: str) -> str:
@@ -2514,14 +3134,15 @@ def effect_run(
     sessions: Mapping[str, Sequence[str]] | None = None,
     claude: str = "echo '[]'\n",
     args: Sequence[str] = (),
+    env: Mapping[str, str] | None = None,
 ) -> Result:
     """The effect report over the sessions, one transcript each; a fake `claude` lists the plugins."""
     folder = clone.tmp / "sessions"
     folder.mkdir(exist_ok=True)
     for name, lines in (sessions or {}).items():
         (folder / f"{name}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
-    env = fake_claude(HE.scratch_dir(), claude)
-    return clone.count("--transcripts", str(folder), *args, harness=HE, env=env)
+    fake = fake_claude(HE.scratch_dir(), claude)
+    return clone.count("--transcripts", str(folder), *args, harness=HE, env={**fake, **(env or {})})
 
 
 def effect_lines(
@@ -2571,9 +3192,32 @@ def test_effect_commit_logged(tmp_path: Path) -> None:
         "three": [
             tr_call("55555555-5555-4555-8555-555555555555", tmp_path, 12, "a", "Bash", command="git commit")
         ],
+        # every call here has a line of its session half a second after it, so each commit is applied; a
+        # call that is no commit makes no moment, and neither makes a tool that is not the shell
+        "four": [
+            tr_call(S4, root, 100, "a", "Bash", command="git -c user.name=x commit -qm a"),
+            tr_call(S4, root, 101, "b", "Bash", command="git --git-dir .git commit -qm b"),
+            tr_call(S4, root, 102, "c", "Bash", command="git --work-tree . commit -qm c"),
+            tr_call(S4, root, 103, "d", "Bash", command="git --namespace n commit -qm d"),
+            tr_call(S4, root, 104, "e", "Bash", command="git --no-pager commit -qm e"),
+            tr_call(S4, root, 105, "f", "Bash", command="pwd"),
+            tr_call(S4, root, 106, "g", "Bash", command="FOO=1 git commit -qm g"),
+            tr_call(S4, root, 107, "h", "Bash", command="GIT_EDITOR=true git commit -qm h"),
+            tr_call(S4, root, 108, "i", "Read", file_path="git commit"),
+            # 12:01:50 at +02:00 is 10:01:50 UTC, 110 s after the day start
+            tr_call(S4, root, "2026-11-01T12:01:50.000+02:00", "j", "Bash", command="git commit -qm j"),
+        ],
     }
+    for seconds in (100, 101, 102, 103, 104, 106, 107, 110):
+        clone.commit(f"{seconds:040d}", seconds + 0.5, S4)
     found = effect_lines(clone, sessions)
-    assert rule_line("W1", 2, 0, 4, "B6 4") in found, found
+    assert rule_line("W1", 10, 0, 4, "B6 4") in found, found
+    with (clone.folder / "commits.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write("this is not JSON\n")
+    noted = effect_lines(clone, sessions)
+    shown = f"note: a log line cannot be read and is left out: {clone.folder}"
+    unreadable = f"{shown}/commits.jsonl line 13: it is not JSON"
+    assert unreadable in noted, noted
 
 
 @item(
@@ -2606,6 +3250,8 @@ def test_effect_share_costs(tmp_path: Path) -> None:
             tr_call(s, root, 3, "3", "Bash", command="git log --merges"),
             tr_call(s, root, 4, "4", "Bash", command='echo "gh pr merge 7"'),
             tr_call(s, root, 5, "5", "Bash", command="gh pr view 7"),
+            tr_call(s, root, 6, "6", "Bash", command="git merge --continue"),
+            tr_call(s, root, 7, "7", "Bash", command="git merge --quit"),
         ],
         "e": [
             tr_call(s, root, 1, "k", "Skill", skill="share-costs"),
@@ -2616,17 +3262,18 @@ def test_effect_share_costs(tmp_path: Path) -> None:
     assert rule_line("W2", 3, 0, 2, "B5 2") in found, found
 
 
-def land(clone: Clone, name: str, message: str, counted: bool) -> str:
-    """A branch of one commit merged into main without a fast-forward; the kept line of the commit when
-    `counted`. Returns the merge commit's SHA."""
+def land(clone: Clone, name: str, message: str, counted: bool, onto: str = "main", date: str = "") -> str:
+    """A branch of one commit merged into `onto` without a fast-forward, the merge committed at `date` when
+    one is given; the kept line of the commit when `counted`. Returns the merge commit's SHA."""
     root = clone.root
-    git_in(root, "checkout", "-q", "-b", name, "main", session=None)
+    git_in(root, "checkout", "-q", "-b", name, onto, session=None)
     git_in(root, "commit", "--allow-empty", "-q", "-m", name, session=None)
     sha = git_in(root, "rev-parse", "HEAD", session=None)
     if counted:
         clone.append_line("counts.jsonl", kept_line(sha, S1, COUNTS_OF_ONE))
-    git_in(root, "checkout", "-q", "main", session=None)
-    git_in(root, "merge", "--no-ff", "-q", "-m", message, name, session=None)
+    git_in(root, "checkout", "-q", onto, session=None)
+    dated = {"GIT_COMMITTER_DATE": date} if date else None
+    git_in(root, "merge", "--no-ff", "-q", "-m", message, name, session=None, extra=dated)
     return git_in(root, "rev-parse", "HEAD", session=None)
 
 
@@ -2643,12 +3290,14 @@ def test_effect_trailer_on_merge(tmp_path: Path) -> None:
     git_in(root, "checkout", "-q", "-b", "main", session=None)
     git_in(root, "commit", "--allow-empty", "-q", "-m", "base", session=None)
     trailer = "Change-Cost: 1 of 1 commit(s) counted; 6,000 tokens"
+    land(
+        clone, "uncounted", "Work: uncounted", False
+    )  # the oldest: the scan goes on past a merge with no count
     land(clone, "applied", f"Work: applied\n\nAccepted: x\n{trailer}", True)
     land(clone, "bare", "Work: bare", True)
     land(clone, "commit-only", "Work: commit-only\n\nChange-Cost-Commit: aaaaaaaaaaaa 6,000 tokens", True)
     land(clone, "first-paragraph", f"Work: first\n{trailer}\n\nA closing paragraph.", True)
     land(clone, "first-paragraph-too", f"Work: again\n{trailer}\n\nAnother closing paragraph.", True)
-    land(clone, "uncounted", "Work: uncounted", False)
     land(clone, "uncounted-trailer", f"Work: uncounted\n\n{trailer}", False)
     git_in(root, "commit", "--allow-empty", "-q", "-m", "direct", session=None)
     clone.append_line(
@@ -2660,6 +3309,51 @@ def test_effect_trailer_on_merge(tmp_path: Path) -> None:
     assert future.code == 0 and rule_line("W3", 0, 0, 0) in future.stdout.splitlines(), future.stdout
     past = effect_run(clone, args=["--since", "2000-01-01"])
     assert rule_line("W3", 1, 0, 4, "B6 4") in past.stdout.splitlines(), past.stdout
+    # a line of the file of counts that cannot be read is noted; a merge message that is not UTF-8 is read
+    merged = land(clone, "latin", "Work: latin", True)
+    raw = subprocess.run(
+        ["git", "cat-file", "commit", merged], cwd=root, capture_output=True, check=True, env=os.environ
+    ).stdout
+    crafted = (
+        raw.partition(b"\n\n")[0]
+        + b"\n\nWork: caf\xe9\n\nChange-Cost: 1 of 1 commit(s) counted; 6,000 tokens\n"
+    )
+    made = subprocess.run(
+        ["git", "hash-object", "-t", "commit", "-w", "--literally", "--stdin"],
+        cwd=root,
+        input=crafted,
+        capture_output=True,
+        check=True,
+        env=os.environ,
+    ).stdout.decode()
+    git_in(root, "update-ref", "refs/heads/main", made.strip(), session=None)
+    with (clone.folder / "counts.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write("this is not JSON\n")
+    latin = effect_lines(clone)
+    assert rule_line("W3", 2, 0, 4, "B6 4") in latin, latin
+    unreadable = (
+        f"note: a log line cannot be read and is left out: {clone.folder}/counts.jsonl line 8: it is not JSON"
+    )
+    assert unreadable in latin, latin
+    # the main branch is the first of origin/HEAD, main and master that this clone has
+    for index, (branch, via_origin) in enumerate((("trunk", True), ("master", False))):
+        other = bare_clone(tmp_path / f"other-{index}")
+        git_in(other.root, "checkout", "-q", "-b", branch, session=None)
+        git_in(other.root, "commit", "--allow-empty", "-q", "-m", "base", session=None)
+        if via_origin:
+            git_in(
+                other.root, "symbolic-ref", "refs/remotes/origin/HEAD", f"refs/heads/{branch}", session=None
+            )
+        land(other, "w", "Work: w", True, onto=branch, date="2020-01-01T12:00:00+00:00")
+        got = effect_lines(other)
+        assert rule_line("W3", 0, 0, 1, "B6 1") in got, (branch, got)
+    # --since keeps a merge by the instant of its date: this one falls on the day before, under UTC
+    edge = bare_clone(tmp_path / "edge")
+    git_in(edge.root, "checkout", "-q", "-b", "main", session=None)
+    git_in(edge.root, "commit", "--allow-empty", "-q", "-m", "base", session=None)
+    land(edge, "w", "Work: w", True, date="2026-03-10T01:00:00+05:00")
+    early = effect_run(edge, args=["--since", "2026-03-10"], env={"TZ": "UTC"})
+    assert rule_line("W3", 0, 0, 0) in early.stdout.splitlines(), early.stdout
 
 
 @item(30, "W4: a fake claude listing the plugin enabled is applied, disabled bypassed by B2")
@@ -2691,6 +3385,18 @@ def test_effect_plugin_enabled(tmp_path: Path) -> None:
     ), other.stdout
     broken = effect_run(clone, claude="exit 3\n")
     assert broken.code == 0 and rule_line("W4", 0, 0, 0) in broken.stdout.splitlines()
+    (root / "constitution.yaml").write_text("module_prefix: [const-\n", encoding="utf-8")
+    git_in(root, "add", "constitution.yaml", session=None)
+    git_in(root, "commit", "-q", "-m", "a dials file that is no YAML", session=None)
+    (root / "constitution.yaml").write_text("module_prefix: const-\n", encoding="utf-8")
+    git_in(root, "add", "constitution.yaml", session=None)
+    git_in(root, "commit", "-q", "-m", "a dials file that parses again", session=None)
+    garbled = effect_run(clone, claude=listing(True))
+    assert garbled.code == 0 and rule_line("W4", 1, 0, 0) in garbled.stdout.splitlines()
+    assert (
+        "note: const-change-cost: W4: the history of constitution.yaml could not be read in full"
+        " (2 commit(s) with ParserError) — the changes it failed on are not counted"
+    ) in garbled.stdout.splitlines()
 
 
 def exit_codes_of_effect(parent: Path) -> None:
@@ -2767,6 +3473,23 @@ def claim(territory: Sequence[str]) -> dict[str, object]:
     return {}
 
 
+# The module's other entry files, beside the harness's, each with its clause and closing line typed by hand:
+# the shared items about the interpreter's floor and the shared package run each.
+ENTRY_FILES = (
+    EntryFile("cost-report.py", "", "BROKEN: the report could not run — nothing was shown or written"),
+    EntryFile("effect-report.py", "", "BROKEN: the report could not run — no rule counted"),
+    EntryFile(
+        "session-start.py",
+        "",
+        "BROKEN: const-change-cost could not log this session's start — its commits will get no count",
+    ),
+    EntryFile(
+        "setup-commit-log.py",
+        "",
+        "BROKEN: the setup could not run — setup-commit-log.sh --check shows what stands",
+    ),
+)
+
 SUBJECT = Subject(
     harness=H,
     gate_on=gate_on,
@@ -2789,4 +3512,6 @@ SUBJECT = Subject(
     closing=CLOSING,
     act_args=["--all"],
     effect="effect-report.sh",
+    entries=ENTRY_FILES,
+    effect_clause="until then the effect report is not made",  # its C2 clause, typed by hand
 )

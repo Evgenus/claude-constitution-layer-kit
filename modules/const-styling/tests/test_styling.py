@@ -30,7 +30,7 @@ import yaml
 from constitution_layer_kit.testing.acceptance import broken_first_line, check_case, expect, failure_of, item
 from constitution_layer_kit.testing.consumer import BASE_MARKDOWN, Consumer
 from constitution_layer_kit.testing.harness import Case, Harness, Result, Write, bash_json, red_lines
-from constitution_layer_kit.testing.items import PatternDial, Subject, fake_claude, tr_line
+from constitution_layer_kit.testing.items import EntryFile, PatternDial, Subject, fake_claude, tr_line
 from styling_gate import messages, start
 from styling_gate.model import Hit, Signature
 
@@ -190,8 +190,8 @@ def test_t1() -> None:
 
 @item(2, "a math fence and a $$ line are red; pseudocode is green; $$ in code is code")
 def test_t2() -> None:
-    """red and green: a math fence and a $$ line are red (Y2); a pseudocode fence is green; $$ inside a
-    fence of another language is code."""
+    """red and green: a math, latex or tex fence and a $$ line are red (Y2); a pseudocode fence is
+    green; $$ inside a fence of another language is code."""
     one_finding(
         {"docs/notes/f.md": "# T\n\n```math\nE = mc^2\n```\n"},
         "docs/notes/f.md:3: a formula, where the shipped default is pseudocode — ```math",
@@ -199,6 +199,14 @@ def test_t2() -> None:
     one_finding(
         {"docs/notes/f.md": "# T\n\n$$ E = mc^2 $$\n"},
         "docs/notes/f.md:3: a formula, where the shipped default is pseudocode — $$ E = mc^2 $$",
+    )
+    one_finding(
+        {"docs/notes/f.md": "# T\n\n```latex\nx\n```\n"},
+        "docs/notes/f.md:3: a formula, where the shipped default is pseudocode — ```latex",
+    )
+    one_finding(
+        {"docs/notes/f.md": "# T\n\n```tex\nx\n```\n"},
+        "docs/notes/f.md:3: a formula, where the shipped default is pseudocode — ```tex",
     )
     no_finding({"docs/notes/f.md": "# T\n\n```text\nenergy = mass * c * c\n```\n\n```bash\necho $$\n```\n"})
 
@@ -248,7 +256,8 @@ def test_t4() -> None:
 @item(5, "a skipped level and a second H1 are red; stepping back up is green")
 def test_t5() -> None:
     """Y5 for a level-three heading under the title; Y6 for a second level-one heading, after a
-    byte-order mark before the title, and right after a fence closes; stepping back up by any number
+    byte-order mark before the title, right after a fence closes, with nothing after the hash, and
+    around a comment on its line, echoed with the comment blanked; stepping back up by any number
     green"""
     one_finding(
         {"docs/notes/s.md": "# T\n\n### B\n"}, "docs/notes/s.md:3: a heading of level 3, skipping a level"
@@ -265,13 +274,21 @@ def test_t5() -> None:
         {"docs/notes/s.md": "# T\n\n```text\nx\n```\n# U\n"},
         "docs/notes/s.md:6: a second level-one heading — U",
     )
+    one_finding(  # a bare second `#` echoes nothing
+        {"docs/notes/s.md": "# T\n\n#\n"}, "docs/notes/s.md:3: a second level-one heading — "
+    )
+    one_finding(  # a comment on the heading's line is blanked to as many spaces as it is long
+        {"docs/notes/s.md": "# T\n\n# U <!-- c --> V\n"},
+        "docs/notes/s.md:3: a second level-one heading — U" + " " * 12 + "V",
+    )
 
 
 @item(6, "a fence without a language is red; text, nested, attributed and indented fences green")
 def test_t6() -> None:
     """Y7 for a backtick fence and for a tilde fence with no language; `text`, a nested fence closed
     by a longer one, an info string with attributes, a fence indented inside a list item and under a
-    nested item, and a fence that a fence with an info string does not close, green"""
+    nested item, a fence that a fence with an info string does not close, and a tilde fence whose
+    info string holds a backtick, green"""
     one_finding(
         {"docs/notes/k.md": "# T\n\n```\nls\n```\n"},
         "docs/notes/k.md:3: a fenced block that names no language",
@@ -280,6 +297,8 @@ def test_t6() -> None:
         {"docs/notes/k.md": "# T\n\n~~~\nls\n~~~\n"},
         "docs/notes/k.md:3: a fenced block that names no language",
     )
+    # a tilde fence may hold a backtick in its info
+    no_finding({"docs/notes/k.md": "# T\n\n~~~ a`b\n* x\n~~~\n"})
     no_finding(
         {
             "docs/notes/k.md": "# T\n\n```text\ntree\n```\n\n````markdown\n```\nnested\n```\n````\n\n"
@@ -326,7 +345,9 @@ def test_t8() -> None:
     """Y9 for all-ones numbering and for a jump; a list starting at 101, a new list after a
     paragraph, a nested ordered list counting on its own, a bullet inside an ordered list, a change
     of delimiter, a list restarting under the same delimiter after a heading, and one starting
-    anywhere after a fence green"""
+    anywhere after a fence green; a nested list restarting under the next item, a bullet or a comment
+    that runs on between two ordered items green; a jump over a blank line, over a continuation
+    indented by a tab or by spaces, and between a four-space item and a tab item red"""
     one_finding(
         {"docs/notes/n.md": "# T\n\n1. a\n1. b\n2. c\n"},
         "docs/notes/n.md:4: an ordered item numbered 1 after 1",
@@ -341,6 +362,26 @@ def test_t8() -> None:
         }
     )
     no_finding({"docs/notes/n.md": "# T\n\n1. one\n```text\nx\n```\n5. five\n"})
+    # a shallower item closes deeper lists
+    no_finding({"docs/notes/n.md": "# T\n\n1. a\n   1. x\n2. b\n   1. y\n"})
+    no_finding({"docs/notes/n.md": "# T\n\n1. a\n- b\n5. c\n"})  # a bullet at the same indent ends the list
+    # a comment that runs on ends the list
+    no_finding({"docs/notes/n.md": "# T\n\n1. a\n<!-- x\n-->\n3. b\n"})
+    one_finding(  # a blank line does not end the list
+        {"docs/notes/n.md": "# T\n\n1. a\n\n3. b\n"}, "docs/notes/n.md:5: an ordered item numbered 3 after 1"
+    )
+    one_finding(  # nor does a continuation line indented by a tab
+        {"docs/notes/n.md": "# T\n\n1. a\n\tmore\n3. b\n"},
+        "docs/notes/n.md:5: an ordered item numbered 3 after 1",
+    )
+    one_finding(  # nor one indented by spaces
+        {"docs/notes/n.md": "# T\n\n1. a\n   more\n3. b\n"},
+        "docs/notes/n.md:5: an ordered item numbered 3 after 1",
+    )
+    one_finding(  # a tab counts as four columns, the indent of the item above it
+        {"docs/notes/n.md": "# T\n\n1. x\n    1. a\n\t3. b\n"},
+        "docs/notes/n.md:5: an ordered item numbered 3 after 1",
+    )
 
 
 @item(9, "underscore emphasis is red; names, words, code spans and stars are green")
@@ -350,7 +391,8 @@ def test_t9() -> None:
     autolink and an HTML comment on one line or across lines green; a comment opener inside a fence
     or a code span hides nothing after it, a closer inside a code span closes and the comment is
     masked, a second opener after a closed comment opens, and a comment's closing line is hidden
-    whole"""
+    whole; a code span before an opener that runs on, and a comment with emphasis touching its
+    delimiters, green or red as the comment's place decides"""
     one_finding(
         {"docs/notes/e.md": "# T\n\nSome _quiet_ words.\n"},
         "docs/notes/e.md:3: emphasis by underscores — quiet",
@@ -391,6 +433,11 @@ def test_t9() -> None:
         {"docs/notes/e.md": "# T\n\nt <!-- a --> _x_ <!-- b\n_hidden_\n-->\n"},
         "docs/notes/e.md:3: emphasis by underscores — x",
     )
+    one_finding(  # a code span is blanked, not removed, so the opener's place is right
+        {"docs/notes/e.md": "# T\n\n`ab` _c_ <!-- x\n-->\n"},
+        "docs/notes/e.md:3: emphasis by underscores — c",
+    )
+    no_finding({"docs/notes/e.md": "# T\n\n<!--_c_-->\n"})  # the whole comment is masked, its edges too
 
 
 @item(10, "a short row, an empty cell and a short delimiter row are red; a keyed table green")
@@ -398,7 +445,9 @@ def test_t10() -> None:
     """Y11 for a row with a cell too few and for a short delimiter row; Y12 for an empty cell; a
     keyed table with an escaped pipe and `none`, lines with pipes and no delimiter row, a dash line
     without a pipe under a line with one, and a short row after a comment that opens on a row and
-    runs on, which ends the table, green"""
+    runs on, which ends the table, green; a lone backslash cell, a pipe after an escaped one, a
+    last line of cells with no final newline, text right after a table, and a row with no leading
+    pipe green; a delimiter row with no last pipe still opens a table"""
     one_finding(
         {"docs/notes/t.md": "# T\n\n| key | value |\n|---|---|\n| a |\n"},
         "docs/notes/t.md:5: a table row with 1 cell(s) under a header of 2",
@@ -417,6 +466,16 @@ def test_t10() -> None:
             "a | b\nc | d\n\ncell | text\n---\n\n| one |\n"
         }
     )
+    no_finding({"docs/notes/t.md": "# T\n\n| k | v |\n|---|---|\n| a | \\ |\n"})  # a lone backslash is a cell
+    # an escape ends at once
+    no_finding({"docs/notes/t.md": "# T\n\n| k | v |\n|---|---|\n| a \\| b | c |\n"})
+    no_finding({"docs/notes/t.md": "# T\n\na | b"})  # a last line with a pipe and no final newline
+    no_finding({"docs/notes/t.md": "# T\n\n| a | b |\n|---|---|\n| 1 | 2 |\ntext after\n"})
+    no_finding({"docs/notes/t.md": "# T\n\n| a | b |\n|---|---|\nc | d\n"})  # no leading pipe
+    one_finding(  # a delimiter row without its last pipe is one
+        {"docs/notes/t.md": "# T\n\n| k | v |\n|---|---\n| a |\n"},
+        "docs/notes/t.md:5: a table row with 1 cell(s) under a header of 2",
+    )
     no_finding({"docs/notes/t.md": "# T\n\n| a | b |\n|---|---|\n| 1 | 2 | <!-- open\nhidden\n-->\n| x |\n"})
 
 
@@ -429,7 +488,7 @@ def test_t11() -> None:
     document alone; an entry allowing one signature does not allow another; a stale entry is N2,
     typed by hand, first on stdout, and the scan green; an entry over documents a negated pattern
     took out of the territory is stale too; a stale pattern of 110 characters with a backslash is
-    cut at 80 with the cut said, then escaped"""
+    cut at 80 with the cut said, then escaped; a stale entry of two patterns names both"""
     files = {
         "docs/notes/a.md": PLANTUML_FENCE,
         "docs/notes/b.md": PLANTUML_FENCE,
@@ -492,12 +551,22 @@ def test_t11() -> None:
         "note: const-styling.departures entry 1 (docs\\\\gone/" + "p" * 70 + "… [110 characters]) matches no"
         " covered document; the documents it allowed were deleted or moved, or the pattern is wrong"
     )
+    two = scan(
+        {"docs/notes/a.md": MERMAID},
+        own(departures=[{"paths": ["docs/gone/**", "docs/old/**"], "allow": ["plantuml"], "reason": "was"}]),
+    )
+    two_note = (
+        "note: const-styling.departures entry 1 (docs/gone/**, docs/old/**) matches no covered document; the"
+        " documents it allowed were deleted or moved, or the pattern is wrong"
+    )
+    two_ok = two.code == 0 and two.stdout.splitlines()[0] == two_note
     cut_ok = cut.code == 0 and cut.stdout.splitlines()[0] == cut_note
     assert territory_ok, by_territory.stdout
     assert path_ok, by_path.stdout
     assert stale_ok, f"{stale.code}: {stale.stdout}"
     assert outside_ok, outside.stdout
     assert cut_ok, cut.stdout
+    assert two_ok, two.stdout
 
 
 @item(12, "territories: a negated pattern drops the count; a README at the top; guides validated")
@@ -517,10 +586,10 @@ def test_t12() -> None:
 def test_t13() -> None:
     """This module's C5 lines typed by hand — a key that is no dial, `severity`, `territories`
     empty, `guides` not a list, `departures` not a list, an entry not a mapping, an unknown field,
-    `paths` empty, a pattern git would misread in `territories`, in `guides` with its line break
-    shown escaped, and in `paths`, an unknown signature key, an empty reason, a reason broken by a
-    line feed or a carriage return — each exit 1. A reason with a line break at its end is taken,
-    trimmed"""
+    `paths` or `allow` empty, a reason missing or no string, a pattern git would misread in
+    `territories`, in `guides` with its line break shown escaped, and in `paths`, an unknown
+    signature key, an empty reason, a reason broken by a line feed or a carriage return — each
+    exit 1. A reason with a line break at its end is taken, trimmed"""
     entry_fix = (
         "write the entry as paths: [<patterns>], allow: [<signature keys>], reason: <one line saying why"
         " these documents depart>; the keys are plantuml, formula, callout, deep-heading, skipped-level,"
@@ -597,6 +666,21 @@ def test_t13() -> None:
             own(departures=[{"paths": ["a.md"], "allow": ["plantuml"], "reason": " "}]),
             "BROKEN: constitution.yaml: const-styling.departures entry 1: reason must be one non-empty line"
             f" saying why — fix: {entry_fix}",
+        ),
+        (
+            own(departures=[{"paths": ["a.md"], "allow": ["plantuml"], "reason": 5}]),
+            "BROKEN: constitution.yaml: const-styling.departures entry 1: reason must be one non-empty line"
+            f" saying why — fix: {entry_fix}",
+        ),
+        (
+            own(departures=[{"paths": ["a.md"], "allow": ["plantuml"]}]),
+            "BROKEN: constitution.yaml: const-styling.departures entry 1: reason must be one non-empty line"
+            f" saying why — fix: {entry_fix}",
+        ),
+        (
+            own(departures=[{"paths": ["a.md"], "allow": [], "reason": "r"}]),
+            "BROKEN: constitution.yaml: const-styling.departures entry 1: allow must be a non-empty list of"
+            f" signature keys — fix: {entry_fix}",
         ),
         (
             own(territories=["#docs/**"]),
@@ -1284,6 +1368,10 @@ def test_effect_skill_before_write() -> None:
     assert "  W3 (pattern): 11 moment(s): 3 applied, 0 bypassed, 8 missed — B5 8" in found, found
 
 
+# The module's other entry files, beside the harness's, each with its clause and closing line typed by hand:
+# the shared items about the interpreter's floor and the shared package run each.
+ENTRY_FILES = (EntryFile("effect-report.py", "", "BROKEN: the report could not run — no rule counted"),)
+
 SUBJECT = Subject(
     harness=H,
     gate_on=gate_on,
@@ -1302,4 +1390,6 @@ SUBJECT = Subject(
     pattern_dial=PatternDial("territories", lambda pattern: own(territories=[pattern])),
     skill="style-defaults",  # the skill a red names (F10), typed by hand
     effect="effect-report.sh",  # no `effect_reader`: the module has no reader rule
+    entries=ENTRY_FILES,
+    effect_clause="until then the effect report is not made",  # its C2 clause, typed by hand
 )

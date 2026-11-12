@@ -2,7 +2,7 @@
 id: res-0005-const-locations
 type: non-authoritative
 title: Research comparison — const-locations (2026-09-22)
-status: active
+status: inactive
 ---
 
 # Research comparison — const-locations (2026-09-22)
