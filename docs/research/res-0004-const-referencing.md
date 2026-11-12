@@ -97,7 +97,7 @@ What a one-file check sees and misses (E8): after one explicit anchor of one doc
 - **E. git `pre-commit`.** A per-clone install no plugin can perform; `--no-verify` skips it.
 - **F. `FileChanged`.** Sees any writer, but its matcher registers "a literal filename in the working directory" — it cannot watch a territory.
 
-**Recommendation: D confirmed as the gate — the scan, whole tree, exit 2 — and B as the write-time half: one `PostToolUse` handler on `Write|Edit` running the same whole-tree check, so that an inbound break is reported in the turn that causes it; the syntax lint of section 3 stays at A, where the three shipped gates run.** Step down from A for resolution, named: `PreToolUse` cannot show lychee the document (a12) and would refuse forward references. What B cannot do is block. [law 5 of CLAUDE.md](../../CLAUDE.md#law-5) asks that this be said:
+**Recommendation: D confirmed as the gate — the scan, whole tree, exit 2 — and B as the write-time half: one `PostToolUse` handler on `Write|Edit` running the same whole-tree check, so that an inbound break is reported in the turn that causes it; the syntax lint of section 3 stays at A, where the three shipped gates run.** Step down from A for resolution, named: `PreToolUse` cannot show lychee the document (a12) and would refuse forward references. What B cannot do is block. [Law 5 of CLAUDE.md](../../CLAUDE.md#law-5) asks that this be said:
 
 - **at write time** the broken-reference check is deterministic *feedback*;
 - **the blocking gate** is the scan on the pull request.

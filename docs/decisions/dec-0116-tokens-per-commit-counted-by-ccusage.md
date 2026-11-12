@@ -118,7 +118,7 @@ The session recommended A, the kit's own word for its unit of work. The decider 
 
 ## 4. The module's failure class
 
-Every module's heading in the requirements matrix states its class. [template §2](../../module-template/MODULE.md#t2) says what the class brings: an accumulating module belongs in every project's day-one install set, a self-limiting one waits for its friction signal, and a module may be split into an accumulating slice and a self-limiting rest. The count's evidence expires too. Claude Code deletes the transcripts of command-line sessions after `cleanupPeriodDays`, 30 days by default, without a message, as [its settings reference](https://code.claude.com/docs/en/settings-reference.md) says. It keeps the transcripts of desktop app sessions at any age unless `desktopSessionCleanupPeriodDays` is set.
+Every module's heading in the requirements matrix states its class. [Template §2](../../module-template/MODULE.md#t2) says what the class brings: an accumulating module belongs in every project's day-one install set, a self-limiting one waits for its friction signal, and a module may be split into an accumulating slice and a self-limiting rest. The count's evidence expires too. Claude Code deletes the transcripts of command-line sessions after `cleanupPeriodDays`, 30 days by default, without a message, as [its settings reference](https://code.claude.com/docs/en/settings-reference.md) says. It keeps the transcripts of desktop app sessions at any age unless `desktopSessionCleanupPeriodDays` is set.
 
 - **A. Accumulating, the whole module.** It belongs in every project's day-one install set, and its logs and its count run from the first session.
   - **Pros:** no session is ever missed; every count is made while its transcript still exists.

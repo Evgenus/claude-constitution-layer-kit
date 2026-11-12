@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-[Requirement A5.5](../requirements.md#a5-5) asks every citable unit of a kit document for an explicit anchor with a short fixed key. [requirement A5.6](../requirements.md#a5-6) asks a reference across documents to be a link to the target's anchor. A policy's rules meet both: each stands after its anchor, `r<n>`, and a citation reads "rule 5 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r5)". A record's rulings met neither. A handle audit on 2026-10-11 found 51 records numbering 443 rulings, none with an anchor, and about 125 citations of a ruling from another document, each of which could open only the record's file. Only [dec-0005-reference-forms](dec-0005-reference-forms.md) anchored its items, with twelve anchors between `r1` and `r20`.
+[Requirement A5.5](../requirements.md#a5-5) asks every citable unit of a kit document for an explicit anchor with a short fixed key. [Requirement A5.6](../requirements.md#a5-6) asks a reference across documents to be a link to the target's anchor. A policy's rules meet both: each stands after its anchor, `r<n>`, and a citation reads "rule 5 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r5)". A record's rulings met neither. A handle audit on 2026-10-11 found 51 records numbering 443 rulings, none with an anchor, and about 125 citations of a ruling from another document, each of which could open only the record's file. Only [dec-0005-reference-forms](dec-0005-reference-forms.md) anchored its items, with twelve anchors between `r1` and `r20`.
 
 `scripts/check-carry-lists.py` reads a ruling's handle wherever it stands on its line, so an anchor before the handle changes nothing it reads.
 

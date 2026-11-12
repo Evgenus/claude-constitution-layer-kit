@@ -38,9 +38,7 @@ The session recommended B: the only option that is deterministic today and hones
 
 <a id="r1"></a>**R1.** Every change — one commit or many, routine or recorded — is made on its own branch `work/<name>`, a short kebab-case name of the work, cut from `main`. Nothing is committed on `main` itself.
 
-<a id="r2"></a>**R2.** A work reaches `main` as one merge commit, never a fast-forward: `git merge --no-ff work/<name> -m "Work: <name>"`. Where the change needs a yes, the merge comes after it, and the commit that names the yes stands on the branch: until the kit has a PR flow that commit is the one that lands the change in the sense of [kernel §4](../constitution/CONVENTIONS.md#k4) and completes it in the sense of rule 5 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r5), the one [law 9 of CLAUDE.md](../../CLAUDE.md#law-9) asks the yes to be named in, and carries the `Accepted:` and `Carry-Audit:` trailers; the merge commit names no yes and carries no trailer.
-
-From rollout Phase D the yes is PR approval and the trailers move to the commit that merges the pull request.
+<a id="r2"></a>**R2.** A work reaches `main` as one merge commit, never a fast-forward: `git merge --no-ff work/<name> -m "Work: <name>"`. Where the change needs a yes, the merge comes after it, and the commit that names the yes stands on the branch: until the kit has a PR flow that commit is the one that lands the change in the sense of [kernel §4](../constitution/CONVENTIONS.md#k4) and completes it in the sense of rule 5 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r5), the one [law 9 of CLAUDE.md](../../CLAUDE.md#law-9) asks the yes to be named in, and carries the `Accepted:` and `Carry-Audit:` trailers; the merge commit names no yes and carries no trailer. From rollout Phase D the yes is PR approval and the trailers move to the commit that merges the pull request.
 
 <a id="r3"></a>**R3.** The branch is kept after the merge, with no limit of time, so a work stays addressable by name. The decider chose named work branches over unnamed merged lines when the history was rebuilt, in chat on 2026-09-21.
 
@@ -61,9 +59,7 @@ It is this hook and not `pre-commit` because git runs it for a commit, an amend,
 
 For all of those the rule of R1 is advisory and held by session conduct.
 
-<a id="r7"></a>**R7.** Deferred: from rollout Phase D a protected main on the remote holds the shared `main` — whatever was done to a local `main` by the ways R6 names reaches it only through a pull request's merge, whose review also sees the content of a merge concluded by hand; a local `main` itself stays as R6 leaves it.
-
-The hook stays as the fast local check.
+<a id="r7"></a>**R7.** Deferred: from rollout Phase D a protected main on the remote holds the shared `main` — whatever was done to a local `main` by the ways R6 names reaches it only through a pull request's merge, whose review also sees the content of a merge concluded by hand; a local `main` itself stays as R6 leaves it. The hook stays as the fast local check.
 
 <a id="r8"></a>**R8.** The rebuild of 2026-09-21 that preceded this record:
 
