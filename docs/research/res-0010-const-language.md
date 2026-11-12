@@ -213,5 +213,5 @@ E1 to E7 ran in the scratch directory, on Vale 3.23.0, harper-cli 2.11.0, textli
    - **a `Stop`-time measurement over the transcript** is possible and rejected as dressed judgment (e2);
    - **no LLM judge (e3).**
 6. [Requirement A9.4](../requirements.md#a9-4), graduation — **not needed** for the twelve markup signatures, **OVERTURNED** as their gate:
-   - **all twelve are expressible**, five only as Tengo scripts (f2, E6). The departures dial with its reason has no Vale form and a second home per rule crosses two laws (f3, f4);
+   - **all twelve are expressible**, five only as Tengo scripts (f2, E6), but the departures dial with its reason has no Vale form and a second home per rule crosses two laws (f3, f4);
    - **the graduation path is kept for rules about words**, sentence-case headings first (f5).
