@@ -51,7 +51,7 @@ from constitution_layer_kit.testing.items import (
     tr_hook,
     tr_line,
 )
-from referencing_gate import lychee, messages, start
+from referencing_gate import lychee, masking, messages, start
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 
@@ -239,6 +239,71 @@ def test_case(case: Case) -> None:
 # ------------------------------------------------------------------ assertions
 
 
+# What the masking leaves readable, for a document each, typed by hand: the words that stay in `blocks`, the
+# text with the block-level regions blanked and the code spans still readable. Each document is the smallest
+# that tells a reading of one rule from the reading next to it.
+READABLE_AFTER_MASKING = {
+    # a fence under a list item closes at a depth a tab counts four columns for, and at nothing deeper
+    "a tab four columns wide in a list fence": (
+        "- a\n    ```\n    x REQ-7\n    \t```\n    y\n    ```\nz\n",
+        ["-", "a", "z"],
+    ),
+    "a list fence is not closed by a line eight columns deep": (
+        "- a\n    ```\n    x\n        ```\n    y\n    ```\nz\n",
+        ["-", "a", "z"],
+    ),
+    "a fence opened at three columns takes no deeper closer": ("   ```\nx\n    ```\ny\n   ```\nz\n", ["z"]),
+    "a closer at three columns closes": ("```\nx\n   ```\nz\n", ["z"]),
+    "a closer with an info string closes nothing": ("```\nREQ-7\n```X\nREQ-8\n```\nz\n", ["z"]),
+    "a longer closer closes": ("```\nx\n````\ny\n", ["y"]),
+    "a closer with trailing spaces closes": ("```\nx\n```   \ny\n", ["y"]),
+    "a fence never closed masks from its opener on": ("REQ-7 first\n```\nREQ-8\n", ["REQ-7", "first"]),
+    "a YAML block never closed masks to the end": ("---\nid: x\nREQ-7\n", []),
+    "the YAML block ends at its closing line, a fence in it shut with it": (
+        "---\nid: x\nnote: |\n  ```\n---\nREQ-7 after\n",
+        ["REQ-7", "after"],
+    ),
+    # an indented line is code after a blank line or after code; after a paragraph or a fence it is text
+    "an indented block after the YAML block's blank line": ("---\nid: x\n---\n\n    REQ-7\nz\n", ["z"]),
+    "an indented first line of a document": ("    REQ-7\nz\n", ["z"]),
+    "an indented line right after the YAML block": ("---\nid: x\n---\n    REQ-7\n", ["REQ-7"]),
+    "an indented line right after a fence": ("```\nx\n```\n    REQ-7\n", ["REQ-7"]),
+    "an indented line right after a paragraph line": ("para\n    REQ-7\nz\n", ["para", "REQ-7", "z"]),
+    "the second line of an indented block": ("para\n\n    a\n    REQ-7\nz\n", ["para", "z"]),
+    # comments
+    "a comment at the first character, then another": ("<!-- c -->\nREQ-7 <!-- x -->\nz\n", ["REQ-7", "z"]),
+    "an empty comment": ("a <!----> REQ-7 <!-- b --> c\n", ["a", "REQ-7", "c"]),
+    "a comment's last characters": ("<!-- see X1 -->\nz\n", ["z"]),
+    "a form glued to a comment's closer": ("<!-- c -->REQ-7\n", ["REQ-7"]),
+    "a second comment": ("<!-- a --> x <!-- REQ-7 -->\n", ["x"]),
+    "an opener overlapping the closer": ("<!-- a <!--> REQ-7 <!-- b --> z\n", ["REQ-7", "z"]),
+    "two comments with nothing between": ("<!-- a --><!-- REQ-7 -->\nz\n", ["z"]),
+    # a code span stays readable in `blocks`: a lone tick pairs with none in another paragraph
+    "a lone tick and another in a later paragraph": (
+        "a ` b\n\nc ` d REQ-7\n",
+        ["a", "`", "b", "c", "`", "d", "REQ-7"],
+    ),
+}
+
+
+def check_masking_units() -> None:
+    wrong = {
+        name: masking.mask(document).blocks.split()
+        for name, (document, readable) in READABLE_AFTER_MASKING.items()
+        if masking.mask(document).blocks.split() != readable
+    }
+    assert not wrong, f"the words left readable differ: {wrong}"
+    # a masked line break stays: the offsets of the document stay the offsets of its mask
+    assert masking.mask("```\nx\n```\ny\n").blocks == "   \n \n   \ny\n"
+    # a code span from the first character; the ticks of a span are counted without the letter X
+    assert masking.mask("`note-a` is\n").spans == (masking.Span(0, 8),)
+    assert masking.mask("a ` b\n\nc ` d\n").spans == ()  # a lone tick pairs with none of another paragraph
+    xs = masking.mask("`Xnote`\n")
+    assert masking.content("`Xnote`\n", xs.spans[0]) == "Xnote"
+    # a line is counted from the first character
+    assert masking.line_of("\nREQ", 1) == 2
+
+
 @item(10, "masked: a fence, an open fence, an indented block, a comment, a code span, a link's text")
 def test_masked_regions() -> None:
     """Every region the checks of form do not read, each holding a bare form and an id. A path
@@ -254,6 +319,7 @@ def test_masked_regions() -> None:
     }
     for text in bodies.values():
         passes(text)
+    check_masking_units()
 
 
 @item(46, "R4 reads code and comments too; only the YAML block that opens the file is not read")
