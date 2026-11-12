@@ -23,7 +23,7 @@ A line that starts `BROKEN: const-questions needs the Python package constitutio
    the write is checked for open-question markers. A finding blocks the write.
 2. Calibration, all optional, in the project's `constitution.yaml`. **Zero configuration works** in a
    repository whose `constitution.yaml` has `module_prefix` and no key of this namespace. There every
-   Markdown file git lists is covered. The markers looked for are `[decide:`, `TODO`, `TBD` and
+   Markdown file git lists is covered. There the markers looked for are `[decide:`, `TODO`, `TBD` and
    `FIXME`. Without that file every run is a visible skip naming it. `module_prefix: const-` alone is
    enough. A marker inside a code span or a fenced code block is a quotation and is never reported. A
    marker that begins or ends with a letter, a digit or an underscore counts only as a whole word. So
@@ -63,7 +63,7 @@ A line that starts `BROKEN: const-questions needs the Python package constitutio
 7. CLAUDE.md line: none. The session-start text carries the shape of a decision message in
    every session. The skill `/const-questions:ask-or-decide` carries the rest. Its description asks
    for it to be loaded before any message that puts a choice to the user. The rest is whether to
-   ask at all, the tool or the letter, and the project's preferences. It is also the open slots a
+   ask at all, the tool or the letter, and the project's preferences. The rest also covers the open slots a
    question comes from, and the named blocker in place of a deferred question.
 
 This module does not check whether a question should have been asked or decided. It does not check

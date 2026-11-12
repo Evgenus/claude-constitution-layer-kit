@@ -44,7 +44,7 @@ criteria. Each pair reads *decide and note / ask*:
 
 The project's own line comes first. Read `boundary_examples` under `const-questions` in
 `constitution.yaml`, the project's own pairs, `{ask: …, decide: …}`. Absent or empty, the pairs
-above apply. Read also `preferences` beside it, a list of entries. Each entry names a `decider` and
+above apply. Read also `preferences` beside the project's own pairs, a list of entries. Each entry names a `decider` and
 the topics they want to be asked about (`ask`) even below the line. It names the topics they want
 decided and noted (`decide`) even above it. It also names how they take a pick (`pick`: `tool`, the
 default, or `letter`). The entry of the person you are working with overrides the pairs on its
@@ -66,8 +66,8 @@ the signal that would reopen it, and move on.
 
 ## 3. Vague or context-foreign input: restate before acting
 
-A request may show any sign of ambiguity, or not obviously fit the current context. Then open
-the reply with the reading taken — "I read this as: …". Where several readings are plausible,
+When a request shows any sign of ambiguity, open the reply with the reading taken — "I read
+this as: …". Do the same when it does not obviously fit the current context. Where several readings are plausible,
 name them and the one chosen. Ask only above the line of step 1; otherwise proceed on the stated
 reading. Never guess silently and never elaborate in an unrequested direction.
 
@@ -101,8 +101,8 @@ tool.
 
 A delivered plan or document holds resolved decisions only. Where a decision is open and the
 decider is absent, the affected part halts behind an explicit blocker — "blocked: <who> must
-decide <what>". It is never an open question, a `TBD` or a "to be agreed" inside the finished
-deliverable. A draft whose own convention marks open slots inline is the one exception, while it
+decide <what>". The part never halts behind an open question, a `TBD` or a "to be agreed" inside
+the finished deliverable. A draft whose own convention marks open slots inline is the one exception, while it
 is a draft. The marker half of this rule is held by the plugin's hook. A Markdown write carrying
 an open-question marker (`[decide:`, `TODO`, `TBD`, `FIXME` by default, outside code) is blocked
 with the fix in the message. Or it is reported and let through, where the project set the hook to
