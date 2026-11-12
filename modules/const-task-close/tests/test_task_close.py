@@ -49,7 +49,7 @@ from constitution_layer_kit.testing.items import (
     tr_turn,
 )
 from task_close_gate import dials, messages, start
-from task_close_gate.model import BODY, Declaration, Pair
+from task_close_gate.model import Declaration, Pair
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 
@@ -1202,7 +1202,7 @@ def test_body_forms() -> None:
     raw_run = scan(r.root, "--body", str(raw))
     green_scan(raw_run, tail(1, 1, short(r.root, "main"), short(r.root)))
     has_line(raw_run, "note: core: no impact declared in the body: read past the bytes")
-    gone =H.scratch_dir() / "gone.txt"
+    gone = H.scratch_dir() / "gone.txt"
     broken(
         scan(r.root, "--body", str(gone)),
         f"BROKEN: --body names {gone}, which cannot be read ([Errno 2] No such file or directory: '{gone}')"
@@ -1245,9 +1245,7 @@ def test_t3_and_t4() -> None:
     later_where = "commit " + commit(
         later.root, "fixed\n\n" + f"{KEY}: core\n{KEY}: core — the later line\n", {"src/a.py": "2\n"}
     )
-    red_scan(
-        scan(later.root), messages.t4_no_reason(Declaration(later_where, "core", "core", ""), KEY)
-    )
+    red_scan(scan(later.root), messages.t4_no_reason(Declaration(later_where, "core", "core", ""), KEY))
     signed_red()
 
 
@@ -1640,7 +1638,7 @@ def test_working_files_note() -> None:
         "note: 1 tracked file(s) match working_files (notes/todo.md) — a task's working files are deleted"
         " at its close; keep one only with a reason"
     )
-    odd ="notes/w\nx\\y" + "p" * 80 + ".md"  # a path over 80 characters: whole, escaped
+    odd = "notes/w\nx\\y" + "p" * 80 + ".md"  # a path over 80 characters: whole, escaped
     odd_run = scan(repo(own(working_files=["notes/**"]), files={odd: "x\n"}).root)
     odd_note = (
         "note: 1 tracked file(s) match working_files (notes/w\\nx\\\\y" + "p" * 80 + ".md) — a task's"
@@ -1718,7 +1716,9 @@ def test_golden_lines() -> None:
     pairs.write("docs/guide.md", "# guide\n")
     commit(pairs.root, "the guide's page")
     branch(pairs.root)
-    pairs_where = "commit " + commit(pairs.root, "wrong\n\n" + f"{KEY}: nosuch — reason\n", {"README.md": "x\n"})
+    pairs_where = "commit " + commit(
+        pairs.root, "wrong\n\n" + f"{KEY}: nosuch — reason\n", {"README.md": "x\n"}
+    )
     named = scan(pairs.root).stdout  # T3 lists every pair of the map
     literals = [
         (
