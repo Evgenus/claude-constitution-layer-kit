@@ -30,7 +30,7 @@ On 2026-09-18 the decider observed that the kit's most authoritative documents (
 
 ## Recommendation
 
-B. The failure is a class. [template §4](../../module-template/MODULE.md#t4) proves an author can fall into it. The fix is one kernel sentence naming a consequence [kernel §1](../constitution/CONVENTIONS.md#k1) and [kernel §2](../constitution/CONVENTIONS.md#k2) already imply.
+B. The failure is a class. [Template §4](../../module-template/MODULE.md#t4) proves an author can fall into it. The fix is one kernel sentence naming a consequence [kernel §1](../constitution/CONVENTIONS.md#k1) and [kernel §2](../constitution/CONVENTIONS.md#k2) already imply.
 
 ## Choice
 

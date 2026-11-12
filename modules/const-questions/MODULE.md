@@ -59,7 +59,7 @@ A session asks what it should have decided, and decides what it should have aske
 <a id="t5"></a>
 ## 5. Invariant
 
-**A covered document written through the platform's file tools carries on no line outside code a text the `markers` dial lists. So does every covered document of a scanned tree.** "Covered" is the `territories` dial of [§7](#t7) over the Markdown files git lists in the scan. In hook mode it is that dial over the written file, whether git lists it or not. "Outside code" is outside a fenced block and outside a code span. A marker that begins or ends with a word character counts only at a word boundary there, and the match is case-sensitive.
+**A covered document written through the platform's file tools carries on no line outside code a text the `markers` dial lists. The same holds for every covered document of a scanned tree.** "Covered" is the `territories` dial of [§7](#t7) over the Markdown files git lists in the scan. In hook mode it is that dial over the written file, whether git lists it or not. "Outside code" is outside a fenced block and outside a code span. A marker that begins or ends with a word character counts only at a word boundary there, and the match is case-sensitive.
 
 The advisory rules beside it, each `advisory` in its own text and carried by the skill:
 

@@ -7,7 +7,7 @@ status: active
 
 # Style-guide policy
 
-Governs the document kind *style guide*: the one document stating the defaults every governed document of the kit follows. They cover diagrams, drawings, formulas, prose against lists against tables, list and table format, headings, code, emphasis and callouts. Each is defined by its examples (decision [dec-0044-styling-module-rulings](../decisions/dec-0044-styling-module-rulings.md)). Territory under this policy's id in `constitution.yaml`, one path. The guide reaches every other kind's documents through the style rule each kind's policy carries ([rule 9 of plc-0001-root-policy](plc-0001-root-policy.md#r9)), never by resolution.
+Governs the document kind *style guide*: the one document stating the defaults every governed document of the kit follows. They cover diagrams, drawings, formulas, prose against lists against tables, list and table format, headings, code, emphasis and callouts. Each default is defined by its examples (decision [dec-0044-styling-module-rulings](../decisions/dec-0044-styling-module-rulings.md)). Territory under this policy's id in `constitution.yaml`, one path. The guide reaches every other kind's documents through the style rule each kind's policy carries ([rule 9 of plc-0001-root-policy](plc-0001-root-policy.md#r9)), never by resolution.
 
 ## Rules
 

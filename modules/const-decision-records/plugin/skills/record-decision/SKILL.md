@@ -115,7 +115,7 @@ neither and is accepted when committed.
   replaces it. Never edit the old record's ruling, stakes or decider in place. The only
   in-place edit left is mechanical: a typo, or rewriting how it cites other documents. A
   wording edit is mechanical too when the project's records policy lists its kind in a closed
-  set, such as a long sentence split. Such an edit comes with a commit message naming it a typo fix, a
+  set, such as a long sentence split. Each such in-place edit comes with a commit message naming it a typo fix, a
   migration or a wording edit.
 
 ## 5. Before you finish

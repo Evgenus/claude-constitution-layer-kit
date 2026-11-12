@@ -33,8 +33,8 @@ follows the shipped text and creates nothing. To create one,
 fill its envelope, with the `id` a stable kebab-case name. Put it where the project's documents of
 that kind live. Name its path in `const-styling.guides`. Write it with the session's file
 tools, never by a copy in the shell, so that every hook sees the write. That file carries the founding
-entries. A project that governs its documents by policies first gives the guide a policy of its
-own, as its constitution asks for any new kind. Then it has its root policy ask every policy for a
+entries. A project that governs its documents by policies gives the guide a policy of its own
+first, as its constitution asks for any new kind. Then it has its root policy ask every policy for a
 style rule. It also has each kind's policy carry one, binding that kind's documents to the guide.
 
 ## 2. Before the choice

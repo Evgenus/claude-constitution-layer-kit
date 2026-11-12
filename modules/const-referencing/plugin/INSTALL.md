@@ -91,7 +91,7 @@ A line that starts `BROKEN: const-referencing needs the Python package constitut
    It ends with the scan. After a move made by hand: `--moved <old> <new>`. To point every
    link whose text is a document's id at that document: `--ids`. The skill `/const-referencing:referencing` carries the procedure.
 7. Output log: everything the gate and the mover print is also appended to `const-referencing.jsonl`,
-   one JSON line per print. The fields of a line are timestamp, module, gate, mode, session, path, transcript, stream and text. The log is kept since
+   one JSON line per print. The fields of a line are timestamp, module, gate, mode, session, path, transcript, stream and text. The log is kept because
    blocked writes and reports after a write leave no trace in git. By default it lives
    in the platform's per-plugin data directory. Set `log_dir` to keep it inside the repository.
    The directory must be git-ignored, and the gate refuses to run otherwise.

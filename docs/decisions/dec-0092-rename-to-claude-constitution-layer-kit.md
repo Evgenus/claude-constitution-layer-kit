@@ -69,7 +69,7 @@ The session first proposed to keep the eleven mentions in the six accepted recor
 - **A. A one-time exception in this record.** This record orders the edit, names the rules it breaks, and sets no precedent.
   - **Pros:** the smallest change; no rule changes; the usual carry audit.
   - **Cons:** the kit breaks its own kernel on purpose, against [law 1 of CLAUDE.md](../../CLAUDE.md#law-1); the next rename needs a record of its own.
-- **B. A new migration kind in the kernel and in rule 14.** A renamed repository, marketplace or plugin id is followed in records, as a moved document already is. [kernel §5](../constitution/CONVENTIONS.md#k5) and rule 14 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) both change.
+- **B. A new migration kind in the kernel and in rule 14.** A renamed repository, marketplace or plugin id is followed in records, as a moved document already is. [Kernel §5](../constitution/CONVENTIONS.md#k5) and rule 14 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) both change.
   - **Pros:** the edit follows the rules; the second kit's rename is ruled in advance; it matches how the kit treats a moved document.
   - **Cons:** a kernel change, so the carry audit reads every record; the new wording must pass its own audit.
 - **C. The new kind in rule 14 alone.** A renamed repository is read as a moved document under the kernel's present words.

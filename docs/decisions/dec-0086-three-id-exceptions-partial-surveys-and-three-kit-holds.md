@@ -127,16 +127,7 @@ The decider chose B in chat on 2026-10-11.
 
 <a id="r4"></a>**R4.** `scripts/check-gate-lists.py` holds the one fenced block of the install guide whose info string is `bash check=scan` to list, between `for s in` and `; do` on its first line, exactly the scans the module documents declare, each as `<module>/scripts/<name>.sh` with `<name>` the declared scan's name without `.py`. A module that declares no scan owes no path. A declared scan not listed and a listed path no module declares are each one finding naming the path to add or remove. The guide absent, the block absent or doubled, or its first line not of that form is a configuration failure. This narrows R3 of [dec-0062-install-guide-governed-kind](dec-0062-install-guide-governed-kind.md#r3), which left whether the guide is whole and clear to review: that the scan block lists the declared scans is now held, and a block the install-guide check does not run, the steps the reader writes by hand and whether the guide is otherwise whole and clear stay review.
 
-<a id="r5"></a>**R5.** `scripts/check-gate-lists.py` holds every module folder to have its one pair in `const-task-close.coverage` of the kit's dials file:
-
-- **exactly one entry** named after the folder;
-- **`docs` its module document alone**;
-- **every `code` pattern** under the module's folder;
-- **and, for each of the folders** `scripts`, `hooks`, `skills` and `tests` the module has, the pattern `modules/<module>/<folder>/**` among them, a pattern for a folder the module does not have allowed;
-- **entries named for no module folder** are not judged;
-- **the map absent**, or not a list of entries each with a `name`, a `code` list and a `docs` list of strings, is a configuration failure.
-
-Step 1 of "Developing a module" names the pair and the guide's scan block among the places a new module is named.
+<a id="r5"></a>**R5.** `scripts/check-gate-lists.py` holds every module folder to have its one pair in `const-task-close.coverage` of the kit's dials file: exactly one entry named after the folder; `docs` its module document alone; every `code` pattern under the module's folder; and, for each of the folders `scripts`, `hooks`, `skills` and `tests` the module has, the pattern `modules/<module>/<folder>/**` among them, a pattern for a folder the module does not have allowed; entries named for no module folder are not judged; the map absent, or not a list of entries each with a `name`, a `code` list and a `docs` list of strings, is a configuration failure. Step 1 of "Developing a module" names the pair and the guide's scan block among the places a new module is named.
 
 <a id="r6"></a>**R6.** The install guide and the README name the modules without a count, since a number word drifts without a sound when a module is added. The lists a new module joins that `scripts/check-gate-lists.py` holds are the ones step 1 of "Developing a module" in CLAUDE.md names. The module table of the root README is held by review.
 

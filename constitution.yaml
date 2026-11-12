@@ -878,10 +878,11 @@ const-language:                       # the prose of covered documents: a grade 
 const-doc-budgets:                    # a character ceiling per group of documents, measured after the fact (MODULE.md §7)
   severity: block                     # values: block | warn — block: a finding reaches the model as a block after the write; warn: as context
   log_dir: local/gate-logs
-  ceilings:                           # the founding entries set 2026-09-29 by the report --scan --since 2026-09-14, a later entry on the day its own comment names, over its own `window`; each by the rule: the window's longest plus 10 %, rounded up to 1,000; at warning until 30 days of data; an entry at error re-set 2026-11-08 by the report --scan --since 2026-10-09, its window those 30 days, a group moving to error in the change that brings it under its number (rollout plan item 9.9); every Markdown file git lists stands under one ceiling (decision dec-0052-doc-budgets-module-rulings)
+  ceilings:                           # the founding entries set 2026-09-29 by the report --scan --since 2026-09-14, a later entry on the day its own comment names, over its own `window`; each by the rule: the window's longest plus 10 %, rounded up to 1,000; at warning until 30 days of data; an entry at error re-set 2026-11-08 by the report --scan --since 2026-10-09, its window those 30 days, save an entry whose own comment names a later re-set; a group moving to error in the change that brings it under its number (rollout plan item 9.9); every Markdown file git lists stands under one ceiling (decision dec-0052-doc-budgets-module-rulings)
     # By decision dec-0128-thirteen-ceilings-follow-the-dials-file, the number, the level and the window of thirteen
     # founding ceilings are those of their entries: comparisons, kernel, intent, requirements, style-guide, readme,
-    # module-skills, install-notes, kit-agents, kit-skills, templates, rollout-plan and module-documents. A later re-set
+    # module-skills, install-notes, kit-agents, kit-skills, templates, rollout-plan and module-documents. Two of them,
+    # requirements and module-documents, were re-set again on 2026-11-12, as their own comments say. A later re-set
     # of any of them by the rule at this key is routine: a new window, the number that rule gives from it, and the level.
     # The change that makes the re-set writes its day and its reason in a comment at that entry. A change of such an
     # entry by another measure, such as a number set from a shortened document, is priced by its stakes like any other change.
@@ -915,7 +916,7 @@ const-doc-budgets:                    # a character ceiling per group of documen
     # module-documents, 2026-11-08: set from the seven documents shortened as far as their rulings allow (the decider's
     # picks D5 to D11 of 2026-11-08 in chat): the longest after the cut, modules/const-referencing/MODULE.md at 81,583
     # characters, plus 10 %, rounded up to 1,000. Not the window's longest, 89,175 on 2026-10-12, before an earlier cut.
-    # Re-set 2026-11-12 by the same rule after the language descent split the documents' sentences: the longest,
+    # Re-set 2026-11-12 by the rule at the key `ceilings` after the language descent split the documents' sentences: the longest,
     # modules/const-change-cost/MODULE.md at 90,261 characters, plus 10 %, rounded up to 1,000 (the decider's pick of
     # 2026-11-12 in chat).
     # By decision dec-0127-one-pass-to-the-language-defaults, the number, the level and the window of this ceiling are

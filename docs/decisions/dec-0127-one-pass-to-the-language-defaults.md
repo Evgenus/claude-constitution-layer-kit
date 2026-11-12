@@ -107,7 +107,7 @@ The change this record belongs to did the following on its branch, and the recor
 
 - **The two dials.** `grade_ceiling` stands at 10 and `sentence_words` at 25 in the dials file.
 - **The documents.** Eleven groups of documents were rewritten on 2026-11-12, and the language scan is green.
-- **The departures.** The language module's `departures` hold four entries. The first is the entry that stood before. The second allows long sentences in 133 frozen documents. The third allows long sentences and the grade in one record, the tenth. The fourth allows long sentences in five module pages.
+- **The departures.** The language module's `departures` hold three entries. The first is the entry that stood before. The second allows long sentences in 133 frozen documents. The third allows long sentences and the grade in one record, the tenth. A fourth, for five module pages, left in the same change once their descriptions were reworded.
 - **The ceilings.** `requirements` stands at 52,000 and `module-documents` at 100,000, and the third long record stands under a departure.
 
 The commit that creates this record adds the clause of R3 to the comments at the two ceilings. It names this record at the two dials and at the departure of R4. It also brings one sentence of the language module's document to the one pass. Every item has its home there, or is pending in the plan, so the record is born `inactive`.

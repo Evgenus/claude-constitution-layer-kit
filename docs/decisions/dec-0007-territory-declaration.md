@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-[Kernel §3](../constitution/CONVENTIONS.md#k3) said territories are "declared in the project's dials file". [kernel §6](../constitution/CONVENTIONS.md#k6) said each module reads only its own namespace and showed no shared key. Three modules read the territory map — [`const-meta-types`](../requirements.md#const-meta-types), [`const-locations`](../requirements.md#const-locations), [`const-catalogs`](../requirements.md#const-catalogs) — so its shape is kernel, and the first module's hook cannot be written without it. The README had already used a top-level `territories` key without a ruling.
+[Kernel §3](../constitution/CONVENTIONS.md#k3) said territories are "declared in the project's dials file". [Kernel §6](../constitution/CONVENTIONS.md#k6) said each module reads only its own namespace and showed no shared key. Three modules read the territory map — [`const-meta-types`](../requirements.md#const-meta-types), [`const-locations`](../requirements.md#const-locations), [`const-catalogs`](../requirements.md#const-catalogs) — so its shape is kernel, and the first module's hook cannot be written without it. The README had already used a top-level `territories` key without a ruling.
 
 ## Options
 

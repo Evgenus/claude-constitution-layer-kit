@@ -100,17 +100,7 @@ Slices:
 
 ## 4. Creation path — a skill that writes records (advisory)
 
-- **A. Plugin skill** (`skills/<name>/SKILL.md`). Frontmatter today:
-  - `name`, `description`, `when_to_use`, `argument-hint`, `arguments`, `disable-model-invocation`, `user-invocable`, `allowed-tools`, `disallowed-tools`, `model`, `effort`, `context`, `agent`, `background`, `hooks`, `paths`, `shell`, `metadata`;
-  - `description` plus `when_to_use` "truncated at 1,536 characters in the skill listing";
-  - **the listing's budget** "scales at 1% of the model's context window" and overflow drops descriptions "starting with the skills you invoke least";
-  - `$ARGUMENTS` and positional placeholders;
-  - **supporting files** sit in the skill directory, referenced by relative link and "loaded when needed";
-  - `${CLAUDE_SKILL_DIR}` is "the skill's subdirectory within the plugin, not the plugin root", and `${CLAUDE_PLUGIN_ROOT}` is substituted in skill content and in `allowed-tools` Bash rules;
-  - **invoked as** `/plugin-name:skill-name`;
-  - **a loaded body** "stays in context across turns" ([skills](https://code.claude.com/docs/en/skills)).
-
-  So the skill can ship a record template beside `SKILL.md` and name the scan command exactly. It stays model-invocable: a recorded-stakes decision surfaces mid-dialog. `paths` cannot carry a territory, which is a runtime dial. Cost: the description, always on.
+- **A. Plugin skill** (`skills/<name>/SKILL.md`). Frontmatter today: `name`, `description`, `when_to_use`, `argument-hint`, `arguments`, `disable-model-invocation`, `user-invocable`, `allowed-tools`, `disallowed-tools`, `model`, `effort`, `context`, `agent`, `background`, `hooks`, `paths`, `shell`, `metadata`; `description` plus `when_to_use` "truncated at 1,536 characters in the skill listing"; the listing's budget "scales at 1% of the model's context window" and overflow drops descriptions "starting with the skills you invoke least"; `$ARGUMENTS` and positional placeholders; supporting files sit in the skill directory, referenced by relative link and "loaded when needed"; `${CLAUDE_SKILL_DIR}` is "the skill's subdirectory within the plugin, not the plugin root", and `${CLAUDE_PLUGIN_ROOT}` is substituted in skill content and in `allowed-tools` Bash rules; invoked as `/plugin-name:skill-name`; a loaded body "stays in context across turns" ([skills](https://code.claude.com/docs/en/skills)). So the skill can ship a record template beside `SKILL.md` and name the scan command exactly. It stays model-invocable: a recorded-stakes decision surfaces mid-dialog. `paths` cannot carry a territory, which is a runtime dial. Cost: the description, always on.
 - **B. Command file** (`commands/*.md`). "Custom commands have been merged into skills"; a command file supports the same frontmatter "except `name` and `paths`" and has no directory for supporting files ([skills](https://code.claude.com/docs/en/skills)). In a plugin, `commands/` is "Skills as flat Markdown files. Use `skills/` for new plugins" ([plugins reference](https://code.claude.com/docs/en/plugins-reference)). Cannot ship the template beside it.
 - **C. Plugin agent.** "Each subagent runs in its own context window"; plugin subagents ignore `hooks`, `mcpServers` and `permissionMode` ([subagents](https://code.claude.com/docs/en/sub-agents)). The record is the residue of a dialog — options argued, the decider's pick — that the agent never saw.
 - **D. Third-party scaffolders.** `adr new` writes a numbered file from `templates/template.md` and opens `VISUAL` or `EDITOR` ([`adr new` help](https://github.com/npryce/adr-tools/blob/master/src/_adr_help_new)) — an interactive editor an agent cannot drive. Log4brains, dotnet-adr and pyadr scaffold their own metadata (t2, t4, t5), never the envelope.
@@ -180,11 +170,7 @@ Stale, imprecise or missing (every quotation from the [hooks reference](https://
 - f. **`if` cannot cheaply spare the spawn.** `"Edit(*.ts)"` "runs only for TypeScript files", but "A single `if` rule matches only one tool's calls" and the filter is "best-effort". Whether a `Write(path)` rule is honoured in `if` is not verified — for file permissions Claude Code accepts a `Write` path rule "but never consults it" ([permissions](https://code.claude.com/docs/en/permissions)). The script exits early on a non-Markdown path itself.
 - g. **Fact 6 is imprecise:** the manifest itself is optional — "If you include a manifest, `name` is the only required field" ([plugins reference](https://code.claude.com/docs/en/plugins-reference)).
 - h. **New to the kit:** `${CLAUDE_SKILL_DIR}` ([skills](https://code.claude.com/docs/en/skills)) — the stable way to name a template shipped inside the skill directory; plugin `commands/` is the legacy form of `skills/` ([plugins reference](https://code.claude.com/docs/en/plugins-reference)).
-- i. **Unchanged, restated:**
-  - `bashEditDiff` "Requires Claude Code v2.1.269 or later", "is best effort and in public beta", "not to enforce a policy";
-  - **new beside it**, a `bashEditDiffEnabled` setting that turns the recording on in every permission mode.
-
-  Still unfit for a gate.
+- i. **Unchanged, restated:** `bashEditDiff` "Requires Claude Code v2.1.269 or later", "is best effort and in public beta", "not to enforce a policy"; new beside it, a `bashEditDiffEnabled` setting that turns the recording on in every permission mode. Still unfit for a gate.
 
 ## Recommendations summary
 

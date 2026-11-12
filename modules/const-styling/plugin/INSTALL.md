@@ -26,7 +26,7 @@ A line that starts `BROKEN: const-styling needs the Python package constitution-
    diagrams, character drawings for trivial cases only, pseudocode over formulas, and prose against
    lists against tables. The rest are list format, table format, heading levels, code font and
    fence languages, emphasis, and no callouts. A project whose documents are governed by policies
-   first gives the guide a policy of its own. Then it has its root policy ask every policy for a
+   gives the guide a policy of its own first. Then it has its root policy ask every policy for a
    style rule. It also has each kind's policy carry one, binding that kind's documents to the guide. Where module `const-locations` is installed and the
    guide's territory is a directory, name the shipped file in `const-locations.templates` as the template of the
    guide's policy. Then create the guide through that module's command. A territory of one path

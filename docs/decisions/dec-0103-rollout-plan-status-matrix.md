@@ -19,13 +19,13 @@ Three rules stood in the way of a plain rewrite. [Rule 3 of plc-0008-rollout-pla
 
 ## Options
 
-- **A. A full matrix.** One table per phase. One row per step and per piece of work, with the item's text, its status mark, a percent and its proof in the cells.
+- **A. A full matrix.** One table per phase, one row per step and per piece of work, with the item's text, its status mark, a percent and its proof in the cells.
   - **Pros:** it is the shape asked for; every piece gets a handle; a phase reads at a glance.
   - **Cons:**
     - **long prose in table cells is hard to read and to compare in raw Markdown**;
     - **an argument is never a table by [default d4 of the style guide](../style-guide.md#d4)**, and steps 5 and 9 hold procedure and reasons;
     - **the percents are typed by hand and held by review alone**.
-- **B. A summary matrix on top, the steps split into items below.** One row per step at the top, with its phase, status, counts and percent. Each long step split into items, each opening with its handle and its mark, the text kept almost word for word.
+- **B. A summary matrix on top, the steps split into items below.** One row per step at the top, with its phase, status, counts and percent; each long step split into items, each opening with its handle and its mark, the text kept almost word for word.
   - **Pros:**
     - **the old and new texts compare sentence by sentence**, so the meaning is least likely to drift;
     - **the summary gives the view at a glance**;
