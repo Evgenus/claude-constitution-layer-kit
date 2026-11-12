@@ -110,7 +110,7 @@ The report names each one, with the reason. Say what the line says; do not guess
   hook, or on a forge. It can never be counted.
 - **The commit log names no session:** the commit was made outside Claude Code.
 - **The session has no start in the start log, or the commit was made before its first logged start:**
-  it began with the plugin disabled. Or it began in another folder. No start is ever made up.
+  it began before enabling the plugin. Or it began in another folder. No start is ever made up.
 - **Its window may not be complete, or no pass has counted it yet:** run
   `sh "${CLAUDE_PLUGIN_ROOT}/scripts/count-costs.sh" --all`, which counts it or names what stops it.
 - **No transcript of the session stands:** Claude Code's cleanup swept it, or it was never kept.
