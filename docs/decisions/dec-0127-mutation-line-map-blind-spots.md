@@ -2,7 +2,7 @@
 id: dec-0127-mutation-line-map-blind-spots
 type: task-record
 title: The line map of the mutation report sees copies of the plugin, children under python3 -S or a limit on file size, and the continuation lines of folded constants
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
@@ -22,7 +22,7 @@ On 2026-11-12 a session measured every mutant of all twelve modules, for [item 9
 
 The session first fixed the first, second and fourth places on its branch, and measured every mutant of the two modules with the most such mutants again. It used eight copies, on 2026-11-12. All 107 mutants that the readers had sorted this way in those two modules were killed: 77 in [`const-change-cost`](../requirements.md#const-change-cost) and 30 in [`const-language`](../requirements.md#const-language). In `const-change-cost`, 113 mutants were no longer not covered: 82 were killed and 31 survived. The 31 sit in the entry files that a copy or a `-S` child runs, and the readers had sorted most of them as behaviour no test holds. The score of `const-change-cost` rose from 74.6% to 79.7%, and that of `const-language` from 79.1% to 82.6%. The same four mutants as before ended as an error, none of them reached by these fixes. The session also built the line map of the other ten modules: the unmutated tests of each stayed green. Their mutants not covered fell only where the readers had found such mutants: from 64 to 52 in [`const-doc-budgets`](../requirements.md#const-doc-budgets), from 115 to 97 in [`const-interaction`](../requirements.md#const-interaction) and from 60 to 48 in [`const-referencing`](../requirements.md#const-referencing). The other seven kept their counts.
 
-<!-- SIZE: the measure of const-locations after the fix of the third place goes here. -->
+After the choice below, the session fixed the third place too, and measured every mutant of [`const-locations`](../requirements.md#const-locations) again, with eight copies. Its five such mutants were killed, each by the test that runs the child under the limit. Its mutants not covered fell from 45 to 42, and its score rose from 79.6% to 80.3%. The one mutant that ended as an error had ended so before. The line map of each of the twelve modules was then built again: the unmutated tests of each stayed green, and only `const-locations` changed its count of mutants not covered.
 
 ## Options
 
