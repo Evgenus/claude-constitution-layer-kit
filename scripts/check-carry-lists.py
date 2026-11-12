@@ -36,8 +36,8 @@ script can hold, and the anchor and the order every ruling is cited by:
                rename detection, `git log -M`, follows the old id's file `<id>.md`, in any folder,
                through each newest rename to a record that stands, and a commit that holds the
                last rename accepts that record. A deleted or misspelt id keeps its note, and so
-               does a rename git does not detect, one never accepted again, or one accepted only
-               before the last rename.
+               does the old id of a rename git does not detect, of a record never accepted again,
+               or of one accepted only before its last rename.
 
   the anchor   every ruling handle **R<n>.** stands right after the anchor of its own key,
                <a id="r<n>"></a>, so that a ruling cited from another document is reached by a
