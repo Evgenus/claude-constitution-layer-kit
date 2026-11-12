@@ -326,7 +326,9 @@ def test_t8() -> None:
     """Y9 for all-ones numbering and for a jump; a list starting at 101, a new list after a
     paragraph, a nested ordered list counting on its own, a bullet inside an ordered list, a change
     of delimiter, a list restarting under the same delimiter after a heading, and one starting
-    anywhere after a fence green"""
+    anywhere after a fence green; a nested list restarting under the next item, a bullet or a comment
+    that runs on between two ordered items green; a jump over a blank line, over a continuation
+    indented by a tab or by spaces, and between a four-space item and a tab item red"""
     one_finding(
         {"docs/notes/n.md": "# T\n\n1. a\n1. b\n2. c\n"},
         "docs/notes/n.md:4: an ordered item numbered 1 after 1",
@@ -341,6 +343,26 @@ def test_t8() -> None:
         }
     )
     no_finding({"docs/notes/n.md": "# T\n\n1. one\n```text\nx\n```\n5. five\n"})
+    # a shallower item closes deeper lists
+    no_finding({"docs/notes/n.md": "# T\n\n1. a\n   1. x\n2. b\n   1. y\n"})
+    no_finding({"docs/notes/n.md": "# T\n\n1. a\n- b\n5. c\n"})  # a bullet at the same indent ends the list
+    # a comment that runs on ends the list
+    no_finding({"docs/notes/n.md": "# T\n\n1. a\n<!-- x\n-->\n3. b\n"})
+    one_finding(  # a blank line does not end the list
+        {"docs/notes/n.md": "# T\n\n1. a\n\n3. b\n"}, "docs/notes/n.md:5: an ordered item numbered 3 after 1"
+    )
+    one_finding(  # nor does a continuation line indented by a tab
+        {"docs/notes/n.md": "# T\n\n1. a\n\tmore\n3. b\n"},
+        "docs/notes/n.md:5: an ordered item numbered 3 after 1",
+    )
+    one_finding(  # nor one indented by spaces
+        {"docs/notes/n.md": "# T\n\n1. a\n   more\n3. b\n"},
+        "docs/notes/n.md:5: an ordered item numbered 3 after 1",
+    )
+    one_finding(  # a tab counts as four columns, the indent of the item above it
+        {"docs/notes/n.md": "# T\n\n1. x\n    1. a\n\t3. b\n"},
+        "docs/notes/n.md:5: an ordered item numbered 3 after 1",
+    )
 
 
 @item(9, "underscore emphasis is red; names, words, code spans and stars are green")
