@@ -65,8 +65,9 @@ Modes:  --from <folder>   read the files in <folder>, one per module, and print 
         --json <path>     the table on stdout and the same numbers as one JSON object in <path>;
         --json -          the JSON object on stdout, and no table;
         --self-test       prove the report on a small kit of its own: the mutants of each operator, the
-                          line map through a child process, each outcome, the files taken back, the
-                          budget, the copies, and the table.
+                          line map through a child process, and through a copy of the plugin, a child
+                          under -S, a folded constant and a child under a limit on file size; each
+                          outcome, the files taken back, the budget, the copies, and the table.
 Notes on stderr: with --from, a module folder with no file, which the table leaves out; each module's
 measure, as it starts.
 Exit:   0 whenever the files could be read or made, whatever they measure; 1, with a BROKEN line on
@@ -743,7 +744,7 @@ def self_test() -> int:  # noqa: C901 — one flat list of cases, each a few lin
         )
         for blind, title in (
             ("copy", "a copy of the plugin's scripts that a test makes and runs counts as the module's file"),
-            ("-S", "a child that a test starts under python3 -S is measured"),
+            ("-S", "a child that a test starts as sys.executable -S is measured"),
             ("folded", "a continuation line of a folded constant counts as reached where its first line is"),
             ("size", "a child under a limit on the size of the files it writes is measured"),
         ):

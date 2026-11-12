@@ -47,19 +47,26 @@ that coverage.py alone would not see (decision dec-0127-mutation-line-map-blind-
   copies        the run measures every file whose path holds a folder named `scripts`, not the module's
                 folder alone. A file measured outside the copy of the kit stands for the module's file
                 that the part of its path after its last such folder names, below plugin/scripts: a
-                copy a test made of the plugin, and ran. A path that holds a line break is not matched;
+                copy a test made of the plugin, and ran. Any other file with that part counts the same,
+                which can add a test to a mutant's run, never a kill the mutant did not cause. A file
+                whose part names no file of the module is left out, and so is a path that holds a line
+                break, which coverage.py does not match;
   -S            in this run alone, the plugin makes `<work>/python` the tests' sys.executable, and the
                 `python3` on PATH hands on to it. It runs `-S <file>` through
                 `scripts/kit_mutation_boot.py`, which starts coverage.py before the file. A child
                 started any other way under `-S` is not measured;
   size limit    in the same run, a test's `resource.setrlimit` of the limit on file size sets the soft
-                value alone. `<work>/python` runs `<file>` under a soft limit below the hard one through
-                the boot file too, which lifts the soft limit once the file has ended, before coverage.py
-                saves. A limit set any other way, as by a shell's `ulimit`, still stops the data file.
-                Every other call `<work>/python` hands on unchanged;
-  no bytecode   a line that holds none, as in the continuation lines of a constant the compiler folds
-                into one, is looked up as the first line of the nearest node around the mutant, up to
-                its statement, that holds some: the field `reach` of a Mutant, which no file holds.
+                value alone. `<work>/python` runs `<file>`, given first, under a soft limit below the
+                hard one through the boot file too, which lifts the soft limit once the file has ended,
+                before coverage.py saves. A child whose soft and hard limits are both set low, as a
+                shell's plain `ulimit -f` sets them, or that is started with an option first, stays
+                unmeasured, and so does the pytest process under a limit it sets on itself. Every
+                other call `<work>/python` hands on unchanged;
+  no bytecode   a mutant is looked up at those of its lines that hold bytecode. Where none of them
+                does, as in the continuation lines of a constant the compiler folds into one, it is
+                looked up at the first line of the nearest node around it, up to its statement, that
+                holds some; where none does either, it is not covered. The field `reach` of a Mutant
+                holds those lines, and no file holds it.
 
 The run of one mutant. The mutant's text is written over the file in a copy of the kit, so that a child
 process meets it too. The file's modification time is set to a value no other text of that copy
@@ -73,10 +80,11 @@ outcome, the key `status`:
                 seconds more, and never less than 30 seconds; counted with the killed, as a run that
                 does not end does not pass;
   survived      pytest exited 0;
-  not covered   no test reaches a line of the mutant; nothing is run, and no test can kill it. A child
-                started with an environment of its own, without coverage's variable, is not measured,
-                and neither are the children the line map's paragraph names, so this count can be too
-                high and the score too low, never too high;
+  not covered   no test that passed reaches a line of the mutant; nothing is run, and no test can kill
+                it. A child started with an environment of its own, without coverage's variable, is not
+                measured, and neither are the runs the line map's paragraph leaves out; a line that only
+                a skipped or failing test runs counts for no test. So this count can be too high and the
+                score too low, never too high;
   unsure        with more than one copy alone: the test that failed with the mutant was run again at
                 once on the unmutated file in the same copy, and failed there too, so the load and not
                 the mutant may have failed it. Left out of the score. A kill at collection, where no
@@ -192,7 +200,7 @@ class Mutant:
     file: str  # from the kit root, with forward slashes
     line: int
     end_line: int
-    reach: tuple[int, ...]  # the lines whose coverage stands for the mutant's, as the line map says
+    reach: tuple[int, ...]  # the lines looked up in the line map for the mutant, from Source.reach
     op: str
     old: str
     new: str

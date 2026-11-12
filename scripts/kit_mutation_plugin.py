@@ -12,8 +12,8 @@ save its data.
 
 Contexts: while coverage.py measures the pytest process, each test's node id becomes the coverage
 context of the lines that process runs during the test; outside a test the context is empty. A child
-process takes its context from the environment variable PYTEST_CURRENT_TEST, through the rc file, and
-needs nothing from this plugin.
+process takes its context from the environment variable PYTEST_CURRENT_TEST, through the rc file; what
+the plugin does for a child is only what the paragraph on the interpreter says.
 
 Outcomes: when the environment variable KIT_MUTATION_SEEN names a file, the plugin writes there, as
 one JSON object, each test's node id with its `outcome`, `passed` unless a stage of it failed or was
