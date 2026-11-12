@@ -105,7 +105,14 @@ module's `plugin/INSTALL.md` must give the exact command that installs the packa
 "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v<version>#subdirectory=shared"`,
 at the tag of the highest `REQUIRES` among the module's entries, since C15, C16 and C17 send the user to
 that note for the command: a note that has none, or only another tag, is RED at its first line that names
-the package, else at line 1; a note that is missing is BROKEN.
+the package, else at line 1; a note that is missing is BROKEN. The install guide, `INSTALL.md` at the kit
+root, gives the same command in its prerequisite 3, for a user who installs the package before any module
+says so. Each such command in the guide, at any tag, must name a tag at or above the highest `REQUIRES` of
+all the modules, and at or below `__version__`. A `REQUIRES` that is red above is left out of that highest,
+so that one defect is reported once. A tag below that `REQUIRES` installs a release that stops
+a module at C16 right after the install. A tag above `__version__` names a release no source has reached.
+Either tag is RED at the command's line. A guide with no such command is RED at its first line that names
+the package, else at line 1; a guide that is missing is BROKEN.
 
 Findings are sorted by path, then line, then column, whatever order git lists the files in. The green
 line gives the mentions and the number of files that hold them, the entries read, the version of the
@@ -153,7 +160,10 @@ Modes:  no arguments   check the kit;
                        dozen shapes red, and one missing or no string BROKEN; `__version__` missing, no
                        string or no version BROKEN. The install notes: the command at the tag green, another
                        tag, another address, none and a note with the command of a lower tag red with
-                       literal reports, the highest of two entries held, a missing note BROKEN.
+                       literal reports, the highest of two entries held, a missing note BROKEN. The install
+                       guide: its command at the highest REQUIRES and at the package's version green; a tag
+                       below that REQUIRES, one above the version, no command and a command at another
+                       address red, the first with its literal report; a missing guide BROKEN.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -219,6 +229,12 @@ WHY_INSTALL = (
     "C15, C16 and C17 send the user to the module's install note for the command, so a note without the"
     " command at the tag of the release the entry requires leaves that user with no fix"
 )
+WHY_GUIDE = (
+    "the install guide's command is the one a user runs before any module points at its own note, so a tag"
+    " below a module's REQUIRES installs a release that stops that module at C16, and a tag above the"
+    " package's version names a release that cannot exist"
+)
+GUIDE_PATH = "INSTALL.md"  # the install guide at the kit root; its prerequisite 3 gives the command
 WHY_PREAMBLE = (
     "the lines that print C15, C16 and C17 are written once for every entry and cannot be run apart with a"
     " path that holds a line break, so a copy that drifts shows its defect to the user and to no fixture"
@@ -250,6 +266,9 @@ VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")  # fu
 INSTALL_COMMAND = (  # the command of the install note; `{version}` is the highest REQUIRES of the module
     'python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit'
     '@constitution-layer-kit-v{version}#subdirectory=shared"'
+)
+GUIDE_COMMAND = re.compile(  # the same command at any tag; group 1 is the tag's version
+    re.escape(INSTALL_COMMAND).replace(re.escape("{version}"), '([^#"\\s]*)')
 )
 ENTRY_FLOOR = re.compile(
     r"^FLOOR = \(3, ", re.MULTILINE
@@ -978,6 +997,45 @@ def install_findings(root: Path, tracked: list[str], module: str, release: str) 
     return [Finding(path, named[0] if named else 1, 1, what, WHY_INSTALL, fix)]
 
 
+def guide_findings(root: Path, tracked: list[str], release: str, version: str) -> list[Finding]:
+    """Each command of the install guide names a tag from `release`, the highest release any entry requires,
+    to `version`, the package's own."""
+    if GUIDE_PATH not in tracked:
+        raise Broken(
+            f"{GUIDE_PATH} is missing — fix: restore the install guide, whose prerequisite 3 gives the"
+            " command that installs the shared package"
+        )
+    text = contents(root, GUIDE_PATH)
+    if text is None:
+        raise Broken(f"{GUIDE_PATH} is binary, and the check reads it as text — fix: restore the file")
+    lowest, highest = parse_version(release), parse_version(version)
+    found: list[Finding] = []
+    commands = 0
+    for number, line in enumerate(text.splitlines(), 1):
+        for match in GUIDE_COMMAND.finditer(line):
+            commands += 1
+            tag = parse_version(match[1])
+            if tag is not None and lowest is not None and highest is not None and lowest <= tag <= highest:
+                continue
+            what = (
+                f"the guide's command names the tag of {match[1]!r}, outside {release}, the highest release"
+                f" an entry requires, to {version}, the package's version"
+            )
+            fix = f"change the command's tag to the tag of a release from {release} to {version}"
+            found.append(Finding(GUIDE_PATH, number, match.start() + 1, what, WHY_GUIDE, fix))
+    if commands == 0:
+        named = [
+            number for number, line in enumerate(text.splitlines(), 1) if "constitution-layer-kit" in line
+        ]
+        command = INSTALL_COMMAND.format(version=release)
+        what = f"the guide gives no command '{command}' at any tag"
+        fix = (
+            f"write the command, as a line, in the guide's prerequisite for the shared package, at {release}"
+        )
+        found.append(Finding(GUIDE_PATH, named[0] if named else 1, 1, what, WHY_GUIDE, fix))
+    return found
+
+
 def check_kit(root: Path, listing: Lister = listed) -> Result:
     minor = floor_of(root)
     findings: list[Finding] = []
@@ -1008,6 +1066,10 @@ def check_kit(root: Path, listing: Lister = listed) -> Result:
             highest[entry.module] = max(highest.get(entry.module, parsed), parsed)
     for module, parsed in sorted(highest.items()):
         findings.extend(install_findings(root, tracked, module, ".".join(map(str, parsed))))
+    own = parse_version(version)
+    served = [p for p in highest.values() if own is not None and p[0] == own[0] and p <= own]  # none red
+    if served:
+        findings.extend(guide_findings(root, tracked, ".".join(map(str, max(served))), version))
     findings.sort(key=lambda f: (f.path, f.line, f.column))
     return Result(findings, minor, total, holding, len(entries), version, len(highest))
 
@@ -1028,7 +1090,7 @@ def report(result: Result) -> int:
         f" its Identity's clause, C15 reads as {GATE_PAGE} gives it, the lines that print it and C16 and C17"
         f" are the kit's, each REQUIRES is at or below the package's version {result.version} in its major,"
         f" and each of {result.notes} install notes gives the command at the tag of its module's highest"
-        " REQUIRES"
+        f" REQUIRES, as {GUIDE_PATH} does at a tag up to the package's version"
     )
     return EXIT_GREEN
 
@@ -1077,6 +1139,8 @@ PRINTER_CLAUSE = "until then the gate's state is not said at session start"
 GENERATOR_CLAUSE = "until then nothing is made"
 CHANGED = "until then it is changed"  # a clause that no Identity of the fixture names
 PACKAGE_VERSION = "1.4.0"  # the fixture package's `__version__`
+GUIDE_TAG = PACKAGE_VERSION  # the tag of the fixture guide's command: the highest REQUIRES, const-c's
+GUIDE_LINE = 5  # the line of that command in the fixture's guide
 C15_ROW_TEXT = (  # the row C15 of the fixture's page, as the shared page gives it
     "BROKEN: {module} needs the Python package constitution-layer-kit {required} or a later {major}.x"
     " release, and python3 cannot import it — fix: install it for python3 as {guide} says — {clause}"
@@ -1308,7 +1372,7 @@ def fresh(root: Path, minor: int = BASE, floor: int | None = None) -> None:
     put(root, PROJECT, requires_toml(f">=3.{minor}"))
     put(root, PACKAGE_INIT, f'"""The package."""\n\n__version__ = "{PACKAGE_VERSION}"\n')
     put(root, GATE_PAGE, gate_page(C15_ROW_TEXT))
-    put(root, "INSTALL.md", f"# Install\n\nNeeds Python 3.{minor} or newer.\n")
+    put(root, GUIDE_PATH, f"# Install\n\nNeeds Python 3.{minor} or newer.\n\n{install_command(GUIDE_TAG)}\n")
     put(
         root,
         "pyproject.toml",
@@ -1423,7 +1487,8 @@ def self_test() -> int:
                 " closes with its Identity's clause, C15 reads as shared/MESSAGES.md gives it, the lines that"
                 " print it and C16 and C17 are the kit's, each REQUIRES is at or below the package's version"
                 f" {PACKAGE_VERSION} in its major, and each of {BASE_ENTRIES} install notes gives the command"
-                " at the tag of its module's highest REQUIRES"
+                " at the tag of its module's highest REQUIRES, as INSTALL.md does at a tag up to the"
+                " package's version"
             ],
             "the baseline is green, with its literal line",
         )
@@ -2592,8 +2657,10 @@ def require(root: Path, spec: Spec, release: str) -> None:
 
 
 def with_version(root: Path, version: str) -> None:
-    """The fixture's package states `version`, with every entry that requires another left as it is."""
+    """The fixture's package states `version`, with every entry that requires another left as it is, and
+    the install guide gives its command at that tag."""
     put(root, PACKAGE_INIT, f'"""The package."""\n\n__version__ = {version!r}\n')
+    put(root, GUIDE_PATH, f"# Install\n\nNeeds Python 3.{BASE} or newer.\n\n{install_command(version)}\n")
 
 
 def self_test_package(cases: Cases) -> None:
@@ -2604,6 +2671,7 @@ def self_test_package(cases: Cases) -> None:
     self_test_releases(cases)
     self_test_releases_broken(cases)
     self_test_notes(cases)
+    self_test_guide(cases)
 
 
 def self_test_c15(cases: Cases) -> None:
@@ -3339,6 +3407,95 @@ def self_test_notes(cases: Cases) -> None:
     cases.check(
         said == f"{note} is binary, and the check reads it as text — fix: restore the file",
         "a binary install note is a teaching BROKEN line",
+    )
+
+
+def guide(*tags: str) -> str:
+    """The fixture's install guide with one command for each of `tags`, the first at GUIDE_LINE."""
+    commands = "".join(f"{install_command(tag)}\n" for tag in tags)
+    return f"# Install\n\nNeeds Python 3.{BASE} or newer.\n\n{commands}"
+
+
+def self_test_guide(cases: Cases) -> None:
+    """The install guide's command names a tag from the highest release an entry requires, const-c's
+    PACKAGE_VERSION, to the package's version."""
+    for name, version, text in (
+        ("at the highest REQUIRES, below a later version", "1.5.0", guide(PACKAGE_VERSION)),
+        ("at the package's version, above the highest REQUIRES", "1.5.0", guide("1.5.0")),
+        ("twice, at two tags in range", "1.5.0", guide(PACKAGE_VERSION, "1.5.0")),
+        ("in a sentence", PACKAGE_VERSION, f"Run {install_command(PACKAGE_VERSION)} once.\n"),
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            put(root, PACKAGE_INIT, f'"""The package."""\n\n__version__ = {version!r}\n')
+            put(root, GUIDE_PATH, text)
+            found = findings_of(root)
+        cases.check(found == [], f"a guide with its command {name} is green")
+    for name, text, line in (
+        ("below the highest REQUIRES", guide("1.2.0"), GUIDE_LINE),
+        ("above the package's version", guide("1.5.0"), GUIDE_LINE),
+        ("of a later major", guide("2.0.0"), GUIDE_LINE),
+        ("of an earlier major", guide("0.9.0"), GUIDE_LINE),
+        ("not major.minor.patch", guide("1.4"), GUIDE_LINE),
+        ("in range, then one below it", guide(PACKAGE_VERSION, "1.0.0"), GUIDE_LINE + 1),
+        ("missing", f"# Install\n\nNeeds Python 3.{BASE} or newer.\n", 1),
+        (
+            "at another address",
+            guide(PACKAGE_VERSION).replace("Evgenus", "Someone") + "Install constitution-layer-kit.\n",
+            GUIDE_LINE,
+        ),
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            put(root, GUIDE_PATH, text)
+            found = findings_of(root)
+        cases.check(
+            [(f.path, f.line) for f in found] == [(GUIDE_PATH, line)] and found[0].why == WHY_GUIDE,
+            f"a guide with its command {name} is red, once, at its line {line}",
+        )
+    with tempfile.TemporaryDirectory() as tmp:  # the report, literal
+        root = Path(tmp).resolve()
+        fresh(root)
+        put(root, GUIDE_PATH, guide("1.2.0"))
+        stage(root)
+        code, lines = run_report(root)
+    cases.check(
+        code == EXIT_RED
+        and lines
+        == [
+            f"RED: {GUIDE_PATH}:{GUIDE_LINE}: the guide's command names the tag of '1.2.0', outside"
+            f" {PACKAGE_VERSION}, the highest release an entry requires, to {PACKAGE_VERSION}, the package's"
+            " version",
+            "  why: the install guide's command is the one a user runs before any module points at its own"
+            " note, so a tag below a module's REQUIRES installs a release that stops that module at C16, and"
+            " a tag above the package's version names a release that cannot exist",
+            f"  fix: change the command's tag to the tag of a release from {PACKAGE_VERSION} to"
+            f" {PACKAGE_VERSION}",
+            SUMMARY_BASE,
+        ],
+        "a guide below the highest REQUIRES is its literal report, exit 2",
+    )
+    with tempfile.TemporaryDirectory() as tmp:  # an entry red for its REQUIRES is not held against the guide
+        root = Path(tmp).resolve()
+        fresh(root)
+        require(root, SPECS[0], "1.5.0")
+        found = findings_of(root)
+    cases.check(
+        [f.path for f in found] == [SPECS[0].file("too_old")],
+        "a REQUIRES above the package is red in its entry alone, not in the guide",
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        fresh(root)
+        remove(root, GUIDE_PATH)
+        said = broken_line(root)
+    cases.check(
+        said
+        == "INSTALL.md is missing — fix: restore the install guide, whose prerequisite 3 gives the command"
+        " that installs the shared package",
+        "a missing install guide is a teaching BROKEN line",
     )
 
 

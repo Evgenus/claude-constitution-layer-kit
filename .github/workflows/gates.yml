@@ -63,10 +63,13 @@ jobs:
         with:
           python-version: "3.12"
       - name: Python tools
-        run: python3 -m pip install --quiet "PyYAML==6.0.2" "ruff==0.16.8" "mypy==1.8.0" "jsonschema==4.26.0" "referencing==0.37.0" "types-PyYAML==6.0.12.20260815" "types-jsonschema==4.26.0.20260518" "coverage==7.16.2" "pytest==9.1.1" "pytest-xdist==3.8.0"
+        # the anchor `tools`: the mutation samples install the same line through its alias, so the versions
+        # stand in one place
+        run: &tools python3 -m pip install --quiet "PyYAML==6.0.2" "ruff==0.16.8" "mypy==1.8.0" "jsonschema==4.26.0" "referencing==0.37.0" "types-PyYAML==6.0.12.20260815" "types-jsonschema==4.26.0.20260518" "coverage==7.16.2" "pytest==9.1.1" "pytest-xdist==3.8.0"
       - name: Vale and lychee
-        # the versions scripts/eval-container/Dockerfile installs too; a change of either file follows in the other
-        run: |
+        # the versions scripts/eval-container/Dockerfile installs too; a change of either file follows in the other;
+        # the anchor `vale-lychee`: the mutation samples run the same block through its alias
+        run: &vale-lychee |
           mkdir -p "$HOME/.local/bin"
           curl -fsSL https://github.com/errata-ai/vale/releases/download/v3.23.0/vale_3.23.0_Linux_64-bit.tar.gz \
             | tar -xz -C "$HOME/.local/bin" vale
@@ -78,7 +81,7 @@ jobs:
         if: startsWith(matrix.job, 'const-') || matrix.job == 'install-guide'
         uses: actions/setup-node@v7
         with:
-          node-version: "22"
+          node-version: &node "22" # the anchor `node`, which the mutation samples read through its alias
       - name: Claude Code, for the bare-repo install, the session-load check and the install guide
         if: startsWith(matrix.job, 'const-') || matrix.job == 'install-guide'
         # the version is scripts/claude-code.version, which the install checks and the session-load check ask
@@ -234,28 +237,22 @@ jobs:
         with:
           python-version: "3.12"
       - name: Python tools
-        # the tools line of the job check, whose versions these are; a change of either line follows in the other
+        # the tools line of the job check, through its alias: one line holds the versions of both jobs
         continue-on-error: true
         timeout-minutes: 5
-        run: python3 -m pip install --quiet "PyYAML==6.0.2" "jsonschema==4.26.0" "referencing==0.37.0" "coverage==7.16.2" "pytest==9.1.1"
+        run: *tools
       - name: Vale and lychee
-        # the versions of the job check, for the tests that run them
+        # the block of the job check, through its alias, for the tests that run them
         continue-on-error: true
         timeout-minutes: 5
-        run: |
-          mkdir -p "$HOME/.local/bin"
-          curl -fsSL https://github.com/errata-ai/vale/releases/download/v3.23.0/vale_3.23.0_Linux_64-bit.tar.gz \
-            | tar -xz -C "$HOME/.local/bin" vale
-          curl -fsSL https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz \
-            | tar -xz -C "$HOME/.local/bin" --strip-components=1 lychee-x86_64-unknown-linux-gnu/lychee
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        run: *vale-lychee
       - name: Node, for the tests that run npm
-        # the version of the job check
+        # the version of the job check, through its alias
         uses: actions/setup-node@v7
         continue-on-error: true
         timeout-minutes: 5
         with:
-          node-version: "22"
+          node-version: *node
       - name: Git identity for the tests' throwaway repositories
         continue-on-error: true
         timeout-minutes: 5
