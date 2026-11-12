@@ -28,7 +28,7 @@ from pathlib import Path
 import pytest
 import yaml
 from constitution_layer_kit import messages as shared
-from constitution_layer_kit.model import Broken, Finding
+from constitution_layer_kit.model import Broken, Finding, MetaType
 from constitution_layer_kit.testing.acceptance import broken_first_line, expect, failure_of, item
 from constitution_layer_kit.testing.consumer import ROOT_POLICY, Consumer, document, envelope
 from constitution_layer_kit.testing.harness import Edit, Harness, Result, Write
@@ -178,6 +178,12 @@ ENTRY = (
 # whole first line typed here by hand: the items compare with what the message functions return
 # too, so a slip inside a function is red only here.
 GOLDEN: dict[str, str] = {
+    "L5.1 kind": "BROKEN: misinvocation: the following arguments are required: --kind — fix: run it with"
+    " --kind <policy id> --stem <stem> --title <text> [--type <meta-type>] [--segment <segment>] [--id <id>]"
+    " [--dry-run]",
+    "L5.1 abbreviated": "BROKEN: misinvocation: unrecognized arguments: --dry — fix: run it with"
+    " --kind <policy id> --stem <stem> --title <text> [--type <meta-type>] [--segment <segment>] [--id <id>]"
+    " [--dry-run]",
     "L5.1": "BROKEN: misinvocation: --stem was not given — fix: run it with --kind <policy id> --stem <stem>"
     " --title <text> [--type <meta-type>] [--segment <segment>] [--id <id>] [--dry-run]",
     "L5.2 odd": f"BROKEN: {AT}/l" + WEIRD_DIR_SHOWN + " is not inside a git repository — fix: run it from"
@@ -208,12 +214,17 @@ GOLDEN: dict[str, str] = {
     " '!docs/notes/x.md']" + NO_HOME,
     "L5.7 glob": "BROKEN: no home follows from notes-policy's territory ['docs/notes/*-note.md']" + NO_HOME,
     "L5.7 directory": "BROKEN: no home follows from notes-policy's territory ['docs/notes/']" + NO_HOME,
+    "L5.7 lone negation": "BROKEN: no home follows from notes-policy's territory ['!docs/notes/**']"
+    + NO_HOME,
+    "L5.7 glob part": "BROKEN: no home follows from notes-policy's territory ['docs/**/*/README.md']"
+    + NO_HOME,
     "L5.7 git": "BROKEN: no home follows from notes-policy's territory ['./docs/notes/**']" + NO_HOME,
     "L5.8": "BROKEN: notes-policy's territory 'packages/*/README.md' has a free segment, and --segment was"
     " not given: the pattern fixes the file name and leaves that one segment to be named — fix: run it"
     " with --segment <the segment>; the file name is the pattern's, so --stem is not taken",
     "L5.9": "BROKEN: --stem was given, but notes-policy's territory 'packages/*/README.md' fixes the file"
     " name 'README' — fix: drop --stem and give --segment",
+    "L5.10 derived": "BROKEN: 'read_me-alpha' is not a kebab-case name for the id" + KEBAB,
     "L5.10 stem": "BROKEN: 'Bad_Stem' is not a kebab-case name for the stem" + KEBAB,
     "L5.10 id": "BROKEN: 'x--y' is not a kebab-case name for the id" + KEBAB,
     "L5.10 segment": "BROKEN: 'Bad_Name' is not a kebab-case name for the segment" + KEBAB,
@@ -278,6 +289,8 @@ GOLDEN: dict[str, str] = {
     " in the template",
     "L5.17": "BROKEN: the template tpl/record.md carries type 'ruling', which is no meta-type — fix: set"
     " type: current-state, task-record or non-authoritative in the template",
+    "L5.17 missing": "BROKEN: the template tpl/record.md carries type 'missing', which is no meta-type — fix:"
+    " set type: current-state, task-record or non-authoritative in the template",
     "L5.18": "BROKEN: --title was not given, and the envelope is written with the title as a value — fix:"
     " run it with --title '<the document's title>'; a dry run needs none",
     "L5.19 long": "BROKEN: id '"
@@ -383,7 +396,8 @@ def created(consumer: Consumer, rel: str, expected: str, result: Result, lines: 
 def test_directory_prefix() -> None:
     """A directory-prefix territory: `--kind notes-policy --stem a --title 'A note' --type non-authoritative`
     creates `docs/notes/a.md` with exactly the four-field envelope and the heading body, and prints L1, L2
-    (none), L3 and L4 word for word."""
+    (none), L3 and L4 word for word. A title past ASCII stands in the envelope as
+    typed."""
     consumer = prepared()
     created(consumer, NOTE, NOTE_TEXT, run(consumer, *NOTE_ARGS), NOTE_LINES)
     # A home over 80 characters is a path the next step opens, so its lines show it whole — never cut
@@ -401,6 +415,14 @@ def test_directory_prefix() -> None:
     assert shared.escaped("a\\b\nc\r" + stem) == "a\\\\b\\nc\\r" + stem, (
         "a backslash and the line breaks of a path are escaped, the path never cut"
     )
+    # A title past ASCII stands in the envelope as typed
+    wrong = []
+    for title in ("Café — x",):
+        alone = filling.from_envelope_alone("a", MetaType.NON_AUTHORITATIVE, title)
+        typed = f"---\nid: a\ntype: non-authoritative\ntitle: {title}\nstatus: active\n---\n\n# {title}\n"
+        if alone != typed:
+            wrong.append(f"{title[:20]!r}: {alone[:200]!r}")
+    assert not wrong, "\n".join(wrong)
 
 
 @item(2, "<dir>/**/*.md and a leading slash are prefixes too")
@@ -418,7 +440,9 @@ def test_prefix_forms() -> None:
 def test_free_segment() -> None:
     """One free segment: `packages/*/README.md` with `--segment alpha` creates `packages/alpha/README.md`
     with id `readme-alpha`; `--stem` given there is L5.9; `--segment` missing is L5.8; `--segment` given
-    on a directory-prefix kind is L5.21."""
+    on a directory-prefix kind is L5.21. Two parts before the segment, and two after it, each give the
+    home with every part in place; a fixed file name that is no kebab-case once lower-cased, `READ_ME.md`,
+    derives an id that is L5.10."""
     pattern = "packages/*/README.md"
     patch = claim([pattern])
     consumer = prepared(patch)
@@ -436,6 +460,29 @@ def test_free_segment() -> None:
     expected = document("# Alpha\n", id="readme-alpha", type="current-state", title="Alpha", status="active")
     home = "packages/alpha/README.md"
     created(consumer, home, expected, result, [messages.l1_home(home, "notes-policy", pattern)])
+    segment_args = [
+        "--kind",
+        "notes-policy",
+        "--segment",
+        "alpha",
+        "--title",
+        "Alpha",
+        "--type",
+        "current-state",
+    ]
+    for deeper, deeper_home in (
+        ("docs/packages/*/README.md", "docs/packages/alpha/README.md"),
+        ("packages/*/docs/README.md", "packages/alpha/docs/README.md"),
+    ):
+        deeper_consumer = prepared(claim([deeper]))
+        deeper_result = run(deeper_consumer, *segment_args)
+        deeper_lines = [f"HOME: {deeper_home} — governed by notes-policy (territory '{deeper}')"]
+        created(deeper_consumer, deeper_home, expected, deeper_result, deeper_lines)
+    broken(
+        run(prepared(claim(["packages/*/READ_ME.md"])), *segment_args),
+        messages.l5_not_kebab("read_me-alpha", "the id"),
+        "L5.10 derived",
+    )
     broken(
         run(prepared(patch), "--kind", "notes-policy", "--stem", "z", "--title", "T"),
         messages.l5_stem_not_taken("notes-policy", pattern, "README"),
@@ -457,7 +504,8 @@ def test_free_segment() -> None:
 @item(4, "a single path and every fourth-class territory: no home, refused and taught")
 def test_no_home() -> None:
     """A single-path territory is L5.6; two patterns, a negated pattern, a `*` inside a file name, a bare
-    directory `<dir>/` and `./<dir>/**`, whose derived home git does not claim, are each L5.7; a namespace
+    directory `<dir>/` and `./<dir>/**`, whose derived home git does not claim, are each L5.7; so are a
+    lone negated pattern, run with no `--stem`, and a segment pattern with a glob in a fixed part; a namespace
     with no `territory` line, and one with an empty list, are each L5.24."""
     broken(
         run(prepared(claim(["docs/one.md"])), *NOTE_ARGS),
@@ -473,6 +521,11 @@ def test_no_home() -> None:
     ):
         result = run(prepared(claim(territory)), *NOTE_ARGS)
         broken(result, messages.l5_no_home("notes-policy", territory), handle)
+    lone = run(prepared(claim(["!docs/notes/**"])), "--kind", "notes-policy", "--title", "T")
+    broken(lone, messages.l5_no_home("notes-policy", ["!docs/notes/**"]), "L5.7 lone negation")
+    globbed = ["docs/**/*/README.md"]
+    glob_part = run(prepared(claim(globbed)), "--kind", "notes-policy", "--segment", "alpha", "--title", "T")
+    broken(glob_part, messages.l5_no_home("notes-policy", globbed), "L5.7 glob part")
     namespaces: list[dict[str, object]] = [{"notes-policy": {}}, claim([])]  # no territory line; an empty one
     for namespace in namespaces:
         result = run(prepared(namespace), *NOTE_ARGS)
@@ -492,7 +545,10 @@ def test_from_template() -> None:
     every other envelope field verbatim, and the template's body byte for byte after the block; the same
     with a closer `--- `; and for a template given as text, each line ending of Markdown (LF, CRLF, a lone
     carriage return) and two byte-order marks, the rewritten block with LF endings and the body as written,
-    a closing line with no ending at the text's end left so, each expected file typed by hand. The command
+    a closing line with no ending at the text's end left so, each expected file typed by hand. A blank line
+    that opens the block is kept, a field of the template's own that goes on over a second line keeps it, and
+    a title's line that opens with a tab goes with the title. The command's title is written as typed: one
+    that ends in `X`, and one past ASCII. The command
     itself reads a template with `read_text`, which turns CRLF and a lone carriage return into LF, so those
     two endings reach the generator in this item only."""
     dials = own(templates=[{"policy": "notes-policy", "template": TEMPLATE}])
@@ -556,6 +612,28 @@ FROM_TEXT: list[tuple[str, str, str]] = [
         "\ufeff\ufeff--- \nid: <x>\ntype: current-state\ntitle: T\n---\nBODY\n",
         "---\nid: a\ntype: current-state\ntitle: N\nstatus: active\n---\nBODY\n",
     ),
+    (
+        "a blank line opens the block, and is kept",
+        "---\n\nid: <x>\ntype: current-state\ntitle: T\n---\nBODY\n",
+        "---\n\nid: a\ntype: current-state\ntitle: N\nstatus: active\n---\nBODY\n",
+    ),
+    (
+        "a field of the template's own, after a kept line, goes on over a second line, which is kept",
+        "---\nid: <x>\ntype: current-state\ntitle: T\nstakes: >\n  process\n---\nBODY\n",
+        "---\nid: a\ntype: current-state\ntitle: N\nstakes: >\n  process\nstatus: active\n---\nBODY\n",
+    ),
+    (
+        "a double-quoted title goes on over a line that opens with a tab, dropped with the title",
+        '---\nid: <x>\ntype: current-state\ntitle: "one\n\ttwo"\n---\nBODY\n',
+        "---\nid: a\ntype: current-state\ntitle: N\nstatus: active\n---\nBODY\n",
+    ),
+]
+# The title the command gives, written as typed: a last letter the line's strip must leave, and letters
+# past ASCII. Each expected file typed by hand.
+SHORT_TEMPLATE = "---\nid: <x>\ntype: current-state\ntitle: T\n---\nBODY\n"
+FROM_TITLE: list[tuple[str, str]] = [
+    ("Plan X", "---\nid: a\ntype: current-state\ntitle: Plan X\nstatus: active\n---\nBODY\n"),
+    ("Café — x", "---\nid: a\ntype: current-state\ntitle: Café — x\nstatus: active\n---\nBODY\n"),
 ]
 
 
@@ -568,6 +646,9 @@ def from_text_in_process() -> list[tuple[bool, str]]:
             results.append((False, f"{name}: {type(error).__name__} {error}"))
             continue
         results.append((got == expected, f"{name}: gave {got!r}, expected {expected!r}"))
+    for title, expected in FROM_TITLE:
+        got = filling.from_template(SHORT_TEMPLATE, TEMPLATE, "a", title, None)
+        results.append((got == expected, f"title {title[:20]!r}: gave {got[:200]!r}"))
     return results
 
 
@@ -578,12 +659,13 @@ def from_text_in_process() -> list[tuple[bool, str]]:
 )
 def test_template_refusals() -> None:
     """No template and no `--type` is L5.13; a template and `--type` is L5.14; a template whose `type` is no
-    meta-type is L5.17; a template without an envelope is L5.16, and so is one with a form feed before its
-    closer or one followed by text on the closer's line, since a line ends at a line break and nowhere else
-    and YAML refuses the character; a missing template is L5.15, and a template that is not UTF-8 is
-    L5.15's second form, `cannot be read`, the tree left as it was."""
+    meta-type is L5.17, and so is one with no type line; a template without an envelope is L5.16, and so
+    is one with a form feed before its closer or one followed by text on the closer's line, since a line
+    ends at a line break and nowhere else and YAML refuses the character; a missing template is L5.15, and
+    a template that is not UTF-8 is L5.15's second form, `cannot be read`, the tree left as it was."""
     with_template = own(templates=[{"policy": "notes-policy", "template": TEMPLATE}])
     bad_type = TEMPLATE_TEXT.replace("type: task-record", "type: ruling")
+    no_type = TEMPLATE_TEXT.replace("type: task-record\n", "")
     not_utf8 = prepared(with_template, files={TEMPLATE: TEMPLATE_TEXT})
     (not_utf8.root / TEMPLATE).write_bytes(TEMPLATE_TEXT.encode() + b"\xff\n")  # a byte UTF-8 never opens
     commit_if_changed(not_utf8)
@@ -620,6 +702,19 @@ def test_template_refusals() -> None:
             ),
             messages.l5_template_bad_type(TEMPLATE, "ruling"),
             "L5.17",
+        ),
+        (
+            run(
+                prepared(with_template, files={TEMPLATE: no_type}),
+                "--kind",
+                "notes-policy",
+                "--stem",
+                "a",
+                "--title",
+                "T",
+            ),
+            messages.l5_template_bad_type(TEMPLATE, "missing"),
+            "L5.17 missing",
         ),
         (
             run(
@@ -858,7 +953,8 @@ def test_argument_refusals() -> None:
     """A stem, a segment and an id that are no kebab-case names are each L5.10, a stem or an id holding a
     line break or a carriage return too, shown escaped and cut at 80 characters, the tree untouched; no
     `--title` is L5.18; an empty title and one of whitespace are L5.22, in a dry run too, and one holding a
-    line break is L5.23, each leaving the tree as it was; no `--stem` on a directory-prefix kind is L5.1."""
+    line break or a lone carriage return is L5.23, each leaving the tree as it was; no `--stem` on a
+    directory-prefix kind is L5.1, and so are no `--kind` and a flag cut short, `--dry`, which is no flag."""
     pairs = [
         (
             run(prepared(), "--kind", "notes-policy", "--stem", "Bad_Stem", "--title", "T"),
@@ -893,6 +989,16 @@ def test_argument_refusals() -> None:
             messages.l5_usage("--stem was not given"),
             "L5.1",
         ),
+        (
+            run(prepared(), "--stem", "a", "--title", "T", "--type", "non-authoritative"),
+            messages.l5_usage("the following arguments are required: --kind"),
+            "L5.1 kind",
+        ),
+        (
+            run(prepared(), *NOTE_ARGS, "--dry"),
+            messages.l5_usage("unrecognized arguments: --dry"),
+            "L5.1 abbreviated",
+        ),
     ]
     broke = prepared()
     for stem, handle in (("abc\n", "L5.10 stem break"), ("abc\r", "L5.10 stem cr")):
@@ -923,6 +1029,7 @@ def test_argument_refusals() -> None:
         ("", messages.l5_title_empty(), "L5.22"),
         ("  ", messages.l5_title_empty(), "L5.22"),
         ("a\nb", messages.l5_title_multiline(), "L5.23"),
+        ("a\rb", messages.l5_title_multiline(), "L5.23"),
     ):
         pairs.append(
             (run(titles, "--kind", "notes-policy", "--stem", "a", "--title", title), failure, handle)
@@ -1329,13 +1436,18 @@ def test_grant_allows_its_own_command() -> None:
     """Each form the allowlist names gets the one JSON object and exit 0, nothing on stderr — a trailing
     slash on the root changes nothing. GRANTED holds the forms: the module's own command alone, with a dry
     run, with plain values, with single-quoted values holding a space, a dash, a separator, a `$`, a
-    backtick, a double quote and a glob, and an empty one."""
+    backtick, a double quote and a glob, and an empty one. A root that ends in a letter the slash is
+    stripped beside, `/p/pluginX`, grants its own command whole: the strip takes the slash alone."""
     wrong = []
     for command in GRANTED:
         for root in (str(PLUGIN), f"{PLUGIN}/"):
             result = ask_grant(event(command), root)
             if (result.code, result.stdout, result.stderr) != (0, ALLOW, ""):
                 wrong.append(f"{command!r} at {root!r}: {result}")
+    for root in ("/p/pluginX", "/p/pluginX/"):
+        result = ask_grant(event("sh /p/pluginX/scripts/new-document.sh --kind p"), root)
+        if (result.code, result.stdout, result.stderr) != (0, ALLOW, ""):
+            wrong.append(f"the command at {root!r}: {result}")
     assert not wrong, "\n".join(wrong)
 
 
@@ -1352,12 +1464,17 @@ def test_grant_says_nothing_else() -> None:
     space, a suffix on the script's name, another script, `bash`, an assignment, the `command` builtin and
     a `cd` before it, another root, and `ls`; one value for each printable character the plain class does
     not hold, and for a no-break space, a line separator and two full-width separators. An `allow` here
-    would skip the platform's split of a compound command and grant what follows the separator."""
+    would skip the platform's split of a compound command and grant what follows the separator. At the
+    root `/p/pluginX`, the same command under `/p/plugin`, a folder beside the plugin, gets nothing."""
     wrong = []
     for command in NOT_OWN:
         result = ask_grant(event(command))
         if (result.code, result.stdout, result.stderr) != (0, "", ""):
             wrong.append(f"{command!r}: {result}")
+    for root in ("/p/pluginX", "/p/pluginX/"):
+        beside = ask_grant(event("sh /p/plugin/scripts/new-document.sh --kind p"), root)
+        if (beside.code, beside.stdout, beside.stderr) != (0, "", ""):
+            wrong.append(f"a folder beside the root {root!r}: {beside}")
     assert not wrong, "\n".join(wrong)
 
 
@@ -1395,11 +1512,12 @@ def test_grant_other_events() -> None:
 
 @item(24, "the grant: input it cannot read and an argument given are refused, nothing granted, typed by hand")
 def test_grant_refusals() -> None:
-    """Unreadable input, a shell event without its command, and an argument on the command line each
-    exit 1 with the shared line and the grant's own closing line, and print nothing on stdout."""
+    """Unreadable input, a shell event without its command, and one argument or two on the command line
+    each exit 1 with the shared line and the grant's own closing line, and print nothing on stdout."""
     not_json = ask_grant("not json")
     no_command = ask_grant(event(None))
     argument = G.run_gate(event(OWN), args=["--scan"], env={"CLAUDE_PLUGIN_ROOT": str(PLUGIN)})
+    arguments = G.run_gate(event(OWN), args=["--scan", "x"], env={"CLAUDE_PLUGIN_ROOT": str(PLUGIN)})
     expected = {
         "not json": "BROKEN: hook input cannot be used (it is not JSON: Expecting value: line 1 column 1"
         " (char 0)) — fix: this hook reads one PreToolUse event of the shell tool, a JSON object, on stdin;"
@@ -1409,8 +1527,10 @@ def test_grant_refusals() -> None:
         " on stdin; it has no other mode",
         "argument": "BROKEN: misinvocation: --scan — fix: run it with no arguments: it reads one PreToolUse"
         " event of the shell tool on stdin",
+        "arguments": "BROKEN: misinvocation: --scan x — fix: run it with no arguments: it reads one"
+        " PreToolUse event of the shell tool on stdin",
     }
-    got = {"not json": not_json, "no command": no_command, "argument": argument}
+    got = {"not json": not_json, "no command": no_command, "argument": argument, "arguments": arguments}
     wrong = [
         f"{name}: {result}"
         for name, result in got.items()
@@ -1521,6 +1641,43 @@ def test_grant_wiring() -> None:
     assert hooks == expected and not granting_skill, f"hooks: {hooks}; allowed-tools in {granting_skill}"
 
 
+@item(31, "a failure nobody planned for: the generator's and the grant's own clause, typed by hand")
+def test_unexpected_failure_clauses() -> None:
+    """A library that raises where none was expected exits 1 with the shared C12 line, closed by the
+    entry's own clause and closing line, both typed here, and the traceback after them. The generator's
+    clause says nothing is created; the grant's says the command asks for approval, and nothing is
+    granted. Shared item 141 builds its line with the module's own identity, so a slip in the clause
+    passes there and is red only here."""
+    shadow = H.scratch_dir()  # PyYAML imports, and its first use raises
+    (shadow / "yaml.py").write_text(
+        "class YAMLError(Exception): pass\n\n\ndef safe_load(text): raise RuntimeError('simulated defect')\n",
+        encoding="utf-8",
+    )
+    made = run(prepared(), *NOTE_ARGS, env={"PYTHONPATH": str(shadow)})
+    raising = H.scratch_dir()  # PyYAML raises as it is imported, which the grant's preflight does
+    (raising / "yaml.py").write_text("raise RuntimeError('simulated defect')\n", encoding="utf-8")
+    granted = ask_grant(event(OWN), env={"PYTHONPATH": str(raising)})
+    head = (
+        "BROKEN: unexpected failure inside the checker: RuntimeError: simulated defect — fix: this is a"
+        " defect of the gate, not of the repository; report it, with the traceback below, to whoever"
+        " maintains the plugin — "
+    )
+    expected = {
+        "generator": (made, f"{head}until it is fixed nothing is created\n{messages.l4_nothing_written()}"),
+        "grant": (
+            granted,
+            f"{head}until it is fixed the command asks for approval as any other command does\n{NOT_GRANTED}",
+        ),
+    }
+    wrong = []
+    for name, (result, lines) in expected.items():
+        head_lines = "\n".join(result.stderr.splitlines()[:2])
+        traceback = result.stderr.splitlines()[2:3] == ["Traceback (most recent call last):"]
+        if (result.code, result.stdout, head_lines, traceback) != (1, "", lines, True):
+            wrong.append(f"{name}: {result}")
+    assert not wrong, "\n".join(wrong)
+
+
 # ---------------------------------------------------------------- the effect report (items 28 on)
 # The three rules of MODULE.md §13, each run through `effect-report.sh` over hand-made transcripts and a
 # fake `claude`. The lines asserted are typed by hand.
@@ -1575,7 +1732,9 @@ def test_effect_w1() -> None:
     Notes are a directory territory, so the command derives a home there. Applied: the command. Missed
     by B6: a Write of a new note, and one through a worktree of the project. No moment: a dry run, a Write
     after a Read of the file, a Write after a Write of it, a Write outside any territory and a file that is
-    no Markdown. Where a policy claims one path, the command has no home and a Write there is no moment."""
+    no Markdown. Where a policy claims one path, the command has no home and a Write there is no moment. A
+    project with no dials file, and one whose notes policy claims an empty territory, have no home for a
+    note either, so a Write of a new note there is no moment."""
     root = prepared().root
     sid = "s28"
     lines = [
@@ -1597,6 +1756,16 @@ def test_effect_w1() -> None:
     again = [tr_write("s28b", single, "w1", "Write", "docs/one.md")]
     other = effect_lines(single, {"s28b": again})
     assert "  W1 (pattern): 0 moment(s): 0 applied, 0 bypassed, 0 missed" in other, other
+    # No dials file claims nothing, and a policy with an empty territory gets no home: a Write of a new
+    # note is no moment in either, and the report reads both without a failure
+    for name, project in (
+        ("no dials", prepared(remove="constitution.yaml")),
+        ("no territory", prepared(claim([]))),
+    ):
+        write = [tr_write("s28c", project.root, "w1", "Write", "docs/notes/b.md")]
+        quiet = effect_lines(project.root, {"s28c": write})
+        zero = "  W1 (pattern): 0 moment(s): 0 applied, 0 bypassed, 0 missed"
+        assert zero in quiet, f"{name}: {quiet}"
 
 
 @item(29, "W2: a creation after a load of new-document is applied; with none, or another skill, missed by B5")
