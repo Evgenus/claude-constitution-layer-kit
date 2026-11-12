@@ -11,11 +11,11 @@ decider: Eugene Chernyshov
 
 ## Context
 
-The decider asked in chat on 2026-10-27 whether the kit can know how many tokens a session spent to make each commit, while several sessions work on the repository at once. On 2026-11-08 the decider stated what the count must do. A session's count for a commit must not change because other sessions exist, and it must hold all the work done in that session: its subagents, its workflow agents and its advisor model. A count of tokens here measures what a session spent, not the size of a document, so [law 8 of CLAUDE.md](../../CLAUDE.md#law-8) is not touched.
+The decider asked in chat on 2026-10-27 whether the kit can know how many tokens a session spent to make each commit, while several sessions work on the repository at once. On 2026-11-08 the decider stated what the count must do. A session's count for a commit must not change because other sessions exist. It must hold all the work done in that session: its subagents, its workflow agents and its advisor model. A count of tokens here measures what a session spent, not the size of a document, so [law 8 of CLAUDE.md](../../CLAUDE.md#law-8) is not touched.
 
 Claude Code writes one transcript per session, a file of JSON lines in the `projects` folder of its configuration folder. Each reply of the model stands there with its token counts, in a format the platform does not document. Two facts found on the kit's own transcripts shaped the design:
 
-- **Copies across sessions.** A forked session copies the earlier session's records into its own transcript, with the same message id, request id and time; in the kit's transcripts most copies took the new session's id. A plain resume copies nothing: it appends to the same transcript under the same id, as [res-0015-const-change-cost](../research/res-0015-const-change-cost.md) found. On 2026-10-28, 3,699 of the 18,607 replies in the kit's transcripts stood in two sessions or more, and no field said which session made them.
+- **Copies across sessions.** A forked session copies the earlier session's records into its own transcript, with the same message id, request id and time. In the kit's transcripts most copies took the new session's id. A plain resume copies nothing: it appends to the same transcript under the same id, as [res-0015-const-change-cost](../research/res-0015-const-change-cost.md) found. On 2026-10-28, 3,699 of the 18,607 replies in the kit's transcripts stood in two sessions or more, and no field said which session made them.
 - **Partial records.** A subagent's reply can be written twice, first with a partial output count. In one session 94 replies were, and a count that kept the first record of each lost 73,172 tokens.
 
 ccusage is a widely used open-source tool, under the MIT license, that reads these transcripts and reports tokens and cost by day, week, month and session. Its command `ccusage claude session --id <id> --json` lists every reply of one session with its time and its four counts. It offers no library: its npm package ships a command alone, and its Rust crates are not published. The session put the questions of this record in chat on 2026-11-08, one per message.
@@ -24,16 +24,29 @@ ccusage is a widely used open-source tool, under the MIT license, that reads the
 
 - **A. A parser of the kit's own.** A kit script reads the transcripts and counts the tokens itself.
   - **Pros:** the kit holds every rule and sees every field; no tool from outside the kit.
-  - **Cons:** the kit must follow every change of a format the platform does not document; the session's first parser kept the partial records and lost 73,172 tokens in one session.
+  - **Cons:**
+    - **the kit must follow every change of a format the platform does not document**;
+    - **the session's first parser kept the partial records and lost 73,172 tokens in one session**.
 - **B. ccusage over all the transcripts.** The kit runs ccusage's session command on the platform's own folder and splits its replies at the session's commits.
   - **Pros:** ccusage keeps up with the format and the prices; the least code in the kit.
-  - **Cons:** of a copied reply ccusage keeps the copy whose file path sorts first, so a fork can take its parent's work; in a run on 2026-11-08, putting a parent's folder after its fork's dropped the parent from 2,083 replies to 1,763 and from $100.14 to $50.56.
+  - **Cons:**
+    - **of a copied reply ccusage keeps the copy whose file path sorts first**, so a fork can take its parent's work;
+    - **in a run on 2026-11-08**, putting a parent's folder after its fork's dropped the parent from 2,083 replies to 1,763 and from $100.14 to $50.56.
 - **C. ccusage over a folder that holds one session alone.** The kit copies one session's files, cut at the session's start and at its commits, into a throwaway folder, and runs ccusage there.
-  - **Pros:** ccusage still does the reading and the pricing; no other session's files stand in the folder, so none can change the count; on 2026-11-08 it gave the same count in every folder order, and in six commit windows it matched a count made apart from it, reply for reply.
-  - **Cons:** the kit must log each session's start and each commit as they happen; it copies files for every count; it depends on a command whose output carries no promise of stability, with 19 releases in the month to 2026-10-27.
+  - **Pros:**
+    - **ccusage still does the reading and the pricing**;
+    - **no other session's files stand in the folder**, so none can change the count;
+    - **on 2026-11-08 it gave the same count in every folder order**, and in six commit windows it matched a count made apart from it, reply for reply.
+  - **Cons:**
+    - **the kit must log each session's start and each commit as they happen**;
+    - **it copies files for every count**;
+    - **it depends on a command whose output carries no promise of stability**, with 19 releases in the month to 2026-10-27.
 - **D. Claude Code's telemetry.** The platform exports a token count for every request over OpenTelemetry, with the session's id, to a collector the kit runs.
   - **Pros:** a documented interface; it sees requests that may never reach a transcript, such as a compaction.
-  - **Cons:** a collector must run from a session's first request; the commit's SHA reaches an event only with `OTEL_LOG_TOOL_DETAILS=1`, and reports on the platform's issue tracker, which the session did not test, say it is lost for some forms of `git commit`; no past session can be counted.
+  - **Cons:**
+    - **a collector must run from a session's first request**;
+    - **the commit's SHA reaches an event only with `OTEL_LOG_TOOL_DETAILS=1`**, and reports on the platform's issue tracker, which the session did not test, say it is lost for some forms of `git commit`;
+    - **no past session can be counted**.
 
 The session recommended A on 2026-10-28, since B fails the decider's rule. Once the decider asked to build on ccusage, the session read ccusage's source and recommended C: it keeps ccusage for the reading and the pricing, and keeps the other sessions out of the folder it reads.
 
@@ -45,9 +58,9 @@ The decider chose to build on ccusage, in chat on 2026-11-08, since a tool this 
 
 <a id="r3"></a>**R3.** A session owns only the records dated at or after its start: the earliest start its start log holds for its id, since a resume and a compaction log later ones under the same id. So the history that a fork copies in stays with the session that made it.
 
-<a id="r4"></a>**R4.** A commit of a session gets that session's replies dated after its previous commit and up to this commit. All the records of one reply, one message id and one request id, go into the window of its first record, so a reply that spans a commit is counted once.
+<a id="r4"></a>**R4.** A commit of a session gets that session's replies dated after its previous commit and up to this commit. All the records of one reply, one message id and one request id, go into the window of its first record. A reply that spans a commit is counted once.
 
-<a id="r5"></a>**R5.** A commit is counted once its window is complete, that is once the session's transcripts hold a record dated after the commit, since the platform writes the transcript later than the conversation; the tool result of the call that made the commit is such a record. A count is written once and is not made again.
+<a id="r5"></a>**R5.** A commit is counted once its window is complete, that is once the session's transcripts hold a record dated after the commit, since the platform writes the transcript later than the conversation. The tool result of the call that made the commit is such a record. A count is written once and is not made again.
 
 <a id="r6"></a>**R6.** For each commit the module keeps the four counts — input, output, cache write and cache read — with the total and the cost ccusage computes, the session's id and the ccusage version. The cost of each reply in ccusage's output is not used: it reads a field that the current transcripts do not have, and stands at 0.
 
@@ -57,17 +70,28 @@ The decider chose to build on ccusage, in chat on 2026-11-08, since a tool this 
 
 ## 2. Where the count lives
 
-The count must ship to every project that uses the kit, not serve the kit alone, the decider said in chat on 2026-11-08. A plugin can hold every part of it. Its `SessionStart` hook receives the session's id and the start's source, and its tool hooks fire inside subagents too, with the agent's id. ccusage needs Node and npm in the project, as module [`const-referencing`](../requirements.md#const-referencing) needs lychee and module [`const-language`](../requirements.md#const-language) needs Vale. A plugin cannot install a git hook, so the commit log of R7 takes one of two routes. Git's hooks set in its configuration run beside a project's own hooks and need one step per clone. A check after each tool call lists the commits made during it and needs no step, but two sessions that commit in one checkout at one moment would both claim the commit.
+The count must ship to every project that uses the kit, not serve the kit alone, the decider said in chat on 2026-11-08. A plugin can hold every part of it. Its `SessionStart` hook receives the session's id and the start's source, and its tool hooks fire inside subagents too, with the agent's id. ccusage needs Node and npm in the project, as module [`const-referencing`](../requirements.md#const-referencing) needs lychee and module [`const-language`](../requirements.md#const-language) needs Vale. A plugin cannot install a git hook, so the commit log of R7 takes one of two routes. Git's hooks set in its configuration run beside a project's own hooks and need one step per clone. A check after each tool call lists the commits made during it and needs no step. Two sessions that commit in one checkout at one moment would both claim the commit.
 
 - **A. A new module with an aspect of its own.** A plugin built through the kit's module routine, its rows a new aspect of the requirements matrix.
-  - **Pros:** it passes the three boundary tests of the matrix; a project chooses to install it; its need for Node and ccusage touches no other module; it reads only its own dials.
-  - **Cons:** the whole module routine, from the research round to both reviews; the aspect must state a failure class, since the [intent page](../../INTENT.md#i5) keeps out a module for a failure nobody has hit, and a count measures more than it governs.
+  - **Pros:**
+    - **it passes the three boundary tests of the matrix**;
+    - **a project chooses to install it**;
+    - **its need for Node and ccusage touches no other module**;
+    - **it reads only its own dials**.
+  - **Cons:**
+    - **the whole module routine**, from the research round to both reviews;
+    - **the aspect must state a failure class**, since the [intent page](../../INTENT.md#i5) keeps out a module for a failure nobody has hit, and a count measures more than it governs.
 - **B. New rows in module [`const-task-close`](../requirements.md#const-task-close).** The module whose object is the change gains the count, the start log and the commit log.
   - **Pros:** its object is already the change and its commits; one install fewer; it already ships the hooks the count needs.
-  - **Cons:** it fails the one-invariant test, its invariant being documents kept in step with the code; every project that installs its gate would need Node and ccusage, or meet a configuration failure; every change to the count would bump that module and make its eval receipt stale.
+  - **Cons:**
+    - **it fails the one-invariant test**, its invariant being documents kept in step with the code;
+    - **every project that installs its gate would need Node and ccusage**, or meet a configuration failure;
+    - **every change to the count would bump that module and make its eval receipt stale**.
 - **C. Inside the effect report.** The shared runner of [aspect A14](../requirements.md#a14) also counts tokens per commit, by a record that reverses [A14.1](../requirements.md#a14-1), which keeps cost out of a module's effect.
   - **Pros:** it already reads transcripts, blocks nothing and takes a transcript folder and a start date.
-  - **Cons:** the effect report counts each module's own rules, and a token count is no module's rule; the shared package, which every module installs, would need Node.
+  - **Cons:**
+    - **the effect report counts each module's own rules**, and a token count is no module's rule;
+    - **the shared package**, which every module installs, would need Node.
 
 The session recommended A, the only option that passes the boundary tests and keeps ccusage away from a project that wants only the existing gates. The decider chose A in chat on 2026-11-08.
 
@@ -79,7 +103,7 @@ The session recommended A, the only option that passes the boundary tests and ke
 
 ## 3. The module's name
 
-The module's folder and its research comparison are named after it, so its name comes before the research round, as [steps 1](../guide/developing-a-module.md#s1) and [2](../guide/developing-a-module.md#s2) of the module-development page order them. The kit names a module `const-` and its aspect.
+The module's folder and its research comparison are named after it. Its name comes before the research round, as [steps 1](../guide/developing-a-module.md#s1) and [2](../guide/developing-a-module.md#s2) of the module-development page order them. The kit names a module `const-` and its aspect.
 
 - **A. `const-change-cost`, the aspect "Change cost".** The name of the kit's own unit of work.
   - **Pros:** "change" is the word the kit uses for the unit module [`const-task-close`](../requirements.md#const-task-close) closes; the cost of a pull request is the sum of its changes.
@@ -94,14 +118,19 @@ The session recommended A, the kit's own word for its unit of work. The decider 
 
 ## 4. The module's failure class
 
-Every module's heading in the requirements matrix states its class, and [template §2](../../module-template/MODULE.md#t2) says what the class brings: an accumulating module belongs in every project's day-one install set, a self-limiting one waits for its friction signal, and a module may be split into an accumulating slice and a self-limiting rest. The count's evidence expires too. Claude Code deletes the transcripts of command-line sessions after `cleanupPeriodDays`, 30 days by default, without a message, as [its settings reference](https://code.claude.com/docs/en/settings-reference.md) says. It keeps the transcripts of desktop app sessions at any age unless `desktopSessionCleanupPeriodDays` is set.
+Every module's heading in the requirements matrix states its class. [template §2](../../module-template/MODULE.md#t2) says what the class brings: an accumulating module belongs in every project's day-one install set, a self-limiting one waits for its friction signal, and a module may be split into an accumulating slice and a self-limiting rest. The count's evidence expires too. Claude Code deletes the transcripts of command-line sessions after `cleanupPeriodDays`, 30 days by default, without a message, as [its settings reference](https://code.claude.com/docs/en/settings-reference.md) says. It keeps the transcripts of desktop app sessions at any age unless `desktopSessionCleanupPeriodDays` is set.
 
 - **A. Accumulating, the whole module.** It belongs in every project's day-one install set, and its logs and its count run from the first session.
   - **Pros:** no session is ever missed; every count is made while its transcript still exists.
   - **Cons:** every new project needs Node and ccusage on its first day, even one that never reads a count.
 - **B. Accumulating logs, a self-limiting count.** The start log and the commit log are installed on the first day and need no Node; the count needs ccusage only when it runs.
-  - **Pros:** the first day costs two small hooks; the part that can never be made later is always there; ccusage is needed only when a project wants its counts.
-  - **Cons:** a count made more than 30 days late finds a command-line session's transcript gone, unless the module keeps its own copies; one module with two classes is more to explain.
+  - **Pros:**
+    - **the first day costs two small hooks**;
+    - **the part that can never be made later is always there**;
+    - **ccusage is needed only when a project wants its counts**.
+  - **Cons:**
+    - **a count made more than 30 days late finds a command-line session's transcript gone**, unless the module keeps its own copies;
+    - **one module with two classes is more to explain**.
 - **C. Self-limiting, the whole module.** It enters when a project first asks what its changes cost.
   - **Pros:** nothing is installed until someone wants it; the simplest heading.
   - **Cons:** every session before the install is lost for good, the loss R11 names.
@@ -115,18 +144,27 @@ The session recommended B, which keeps the first day cheap and never loses what 
 The decider asked for a count that holds all the work of a session. [res-0015-const-change-cost](../research/res-0015-const-change-cost.md) found, in its experiment E18, that a compaction writes a `compact_boundary` record and a summary into the transcript, and no record with a token count. The platform's own total for that session rose by $0.027 of $0.20. A count read from transcripts misses that work.
 
 - **A. Name the gap.** The count holds every reply the transcript records, and the report names each compaction in a commit's window as not counted.
-  - **Pros:** one source, ccusage alone, as R1 rules; the gap shows on every commit it touches; in E18 it was about 13 in 100 of a small session.
+  - **Pros:**
+    - **one source**, ccusage alone, as R1 rules;
+    - **the gap shows on every commit it touches**;
+    - **in E18 it was about 13 in 100 of a small session**.
   - **Cons:** the count falls short of all the session's work by every compaction, and a long session compacts many times.
 - **B. Add the platform's telemetry for what transcripts miss.** The module turns on the OpenTelemetry export and adds the requests whose `query_source` is `compact` to the window.
   - **Pros:** compactions are counted, measured by the platform itself.
-  - **Cons:** an exporter in every project from its first session; a second source that can disagree with ccusage; the comparison read this path and did not run it.
+  - **Cons:**
+    - **an exporter in every project from its first session**;
+    - **a second source that can disagree with ccusage**;
+    - **the comparison read this path and did not run it**.
 - **C. Read the platform's running total.** The transcript's `cost-state` record holds the session's total, so a compaction is the jump of that total across the `compact_boundary`.
   - **Pros:** no exporter; the platform's own numbers, compactions included.
-  - **Cons:** a record the platform does not document, seen in one experiment; it reverses R1, since the module would read token counts from a transcript; in E18 the record priced cache reads at twice the price page.
+  - **Cons:**
+    - **a record the platform does not document**, seen in one experiment;
+    - **it reverses R1**, since the module would read token counts from a transcript;
+    - **in E18 the record priced cache reads at twice the price page**.
 
 The session recommended A: it keeps one counter, and the shortfall is shown, not hidden. B can come later as a dial when a project needs compactions counted. The decider chose A in chat on 2026-11-09.
 
-<a id="r14"></a>**R14.** A compaction's tokens are not counted. The count holds every reply the session's transcripts record, and the report names each compaction, by its `compact_boundary` record, in the window of the commit it falls in. Counting compactions can come later as a dial, when a project needs them counted.
+<a id="r14"></a>**R14.** A compaction's tokens are not counted. The count holds every reply the session's transcripts record. The report names each compaction, by its `compact_boundary` record, in the window of the commit it falls in. Counting compactions can come later as a dial, when a project needs them counted.
 
 ## Applied
 

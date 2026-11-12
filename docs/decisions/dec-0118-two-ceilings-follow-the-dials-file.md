@@ -34,7 +34,9 @@ Neither change named a record. So the two rulings still gave the old level, and 
   - **Cons:** a new rule beyond the picks of 2026-11-08; two more comments in the dials file.
 - **C. As B, for every ceiling of the dial.** One rule at the key `ceilings` of the dials file says that a re-set of any ceiling by the dial's rule is routine.
   - **Pros:** one rule for all ceilings; it matches how twelve ceilings moved on 2026-11-08.
-  - **Cons:** wider than the plan item asks; other records set other ceilings, such as R6 of [dec-0115-long-documents-split-and-carry-entries-follow-moved-text](dec-0115-long-documents-split-and-carry-entries-follow-moved-text.md#r6) for the template's 23,000, and a general rule may collide with them.
+  - **Cons:**
+    - **wider than the plan item asks**;
+    - **other records set other ceilings**, such as R6 of [dec-0115-long-documents-split-and-carry-entries-follow-moved-text](dec-0115-long-documents-split-and-carry-entries-follow-moved-text.md#r6) for the template's 23,000, and a general rule may collide with them.
 
 ## Recommendation
 
@@ -54,7 +56,13 @@ B, by the decider in chat on 2026-11-11.
 
 <a id="r4"></a>**R4.** The number, the level and the window of the two ceilings are those of their entries under `const-doc-budgets.ceilings` in the dials file, and of no record.
 
-<a id="r5"></a>**R5.** A later re-set of either entry by the dial's rule is routine: a new window, the number that the rule gives from it, and the level. The dial's rule is what the dials file states at the key `ceilings` for a ceiling's number and its level: the window's longest document plus 10 %, rounded up to 1,000; warning until 30 days of data; error in the change that brings the group under its number. The change that makes the re-set writes its day and its reason in the comment at that entry. A change of either entry by another measure, such as a number set from a shortened document, is priced by its stakes like any other change.
+<a id="r5"></a>**R5.** A later re-set of either entry by the dial's rule is routine: a new window, the number that the rule gives from it, and the level. The dial's rule is what the dials file states at the key `ceilings` for a ceiling's number and its level:
+
+- **the window's longest document plus 10 %**, rounded up to 1,000;
+- **warning until 30 days of data**;
+- **error in the change that brings the group under its number**.
+
+The change that makes the re-set writes its day and its reason in the comment at that entry. A change of either entry by another measure, such as a number set from a shortened document, is priced by its stakes like any other change.
 
 ## Applied
 

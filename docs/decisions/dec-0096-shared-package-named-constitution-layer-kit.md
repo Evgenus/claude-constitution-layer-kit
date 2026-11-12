@@ -24,7 +24,10 @@ Three facts made the old name a problem:
 The repository was named `claude-constitution-layer-kit` by [dec-0092-rename-to-claude-constitution-layer-kit](dec-0092-rename-to-claude-constitution-layer-kit.md). The decider asked for a package name close to it. A first set of names, `gate_runtime`, `gatewright`, `teachgate` and `constitution_gates`, was turned down as too far from the repository's name.
 
 - **A. `constitution_layer_kit`.** The repository's name without "claude-".
-  - **Pros:** it names the kit, not a module, so no reader takes it for a module's package; it is free as `constitution-layer-kit` on the Python package index, checked on 2026-10-20; it does not name the platform, which the knowledge kit's code need not carry.
+  - **Pros:**
+    - **it names the kit**, not a module, so no reader takes it for a module's package;
+    - **it is free as `constitution-layer-kit` on the Python package index**, checked on 2026-10-20;
+    - **it does not name the platform**, which the knowledge kit's code need not carry.
   - **Cons:** 22 characters against 10, so 42 lines of code grew past the 110 columns of the kit's lint and had to be wrapped.
 - **B. `constitution_kit`.** The kit's short name.
   - **Pros:** short; it reads well in an import.
@@ -44,7 +47,7 @@ The session recommended A: it is the only name that matches the repository, stay
 
 ## 2. What the history takes of the rename
 
-Accepted records and frozen research comparisons name `const_gate` in their prose and link into its folder: 8 links in dec-0038, dec-0076, dec-0084 and res-0012. Their policies allow few edits to them. A link to a moved file must lead to the file's new place, or the link check of module [`const-referencing`](../requirements.md#const-referencing) turns red. But [kernel §5](../constitution/CONVENTIONS.md#k5) allows an accepted record three kinds of mechanical edit, and the one for links is "a reference-form migration — rewriting how a record cites other documents". A Python file is no document in the kernel's sense. The kit already rewrites links to code files in records, and 39 records link to a Python or shell file, but no text said so. The carry audit of this change found the gap.
+Accepted records and frozen research comparisons name `const_gate` in their prose and link into its folder: 8 links in dec-0038, dec-0076, dec-0084 and res-0012. Their policies allow few edits to them. A link to a moved file must lead to the file's new place, or the link check of module [`const-referencing`](../requirements.md#const-referencing) turns red. But [kernel §5](../constitution/CONVENTIONS.md#k5) allows an accepted record three kinds of mechanical edit. The one for links is "a reference-form migration — rewriting how a record cites other documents". A Python file is no document in the kernel's sense. The kit already rewrites links to code files in records, and 39 records link to a Python or shell file, but no text said so. The carry audit of this change found the gap.
 
 - **A. The record policy states the reading.** Rule 14 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) says that, for this migration, the documents a record cites include every file and folder it links to.
   - **Pros:** explicit, and it covers what the kit already does; a small policy edit inside this change; no kernel change.

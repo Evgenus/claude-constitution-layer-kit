@@ -15,7 +15,7 @@ Item 4.1 of [the rollout plan](../rollout-plan.md) asks to review the first four
 
 They found the template at fault in about thirty places, which the session sorted into three groups. First, shapes the template does not give, which every module invented the same way. All eleven modules write an enforcement table `| # | artifact | kind |`, which a kit check parses, and ten an error-message table `| key | first line | why | fix |`. All eleven have a `package` row in their artifacts table, a Requires paragraph in their install note and a Settings paragraph in their README. Second, template rules that the modules' practice had moved past. Third, skeleton files that contradict the template's own rules. Its `hooks.json` has no `args` and no `timeout`, against gate-script rule 11, and its example script is `bash`, not POSIX shell. They also found 38 places where a module departs from the template, among them two session-start printers that no enforcement table declares, against [law 5 of CLAUDE.md](../../CLAUDE.md#law-5).
 
-The session put five questions, one per message, in chat on 2026-10-26; a seventh section records what the verifiers of the modules found, and an eighth a sixth question, which the carry audit raised.
+The session put five questions, one per message, in chat on 2026-10-26. A seventh section records what the verifiers of the modules found, and an eighth a sixth question, which the carry audit raised.
 
 ## 1. The scope of the change
 
@@ -31,7 +31,7 @@ The session put five questions, one per message, in chat on 2026-10-26; a sevent
 
 The session recommended A, as the item's words and a focused review. The decider chose C, "in one PR", in chat on 2026-10-26.
 
-<a id="r1"></a>**R1.** The template is revised by the findings of the review of item 4.1, and all eleven modules are brought to the revised template in the same change.
+<a id="r1"></a>**R1.** The template is revised by the findings of the review of item 4.1. All eleven modules are brought to the revised template in the same change.
 
 ## 2. What the template writes down of the modules' practice
 
@@ -43,7 +43,7 @@ No real choice existed for these rulings. Each writes down a shape that the modu
 
 <a id="r4"></a>**R4.** The rows section links each row to its anchor in the requirements document. One optional line after its table names each row of the aspect that another place homes, with that home and how the module meets it.
 
-<a id="r5"></a>**R5.** The decisions section holds one record per entry, one line each, the record linked; a line may name another record it relates to, which has its own entry.
+<a id="r5"></a>**R5.** The decisions section holds one record per entry, one line each, the record linked. A line may name another record it relates to, which has its own entry.
 
 <a id="r6"></a>**R6.** A module with an invariant and advisory rules states the invariant, then its advisory rules. The advisory rules of any module stand in a list whose items carry the handles `<L>-a`, `<L>-b` in bold, each rule labeled `advisory`. A module keeps the letter its rules have, since rule 8 of plc-0006-module-documents makes `<L>-a` a prefix apart from a message key's `<L><n>`.
 
@@ -51,7 +51,7 @@ No real choice existed for these rulings. Each writes down a shape that the modu
 
 <a id="r8"></a>**R8.** The always-on budget counts the lines the module's `SessionStart` and `SubagentStart` hooks print and each skill's description as the skill listing carries it. A line that holds a value is sized as its fixed text, the placeholder named. The sub-slot ends with the pointer line, or `Pointer line: none` and its reason. The line a project may add to its own `CLAUDE.md` is called the CLAUDE.md line.
 
-<a id="r9"></a>**R9.** A fourth sub-slot after the artifacts table, cost and budget, holds the hook budget, each wait's cap, each handler's timeout and each measured cost; the enforcement and acceptance sections cite it. A figure an accepted record cites in another numbered place stays there, and the sub-slot cites that place.
+<a id="r9"></a>**R9.** A fourth sub-slot after the artifacts table, cost and budget, holds the hook budget, each wait's cap, each handler's timeout and each measured cost. The enforcement and acceptance sections cite it. A figure an accepted record cites in another numbered place stays there, and the sub-slot cites that place.
 
 <a id="r10"></a>**R10.** The error-message table is `| key | first line | why | fix |`. A text that is no finding fills the cells it has and writes `—` in the others.
 
@@ -59,7 +59,7 @@ No real choice existed for these rulings. Each writes down a shape that the modu
 
 <a id="r12"></a>**R12.** Each judgment-based boundary has at least three contrastive pairs, numbered as R25 says. A pair sets one side against the other, each with its verdict, where both sides may be allowed. A module with several advisory rules groups the pairs under the handles of the rules they serve, one group serving one or several rules. Pairs that a text the module ships already holds are cited, not copied.
 
-<a id="r13"></a>**R13.** The enforcement table is `| # | artifact | kind |`, one artifact per row, for every artifact that runs or prints, the session-start printers included. The honest limits first cite the limits every gate shares and restate none, then list the module's own, each with its backstop or `none — accepted` and the reason.
+<a id="r13"></a>**R13.** The enforcement table is `| # | artifact | kind |`, one artifact per row, for every artifact that runs or prints, the session-start printers included. The honest limits first cite the limits every gate shares and restate none. Then they list the module's own, each with its backstop or `none — accepted` and the reason.
 
 <a id="r14"></a>**R14.** The Runner line names `python3 -m pytest tests`, the run the kit makes through `scripts/check-aspects.py --run --module <name>`, and the ranges of the fixture items the table holds. A fixture item's kind is `fixture, red→green`, `fixture, assertion`, or `fixture, shared` for the line of the shared items. A number once used is never used again, and a shared item the module does not claim is left out of the shared line. The template cites the policy's rule on handles and does not restate it.
 
@@ -67,9 +67,9 @@ No real choice existed for these rulings. Each writes down a shape that the modu
 
 <a id="r16"></a>**R16.** The skeleton files follow the template's own rules. The hooks file uses the exec form with a timeout and carries the pointer line's `SessionStart` and `SubagentStart` entries. The example script is a POSIX wrapper that hands over to the Python entry file. A pointer printer stands beside it, and the tree names both and the session-start pair. The skill skeleton states kernel terms in plain words and cites no kit file, and names its supporting files and its `paths:` key.
 
-<a id="r17"></a>**R17.** The install note template carries, in order: the Requires paragraph, the shared package's block, the install, the calibration or the switch-on dial, adoption through `severity: warn`, the scan in CI, the output log, the fixtures from a clone of the kit, the CLAUDE.md line or none, and what the module does not check. A step the module does not need is deleted and the steps after it are numbered on, and a step the module needs beyond them stands where its subject belongs; a step an accepted record cites keeps its number, as R24 says.
+<a id="r17"></a>**R17.** The install note template carries, in order: the Requires paragraph, the shared package's block, the install, the calibration or the switch-on dial, adoption through `severity: warn`, the scan in CI, the output log, the fixtures from a clone of the kit, the CLAUDE.md line or none, and what the module does not check. A step the module does not need is deleted and the steps after it are numbered on. A step the module needs beyond them stands where its subject belongs. A step an accepted record cites keeps its number, as R24 says.
 
-<a id="r18"></a>**R18.** The README template's first section glosses each term of the description, its "How it works" closes with a Settings paragraph, and its install section gives the marketplace line in full. The dials are named in that Settings paragraph, which replaces, in R1 of [dec-0077-module-readme-pages](dec-0077-module-readme-pages.md#r1), their naming inside each tool's paragraph; the rest of that ruling stands.
+<a id="r18"></a>**R18.** The README template's first section glosses each term of the description. Its "How it works" closes with a Settings paragraph. Its install section gives the marketplace line in full. The dials are named in that Settings paragraph, which replaces, in R1 of [dec-0077-module-readme-pages](dec-0077-module-readme-pages.md#r1), their naming inside each tool's paragraph. The rest of that ruling stands.
 
 <a id="r19"></a>**R19.** The research is confirmed or overturned before the artifacts table is written; the result stands in the Research sub-slot after the table.
 
@@ -137,13 +137,19 @@ Three modules wrote the same deferral, "for every gate alike", in their own word
 
 The session recommended A. The decider chose A in chat on 2026-10-26.
 
-<a id="r23"></a>**R23.** The deferrals every gate shares stand once in the deferred paragraph of [kit-shared-gate-code §1](../../shared/GATE.md#g1): Windows without a POSIX shell, and a clone of the kit without symbolic links; a run past the handler's timeout; a governed document with another extension. Each module cites them in its deferred section and restates none.
+<a id="r23"></a>**R23.** The deferrals every gate shares stand once in the deferred paragraph of [kit-shared-gate-code §1](../../shared/GATE.md#g1):
+
+- **Windows without a POSIX shell**, and a clone of the kit without symbolic links;
+- **a run past the handler's timeout**;
+- **a governed document with another extension**.
+
+Each module cites them in its deferred section and restates none.
 
 ## 7. Numbers that records cite
 
 The fresh verifiers of the eleven modules found five citations in accepted records broken by this change's renumbering or deletions: an install-note step of [`const-referencing`](../requirements.md#const-referencing) and of [`const-interaction`](../requirements.md#const-interaction), a row of the enforcement table of [`const-meta-types`](../requirements.md#const-meta-types), a pair of [`const-task-close`](../requirements.md#const-task-close), and a platform fact of [`const-decision-records`](../requirements.md#const-decision-records). A frozen research comparison is in the same case, since it keeps the form it was frozen with. An accepted record is not edited to follow a renumbering it never ruled. No real choice existed: the module keeps the number.
 
-<a id="r24"></a>**R24.** A number that an accepted record or a frozen research comparison cites — an entry of the decisions section, a platform fact, a limit, a pair, a row of the enforcement table, a step of the install note — is never moved, and keeps the text the record cites. Where the template's order, numbering or slots would move it, the module keeps the number and that text, and the order yields.
+<a id="r24"></a>**R24.** A number that an accepted record or a frozen research comparison cites — an entry of the decisions section, a platform fact, a limit, a pair, a row of the enforcement table, a step of the install note — is never moved. It keeps the text the record cites. Where the template's order, numbering or slots would move it, the module keeps the number and that text, and the order yields.
 
 ## 8. How boundary pairs are numbered
 
@@ -158,11 +164,11 @@ R12 first said that pairs are numbered straight through the section, and several
 
 The session recommended A: the kit already has a rule for this, which R12's first wording broke by accident. The decider chose A in chat on 2026-10-26.
 
-<a id="r25"></a>**R25.** A boundary pair keeps the number it was given; as R14 says, a number once used is never used again. A pair added after another in its group takes that pair's number with a letter, as [rule 8 of plc-0006-module-documents](../policies/plc-0006-module-documents.md#r8) says of an added item; a pair that opens a group of its own takes the next unused number; a removed pair leaves a gap. A group of two pairs or more whose whole numbers run in order is a numbered list. A group of two pairs or more whose pairs carry a letter or skip a number writes each pair as a bullet that opens with its bold number, so that each renders as an item of its own and no list's numbers jump, as the style scan asks. A group of one pair is a paragraph that opens with its bold number. The groups may stand out of number order. The modules that renumbered their pairs in this change restore the numbers they had before it.
+<a id="r25"></a>**R25.** A boundary pair keeps the number it was given; as R14 says, a number once used is never used again. A pair added after another in its group takes that pair's number with a letter, as [rule 8 of plc-0006-module-documents](../policies/plc-0006-module-documents.md#r8) says of an added item. A pair that opens a group of its own takes the next unused number. A removed pair leaves a gap. A group of two pairs or more whose whole numbers run in order is a numbered list. A group of two pairs or more whose pairs carry a letter or skip a number writes each pair as a bullet that opens with its bold number, so that each renders as an item of its own and no list's numbers jump, as the style scan asks. A group of one pair is a paragraph that opens with its bold number. The groups may stand out of number order. The modules that renumbered their pairs in this change restore the numbers they had before it.
 
 ## Applied
 
-The change revised the template, its skeleton files, the deferred paragraph of the shared page, rule 10 of plc-0006-module-documents and two steps of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md). Each of the eleven modules was then brought to the template in one commit on a branch of its own, by a fresh implementer, and the branches were merged into the change. Item 4.1 of the plan is ticked in the change that lands this record.
+The change revised the template, its skeleton files, the deferred paragraph of the shared page, rule 10 of plc-0006-module-documents and two steps of "Developing a module" in [CLAUDE.md](../guide/developing-a-module.md). Each of the eleven modules was then brought to the template in one commit on a branch of its own, by a fresh implementer. The branches were merged into the change. Item 4.1 of the plan is ticked in the change that lands this record.
 
 ## Carry list
 

@@ -13,26 +13,39 @@ decider: Eugene Chernyshov
 
 The carry audit of [dec-0096-shared-package-named-constitution-layer-kit](dec-0096-shared-package-named-constitution-layer-kit.md), in pull request Evgenus/claude-constitution-layer-kit#79, had a confirming reader note an older tension. A session checked it on 2026-10-21 and found it real.
 
-- **The kernel.** The second and third exceptions to the id rule of [kernel §1](../constitution/CONVENTIONS.md#k1) say that "every reference to it in the tree is rewritten". The skill of module [`const-catalogs`](../requirements.md#const-catalogs), in its section on two items under one number, rewrites the bare form too, in the whole tree, and leaves only commit messages as they are.
+- **The kernel.** The second and third exceptions to the id rule of [kernel §1](../constitution/CONVENTIONS.md#k1) say that "every reference to it in the tree is rewritten". The skill of module [`const-catalogs`](../requirements.md#const-catalogs), in its section on two items under one number, rewrites the bare form too, in the whole tree. It leaves only commit messages as they are.
 - **Comparisons.** [Rule 7 of plc-0005-research](../policies/plc-0005-research.md#r7) let a frozen comparison take "five kinds of edit and no other". After a renumbering it let only a link be "rewritten to the item's new id". A bare id outside a link had no allowed edit, so the policy forbade what the kernel asks.
-- **Records.** [Rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) said a migration that follows a document renumbered "is the kernel's, at any time", but its next sentence named only a link. [Kernel §5](../constitution/CONVENTIONS.md#k5) calls a reference-form migration a rewrite of *how* a record cites, and a wording edit alters no existing handle. So for a record the text was unclear rather than closed.
-- **No case yet.** Git's history held three renumberings. Two were made on their own branch before they landed. Only one, dec-0076 to dec-0077 on 2026-10-09, renumbered an item already on the main branch, and no record or comparison held its id.
+- **Records.** [Rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) said a migration that follows a document renumbered "is the kernel's, at any time". Its next sentence named only a link. [Kernel §5](../constitution/CONVENTIONS.md#k5) calls a reference-form migration a rewrite of *how* a record cites, and a wording edit alters no existing handle. So for a record the text was unclear rather than closed.
+- **No case yet.** Git's history held three renumberings. Two were made on their own branch before they landed. Only one, dec-0076 to dec-0077 on 2026-10-09, renumbered an item already on the main branch. No record or comparison held its id.
 - **The exposure.** On 2026-10-21, outside links, fences and envelopes, the session counted 6 bare ids in the prose of two comparisons and about 30 in code spans of comparisons, each of them a form shown or the data of a measurement. It counted 159 in the prose of records, in about 34 files. A change to a catalog's form, the third exception, would rename every item and reach all of them at once.
 
 ## Options
 
 - **A. Widen both policy rules to the kernel.** Rule 7 of plc-0005-research and rule 14 of plc-0004-decision-records each gain one sentence: after a renumbering or a rename the kernel allows, a bare id that means the item takes the new id, and an id used as an example stays as written.
-  - **Pros:** the policies do what the kernel already says, which [law 1 of CLAUDE.md](../../CLAUDE.md#law-1) makes authoritative; it matches what the catalogs skill already teaches; two sentences, no kernel change.
-  - **Cons:** a frozen document takes one more edit; each bare form must be read in place, since it may mean the item that kept the number.
+  - **Pros:**
+    - **the policies do what the kernel already says**, which [law 1 of CLAUDE.md](../../CLAUDE.md#law-1) makes authoritative;
+    - **it matches what the catalogs skill already teaches**;
+    - **two sentences**, no kernel change.
+  - **Cons:**
+    - **a frozen document takes one more edit**;
+    - **each bare form must be read in place**, since it may mean the item that kept the number.
 - **B. A carve-out in the kernel.** [Kernel §1](../constitution/CONVENTIONS.md#k1) would say that in a document a policy freezes, a bare id stays as written and only a link follows.
   - **Pros:** frozen prose stays exactly as frozen.
-  - **Cons:** a kernel change, always recorded, with a full carry audit; the bare id would then name the wrong item, the one that kept the number; the catalogs skill would change too.
+  - **Cons:**
+    - **a kernel change**, always recorded, with a full carry audit;
+    - **the bare id would then name the wrong item**, the one that kept the number;
+    - **the catalogs skill would change too**.
 - **C. Every bare id becomes a link now.** One migration in all records and comparisons, so that the clause on links covers every later case.
   - **Pros:** every reference becomes one a machine can follow.
-  - **Cons:** about 165 prose lines of frozen documents edited; it still needs a policy change, since rule 7 allowed no such change of form; new bare ids are not stopped.
+  - **Cons:**
+    - **about 165 prose lines of frozen documents edited**;
+    - **it still needs a policy change**, since rule 7 allowed no such change of form;
+    - **new bare ids are not stopped**.
 - **D. Defer, with a signal.** The gap is logged and reopened when a renumbering or a change of a catalog's form first meets a bare id in a frozen document.
   - **Pros:** no work now; no case has happened.
-  - **Cons:** a known contradiction between the kernel and two policies stays in the tree; the next collision on the main branch would meet it in the middle of a change.
+  - **Cons:**
+    - **a known contradiction between the kernel and two policies stays in the tree**;
+    - **the next collision on the main branch would meet it in the middle of a change**.
 
 ## Recommendation
 
@@ -50,7 +63,7 @@ A, by the decider in chat on 2026-10-21.
 
 ## Applied
 
-The commit that creates this record applies both rulings, to rule 7 of plc-0005-research and to rule 14 of plc-0004-decision-records, so the record is born `inactive`. The carry audit's corrections, made in place before the yes, leave four sentences in each rule. No bare id is rewritten: the one renumbering of an item already on the main branch left none in a frozen document. The prose mentions of a record by its old slug that item 3 of the section "Rulings carried" of [dec-0017-records-numbered-now](dec-0017-records-numbered-now.md) left as written are not taken up here.
+The commit that creates this record applies both rulings, to rule 7 of plc-0005-research and to rule 14 of plc-0004-decision-records. The record is born `inactive`. The carry audit's corrections, made in place before the yes, leave four sentences in each rule. No bare id is rewritten: the one renumbering of an item already on the main branch left none in a frozen document. The prose mentions of a record by its old slug that item 3 of the section "Rulings carried" of [dec-0017-records-numbered-now](dec-0017-records-numbered-now.md) left as written are not taken up here.
 
 ## Carry list
 

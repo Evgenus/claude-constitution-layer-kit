@@ -24,7 +24,7 @@ The survey behind this record is the comparison [res-0016-mutation-score](../res
 5. Of those 53 survivors, 13 change no behaviour and can never be killed, and 36 point at something no test holds.
 6. For the largest modules a whole run is two and a half to five hours of one process, by samples.
 
-A new kit script, new jobs of the workflow and a new entry of the gate list change the kit's harness, so this is a `process` change under [law 9 of CLAUDE.md](../../CLAUDE.md#law-9). A number that only reports is advisory in the sense of [law 5 of CLAUDE.md](../../CLAUDE.md#law-5), and must never look like a check.
+A new kit script, new jobs of the workflow and a new entry of the gate list change the kit's harness. This is a `process` change under [law 9 of CLAUDE.md](../../CLAUDE.md#law-9). A number that only reports is advisory in the sense of [law 5 of CLAUDE.md](../../CLAUDE.md#law-5). It must never look like a check.
 
 The record answers two questions, in the order the decider was asked them.
 
@@ -32,21 +32,29 @@ The record answers two questions, in the order the decider was asked them.
 
 ### Options
 
-- **A. The kit's own script, a weekly workflow of its own, whole runs, report only.** A new script and a new workflow run each Monday and on request, one job per module; the table goes to the run's summary and the survivors to an artifact.
+- **A. The kit's own script, a weekly workflow of its own, whole runs, report only.** A new script and a new workflow run each Monday and on request, one job per module. The table goes to the run's summary and the survivors to an artifact.
   - **Pros:** measured whole on one module with no false kill and no missed kill; nothing new to pin; no pull request waits for it.
-  - **Cons:** the kit owns the script and the list of mutation operators, which shapes the score; the score trails a change by up to a week; it narrows R9 of [dec-0091-module-fixtures-run-as-pytest](dec-0091-module-fixtures-run-as-pytest.md#r9), since the report runs chosen tests itself.
+  - **Cons:**
+    - **the kit owns the script and the list of mutation operators**, which shapes the score;
+    - **the score trails a change by up to a week**;
+    - **it narrows R9 of** [dec-0091-module-fixtures-run-as-pytest](dec-0091-module-fixtures-run-as-pytest.md#r9), since the report runs chosen tests itself.
 - **B. cosmic-ray, pinned at 8.7.0, in the same weekly workflow, on a sample.** The outside tool runs the whole module for each mutant, so each run measures a seeded sample of each module's mutants.
   - **Pros:** a maintained tool whose operators are not the kit's to keep.
   - **Cons:** 13 packages behind one pin; the score is an estimate; it makes no mutant of a message text; the survivors' list is partial.
 - **C. The kit's script, in the workflow `gates` on every change, on a sample.** Each module's job spends a fixed few minutes on a seeded sample, and the table stands beside the coverage report.
   - **Pros:** every change shows its own score, beside its coverage.
-  - **Cons:** it reverses R5 and R6 of [dec-0087-module-metrics-report](dec-0087-module-metrics-report.md#r5) for the mutation score; every pull request pays some minutes more in each module's job; a small sample moves by several points with no change in the code.
+  - **Cons:**
+    - **it reverses R5 and R6 of** [dec-0087-module-metrics-report](dec-0087-module-metrics-report.md#r5) for the mutation score;
+    - **every pull request pays some minutes more in each module's job**;
+    - **a small sample moves by several points with no change in the code**.
 - **D. A and C together.** The whole score weekly, and a rough one on every change.
   - **Pros:** both the exact score and a rough one for each change.
   - **Cons:** both costs; two numbers that differ by sampling noise alone.
 - **E. A, with a floor for each module that turns the weekly job red.** A declared gate: the floor is set from each module's first run.
   - **Pros:** a drop is seen without anyone reading the report.
-  - **Cons:** mutants that cannot be killed, a change of the operators and load each move the score with no change in the tests; a red on a schedule belongs to no pull request.
+  - **Cons:**
+    - **mutants that cannot be killed**, a change of the operators and load each move the score with no change in the tests;
+    - **a red on a schedule belongs to no pull request**.
 
 ### Recommendation
 
@@ -58,19 +66,24 @@ C, by the decider in chat on 2026-11-11, over the session's recommendation. The 
 
 ## 2. Where the sample runs
 
-The first run of the kit's CI with the sample in each module's job was run 43003257222, on 2026-11-11. It measured 898 of 9,884 mutants and scored 80.3%, with a standard error of 1.9 points. By the report's own column `seconds`, the line map and the mutants' runs together took 233 to 316 seconds in ten modules. They took 437 seconds in [`const-referencing`](../requirements.md#const-referencing) and 668 in [`const-interaction`](../requirements.md#const-interaction), whose tests are slow: a mutant that survives runs every test that reaches it. The check `gates` waits for the slowest job, so it ended about 15 minutes after the run was created, where two runs on `main` of the same day took about 5. The session had told the decider of 3 to 5 minutes more in each module's job.
+The first run of the kit's CI with the sample in each module's job was run 43003257222, on 2026-11-11. It measured 898 of 9,884 mutants and scored 80.3%, with a standard error of 1.9 points. By the report's own column `seconds`, the line map and the mutants' runs together took 233 to 316 seconds in ten modules. They took 437 seconds in [`const-referencing`](../requirements.md#const-referencing) and 668 in [`const-interaction`](../requirements.md#const-interaction), whose tests are slow: a mutant that survives runs every test that reaches it. The check `gates` waits for the slowest job. It ended about 15 minutes after the run was created, where two runs on `main` of the same day took about 5. The session had told the decider of 3 to 5 minutes more in each module's job.
 
 ### Options
 
-- **A. Keep the sample in each module's job.** The verdict waits for the sample, and the step's time limit rises from 15 to 25 minutes, so that a slow module is never cut off.
+- **A. Keep the sample in each module's job.** The verdict waits for the sample. The step's time limit rises from 15 to 25 minutes, so that a slow module is never cut off.
   - **Pros:** nothing more to build; one job holds everything about a module.
   - **Cons:** every pull request waits about 15 minutes for its verdict, three times the old wait.
 - **B. Jobs of its own, which the verdict does not wait for.** One sample job for each module and one job that prints the table; the check `gates` needs none of them.
   - **Pros:** the verdict comes after about 5 minutes again; the table still stands on the same run's page, on every change.
-  - **Cons:** twelve more jobs in each run, each with its own setup; more jobs than the plan runs at once, so some wait for a runner; the table comes after the verdict.
+  - **Cons:**
+    - **twelve more jobs in each run**, each with its own setup;
+    - **more jobs than the plan runs at once**, so some wait for a runner;
+    - **the table comes after the verdict**.
 - **C. Keep the sample in the module's job and shorten it.** The budget drops from 150 to 60 seconds.
   - **Pros:** no new jobs.
-  - **Cons:** it saves little where it matters, since the slow modules spend their time on the line map and on the last survivors; the fast modules lose more than half of their sample.
+  - **Cons:**
+    - **it saves little where it matters**, since the slow modules spend their time on the line map and on the last survivors;
+    - **the fast modules lose more than half of their sample**.
 
 ### Recommendation
 
@@ -92,7 +105,7 @@ B, by the decider in chat on 2026-11-11. The session chose that the sample jobs 
 
 <a id="r5"></a>**R5.** With a budget in seconds, no new mutant starts once the budget is spent, and the mutants run in an order that a seed shuffles. The score is then an estimate from a sample. The report gives one standard error beside it, and two runs are never compared as a change. The list of survivors is the part a person acts on.
 
-<a id="r6"></a>**R6.** The kit's CI measures a sample of each module's mutants in the workflow `gates`, on every pull request and on `main`, in jobs of its own. One job for each module, `mutation <module>`, starts once the check jobs have ended, whatever their verdict, save on a cancelled run or where the job that lists the modules failed. It runs `scripts/module-mutation.py --module <module> --budget 150 --copies 3 --seed <commit> --out <folder>`, the commit being the one the run checks out, on a pull request its merge with the base. It uploads the module's mutation file as the artifact `mutation-<module>`, kept 5 days. The job `mutation` then downloads every such artifact, runs `scripts/module-mutation.py --from` over the files, writes the table, the survivors and the notes to the log and the run's summary, and uploads the JSON as the artifact `mutation`. The job `gates` needs none of these jobs, so the verdict never waits for the score: R7 of [dec-0061-ci-runs-one-job-per-module](dec-0061-ci-runs-one-job-per-module.md#r7) is of the jobs of the gate list, and the job `gates` is green only when each of those is. Each step of the mutation jobs carries `continue-on-error: true`, so that a report that cannot be made turns no job red, and a timeout: 25 minutes for the sample, 5 for the others. Each job's own limit stands above the sum of its steps' limits. This reverses R6 of [dec-0087-module-metrics-report](dec-0087-module-metrics-report.md#r6) and R2 of [dec-0089-module-coverage-report](dec-0089-module-coverage-report.md#r2) for the mutation score: no workflow runs on a schedule for it. It narrows R5 of [dec-0087-module-metrics-report](dec-0087-module-metrics-report.md#r5): the metrics script still holds no mutation score, and a sample of it runs on every change.
+<a id="r6"></a>**R6.** The kit's CI measures a sample of each module's mutants in the workflow `gates`, on every pull request and on `main`, in jobs of its own. One job for each module, `mutation <module>`, starts once the check jobs have ended, whatever their verdict, save on a cancelled run or where the job that lists the modules failed. It runs `scripts/module-mutation.py --module <module> --budget 150 --copies 3 --seed <commit> --out <folder>`, the commit being the one the run checks out, on a pull request its merge with the base. It uploads the module's mutation file as the artifact `mutation-<module>`, kept 5 days. The job `mutation` then downloads every such artifact. It runs `scripts/module-mutation.py --from` over the files. It writes the table, the survivors and the notes to the log and the run's summary. It uploads the JSON as the artifact `mutation`. The job `gates` needs none of these jobs. The verdict never waits for the score: R7 of [dec-0061-ci-runs-one-job-per-module](dec-0061-ci-runs-one-job-per-module.md#r7) is of the jobs of the gate list, and the job `gates` is green only when each of those is. Each step of the mutation jobs carries `continue-on-error: true`, so that a report that cannot be made turns no job red, and a timeout: 25 minutes for the sample, 5 for the others. Each job's own limit stands above the sum of its steps' limits. This reverses R6 of [dec-0087-module-metrics-report](dec-0087-module-metrics-report.md#r6) and R2 of [dec-0089-module-coverage-report](dec-0089-module-coverage-report.md#r2) for the mutation score: no workflow runs on a schedule for it. It narrows R5 of [dec-0087-module-metrics-report](dec-0087-module-metrics-report.md#r5): the metrics script still holds no mutation score, and a sample of it runs on every change.
 
 <a id="r7"></a>**R7.** No workflow measures every mutant of a module. A whole measure is a run by hand, `python3 scripts/module-mutation.py --module <module> --copies <n>`, which takes from minutes to hours.
 

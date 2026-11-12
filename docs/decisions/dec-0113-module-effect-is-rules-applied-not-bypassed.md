@@ -15,7 +15,7 @@ The decider asked how to measure the use and the efficiency of the kit's modules
 
 Before the first question, the session read what the knowledge kit already holds. Its gate logs, the output log each gate writes under the dial `log_dir` of its namespace in the project's `constitution.yaml`, held about 1,060 records, all from 2026-11-05 and 2026-11-06. Its 8 session transcripts held 240 writes of Markdown files through the tools `Write` and `Edit`, which the hooks see. They also held 36 shell commands that name a Markdown file and match a crude pattern of a write. Most of these wrote a scratch file or a commit message; some changed the tree, such as a `git mv`. The data could not tell which of them a hook saw, for three reasons:
 
-- **G1.** A green record of a hook does not name the file it examined, so the logs cannot be joined with git or with the transcripts file by file.
+- **G1.** A green record of a hook does not name the file it examined. The logs cannot be joined with git or with the transcripts file by file.
 - **G2.** The file that switches a module off for one clone, `.claude/settings.local.json`, is outside git, so a switch-off leaves no history.
 - **G3.** A record of a block is not linked to the act that came after it; the transcripts can supply that link.
 
@@ -53,7 +53,9 @@ A pattern can check some advisory rules, such as the order of a skill load. Othe
 
 - **A. Patterns only.** Deterministic checks over the transcripts and git: the order of skill loads, the letters, the "Assumptions:" heading, the trailers.
   - **Pros:** reproducible; honest as a count; cheap to run again on every new session.
-  - **Cons:** misses the rules no pattern can see, such as plain language in chat or whether a question was priced right; a well-formed bad answer counts as applied.
+  - **Cons:**
+    - **misses the rules no pattern can see**, such as plain language in chat or whether a question was priced right;
+    - **a well-formed bad answer counts as applied**.
 - **B. A reader only.** A fresh reader, a language model, reads each transcript against each rule and marks it applied, bypassed or missed.
   - **Pros:** covers every rule, the judgment ones included; can explain each miss.
   - **Cons:** a judgment that looks like a number, which [law 5 of CLAUDE.md](../../CLAUDE.md#law-5) warns against; its results drift between runs and models.

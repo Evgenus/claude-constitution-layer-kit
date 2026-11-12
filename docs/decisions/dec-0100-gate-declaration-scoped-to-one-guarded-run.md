@@ -16,7 +16,7 @@ R10 of [dec-0099-shared-code-installed-as-a-pip-package](dec-0099-shared-code-in
 Reading the code, the decider asked on 2026-10-22 why the name is a context variable and the declaration is not, and why the name is not part of the declaration. Facts read that day:
 
 1. The difference came from history, not from design: the change of dec-0099 left `_declared` as it was.
-2. Each process runs one gate, and neither the shared code nor any plugin script uses threads or asyncio, so the two behave alike in a gate.
+2. Each process runs one gate, and neither the shared code nor any plugin script uses threads or asyncio. The two behave alike in a gate.
 3. The one practical difference is in the tests: the shared items try an undeclared, an empty and a second name inside `contextvars.Context().run`, which they cannot do for the identity.
 4. Option A of section 3 of dec-0099 offered the name as an optional field of the identity with a default, which the decider turned down. A required field was never offered.
 5. Before the first release nothing is promised. After it, a new required field of `Identity` breaks every caller (R3 of [dec-0099-shared-code-installed-as-a-pip-package](dec-0099-shared-code-installed-as-a-pip-package.md#r3)).
@@ -27,12 +27,21 @@ The session put two questions, one per message, in chat on 2026-10-22 and 2026-1
 
 - **A. Keep it as it is.** The name is a context variable of its own, and the declaration a module global.
   - **Pros:** nothing changes; the eval run of that day stays valid.
-  - **Cons:** every module's `start` makes two declarations, and the defect of a second, different one is written twice; folding them in after the first release needs a new major.
+  - **Cons:**
+    - **every module's `start` makes two declarations**, and the defect of a second, different one is written twice;
+    - **folding them in after the first release needs a new major**.
 - **B. A required field of `Identity`, in the global declaration.**
   - **Pros:** one declaration and one rule in one place; a smaller change than C.
-  - **Cons:** it drops the context variable the decider asked for, so the name lives in a module global again, set once and never patched; the tests lose their isolation of the name; the shared code changes, so every eval receipt goes stale.
+  - **Cons:**
+    - **it drops the context variable the decider asked for**, so the name lives in a module global again, set once and never patched;
+    - **the tests lose their isolation of the name**;
+    - **the shared code changes**, so every eval receipt goes stale.
 - **C. A required field of `Identity`, and the whole declaration in a context variable with no default.**
-  - **Pros:** one declaration; no module global holds a gate's state; it keeps the decider's terms of 2026-10-22, a context variable, no default, nothing patched; the tests can isolate an identity as they isolate the name.
+  - **Pros:**
+    - **one declaration**;
+    - **no module global holds a gate's state**;
+    - **it keeps the decider's terms of 2026-10-22**, a context variable, no default, nothing patched;
+    - **the tests can isolate an identity as they isolate the name**.
   - **Cons:** the widest change: `identity.py`, every module's `start`, the shared items on the declaration, the shared page, R10 of [dec-0099-shared-code-installed-as-a-pip-package](dec-0099-shared-code-installed-as-a-pip-package.md#r10), another confirming read and a new eval run of every module.
 
 The session recommended C: it removes the difference and extends to the whole declaration what the decider asked for the name, at the last moment before the first release when a required field breaks no caller. The decider chose C in chat on 2026-10-22. The decider also asked where the variable is set and reset: a calling context in which the value exists, not one from a moment until the process ends.
@@ -53,7 +62,9 @@ The session proposed the scope. One context manager of the shared package sets t
   - **Cons:** it keeps a rule that existed only because test files declared at their top; two paths in the context manager.
 - **C. A scope inside another shadows the outer one until it closes.** A stack, as the tokens of a context variable behave.
   - **Pros:** the simplest code; any nesting works.
-  - **Cons:** a run inside an outer scope acts under its own declaration with no defect raised; the check that one process is one gate is gone.
+  - **Cons:**
+    - **a run inside an outer scope acts under its own declaration with no defect raised**;
+    - **the check that one process is one gate is gone**.
 
 The session recommended A: a second, identical declaration was tolerated only because test files and entry points declared in one process, which the scope removes. The decider took the proposal and chose C in chat on 2026-10-23, with no reason given. The session keeps no objection: only the guard, the tests and the kit's own tooling open a scope, the guard once per run.
 

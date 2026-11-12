@@ -15,7 +15,7 @@ Step 5a of [the rollout plan](../rollout-plan.md#s5a) makes the repository publi
 
 ## 1. The author's email in the history
 
-The author's address stood 3,323 times as author or committer in the 1,711 commits of all refs on 2026-11-03, and in no tracked file. It was already the public email of the author's GitHub profile. A rewrite of the history changes every commit hash: those of the two tags of the shared package, which every consumer's install pins, the pins of the carry audits' receipts, the commits the records and the plan cite, and those the first consumer project's records cite. GitHub keeps a read-only ref for each pull request, which may keep the old commits readable after a rewrite; the session did not verify that.
+The author's address stood 3,323 times as author or committer in the 1,711 commits of all refs on 2026-11-03, and in no tracked file. It was already the public email of the author's GitHub profile. A rewrite of the history changes every commit hash: those of the two tags of the shared package, which every consumer's install pins, the pins of the carry audits' receipts, the commits the records and the plan cite, and those the first consumer project's records cite. GitHub keeps a read-only ref for each pull request, which may keep the old commits readable after a rewrite. The session did not verify that.
 
 - **A. Keep everything as it is.**
   - **Pros:** no work; every hash, tag and pin stays valid; the address is public already.
@@ -25,7 +25,10 @@ The author's address stood 3,323 times as author or committer in the 1,711 commi
   - **Cons:** the old entries keep it; hiding it on GitHub also hides it on the profile.
 - **C. Rewrite the history to the noreply address before the switch.**
   - **Pros:** a new clone shows no address.
-  - **Cons:** every cited hash, both tags and every audit pin break; the ruleset must be lifted for a force push; the pull requests' refs may still hold the old commits.
+  - **Cons:**
+    - **every cited hash**, both tags and every audit pin break;
+    - **the ruleset must be lifted for a force push**;
+    - **the pull requests' refs may still hold the old commits**.
 - **D. Publish a fresh repository with a rewritten history, and keep this one private.**
   - **Pros:** the public copy holds no address.
   - **Cons:** the public hashes match none of the cited ones; the install address and the marketplace move; the public copy has no pull-request history.
@@ -82,7 +85,7 @@ The session recommended A: the install line already names its source, and nothin
 
 ## Applied
 
-The change ticks items 5a.1, 5a.2 and 5a.3 of the plan, adds the approval setting to item 5a.4, adds the waiting item 5a.9 for R4, and gives the PyPI deferral of [kit-shared-gate-code](../../shared/GATE.md#g1) its new signal, with the status matrix's rows. The carry audit then split R2 out of a ruling that held two items, and the same correction stated R2 in the CI workflow's opening comment. Every item has its home, so the record is `inactive`.
+The change ticks items 5a.1, 5a.2 and 5a.3 of the plan, adds the approval setting to item 5a.4, adds the waiting item 5a.9 for R4, and gives the PyPI deferral of [kit-shared-gate-code](../../shared/GATE.md#g1) its new signal, with the status matrix's rows. The carry audit then split R2 out of a ruling that held two items. The same correction stated R2 in the CI workflow's opening comment. Every item has its home, so the record is `inactive`.
 
 ## Carry list
 

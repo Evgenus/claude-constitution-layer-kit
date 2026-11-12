@@ -13,9 +13,9 @@ decider: Eugene Chernyshov
 
 On 2026-11-02 the decider asked whether any rule of the kit governs scratch folders and the folders of worktrees. The session searched the tracked files and found these facts:
 
-1. Four agents of `.claude/agents/` — the implementer, the verifier, the mutation probe runner and the live proof runner — write only in the scratch directory their prompt names, make a fresh folder there for each run, and delete nothing; each says that the session removes the folders before the merge. No current-state document says so, and no check holds it.
+1. Four agents of `.claude/agents/` — the implementer, the verifier, the mutation probe runner and the live proof runner — write only in the scratch directory their prompt names. They make a fresh folder there for each run. They delete nothing. Each says that the session removes the folders before the merge. No current-state document says so, and no check holds it.
 2. No document says where a worktree lives, how it is named, or when it is removed. CLAUDE.md keeps every branch after its merge and says nothing of worktrees.
-3. The clone held six worktrees, all in `.claude/worktrees/`, where the Claude desktop app makes its own; that folder was kept out of the tree only by the clone's own `.git/info/exclude`, which git never versions. None had uncommitted changes. Four stood on commits already in `main`, and two held commits that were not.
+3. The clone held six worktrees, all in `.claude/worktrees/`, where the Claude desktop app makes its own. That folder was kept out of the tree only by the clone's own `.git/info/exclude`, which git never versions. None had uncommitted changes. Four stood on commits already in `main`, and two held commits that were not.
 4. The record skill's own example pair calls the place of a worktree or a scratch directory a routine call. A duty to remove them, written into the kit's session guide, rules on a procedure, so it is a `process` ruling.
 
 ## Options
