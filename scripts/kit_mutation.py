@@ -541,29 +541,38 @@ def make_copy(root: Path, target: Path) -> None:
 
 def prepare(work: Path) -> dict[str, str]:
     """The environment of every run: a `python3` that is this interpreter first on PATH, so that a gate's
-    `python3` is the one that holds coverage.py and pytest; the plugin's folder first on PYTHONPATH,
-    a copy of the one file, so that no other kit script can be imported by a test; and none of STRIPPED."""
+    `python3` is the one that holds coverage.py and pytest, and that is the map's interpreter where
+    KIT_MUTATION_PYTHON names it, in the map's run alone; the plugin's folder first on PYTHONPATH, a copy
+    of the one file, so that no other kit script can be imported by a test; and none of STRIPPED."""
     shim = work / "bin"
     shim.mkdir(parents=True, exist_ok=True)
     python3 = shim / "python3"
-    python3.write_text(f'#!/bin/sh\nexec "{sys.executable}" "$@"\n', encoding="utf-8")
+    python3.write_text(
+        "#!/bin/sh\n"
+        f'if [ -n "${{{PYTHON_ENV}-}}" ]; then\n    exec "${PYTHON_ENV}" "$@"\nfi\n'
+        f'exec {shlex.quote(sys.executable)} "$@"\n',
+        encoding="utf-8",
+    )
     python3.chmod(0o755)
     plugin = work / "plugin"
     plugin.mkdir(exist_ok=True)
     shutil.copy2(HERE / f"{PLUGIN}.py", plugin / f"{PLUGIN}.py")
-    without_site(work)
+    map_interpreter(work)
     env = {name: value for name, value in os.environ.items() if name not in STRIPPED}
     env["PATH"] = f"{shim}{os.pathsep}{env.get('PATH', '')}"
     env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(plugin), env.get("PYTHONPATH")]))
     return env
 
 
-def without_site(work: Path) -> Path:
-    """The interpreter the map's run hands its tests as sys.executable: `work/python`, a shell file that
-    runs this interpreter. Asked for `-S <file>`, it runs the boot file under `-S` first, which starts
-    coverage.py from a folder that holds coverage.py alone, put last on the path, so that the child
-    measures what `-S` would leave unmeasured and imports nothing else it could not; any other call it
-    hands on unchanged."""
+def map_interpreter(work: Path) -> Path:
+    """The interpreter of the map's run: `work/python`, a shell file that runs this interpreter, which the
+    plugin makes the tests' sys.executable and the `python3` on PATH hands on to. Asked for `-S <file>`,
+    it runs the boot file under `-S` first, which starts coverage.py from a folder that holds coverage.py
+    alone, put last on the path, so that the child measures what `-S` would leave unmeasured and imports
+    nothing else it could not. Asked for `<file>` under a soft limit on the size of files below the hard
+    one, which the plugin leaves where a test sets such a limit, it runs the boot file first too, which
+    lifts the soft limit once the file has ended, so that coverage.py can save. Any other call it hands
+    on unchanged."""
     import coverage  # noqa: PLC0415 — preflight has made sure it is there; only the map's run needs it
 
     boot = work / "boot"
@@ -580,6 +589,9 @@ def without_site(work: Path) -> Path:
         'if [ "$1" = "-S" ] && [ "$#" -ge 2 ] && [ "${2#-}" = "$2" ]; then\n'
         "    shift\n"
         f'    exec {real} -S {started} {shlex.quote(str(lib))} "$@"\n'
+        "fi\n"
+        'if [ "$#" -ge 1 ] && [ "${1#-}" = "$1" ] && [ "$(ulimit -S -f)" != "$(ulimit -H -f)" ]; then\n'
+        f'    exec {real} {started} {shlex.quote(str(lib))} "$@"\n'
         "fi\n"
         f'exec {real} "$@"\n',
         encoding="utf-8",

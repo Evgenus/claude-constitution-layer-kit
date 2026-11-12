@@ -464,8 +464,10 @@ if __name__ == "__main__":
 """
 COPIED = 'print("copied")\n'
 BARE = 'import sys\n\nsys.stdout.write("bare\\n")\n'
+SIZED = 'print("sized")\n'
 NAMES = 'NAMES = (\n    "a",\n    "b",\n)\n'
-TESTS = """import shutil
+TESTS = """import resource
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -505,6 +507,18 @@ def test_names():
     from x_gate import names
 
     assert names.NAMES == ("a", "b")
+
+
+def limited():
+    resource.setrlimit(resource.RLIMIT_FSIZE, (4096, 4096))
+
+
+def test_sized():
+    sized = ENTRY.parent / "sized.py"
+    done = subprocess.run(
+        ["python3", str(sized)], capture_output=True, text=True, check=False, preexec_fn=limited
+    )
+    assert done.stdout == "sized\\n"
 """
 SCRIPTS = "modules/const-x/plugin/scripts"
 # what the fixture's tests do to each of its mutants, by the mutant's id less the folder
@@ -546,14 +560,16 @@ OUTCOMES = {
     "x_gate/calc.py:23:15:num": "not covered",
 }
 # what the line map once did not see, each run by one test alone: a copy of the plugin's scripts that the
-# test makes and runs; a child under `python3 -S`; the continuation lines of a folded constant
+# test makes and runs; a child under `python3 -S`; the continuation lines of a folded constant; a child
+# under a limit on the size of the files it writes, of 4096 bytes, too few for coverage.py's data file
 BLIND = {
     "copy": {"copied.py:1:0:call-del": "killed", "copied.py:1:6:str": "killed"},
     "-S": {"bare.py:3:0:call-del": "killed", "bare.py:3:17:str": "killed"},
     "folded": {"x_gate/names.py:2:4:str": "killed", "x_gate/names.py:3:4:str": "killed"},
+    "size": {"sized.py:1:0:call-del": "killed", "sized.py:1:6:str": "killed"},
 }
 OUTCOMES.update({key: status for one in BLIND.values() for key, status in one.items()})
-TESTS_COUNT = 6
+TESTS_COUNT = 7
 TABLE = """\
 module   mutants  run  killed  timeout  survived  not covered  other  score      ±  seconds
 -------------------------------------------------------------------------------------------
@@ -573,6 +589,7 @@ def fixture_kit(root: Path) -> None:
     (scripts / "entry.py").write_text(ENTRY, encoding="utf-8")
     (scripts / "copied.py").write_text(COPIED, encoding="utf-8")
     (scripts / "bare.py").write_text(BARE, encoding="utf-8")
+    (scripts / "sized.py").write_text(SIZED, encoding="utf-8")
     (scripts / "x_gate" / "names.py").write_text(NAMES, encoding="utf-8")
     tests = root / "modules" / "const-x" / "tests"
     tests.mkdir()
@@ -728,6 +745,7 @@ def self_test() -> int:  # noqa: C901 — one flat list of cases, each a few lin
             ("copy", "a copy of the plugin's scripts that a test makes and runs counts as the module's file"),
             ("-S", "a child that a test starts under python3 -S is measured"),
             ("folded", "a continuation line of a folded constant counts as reached where its first line is"),
+            ("size", "a child under a limit on the size of the files it writes is measured"),
         ):
             reached = {key: seen.get(key) for key in BLIND[blind]}
             case(
