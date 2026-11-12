@@ -933,17 +933,18 @@ def installed_commit(config: Path, key: str, plugin: Path, note: Note) -> str:
     return sha
 
 
-def source_at(commit: str, module: str, root: Path) -> Path:
+def source_at(commit: str, module: str, root: Path, kit: Path) -> Path:
     """The kit's source of the module at a commit — its plugin folder and the module's document beside it —
-    read from git history into a folder under root, the commit fetched when the clone lacks it; the plugin
-    folder is what it returns. The plugin holds no link to the shared code, so the shared code is not read."""
+    read from the git history of the kit at `kit` into a folder under root, the commit fetched when the clone
+    lacks it; the plugin folder is what it returns. The plugin holds no link to the shared code, so the shared
+    code is not read."""
     env = os.environ.copy()
-    code, _, _ = run(["git", "cat-file", "-e", f"{commit}^{{commit}}"], KIT, env)
+    code, _, _ = run(["git", "cat-file", "-e", f"{commit}^{{commit}}"], kit, env)
     if code != 0:
         # `origin` is the remote that the CI job's checkout and a person's clone of the kit both name for the
         # repository they came from, where the commit the install came from is looked for. A clone with no
         # `origin`, or one whose `origin` lacks the commit, fails here, and that failure is the BROKEN below.
-        code, out, err = run(["git", "fetch", "-q", "origin", commit], KIT, env)
+        code, out, err = run(["git", "fetch", "-q", "origin", commit], kit, env)
         if code != 0:
             raise Broken(
                 f"commit {commit} is not in the kit's history and cannot be fetched ({last_line(out, err)})"
@@ -952,7 +953,7 @@ def source_at(commit: str, module: str, root: Path) -> Path:
     try:
         done = subprocess.run(
             ["git", "archive", "--format=tar", commit, f"modules/{module}"],
-            cwd=KIT,
+            cwd=kit,
             capture_output=True,
             check=True,
         )
@@ -971,11 +972,12 @@ def counted(source: Path) -> str:
     return f"{len(hooks_of(source))} hook(s), {len(declared_scans(source.parent))} scan(s), {links} link(s)"
 
 
-def check_module(module: str, source: str, note: Note) -> tuple[list[Finding], str]:
-    """The findings, and what was examined: the hooks, scans and links of the source compared."""
-    if not file_at(KIT / "modules" / module / "plugin" / ".claude-plugin" / "plugin.json"):
+def check_module(module: str, source: str, note: Note, kit: Path) -> tuple[list[Finding], str]:
+    """The findings, and what was examined: the hooks, scans and links of the source compared, the module
+    and its marketplace read from the kit at `kit`."""
+    if not file_at(kit / "modules" / module / "plugin" / ".claude-plugin" / "plugin.json"):
         raise Broken(f"no module {module} in the kit — fix: name a folder under modules/ that holds a plugin")
-    marketplace = kit_marketplace(KIT)
+    marketplace = kit_marketplace(kit)
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         repo = bare_repository(root)
@@ -994,7 +996,7 @@ def check_module(module: str, source: str, note: Note) -> tuple[list[Finding], s
             kit_source = Path(source).resolve() / "modules" / module / "plugin"
         else:
             commit = installed_commit(root / "config", f"{module}@{marketplace}", plugin, note)
-            kit_source = source_at(commit, module, root)
+            kit_source = source_at(commit, module, root, kit)
         return check_installed(module, kit_source, plugin, repo, root / "data", path), counted(kit_source)
 
 
@@ -1032,10 +1034,17 @@ def version_case(tally: Tally, name: str, ok: bool, got: str) -> None:
 @contextlib.contextmanager
 def patched_globals(values: dict[str, object]) -> Iterator[None]:
     """Patch names of this check for a case, and the same names in `kit_install`, whose install steps this
-    check shares and which reads its own `run` and `KIT`."""
+    check shares and which reads its own `run`."""
     shared = {name: value for name, value in values.items() if name in vars(kit_install)}
     with mock.patch.dict(globals(), values), mock.patch.dict(vars(kit_install), shared):
         yield
+
+
+def kit_install_at(kit: Path) -> contextlib.AbstractContextManager[object]:
+    """For a case, the kit `kit_install` reads its kernel and shared code from: the install steps this check
+    shares keep their own `KIT`, which `scripts/check-session-load.py` reads too, so a case over a toy kit
+    sets it there. This check's own code takes the kit as an argument."""
+    return mock.patch.object(kit_install, "KIT", kit)
 
 
 FIXTURE_MODULE_TEXT = (
@@ -2381,8 +2390,7 @@ def lookup_cases(tally: Tally) -> None:
         )
         toy_missing = miss_root / "kit"
         toy_missing.mkdir()
-        with patched_globals({"KIT": toy_missing}):
-            got_miss = result_of(lambda: check_module("m", str(miss_root), Note("2.1.282")))
+        got_miss = result_of(lambda: check_module("m", str(miss_root), Note("2.1.282"), toy_missing))
         version_case(
             tally,
             "lookups: a module with no plugin.json is the line it was",
@@ -2394,7 +2402,7 @@ def lookup_cases(tally: Tally) -> None:
             patched_globals({"claude_noted": mock.Mock(side_effect=Broken("stopped here"))}),
             contextlib.redirect_stdout(io.StringIO()) as printed_miss,
         ):
-            status_miss = main(["--module", "m", "--from", str(miss_root / "nothing")])
+            status_miss = main(["--module", "m", "--from", str(miss_root / "nothing")], KIT)
         version_case(
             tally,
             "lookups: a source that is no entry goes on as a remote, as it did",
@@ -2562,8 +2570,7 @@ def shut_folder_cases(tally: Tally) -> None:
                 got_shut == cannot_search(document / "MODULE.md", closed),
                 got_shut,
             )
-            with patched_globals({"KIT": closed / "kit"}):
-                got_shut = result_of(lambda: check_module("m", "owner/repo", Note("2.1.282")))
+            got_shut = result_of(lambda: check_module("m", "owner/repo", Note("2.1.282"), closed / "kit"))
             version_case(
                 tally,
                 "lookups: a module's plugin.json under such a folder is the same line",
@@ -2585,7 +2592,7 @@ def shut_folder_cases(tally: Tally) -> None:
                 patched_globals({"claude_noted": mock.Mock(side_effect=Broken("stopped here"))}),
                 contextlib.redirect_stdout(io.StringIO()) as printed_shut,
             ):
-                status_shut = main(["--module", "m", "--from", str(closed / "src")])
+                status_shut = main(["--module", "m", "--from", str(closed / "src")], KIT)
             version_case(
                 tally,
                 "lookups: a --from source under such a folder is the same line, not a remote source",
@@ -2718,7 +2725,7 @@ def kernel_cases(tally: Tally, line_of: Callable[[str | None], str]) -> None:
     `OSError`; `line_of` is the run of `bare_repository` that `bare_repository_cases` makes."""
     with tempfile.TemporaryDirectory() as tmp:
         kit = Path(tmp).resolve()
-        with patched_globals({"KIT": kit}):
+        with kit_install_at(kit):
             got_line = line_of(None)
         missing_line = (  # typed by hand
             f"BROKEN: the kernel is not at {kit}/docs/constitution — fix: restore it from the kit's history"
@@ -2734,7 +2741,7 @@ def kernel_cases(tally: Tally, line_of: Callable[[str | None], str]) -> None:
         shut.write_text("# kernel\n", encoding="utf-8")
         shut.chmod(0)
         try:
-            with patched_globals({"KIT": kit}):
+            with kit_install_at(kit):
                 got_line = line_of(None)
         finally:
             shut.chmod(0o600)
@@ -3041,12 +3048,12 @@ class ClaudeStub:
         printed_lines = io.StringIO()
         with (
             mock.patch.dict(os.environ, self.claude_env(said, code, optout)),
-            patched_globals({"KIT": self.toy_kit}),
+            kit_install_at(self.toy_kit),
             contextlib.redirect_stdout(printed_lines),
         ):
             if optout is None:  # patch.dict adds to the environment, so the ambient variable goes by hand
                 os.environ.pop("CONSTITUTION_KIT_ANY_CLAUDE", None)
-            status = main(["--module", "const-nope", *args])
+            status = main(["--module", "const-nope", *args], self.toy_kit)
         return status, printed_lines.getvalue().splitlines(), self.logged()
 
 
@@ -3552,7 +3559,7 @@ class StepTwo:
         fetched: list[str] = []
         compared: list[str] = []
 
-        def source_spy(at: str, name: str, root: Path) -> Path:
+        def source_spy(at: str, name: str, root: Path, kit: Path) -> Path:
             fetched.append(at)
             return self.toy / "modules" / name / "plugin"
 
@@ -3562,13 +3569,14 @@ class StepTwo:
             compared.append(str(plugin))
             return []
 
-        patched = {"KIT": self.toy, "source_at": source_spy, "check_installed": installed_spy}
+        patched: dict[str, object] = {"source_at": source_spy, "check_installed": installed_spy}
         with (
             mock.patch.dict(os.environ, self.environment(scene) | (extra or {})),
             patched_globals(patched),
+            kit_install_at(self.toy),
         ):
             try:
-                found, _ = check_module("const-x", self.where(scene), PIN_NOTE)
+                found, _ = check_module("const-x", self.where(scene), PIN_NOTE, self.toy)
             except Broken as broken:
                 return unrecord(f"BROKEN: {broken}"), fetched, compared
             except (KeyError, TypeError) as escaped:  # a record's entry read wrongly: a case that fails
@@ -3600,13 +3608,15 @@ class StepTwo:
         printed_lines = io.StringIO()
         with (
             mock.patch.dict(os.environ, self.environment(scene, says)),
-            patched_globals({"KIT": self.toy if kit is None else kit}),
+            kit_install_at(self.toy if kit is None else kit),
             contextlib.redirect_stdout(printed_lines),
         ):
             os.environ.pop("CONSTITUTION_KIT_ANY_CLAUDE", None)
             if optout:
                 os.environ["CONSTITUTION_KIT_ANY_CLAUDE"] = "1"
-            status = main(["--module", "const-x", "--from", self.where(scene)])
+            status = main(
+                ["--module", "const-x", "--from", self.where(scene)], self.toy if kit is None else kit
+            )
         return status, [unrecord(line) for line in printed_lines.getvalue().splitlines()]
 
 
@@ -4026,10 +4036,10 @@ def record_form_cases(tally: Tally, step: StepTwo) -> None:
         run(argv, git_kit, os.environ | {"GIT_CONFIG_GLOBAL": os.devnull})
     with (
         mock.patch.dict(os.environ, environment(new_scene(record=recorded(commit(gitCommitSha=option))))),
-        patched_globals({"KIT": git_kit}),
+        kit_install_at(git_kit),
     ):
         try:
-            check_module("const-x", "owner/repo", PIN_NOTE)
+            check_module("const-x", "owner/repo", PIN_NOTE, git_kit)
             handed = "no Broken"
         except Broken as broken:
             handed = unrecord(str(broken))
@@ -4233,10 +4243,10 @@ def person_variable_run_case(tally: Tally, step: StepTwo, person_values: dict[st
     printed_kit = io.StringIO()
     with (
         mock.patch.dict(os.environ, env_kit),
-        patched_globals({"KIT": toy}),
+        kit_install_at(toy),
         contextlib.redirect_stdout(printed_kit),
     ):
-        status_kit = main(["--module", "const-x"])
+        status_kit = main(["--module", "const-x"], toy)
     seen_kit = cache_log.read_text(encoding="utf-8").splitlines() if cache_log.exists() else []
     version_case(
         tally,
@@ -4328,7 +4338,7 @@ def source_at_commit_case(tally: Tally) -> None:
     with tempfile.TemporaryDirectory() as tmp:  # the kit's own history: the source at the commit checked out
         head = run(["git", "rev-parse", "HEAD"], KIT, os.environ.copy())[1]
         root = Path(tmp).resolve()
-        extracted = source_at(head, "const-meta-types", root)
+        extracted = source_at(head, "const-meta-types", root, KIT)
         ok = extracted == root / "source" / "modules" / "const-meta-types" / "plugin"
         shared_code = extracted / "scripts" / "constitution_layer_kit"
         ok = (
@@ -4348,7 +4358,7 @@ def shared_path_run_case(tally: Tally, step: StepTwo) -> None:
     paths_log = step.base / "paths.log"
     handed: list[str | None] = []
 
-    def source_spy(at: str, name: str, root: Path) -> Path:
+    def source_spy(at: str, name: str, root: Path, kit: Path) -> Path:
         return step.toy / "modules" / name / "plugin"
 
     def installed_spy(
@@ -4361,9 +4371,10 @@ def shared_path_run_case(tally: Tally, step: StepTwo) -> None:
     environment = step.environment(scene) | {"FAKE_PATHS": str(paths_log)}
     with (
         mock.patch.dict(os.environ, environment),
-        patched_globals({"KIT": step.toy, "source_at": source_spy, "check_installed": installed_spy}),
+        patched_globals({"source_at": source_spy, "check_installed": installed_spy}),
+        kit_install_at(step.toy),
     ):
-        check_module("const-x", "owner/repo", PIN_NOTE)
+        check_module("const-x", "owner/repo", PIN_NOTE, step.toy)
     seen = [line.split("|") for line in paths_log.read_text(encoding="utf-8").splitlines()]
     heads = {head for _, head in seen}
     head = next(iter(heads))
@@ -4789,7 +4800,8 @@ def self_test() -> int:
     return EXIT_GREEN if tally.failed == 0 else EXIT_RED
 
 
-def main(argv: list[str]) -> int:
+def main(argv: list[str], kit: Path) -> int:
+    """The command line over the kit at `kit`: one module's install, or the self-test."""
     parser = argparse.ArgumentParser(prog="check-bare-install", add_help=False, allow_abbrev=False)
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--module")
@@ -4806,12 +4818,12 @@ def main(argv: list[str]) -> int:
         if args.self_test:
             return self_test()
         module = str(args.module)
-        source = args.source or os.environ.get(FROM_ENV) or str(KIT)
+        source = args.source or os.environ.get(FROM_ENV) or str(kit)
         if there(Path(source)):  # the install runs in another folder, so a local source is made absolute
             source = str(Path(source).resolve())
-        claude = claude_noted(KIT, dict(os.environ))  # before any other `claude` command, once per run
+        claude = claude_noted(kit, dict(os.environ))  # before any other `claude` command, once per run
         note = claude
-        findings, examined = check_module(module, source, claude)
+        findings, examined = check_module(module, source, claude, kit)
         return report(module, findings, f"{examined}, from {source}", note)
     except Broken as broken:
         print(f"BROKEN: {broken}{note}")
@@ -4824,4 +4836,4 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(main(sys.argv[1:], KIT))
