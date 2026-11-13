@@ -1622,7 +1622,7 @@ def test_t13() -> None:
     14 readings on lists of their own hold the fields no default uses: a wrapper of two words,
     `numbers`, a command flag after a positional word, a shell's long command flag.
 
-    11 readings of an entry's own words: `[git, -C]` and `[deploy.sh]` read as themselves, while a
+    12 readings of an entry's own words: `[git, -C]` and `[deploy.sh]` read as themselves, while a
     path, a wrapper, an assignment, `exec`, a wrapper alone, `x/` and a string handed on do not.
     Each of the fourteen default entries reads as itself.
     """
