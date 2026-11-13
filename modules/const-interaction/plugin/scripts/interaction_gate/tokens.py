@@ -24,9 +24,11 @@ ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 HEREDOC = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
 # `>&`, `&>` and `<&` redirect; they are no separators.
 REDIRECT_BEFORE = frozenset({">", "<"})
-# A redirection word: an optional descriptor number or `&`, the operator, then its target, or nothing when
-# the target is the next word. The shell takes it out of the command wherever it stands.
-REDIRECTION = re.compile(r"^(?:[0-9]+|&)?(?:<<<|<<-?|>>|>&|>\||<>|<&|>|<)(.*)$", re.DOTALL)
+# The redirection operators, longest first. One is read where it stands outside quotes, in a word or
+# alone; the digits that open its word are its descriptor, and its target is the rest of the word or the
+# next word. The shell takes all of it out of the command.
+REDIRECTIONS = ("&>>", "&>", "<<<", "<<-", "<<", "<>", "<&", ">>", ">&", ">|", "<", ">")
+BLANKS = frozenset(" \t\n")
 
 
 def split(command: str, lists: ReaderLists) -> list[Subcommand]:
@@ -44,7 +46,8 @@ def reading(words: Sequence[str], lists: ReaderLists) -> list[str] | None:
     """The words as the gate reads a piece that starts with them: none left out, or the words that
     stay. None where the reading hands a string on to be split again, as `bash -c "…"` and `env -S "…"`
     do. The dials loader asks it of an entry's command: one this does not give back as written can
-    never match."""
+    never match. The words come with no text, so no quote tells a redirection from a word: none is
+    dropped here, and an entry word such as `>x` reads as itself."""
     rest, inner = _normalise(list(words), lists)
     return None if inner else rest
 
@@ -56,7 +59,7 @@ def _collect(text: str, found: list[Subcommand], lists: ReaderLists) -> None:
             continue
         for inner in _substitutions(stripped):
             _collect(inner, found, lists)
-        words = _words(stripped)
+        words = _words(_unredirected(stripped))
         if not words:
             continue
         words, inner_commands = _normalise(words, lists)
@@ -196,6 +199,8 @@ class _Separator:
     def _operator(self) -> str | None:
         """The operator that starts at `i`, or None; `>&`, `&>` and `<&` are redirections."""
         operator = next((op for op in OPERATORS if self.text.startswith(op, self.i)), None)
+        if operator == "|" and self.i > 0 and self.text[self.i - 1] == ">":
+            return None  # `>|` redirects, clobbering a file
         if operator == "&" and (
             (self.i > 0 and self.text[self.i - 1] in REDIRECT_BEFORE) or self.text.startswith("&>", self.i)
         ):
@@ -279,9 +284,9 @@ def _normalise(words: list[str], lists: ReaderLists) -> tuple[list[str], list[st
     """Strip assignments, shell words and wrappers, reduce the program to its base name, and leave
     every option after the program in the words; a shell told to run strings hands back each, in the
     order they stand, and a wrapper whose option names one hands back that one, each for its own
-    split. The list is empty when no string is handed on. A redirection is dropped first, wherever it
-    stands, with its target when that is the next word: `2>/dev/null git push -f` is `git push -f`."""
-    rest = _without_redirections(words)
+    split. The list is empty when no string is handed on. The words come with their redirections taken
+    out of the text already (`_unredirected`); a word here is a word, whatever it holds."""
+    rest = list(words)
     while rest:
         head = rest[0].rsplit("/", 1)[-1]  # `/usr/bin/env` is `env`
         if ASSIGNMENT.match(rest[0]) or head in SHELL_WORDS:
@@ -305,20 +310,62 @@ def _normalise(words: list[str], lists: ReaderLists) -> tuple[list[str], list[st
     return rest, _shell_strings(arguments, shell.with_value, shell.command_flags)
 
 
-def _without_redirections(words: Sequence[str]) -> list[str]:
-    """The words with every redirection taken out, and the target of one that has none attached."""
-    kept: list[str] = []
-    target_next = False
-    for word in words:
-        if target_next:
-            target_next = False
+def _unredirected(text: str) -> str:
+    """The text of one simple command with every redirection taken out, as the shell reads it: an
+    operator outside quotes, `$(…)` and backticks, the digits that open its word before it, and its target,
+    the rest of the word or else the next word, quoted or not. `2>/dev/null git push -f` reads as
+    `git push -f`, `git push --force>/dev/null` as `git push --force`, and `echo ">"` keeps its `>`."""
+    out: list[str] = []
+    word_start = 0  # where the word being read starts in `out`
+    i = 0
+    while i < len(text):
+        if text[i] in BLANKS:
+            out.append(text[i])
+            i += 1
+            word_start = len(out)
             continue
-        found = REDIRECTION.match(word)
-        if found is None:
-            kept.append(word)
-        else:
-            target_next = not found[1]
-    return kept
+        operator = next((op for op in REDIRECTIONS if text.startswith(op, i)), None)
+        if operator is None:
+            end = _unit_end(text, i)
+            out.append(text[i:end])
+            i = end
+            continue
+        if "".join(out[word_start:]).isdecimal():  # `2>x`: a descriptor only as the whole start of a word
+            del out[word_start:]
+        i = _target_end(text, i + len(operator))
+    return "".join(out)
+
+
+def _target_end(text: str, i: int) -> int:
+    """Where the target of a redirection whose operator ends at `i` ends: past the blanks before it, then
+    the units of one word, up to a blank or the next redirection."""
+    while i < len(text) and text[i] in " \t":
+        i += 1
+    while i < len(text) and text[i] not in BLANKS and not text.startswith(REDIRECTIONS, i):
+        i = _unit_end(text, i)
+    return i
+
+
+def _unit_end(text: str, i: int) -> int:
+    """The end of the unit that starts at `i`, read as one piece: an escape and the character it takes, a
+    quoted string, a backtick pair or a `$(…)`, else one character. Nothing in one is a redirection."""
+    ch = text[i]
+    if ch == "\\":
+        return min(i + 2, len(text))
+    if text.startswith("$(", i):
+        return _substitution_end(text, i + 2)
+    if ch in ("'", "`"):
+        close = text.find(ch, i + 1)
+        return len(text) if close == -1 else close + 1
+    if ch == '"':
+        j = i + 1
+        while j < len(text) and text[j] != '"':
+            if text.startswith("$(", j):
+                j = _substitution_end(text, j + 2)
+                continue
+            j += 2 if text[j] == "\\" else 1
+        return min(j + 1, len(text))
+    return i + 1
 
 
 def _wrapper(rest: list[str], wrappers: tuple[Wrapper, ...]) -> Wrapper | None:

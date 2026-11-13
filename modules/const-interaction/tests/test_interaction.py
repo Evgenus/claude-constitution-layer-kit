@@ -250,7 +250,9 @@ def test_t5() -> None:
     `bash -lc`, `exec`, `exec -a x rm -r y`, `if ...; then`, a redirection `2>&1`. A redirection
     before the program, its target attached or the next word, between the program and its verb, or
     after a wrapper, since 2026-11-13: `2>/dev/null git push -f`, `2> /dev/null git push -f`,
-    `git 2>/dev/null push -f`, `sudo >x git push -f`, `>out.log rm -rf build`.
+    `git 2>/dev/null push -f`, `sudo >x git push -f`, `>out.log rm -rf build`. One attached to a
+    word, `git push --force>/dev/null`, and one inside the string a shell runs, `bash -c ">x; git
+    push -f"` and `sh -c ">log; rm -rf build"`, both since 2026-11-13.
 
     Git's options are stepped over by the entry's matching: `-C .`, `-c k=v`, `--no-pager -C .`,
     `--git-dir .git` and `--git-dir=.git`, `--work-tree w`, `--namespace n`, and `--exec-path`,
@@ -290,6 +292,11 @@ def test_t5() -> None:
     ):
         asked(text, d1("", "git push", "-f", text))
     asked(">out.log rm -rf build", d1("", "rm", "-r", ">out.log rm -rf build"))
+    # a redirection is read where it stands outside quotes: attached to a word it cuts the word, and in
+    # the string a shell runs it is read again, so the command after it in that string still asks
+    asked("git push --force>/dev/null", d1("", "git push", "--force", "git push --force>/dev/null"))
+    asked('bash -c ">x; git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=2)
+    asked('sh -c ">log; rm -rf build"', d1("", "rm", "-r", "rm -rf build"), subcommands=2)
     # git's options before the verb are skipped by the entry's matching, as for every program
     asked("git -C . push -f", d1("", "git push", "-f", "git -C . push -f"))
     asked("git -c k=v push -f", d1("", "git push", "-f", "git -c k=v push -f"))
@@ -1541,7 +1548,7 @@ def test_t13() -> None:
     follows it, an unbalanced quote, a bare subshell, `sudo -u`, a continuation line, `&>`, a
     brace group, an assignment alone.
 
-    117 readings in all, among them git's options kept in the words, `exec -a x`, each wrapper
+    141 readings in all, among them git's options kept in the words, `exec -a x`, each wrapper
     added on 2026-10-05 read to its command, `flock -c` before and after the lock file, each
     added shell with its string, a shell's strings (`-ce`, `-cl`, `-ec`, `-oc posix`,
     `-oe pipefail -c` in bash, `-oerrexit -c` in zsh and `-opipefail -c` in ksh, `-c -e`,
@@ -1551,7 +1558,10 @@ def test_t13() -> None:
     `<&` and `>&`, a heredoc whose terminator is the next line and two operators on one line, a
     heredoc marker in quotes, an escape outside quotes, a substitution at the text's start, a `(`
     and a quote inside `$(…)`, two backtick pairs, chrt's one number, a string two shell walks
-    find, flock's `-c` with `--`.
+    find, flock's `-c` with `--`. Since 2026-11-13 also the redirection read from the text outside
+    quotes: a quoted `>` stays a word, `env -S` runs no redirection, digits are a descriptor only as
+    the start of a word, an attached operator cuts its word, `>|` is one operator, and an escaped,
+    quoted or substituted `>` is text.
 
     Ten texts a slip could turn into an endless loop run through the gate within the harness's
     bound: a lone backtick, backtick pairs empty or side by side, and an escape in double quotes
@@ -1720,8 +1730,8 @@ def test_t13() -> None:
         "cat <<A <<B\nx\nA\ny\nB\nls": [("cat",), ("y",), ("B",), ("ls",)],
         # an operator inside quotes at the line's first character drops nothing; one after a closed quote
         # inside `$(…)` drops its body
-        '"<<EOF"\ngit push -f\nEOF': [("git", "push", "-f"), ("EOF",)],
-        'x $("a" <<EOF\nb\nEOF\n)': [("a",), ("x", "$(a", ")")],
+        '"<<EOF"\ngit push -f\nEOF': [("<<EOF",), ("git", "push", "-f"), ("EOF",)],
+        'x $("a" <<EOF\nb\nEOF\n)': [("a",), ("x", "$(a", "<<EOF", ")")],
         # a backtick opens a quote at the top-level split, so its `;` cuts nothing there; an escape outside
         # quotes takes one character with it, at the text's end too
         "echo `a; git push -f`": [("a",), ("git", "push", "-f"), ("echo", "`a;", "git", "push", "-f`")],
@@ -1763,7 +1773,7 @@ def test_t13() -> None:
             ("git", "push", "-f"),
             ("echo", "$(echo", ")", ")", "$(git", "push", "-f)"),
         ],
-        "elif $( push &> 5 $(": [("push", "$"), ("$(", "push", "$(")],
+        "elif $( push &> 5 $(": [("push", "$"), ("$(", "push", "&>", "5", "$(")],
         # a wrapper's numbers: one word only and no number leaves it the program; no wrapper but chrt
         # skips a number, and chrt one at most
         "chrt x": [("x",)],
@@ -1788,6 +1798,35 @@ def test_t13() -> None:
         "flock -c 'git push -f' -- y": [("git", "push", "-f", "--", "y")],
         "flock -c --": [("--",)],
         "flock -c": [],
+        # a redirection is read from the text outside quotes, never from a word whose quotes are gone: a
+        # quoted `>` stays a word; `env -S` splits its string into words and runs no redirection, so `>x`
+        # is its program; digits are a descriptor only as the whole start of a word; `>|` is one operator
+        'echo ">" x': [("echo", ">", "x")],
+        "git commit -m '>x' -q": [("git", "commit", "-m", ">x", "-q")],
+        'env -S ">x git push -f"': [(">x", "git", "push", "-f")],
+        "git push --force>/dev/null": [("git", "push", "--force")],
+        "x2>y z": [("x2", "z")],
+        "git push -f >| out": [("git", "push", "-f")],
+        ">|a": [],
+        "|a >": [("a",)],
+        "a >x| b": [("a",), ("b",)],
+        # the operator, its descriptor and its target: digits of any length, a target after a blank, a
+        # second operator ending the target; an escaped `>` and every quoted or substituted one is text
+        "12>x y": [("y",)],
+        ">X b": [("b",)],
+        "echo \\>x": [("echo", ">x")],
+        "echo \\>>x": [("echo", ">")],
+        "echo $()>x": [("echo", "$()")],
+        "echo `a >x` b": [("a",), ("echo", "`a", ">x`", "b")],
+        "echo ''>x y": [("echo", "", "y")],
+        "echo 'a'>x": [("echo", "a")],
+        'echo "">x y': [("echo", "", "y")],
+        'echo "a >x': [("echo", '"a', ">x")],
+        'echo "$(echo ">")" y': [("echo", ">"), ("echo", "$(echo >)", "y")],
+        'echo "$(a) b">x y': [("a",), ("echo", "$(a) b", "y")],
+        'echo "$()" >x y': [("echo", "$()", "y")],
+        'echo "a\\">x" y': [("echo", 'a">x', "y")],
+        'echo "\\a">y z': [("echo", "\\a", "z")],
     }
     # the reading of an entry's own words, the dials loader's test: every default entry reads as
     # itself; a path, a wrapper, an assignment, a shell word and a wrapper alone do not; a shell told
@@ -1807,6 +1846,7 @@ def test_t13() -> None:
         ("exec", "x"): ["x"],
         ("sudo",): [],
         ("x/",): [""],
+        (">x", "y"): [">x", "y"],
         ("bash", "-c", "x"): None,
         ("env", "-S", "x"): None,
     }
