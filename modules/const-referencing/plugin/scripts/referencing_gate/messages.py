@@ -492,6 +492,22 @@ def v5_parent_is_a_file(path: str) -> Broken:
     )
 
 
+def v5_unreadable(path: str, reason: str) -> Broken:
+    return v5_refused(
+        f"{escaped(path)} is a covered document that cannot be read ({echoed(reason)}), so nobody can"
+        " say which of its links the move must repair",
+        "make it readable — its permissions, or a link that leads nowhere — then run the mover again",
+    )
+
+
+def v5_unwritable(path: str, reason: str) -> Broken:
+    return v5_refused(
+        f"{escaped(path)} holds links the mover must rewrite, and it cannot be written ({echoed(reason)})",
+        "make it writable — its permissions, a lock on the file, a file system mounted read-only — then"
+        " run the mover again",
+    )
+
+
 def v5_no_root_policy() -> Broken:
     return v5_refused(
         f"{_ns()}.governed_only is set and {_file()} names no root_policy, so nobody can say which"
