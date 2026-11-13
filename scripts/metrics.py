@@ -75,7 +75,7 @@ Modes:  no arguments    the three tables on stdout: the documents, the proof kin
                         stdout: a group of `GROUPS`, then its part, then the language, each line with
                         its files, blank, comment and code lines, and a totals line; with --json <path>
                         the tree too and the same numbers as JSON in <path>; with --json -, the JSON on
-                        stdout and no tree (decision dec-0133-line-counts-in-the-metrics-report). The
+                        stdout and no tree (decision dec-0134-line-counts-in-the-metrics-report). The
                         files are those git tracks, a symbolic link left out, and so are the files of
                         `GENERATED`. Each file falls in the first part of `PARTS` that one of its
                         patterns matches; in the groups `plugins` and `module-dev` a part is a module
