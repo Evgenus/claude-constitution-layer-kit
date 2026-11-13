@@ -49,6 +49,7 @@ WRAPPER_FIELDS = (
     ReaderField.POSITIONALS,
     ReaderField.NUMBERS,
     ReaderField.COMMAND_FLAGS,
+    ReaderField.SHELL_TEXT,
     ReaderField.DROP,
 )
 SHELL_FIELDS = (
@@ -217,8 +218,18 @@ def _wrapper(dial: ReaderDial, index: int, item: dict[str, object], command: tup
     numbers = _count(dial, index, item, ReaderField.NUMBERS)
     command_flags = _options(dial, index, item, ReaderField.COMMAND_FLAGS)
     _refuse_shared_option(dial, index, with_value, command_flags)
+    shell_text = item.get(ReaderField.SHELL_TEXT, False)
+    if not isinstance(shell_text, bool):
+        raise ConfigurationFailure(messages.c5_reader_shell_text_value(index))
+    if shell_text and not command_flags:
+        raise ConfigurationFailure(messages.c5_reader_shell_text_alone(index))
     return Wrapper(
-        command, with_value=with_value, positionals=positionals, numbers=numbers, command_flags=command_flags
+        command,
+        with_value=with_value,
+        positionals=positionals,
+        numbers=numbers,
+        command_flags=command_flags,
+        shell_text=shell_text,
     )
 
 

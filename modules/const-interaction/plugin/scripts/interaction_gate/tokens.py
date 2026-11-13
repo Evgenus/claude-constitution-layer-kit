@@ -312,9 +312,9 @@ def _normalise(words: list[str], lists: ReaderLists) -> tuple[list[str], list[st
         if wrapper is None:
             break
         del rest[: len(wrapper.command)]
-        string = _after_wrapper(wrapper, rest)
-        if string is not None:  # `env -S "<command>" <more>`: the value and what follows are the command
-            return [], [string]
+        strings = _after_wrapper(wrapper, rest)
+        if strings:  # `env -S "<command>" <more>`: the value and what follows are the command
+            return [], strings
     if not rest:
         return rest, []
     rest[0] = rest[0].rsplit("/", 1)[-1]
@@ -422,11 +422,13 @@ def _wrapper(rest: list[str], wrappers: tuple[Wrapper, ...]) -> Wrapper | None:
     return found
 
 
-def _after_wrapper(wrapper: Wrapper, rest: list[str]) -> str | None:
+def _after_wrapper(wrapper: Wrapper, rest: list[str]) -> list[str]:
     """Take a wrapper's own words off the front of `rest`, its name already gone: its options, then
     its plain positional words, then the words that are numbers, then a command option that stands
     after them, then assignments. A command string, with the words that follow it appended, is
-    handed back whole."""
+    handed back whole. One a shell runs (`shell_text`, `flock -c`) is also handed back as written, alone,
+    as a shell's string is, read as shell text: the words reading stays beside it, so a reading can be
+    added and never taken away. Empty where no string is handed on."""
     string = _options(rest, wrapper.with_value, wrapper.command_flags, ("-",))
     if string is None:
         del rest[: wrapper.positionals]
@@ -437,10 +439,11 @@ def _after_wrapper(wrapper: Wrapper, rest: list[str]) -> str | None:
         if rest and rest[0] in wrapper.command_flags:
             string = _option(rest.pop(0), rest, wrapper.with_value, wrapper.command_flags)
     if string is not None:
-        return shlex.join([*_words(string), *rest])
+        words = shlex.join([*_words(string), *rest])
+        return [string, words] if wrapper.shell_text and string != words else [words]
     while rest and ASSIGNMENT.match(rest[0]):  # `env FOO=1 cmd`
         rest.pop(0)
-    return None
+    return []
 
 
 def _options(
