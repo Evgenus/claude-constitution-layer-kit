@@ -252,7 +252,8 @@ def test_t5() -> None:
     after a wrapper, since 2026-11-13: `2>/dev/null git push -f`, `2> /dev/null git push -f`,
     `git 2>/dev/null push -f`, `sudo >x git push -f`, `>out.log rm -rf build`. One attached to a
     word, `git push --force>/dev/null`, and one inside the string a shell runs, `bash -c ">x; git
-    push -f"` and `sh -c ">log; rm -rf build"`, both since 2026-11-13.
+    push -f"` and `sh -c ">log; rm -rf build"`, both since 2026-11-13. An escaped `>` or `<` before
+    `|` or `&`: `echo \\>|git push -f`, `echo \\>&git push -f` and `echo \\<&rm -rf build`.
 
     Git's options are stepped over by the entry's matching: `-C .`, `-c k=v`, `--no-pager -C .`,
     `--git-dir .git` and `--git-dir=.git`, `--work-tree w`, `--namespace n`, and `--exec-path`,
@@ -297,6 +298,10 @@ def test_t5() -> None:
     asked("git push --force>/dev/null", d1("", "git push", "--force", "git push --force>/dev/null"))
     asked('bash -c ">x; git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=2)
     asked('sh -c ">log; rm -rf build"', d1("", "rm", "-r", "rm -rf build"), subcommands=2)
+    # an escaped `>` or `<` is text, so the `|` or `&` after it separates: the command after it asks
+    asked("echo \\>|git push -f", d1("", "git push", "-f", "git push -f"), subcommands=2)
+    asked("echo \\>&git push -f", d1("", "git push", "-f", "git push -f"), subcommands=2)
+    asked("echo \\<&rm -rf build", d1("", "rm", "-r", "rm -rf build"), subcommands=2)
     # git's options before the verb are skipped by the entry's matching, as for every program
     asked("git -C . push -f", d1("", "git push", "-f", "git -C . push -f"))
     asked("git -c k=v push -f", d1("", "git push", "-f", "git -c k=v push -f"))
@@ -1548,7 +1553,7 @@ def test_t13() -> None:
     follows it, an unbalanced quote, a bare subshell, `sudo -u`, a continuation line, `&>`, a
     brace group, an assignment alone.
 
-    141 readings in all, among them git's options kept in the words, `exec -a x`, each wrapper
+    148 readings in all, among them git's options kept in the words, `exec -a x`, each wrapper
     added on 2026-10-05 read to its command, `flock -c` before and after the lock file, each
     added shell with its string, a shell's strings (`-ce`, `-cl`, `-ec`, `-oc posix`,
     `-oe pipefail -c` in bash, `-oerrexit -c` in zsh and `-opipefail -c` in ksh, `-c -e`,
@@ -1561,7 +1566,8 @@ def test_t13() -> None:
     find, flock's `-c` with `--`. Since 2026-11-13 also the redirection read from the text outside
     quotes: a quoted `>` stays a word, `env -S` runs no redirection, digits are a descriptor only as
     the start of a word, an attached operator cuts its word, `>|` is one operator, and an escaped,
-    quoted or substituted `>` is text.
+    quoted or substituted `>` is text. An escaped `>` or `<` before `|` or `&` leaves it a separator,
+    while `>|`, `2>&1`, `>&2`, `&>log` and `<&-` stay redirections.
 
     Ten texts a slip could turn into an endless loop run through the gate within the harness's
     bound: a lone backtick, backtick pairs empty or side by side, and an escape in double quotes
@@ -1807,6 +1813,15 @@ def test_t13() -> None:
         "git push --force>/dev/null": [("git", "push", "--force")],
         "x2>y z": [("x2", "z")],
         "git push -f >| out": [("git", "push", "-f")],
+        # the `|` of `>|` and the `&` of `>&`, `<&` and `&>` are no separators only after an operator: after
+        # an escaped `>` or `<`, which is text, each separates
+        "echo \\>|git push -f": [("echo", ">"), ("git", "push", "-f")],
+        "echo \\>&git push -f": [("echo", ">"), ("git", "push", "-f")],
+        "echo \\<&rm -rf build": [("echo", "<"), ("rm", "-rf", "build")],
+        "git push -f 2>&1": [("git", "push", "-f")],
+        "echo x >&2": [("echo", "x")],
+        "ls &>log": [("ls",)],
+        "cat <&-": [("cat",)],
         ">|a": [],
         "|a >": [("a",)],
         "a >x| b": [("a",), ("b",)],

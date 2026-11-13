@@ -22,7 +22,7 @@ OPERATORS = ("&&", "||", "|&", ";", "|", "&", "\n")
 SHELL_WORDS = frozenset({"{", "}", "!", "if", "then", "else", "elif", "while", "until", "do", "fi", "done"})
 ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 HEREDOC = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
-# `>&`, `&>` and `<&` redirect; they are no separators.
+# `>&`, `&>`, `<&` and `>|` redirect; their `&` and `|` are no separators.
 REDIRECT_BEFORE = frozenset({">", "<"})
 # The redirection operators, longest first. One is read where it stands outside quotes, in a word or
 # alone; the digits that open its word are its descriptor, and its target is the rest of the word or the
@@ -197,13 +197,16 @@ class _Separator:
         self._take(1)
 
     def _operator(self) -> str | None:
-        """The operator that starts at `i`, or None; `>&`, `&>` and `<&` are redirections."""
+        """The operator that starts at `i`, or None; `>&`, `&>`, `<&` and `>|` are redirections. Whether a
+        `>` or `<` stands before is read from the last unit taken, never from the raw character: an escape
+        is one unit of two characters (`\\>`), so a unit equal to `>` or `<` is an operator. No quoted
+        character can be that unit, since a quote's closing character is taken as a unit of its own, and
+        this is asked only outside quotes."""
         operator = next((op for op in OPERATORS if self.text.startswith(op, self.i)), None)
-        if operator == "|" and self.i > 0 and self.text[self.i - 1] == ">":
+        before = self.current[-1] if self.current else ""
+        if operator == "|" and before == ">":
             return None  # `>|` redirects, clobbering a file
-        if operator == "&" and (
-            (self.i > 0 and self.text[self.i - 1] in REDIRECT_BEFORE) or self.text.startswith("&>", self.i)
-        ):
+        if operator == "&" and (before in REDIRECT_BEFORE or self.text.startswith("&>", self.i)):
             return None  # a redirection, not a background operator
         return operator
 
