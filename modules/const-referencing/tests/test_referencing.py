@@ -2133,8 +2133,8 @@ def green_where_coverage_changes() -> list[str]:
 def green_as_the_tree_stands() -> list[str]:
     """--moved reads the tree as it stands, the move made by hand: a document moved out of coverage is read
     where it went, and a policy moved out of the root territory governs nothing. A moved `.gitignore` changes
-    what git lists by rules the check does not read: the mover asks nothing before the move, so a file it
-    will hide may stay unreadable."""
+    what git lists by rules the check does not read, and so does the file core.excludesFile names: the mover
+    asks nothing before such a move, so a file it will hide may stay unreadable."""
     problems: list[str] = []
     out = moving_consumer()
     notes_only(out)
@@ -2164,6 +2164,16 @@ def green_as_the_tree_stands() -> list[str]:
     last = done.stdout.splitlines()[-1] if done.stdout else ""
     if done.code != 0 or not last.startswith("GREEN: const-referencing: "):
         problems.append(f"a moved .gitignore that hides a file: exit {done.code}: {done.stdout}{done.stderr}")
+    # the same through the file core.excludesFile names: a file moved there hides an untracked one
+    excluded = moving_consumer()
+    excluded.write("other/list", "u.md\n")
+    excluded.commit()
+    excluded.git("config", "core.excludesFile", "rules/excl")
+    excluded.write("docs/u.md", note("# U\n\nSee [one](notes/one.md).\n", "note-u"))  # untracked
+    done, _, _ = under_mode(excluded, "docs/u.md", 0o000, "other/list", "rules/excl")
+    last = done.stdout.splitlines()[-1] if done.stdout else ""
+    if done.code != 0 or not last.startswith("GREEN: const-referencing: "):
+        problems.append(f"a file moved to core.excludesFile: exit {done.code}: {done.stdout}{done.stderr}")
     return problems
 
 
