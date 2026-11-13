@@ -50,7 +50,7 @@ from constitution_layer_kit.testing.items import (
     tr_turn,
 )
 from task_close_gate import dials, messages, start
-from task_close_gate.model import BODY, Declaration, Pair
+from task_close_gate.model import Declaration, Pair
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 
@@ -204,6 +204,13 @@ def broken(result: Result, line: str) -> None:
     assert counted, f"no count line after: {evidence}"
 
 
+def has_line(result: Result, line: str, code: int = 0) -> None:
+    """The run exited `code` and printed `line` on stdout as a line of its own: a prefix or a cut does not
+    pass, as it would in a substring match."""
+    said = f"wanted exit {code} and the line {line!r}; got exit {result.code}: {result.stdout}{result.stderr}"
+    assert result.code == code and line in result.stdout.splitlines(), said
+
+
 # the module's own configuration failures, typed by hand: the dials' C5 lines, one pair's fix whole
 
 DIAL = "BROKEN: constitution.yaml: const-task-close."
@@ -347,6 +354,12 @@ def test_spec_trailer() -> None:
     assert odd_note in odd_result.stdout.splitlines(), (
         f"the note cuts the reason at 80 characters and escapes it: {odd_result.stdout}"
     )
+    # a reason that ends in a capital X keeps it: the reading of git's records trims only line breaks
+    ends = repo(with_map())
+    branch(ends.root)
+    commit(ends.root, "code only", {"src/a.py": "x = 2\n"})
+    ends_where = "commit " + commit(ends.root, "declare\n\n" + trailer(reason="see X"))
+    has_line(scan(ends.root), f"note: core: no impact declared in {ends_where}: see X")
 
 
 @item(3, "red→green: the same change, green with the line in the body given as a file")
@@ -360,9 +373,8 @@ def test_spec_body() -> None:
         "Title\n\nSome text.\n\n" + trailer(reason="via the description") + "\n", encoding="utf-8"
     )
     result = scan(r.root, "--body", str(body))
-    note = messages.n2_declared(declared(BODY, "core", "via the description"), True)
     green_scan(result, tail(1, 1, short(r.root, "main"), short(r.root)))
-    assert note in result.stdout, result.stdout
+    has_line(result, "note: core: no impact declared in the body: via the description")
 
 
 @item(4, "red→green: a dirty tree at turn end is red; a clean tree is silent")
@@ -876,6 +888,14 @@ def test_since_and_change() -> None:
         "BROKEN: --since and --change exclude each other — fix: give one: --since <ref> examines the"
         " changes since that base, --change <commit> examines one landed change",
     )
+    # an option the scan does not know: the fix names every option with its value's name, whole
+    unknown = scan(r.root, "--bogus")
+    wanted = (
+        "BROKEN: misinvocation: unrecognized arguments: --bogus — fix: run with no arguments (hook) or"
+        " --scan [<dir>] [--since <ref>] [--change <commit>] [--body <file>]\n"
+        "BROKEN: the check could not run — 0 documents examined\n"
+    )
+    assert (unknown.code, unknown.stderr) == (1, wanted), unknown.stderr
 
 
 @item(
@@ -1115,6 +1135,8 @@ def old_git_is_a_failure_of_git() -> None:
         scan(r.root, env=env),
         f"BROKEN: {options}: git version failed: fatal: planted version failure — fix: {fix}",
     )
+    env, _ = logging_git(real, old=True, version_says="")  # a git version that prints only a line break
+    broken(scan(r.root, env=env), f"BROKEN: {options}: git version printed nothing — fix: {fix}")
     # a version line of over 80 characters holding backslashes reaches the failure cut and escaped,
     # said or failed alike: the cut at 80 characters with the count, each backslash doubled
     said = r"git version 1.8.3.1 built at C:\tools\git on a host with a rather long name,"
@@ -1175,6 +1197,12 @@ def test_body_forms() -> None:
         scan(r.root, "--body", str(lower)),
         tail(1, 1, short(r.root, "main"), short(r.root)),
     )
+    # bytes that are not UTF-8 are replaced, and the declaration beside them is still read
+    raw = H.scratch_dir() / "raw.txt"
+    raw.write_bytes(b"Title \xff\xfe\n\n" + trailer(reason="read past the bytes").encode("utf-8") + b"\n")
+    raw_run = scan(r.root, "--body", str(raw))
+    green_scan(raw_run, tail(1, 1, short(r.root, "main"), short(r.root)))
+    has_line(raw_run, "note: core: no impact declared in the body: read past the bytes")
     gone = H.scratch_dir() / "gone.txt"
     broken(
         scan(r.root, "--body", str(gone)),
@@ -1212,6 +1240,13 @@ def test_t3_and_t4() -> None:
     )
     no_reason = messages.t4_no_reason(Declaration(where, "core", "core", ""), KEY)
     red_scan(result, no_pair, no_reason, t2())
+    # a declaration after a T4 is still read: the T4 alone is red, and the pair is declared, so no T2
+    later = repo(with_map())
+    branch(later.root)
+    later_where = "commit " + commit(
+        later.root, "fixed\n\n" + f"{KEY}: core\n{KEY}: core — the later line\n", {"src/a.py": "2\n"}
+    )
+    red_scan(scan(later.root), messages.t4_no_reason(Declaration(later_where, "core", "core", ""), KEY))
     signed_red()
 
 
@@ -1239,9 +1274,10 @@ def test_untouched_pair_note() -> None:
     r = repo(with_map())
     branch(r.root)
     where = "commit " + commit(r.root, "docs only\n\n" + trailer(reason="nothing"), {"README.md": "x\n"})
-    result = scan(r.root)
-    note = messages.n2_declared(declared(where, "core", "nothing"), False)
-    expect(result, 0, note, "stdout")
+    has_line(
+        scan(r.root),
+        f"note: core: no impact declared in {where}, and the change touches nothing this pair describes",
+    )
 
 
 @item(22, "declaration_key: the dial's key is read and the default is not")
@@ -1337,6 +1373,18 @@ def test_missing_document() -> None:
         + f", which is a directory at HEAD ({short(dir_doc.root)}) — fix: name the document file; a"
         " change names files, so a directory can never count as updated",
     )
+    # a pair of two documents: the second is looked for too, when the first is at HEAD and when the
+    # range itself touched the first
+    two = repo(with_map({**CORE, "docs": ["docs/core.md", "docs/none.md"]}))
+    branch(two.root)
+    missing_second = (
+        "BROKEN: constitution.yaml: const-task-close.coverage[core] names the document docs/none.md, which"
+        " does not exist at HEAD ({tip}) — fix: correct the path, or create the document; a pair whose"
+        " document is gone describes nothing"
+    )
+    broken(scan(two.root), missing_second.format(tip=short(two.root)))
+    commit(two.root, "the first page", {"docs/core.md": "# core 2\n", "src/a.py": "2\n"})
+    broken(scan(two.root), missing_second.format(tip=short(two.root)))
     r2 = repo(with_map())
     branch(r2.root)
     commit(r2.root, "drop the page", remove=["docs/core.md"])
@@ -1472,8 +1520,24 @@ def test_dial_failures() -> None:
             own(coverage=[{"name": "core", "code": [], "docs": ["docs/core.md"]}]),
             pair_line(1, "has no code, or code is not a non-empty list of patterns"),
         ),
+        (  # an empty pattern, one of white space and one that is no string are each refused
+            own(coverage=[{"name": "core", "code": [""], "docs": ["docs/core.md"]}]),
+            pair_line(1, "has no code, or code is not a non-empty list of patterns"),
+        ),
+        (
+            own(coverage=[{"name": "core", "code": ["src/**", "  "], "docs": ["docs/core.md"]}]),
+            pair_line(1, "has no code, or code is not a non-empty list of patterns"),
+        ),
+        (
+            own(coverage=[{"name": "core", "code": [3], "docs": ["docs/core.md"]}]),
+            pair_line(1, "has no code, or code is not a non-empty list of patterns"),
+        ),
         (
             own(coverage=[{"name": "core", "code": ["src/**"]}]),
+            pair_line(1, "has no docs, or docs is not a non-empty list of repository-relative paths"),
+        ),
+        (
+            own(coverage=[{"name": "core", "code": ["src/**"], "docs": [""]}]),
             pair_line(1, "has no docs, or docs is not a non-empty list of repository-relative paths"),
         ),
         (
@@ -1571,15 +1635,18 @@ def test_working_files_note() -> None:
     r = repo(own(working_files=["notes/**"]), files={"notes/todo.md": "x\n"})
     r.write("notes/untracked.md", "y\n")
     result = scan(r.root)
-    note = messages.n3_working_files(["notes/todo.md"])
+    note = (
+        "note: 1 tracked file(s) match working_files (notes/todo.md) — a task's working files are deleted"
+        " at its close; keep one only with a reason"
+    )
     odd = "notes/w\nx\\y" + "p" * 80 + ".md"  # a path over 80 characters: whole, escaped
     odd_run = scan(repo(own(working_files=["notes/**"]), files={odd: "x\n"}).root)
     odd_note = (
         "note: 1 tracked file(s) match working_files (notes/w\\nx\\\\y" + "p" * 80 + ".md) — a task's"
         " working files are deleted at its close; keep one only with a reason"
     )
-    expect(result, 0, note, "stdout")
-    expect(odd_run, 0, odd_note, "stdout")
+    has_line(result, note)
+    has_line(odd_run, odd_note)
 
 
 @item(31, "a misspelt dial, trunk_remote among them, is a configuration failure")
@@ -1632,6 +1699,28 @@ def test_golden_lines() -> None:
     branch(wide.root)
     commit(wide.root, "four", {"src/a.py": "2\n", "src/b.py": "b\n", "src/c.py": "c\n", "src/d.py": "d\n"})
     four = scan(wide.root).stdout  # one more path than T2 lists
+    five = repo(own())
+    for n in range(1, 6):
+        five.write(f"s{n}.txt", "x\n")
+    all_five = hook(five.root).stderr  # as many paths as T1 lists: no ellipsis
+    exact = repo(with_map())
+    branch(exact.root)
+    commit(exact.root, "three", {"src/a.py": "2\n", "src/b.py": "b\n", "src/c.py": "c\n"})
+    three = scan(exact.root).stdout  # as many paths as T2 lists: no ellipsis
+    two_docs = repo(
+        with_map({**CORE, "docs": ["docs/core.md", "docs/api.md"]}), files={"docs/api.md": "# api\n"}
+    )
+    branch(two_docs.root)
+    commit(two_docs.root, "code", {"src/a.py": "2\n"})
+    both = scan(two_docs.root).stdout  # a pair of two documents names both, in the headline and the fix
+    pairs = repo(with_map(CORE, {"name": "guide", "code": ["guide/**"], "docs": ["docs/guide.md"]}))
+    pairs.write("docs/guide.md", "# guide\n")
+    commit(pairs.root, "the guide's page")
+    branch(pairs.root)
+    pairs_where = "commit " + commit(
+        pairs.root, "wrong\n\n" + f"{KEY}: nosuch — reason\n", {"README.md": "x\n"}
+    )
+    named = scan(pairs.root).stdout  # T3 lists every pair of the map
     literals = [
         (
             f'RED: {odd_where}: "No-Doc-Impact: nosuch — a\\rb" names no pair of the coverage map'
@@ -1713,6 +1802,50 @@ def test_golden_lines() -> None:
     ]
     missing = [text for text, haystack in literals if text not in haystack]
     assert not missing, f"missing: {missing[0]!r}"
+    whole_lines = [  # each a line of its own: a prefix added or a part cut would not pass
+        (
+            "RED: the working tree is dirty at turn end — 5 path(s): ?? s1.txt, ?? s2.txt, ?? s3.txt, ?? s4.txt, ?? s5.txt",  # noqa: E501 — a golden line is typed whole
+            all_five,
+        ),
+        (
+            "RED: core: the change touches 3 path(s) this pair describes (src/a.py, src/b.py, src/c.py) and none of its document(s): docs/core.md",  # noqa: E501 — a golden line is typed whole
+            three,
+        ),
+        (
+            "RED: core: the change touches 1 path(s) this pair describes (src/a.py) and none of its document(s): docs/core.md, docs/api.md",  # noqa: E501 — a golden line is typed whole
+            both,
+        ),
+        (
+            '  fix: update docs/core.md, docs/api.md in this change, or declare no impact: add the trailer "No-Doc-Impact: core — <why the documents are unaffected>" to a commit of the range, in its last paragraph, where every line is Key: value — or the same line on its own in the pull request\'s description, given to the scan with --body <file>',  # noqa: E501 — a golden line is typed whole
+            both,
+        ),
+        (
+            f'RED: {pairs_where}: "No-Doc-Impact: nosuch — reason" names no pair of the coverage map'
+            " (pairs: core, guide)",
+            named,
+        ),
+    ]
+    missing = [text for text, haystack in whole_lines if text not in haystack.splitlines()]
+    assert not missing, f"missing: {missing[0]!r}"
+    count_forms_abbreviated()
+
+
+def count_forms_abbreviated() -> None:
+    """The count line shows each commit as git abbreviates it: at the length core.abbrev sets, and, where
+    git cannot shorten a commit, its first seven characters."""
+    r = repo(with_map())
+    git(r.root, "config", "core.abbrev", "12")
+    branch(r.root)
+    commit(r.root, "code and page", {"src/a.py": "2\n", "docs/core.md": "# core 2\n"})
+    base, tip = short(r.root, "main"), short(r.root)
+    assert len(base) == len(tip) == 12, (base, tip)
+    green_scan(scan(r.root), tail(1, 1, base, tip))
+    real = shutil.which("git")
+    if real is None:
+        pytest.fail("no git on PATH for the fake git to hand its other calls to")
+    full = [git(r.root, "rev-parse", ref).stdout.strip() for ref in ("main", "HEAD")]
+    unshortened = scan(r.root, env=fake_git(real, "rev-parse", when="--short"))
+    green_scan(unshortened, tail(1, 1, full[0][:7], full[1][:7]))
 
 
 @item(33, "the hooks file's shape: Stop, SessionStart and SubagentStart, one handler each")
@@ -1828,6 +1961,35 @@ def zeroed_ref_half(failure: str) -> None:
     result = scan(zero.root)
     ok = result.code == 1 and result.stderr.startswith(failure)
     assert ok, f"files store, zeroed ref: {result.code}: {result.stderr}"
+    # the detail is git's own line for the branch's ref, as `git show-ref --verify` says it
+    said = git(zero.root, "show-ref", "--verify", "--quiet", "refs/heads/main").stderr.splitlines()
+    assert said, "git show-ref said nothing of the zeroed ref"
+    broken(result, f"{failure}{zero.root}: {said[0]} — fix: repair what git names in the message; {SHALLOW}")
+
+
+def detached_head_halves(failure: str) -> None:
+    """A detached HEAD at a tree, not a commit: the detail is git's own line for `HEAD^{commit}`, asked
+    without --quiet. And a branch whose ref git reports with exit 1 and words is no unborn branch: the
+    failure carries git's words, through a fake git that says them."""
+    tree = repo(with_map())
+    sha = git(tree.root, "rev-parse", "HEAD^{tree}").stdout.strip()
+    (tree.root / ".git" / "HEAD").write_text(sha + "\n", encoding="utf-8")
+    said = git(tree.root, "rev-parse", "--verify", "HEAD^{commit}").stderr.splitlines()
+    assert said, "git rev-parse said nothing of a HEAD at a tree"
+    broken(
+        scan(tree.root),
+        f"{failure}{tree.root}: {said[0]} — fix: repair what git names in the message; {SHALLOW}",
+    )
+    real = shutil.which("git")
+    if real is None:
+        pytest.fail("no git on PATH for the fake git to hand its other calls to")
+    zero = repo(with_map(), ref_format="files")
+    (zero.root / ".git" / "refs" / "heads" / "main").write_text("0" * 40 + "\n", encoding="utf-8")
+    planted = "fatal: planted show-ref failure"
+    broken(
+        scan(zero.root, env=fake_git(real, "show-ref", planted, code=1)),
+        f"{failure}{zero.root}: {planted} — fix: repair what git names in the message; {SHALLOW}",
+    )
 
 
 def missing_object_half(failure: str) -> None:
@@ -1861,7 +2023,9 @@ def test_broken_head() -> None:
     repository whose ref store the item chose: a zeroed ref file, written by hand, in the files store; a
     ref to a commit whose object is gone, made through git alone, in the reftable store. Each exits 1 with
     the range's C12 line. Each half checks the store it runs in, which needs git 2.45 or newer: on an older
-    git the half is red and the runner goes on."""
+    git the half is red and the runner goes on. The zeroed ref's line carries git's own words for the ref;
+    a detached HEAD at a tree carries git's words for `HEAD^{commit}`; a ref git reports with exit 1 and
+    words, through a fake git, is no unborn branch."""
     r = repo(with_map())
     git(r.root, "checkout", "-q", "--orphan", "fresh")
     green_scan(scan(r.root), rooted(1, "HEAD"))
@@ -1869,6 +2033,7 @@ def test_broken_head() -> None:
 
     zeroed_ref_half(failure)
     missing_object_half(failure)
+    detached_head_halves(failure)
 
 
 @item(
@@ -1906,16 +2071,19 @@ def test_unrelated_histories() -> None:
     )
 
 
-def fake_git(real: str, failing: str, said: str | None = None, when: str = "") -> dict[str, str]:
-    """A git first on PATH that fails one subcommand as git does, with the line it says, and hands every
-    other to the real one; with `when`, only a call whose arguments hold that text. Its calls run with no
+def fake_git(
+    real: str, failing: str, said: str | None = None, when: str = "", code: int = 128
+) -> dict[str, str]:
+    """A git first on PATH that fails one subcommand with the line it says and the exit `code`, 128 as git
+    does, and hands every other to the real one; with `when`, only a call whose arguments hold that text. Its
+    calls run with no
     clock (`git_patch`, `unclocked`): the fake is a file just written, whose first start on a loaded machine
     has taken longer than the 3 s a hook gives git, which would end the hook before the planted failure."""
     line = f"fatal: planted {failing} failure" if said is None else said
     script = H.scratch_dir() / "git"
     script.write_text(
         f'#!/bin/sh\nif [ "$1" = "{failing}" ]; then\n  case "$*" in *{when}*)\n'
-        f"  printf '%s\\n' {shlex.quote(line)} >&2; exit 128;;\n  esac\nfi\n"
+        f"  printf '%s\\n' {shlex.quote(line)} >&2; exit {code};;\n  esac\nfi\n"
         f'exec {shlex.quote(real)} "$@"\n',
         encoding="utf-8",
     )
@@ -2154,9 +2322,10 @@ def effect_lines(root: Path, sessions: Mapping[str, Sequence[str]] | None = None
     "W1: a change of the module's dials is applied, or bypassed by B2 when the map narrows or severity falls",
 )
 def test_effect_switch_off() -> None:
-    """Six commits of the dials file: a map of two pairs and severity block (applied), one pair removed
+    """Eight commits of the dials file: a map of two pairs and severity block (applied), one pair removed
     (bypassed), a pattern added to a pair's code (applied), a pattern removed from it (bypassed), severity
-    turned to warn (bypassed), the trunk renamed (applied). The plugin list names no plugin."""
+    turned to warn (bypassed), the trunk renamed (applied), a map the module's reader refuses (applied, no
+    crash) and the map read again (applied). The plugin list names no plugin."""
     r = repo(own())
     core = {"name": "core", "code": ["src/**"], "docs": ["docs/core.md"]}
     extra = {"name": "extra", "code": ["lib/**"], "docs": ["docs/extra.md"]}
@@ -2169,11 +2338,13 @@ def test_effect_switch_off() -> None:
         own(coverage=[narrower], severity="block"),
         own(coverage=[narrower], severity="warn"),
         own(coverage=[narrower], severity="warn", trunk="trunk"),
+        own(coverage="x", severity="warn", trunk="trunk"),  # a map the module's reader refuses
+        own(coverage=[narrower], severity="warn", trunk="trunk"),  # and the map read again
     ]
     for number, step in enumerate(steps, start=1):
         commit(r.root, f"step {number}", {"constitution.yaml": dials_text(step)})
     found = effect_lines(r.root)
-    assert "  W1 (pattern): 6 moment(s): 3 applied, 3 bypassed, 0 missed — B2 3" in found, found
+    assert "  W1 (pattern): 8 moment(s): 5 applied, 3 bypassed, 0 missed — B2 3" in found, found
 
 
 @item(
@@ -2183,8 +2354,10 @@ def test_effect_switch_off() -> None:
 def test_effect_after_turn_end_red() -> None:
     """Each session holds a red of the turn-end hook. A commit or a stash before the next human turn is
     applied, whatever acts come between: a commit alone, a look at the tree and a stash, a write of a file and
-    then a commit. The end of the session with a `rm` only, a `git checkout --` and then a human turn, a human
-    turn first, and a look at the tree and then a human turn are bypassed by B3. A refusal of a call by this
+    then a commit, a bare `git` and then a bare `git stash`, a commit and then a human turn. The end of the
+    session with a `rm` only, a `git checkout --` and then a human turn, a human turn first, a look at the
+    tree and then a human turn, and a write of a file and then a human turn are bypassed by B3. A refusal of
+    a call by this
     plugin and a red of another plugin are no moment. The red is the `isMeta` line the platform writes for a
     Stop hook."""
     root = repo(own()).root
@@ -2227,10 +2400,33 @@ def test_effect_after_turn_end_red() -> None:
             tr_tool("i", root, "1", "Bash", command="rm x"),
             red=tr_stop_red("i", root, "another"),
         ),
+        # a bare git, then a bare git stash: applied; the git alone is no answer and breaks nothing
+        "j": case(
+            "j",
+            tr_tool("j", root, "1", "Bash", command="git"),
+            tr_tool("j", root, "2", "Bash", command="git stash"),
+        ),
+        # a write of a file is no commit: bypassed
+        "k": case(
+            "k",
+            tr_tool("k", root, "1", "Write", file_path="x.md", content="x"),
+            tr_turn("k", root, EFFECT_AT, "x"),
+        ),
     }
     assert sid
     found = effect_lines(root, sessions)
-    assert "  W2 (pattern): 7 moment(s): 3 applied, 4 bypassed, 0 missed — B3 4" in found, found
+    assert "  W2 (pattern): 9 moment(s): 4 applied, 5 bypassed, 0 missed — B3 5" in found, found
+    # read alone, so that its outcome cannot cancel another's: the commit right after the red is the
+    # answer, and a human turn after it changes nothing
+    alone = {
+        "m": case(
+            "m",
+            tr_tool("m", root, "1", "Bash", command="git commit -qam y"),
+            tr_turn("m", root, EFFECT_AT, "x"),
+        )
+    }
+    found_alone = effect_lines(root, alone)
+    assert "  W2 (pattern): 1 moment(s): 1 applied, 0 bypassed, 0 missed" in found_alone, found_alone
 
 
 @item(
@@ -2266,7 +2462,8 @@ def test_effect_escape() -> None:
 def test_effect_commit_before_edit() -> None:
     """The moment is the first call of an editing tool after each human turn. A load of the skill, in full or
     bare, before it makes it applied, and stays so for later turns; none makes it missed. A second edit of
-    the same turn, a shell write and a read are no moment."""
+    the same turn, a shell write and a read are no moment. A `MultiEdit` and a `NotebookEdit` are each the
+    first edit of their turn."""
     root = repo(own()).root
     s = "s45"
     sessions = {
@@ -2296,17 +2493,28 @@ def test_effect_commit_before_edit() -> None:
             tr_tool(s, root, "b1", "Bash", command="echo x > a.md"),
             tr_tool(s, root, "r1", "Read", file_path="a.md"),
         ],
+        # a MultiEdit and a NotebookEdit are each the first edit of their turn: missed
+        "e": [
+            tr_turn(s, root, EFFECT_AT, "go"),
+            tr_tool(s, root, "m1", "MultiEdit", file_path="a.md"),
+        ],
+        "f": [
+            tr_turn(s, root, EFFECT_AT, "go"),
+            tr_tool(s, root, "n1", "NotebookEdit", file_path="a.ipynb"),
+        ],
     }
     found = effect_lines(root, sessions)
-    assert "  W4 (pattern): 5 moment(s): 3 applied, 0 bypassed, 2 missed — B5 2" in found, found
+    assert "  W4 (pattern): 7 moment(s): 3 applied, 0 bypassed, 4 missed — B5 4" in found, found
 
 
 @item(46, "W5: close-task loaded earlier makes a merge applied, none makes it missed by B5")
 def test_effect_close_task() -> None:
     """The moment is a shell command that merges: `gh pr merge` or `git merge`, behind `cd`, with options
     of git before the subcommand. A load of the skill earlier in the session, in full or bare, makes it
-    applied; none, or a load of the other skill, makes it missed. `git merge --abort`, `git merge-base`,
-    a log of merges and a quoted phrase are no moment."""
+    applied; none, or a load of the other skill, makes it missed: behind `-C`, `-c`, `--git-dir`,
+    `--work-tree`, `--namespace` and `--no-pager`, and behind an assignment. `git merge --abort`,
+    `--continue` and `--quit`, `git merge-base`, a log of merges, a quoted phrase and a one-word command
+    are no moment."""
     root = repo(own()).root
     s = "s46"
     merge_pr = "cd . && gh pr merge 5 --merge --subject 'Work: x'"
@@ -2325,14 +2533,27 @@ def test_effect_close_task() -> None:
             tr_tool(s, root, "2", "Bash", command="git merge-base main work/x"),
             tr_tool(s, root, "3", "Bash", command="git log --merges"),
             tr_tool(s, root, "4", "Bash", command='echo "gh pr merge 7"'),
+            tr_tool(s, root, "5", "Bash", command="git merge --continue"),
+            tr_tool(s, root, "6", "Bash", command="git merge --quit"),
+            tr_tool(s, root, "7", "Bash", command="ls"),
         ],
         "e": [
             tr_tool(s, root, "k", "Skill", skill="close-task"),
             tr_tool(s, root, "m", "Bash", command="git -C /elsewhere merge --no-ff work/y"),
         ],
     }
+    # a merge behind each option git takes before its subcommand, and behind an assignment: missed
+    for name, command in {
+        "f": "git -c core.editor=true merge work/z",
+        "g": "git --git-dir .git merge work/z",
+        "h": "git --work-tree . merge work/z",
+        "i": "git --namespace x merge work/z",
+        "j": "git --no-pager merge work/z",
+        "k": "GIT_EDITOR=true git merge work/z",
+    }.items():
+        sessions[name] = [tr_tool(s, root, "m", "Bash", command=command)]
     found = effect_lines(root, sessions)
-    assert "  W5 (pattern): 4 moment(s): 2 applied, 0 bypassed, 2 missed — B5 2" in found, found
+    assert "  W5 (pattern): 10 moment(s): 2 applied, 0 bypassed, 8 missed — B5 8" in found, found
 
 
 def red_range_scan() -> Result:
