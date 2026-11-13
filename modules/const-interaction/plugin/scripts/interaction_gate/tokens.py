@@ -61,8 +61,8 @@ def _collect(text: str, found: list[Subcommand], lists: ReaderLists) -> None:
         for inner in _substitutions(stripped):
             _collect(inner, found, lists)
         # The piece as written, and, where it holds a redirection, the piece without it: each distinct
-        # reading is a subcommand, so the pass can add a reading and never take one away. A string either
-        # reading hands on is read once.
+        # reading is a subcommand, so the pass can add a reading and never take one away. A string both
+        # readings hand on alike is read once; one handed on in two forms is read as two strings.
         unredirected = _unredirected(stripped)
         texts = (stripped,) if unredirected == stripped else (stripped, unredirected)
         place = len(found)  # the piece's number, shared by its readings
@@ -394,9 +394,10 @@ def _unit_end(text: str, i: int) -> int:
             if text.startswith("$(", j):
                 j = _substitution_end(text, j + 2)
                 continue
-            # A `${…}` is read as outside quotes, where bash takes a `'` in it literally. An unmatched one
-            # then runs to the piece's end, so a redirection after it is not taken out and there is no
-            # second reading: `git push "${x:-'}" --force>/dev/null` passes, as with no redirection pass.
+            # A `${…}` is read as outside quotes, as bash 3.2 reads it; zsh, dash and ksh take a `'` in it
+            # literally. Read as a quote, a `'` starts one span: to the next `'`, then to the `}`, then to the
+            # closing `"`, else to the piece's end. The second reading keeps a redirection inside that span:
+            # `git push "${x:-'}" --force>/dev/null` passes, as with no redirection pass.
             if text.startswith("${", j):
                 j = _brace_end(text, j + 2)
                 continue

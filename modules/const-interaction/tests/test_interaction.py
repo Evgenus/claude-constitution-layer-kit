@@ -1592,7 +1592,7 @@ def test_t13() -> None:
     follows it, an unbalanced quote, a bare subshell, `sudo -u`, a continuation line, `&>`, a
     brace group, an assignment alone.
 
-    157 readings in all, among them git's options kept in the words, `exec -a x`, each wrapper
+    160 readings in all, among them git's options kept in the words, `exec -a x`, each wrapper
     added on 2026-10-05 read to its command, `flock -c` before and after the lock file, each
     added shell with its string, a shell's strings (`-ce`, `-cl`, `-ec`, `-oc posix`,
     `-oe pipefail -c` in bash, `-oerrexit -c` in zsh and `-opipefail -c` in ksh, `-c -e`,
@@ -1622,7 +1622,7 @@ def test_t13() -> None:
     14 readings on lists of their own hold the fields no default uses: a wrapper of two words,
     `numbers`, a command flag after a positional word, a shell's long command flag.
 
-    11 readings of an entry's own words: `[git, -C]` and `[deploy.sh]` read as themselves, while a
+    12 readings of an entry's own words: `[git, -C]` and `[deploy.sh]` read as themselves, while a
     path, a wrapper, an assignment, `exec`, a wrapper alone, `x/` and a string handed on do not.
     Each of the fourteen default entries reads as itself.
     """
