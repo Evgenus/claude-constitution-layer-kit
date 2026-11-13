@@ -494,9 +494,9 @@ def v5_parent_is_a_file(path: str) -> Broken:
 
 def v5_unreadable(path: str, reason: str) -> Broken:
     return v5_refused(
-        f"{escaped(path)} is a covered document that cannot be read ({echoed(reason)}), so nobody can"
-        " say which of its links the move must repair",
-        "make it readable — its permissions, or a link that leads nowhere — then run the mover again",
+        f"{escaped(path)} is a document the mover must read, and it cannot be read ({echoed(reason)}),"
+        " so nobody can say which of its links need repair",
+        "make it readable — its permissions — then run the mover again",
     )
 
 

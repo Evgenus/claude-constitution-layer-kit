@@ -1975,11 +1975,17 @@ UNWRITABLE = (  # typed by hand: V5 for a document the act would rewrite and can
     " make it writable — its permissions, a lock on the file, a file system mounted read-only — then run"
     " the mover again"
 )
-UNREADABLE = (  # typed by hand: V5 for a covered document the act cannot read
-    "BROKEN: {path} is a covered document that cannot be read (Permission denied), so nobody can say which"
-    " of its links the move must repair — fix: make it readable — its permissions, or a link that leads"
-    " nowhere — then run the mover again"
+UNREADABLE = (  # typed by hand: V5 for a document the act must read and cannot
+    "BROKEN: {path} is a document the mover must read, and it cannot be read (Permission denied), so nobody"
+    " can say which of its links need repair — fix: make it readable — its permissions — then run the mover"
+    " again"
 )
+
+
+def markdown_texts(consumer: Consumer) -> dict[str, str]:
+    """Every Markdown file's text below the root, a symbolic link left out: one may lead nowhere."""
+    md = consumer.root.rglob("*.md")
+    return {p.relative_to(consumer.root).as_posix(): p.read_text() for p in md if not p.is_symlink()}
 
 
 def under_mode(
@@ -1992,10 +1998,10 @@ def under_mode(
     try:
         done = mover(consumer, *arguments)
     finally:  # where the act moved the file anyway, its mode is set back where it went
-        for where in (path, consumer.root / NEW):
+        for where in (path, consumer.root / arguments[-1]):
             if where.exists():
                 where.chmod(0o644)
-    texts = {p.relative_to(consumer.root).as_posix(): p.read_text() for p in consumer.root.rglob("*.md")}
+    texts = markdown_texts(consumer)
     return done, porcelain(consumer), texts
 
 
@@ -2040,13 +2046,29 @@ def refused_for_a_document() -> None:
             ("--ids",),
             UNWRITABLE,
         ),
+        (
+            "--ids, a covered document nobody can read",
+            lambda c: None,
+            "docs/notes/two.md",
+            0o000,
+            ("--ids",),
+            UNREADABLE,
+        ),
+        (  # its own links are repaired wherever it goes, so it is read though no territory holds it there
+            "the moved document nobody can read, moved out of coverage",
+            notes_only,
+            OLD,
+            0o000,
+            (OLD, "other/first.md"),
+            UNREADABLE,
+        ),
     ]
     problems: list[str] = []
     for label, prepare, rel, mode, arguments, line in cases:
         consumer = moving_consumer()
         prepare(consumer)
         state = porcelain(consumer)
-        texts = {p.relative_to(consumer.root).as_posix(): p.read_text() for p in consumer.root.rglob("*.md")}
+        texts = markdown_texts(consumer)
         done, after, after_texts = under_mode(consumer, rel, mode, *arguments)
         wanted = line.format(path=rel) + "\n" + STOPPED_NOTHING + "\n"
         if (done.code, done.stdout, done.stderr) != (1, "", wanted):
@@ -2062,7 +2084,54 @@ def refused_for_a_document() -> None:
         problems.append(f"a read-only document the move does not rewrite: {done.stdout}{done.stderr}")
     elif texts["docs/notes/three.md"] != note("# Three\n\nNo links.\n", "note-three"):
         problems.append("a read-only document the move does not rewrite: its text changed")
+    problems.extend(green_where_coverage_changes())
     assert not problems, "\n".join(problems)
+
+
+def green_where_coverage_changes() -> list[str]:
+    """The documents asked are those the act reads after the move, not before it. Under governed_only a
+    policy moved out of the root policy's territory governs nothing after the move: a document it governed,
+    read-only or unreadable, is not read and no refusal. A covered link to the moved file leads nowhere after
+    the move: the listing drops it, and the moved file read-only is no refusal through it."""
+    problems: list[str] = []
+    governed = [
+        (
+            "docs/notes/two.md",
+            0o444,
+            note("# Two\n\nGoverned by [p](../policies/notes-policy.md).\n", "note-two"),
+        ),
+        ("docs/notes/dark.md", 0o000, note("# Dark\n\nNo links.\n", "note-dark")),
+    ]
+    for rel, mode, text in governed:
+        consumer = H.fresh_consumer((Write(rel, text),))
+        consumer.write("constitution.yaml", dials_text(own(governed_only=True)))
+        consumer.commit()
+        policy = ("docs/policies/notes-policy.md", "docs/archive/notes-policy.md")
+        done, _, texts = under_mode(consumer, rel, mode, *policy)
+        last = done.stdout.splitlines()[-1] if done.stdout else ""
+        if done.code != 0 or not last.startswith("GREEN: const-referencing: ") or texts[rel] != text:
+            problems.append(
+                f"governed_only, {rel} mode {mode:o}: exit {done.code}: {done.stdout}{done.stderr}"
+            )
+    alias = H.fresh_consumer(
+        (
+            Write("docs/notes/one.md", note("[far](notes/one.md)\n", "note-one")),
+            Write("docs/notes/notes/one.md", note("Nested.\n", "nested")),
+            Write("docs/notes/two.md", note("[one](one.md)\n", "note-two")),
+        )
+    )
+    (alias.root / "docs/alias.md").symlink_to("notes/one.md")
+    alias.commit()
+    done, _, _ = under_mode(alias, "docs/notes/one.md", 0o444, "docs/notes/one.md", "docs/notes/uno.md")
+    last = done.stdout.splitlines()[-1] if done.stdout else ""
+    if done.code != 0 or not last.startswith("GREEN: const-referencing: "):
+        problems.append(f"a link to the moved file: exit {done.code}: {done.stdout}{done.stderr}")
+    return problems
+
+
+def notes_only(consumer: Consumer) -> None:
+    consumer.write("constitution.yaml", dials_text(own(territories=["docs/notes/**"])))
+    consumer.commit()
 
 
 def hand_moved(consumer: Consumer) -> None:

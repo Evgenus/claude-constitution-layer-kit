@@ -1060,7 +1060,8 @@ def test_trailer_among_others() -> None:
     git's version line; where `git version` fails, the failure says so in the version's place; a line over
     80 characters with backslashes is cut and escaped, each typed by hand; a reason that quotes the
     placeholder is read as ever. A value holding a unit separator or a start-of-heading byte stays one
-    whole declaration, and the older commits' declarations are read after it."""
+    whole declaration, and the older commits' declarations are read after it; a log asked in UTF-16 by the
+    repository's configuration is read in UTF-8."""
     r = repo(
         with_map(
             {"name": "core", "code": ["src/**"], "docs": ["docs/core.md"]},
@@ -1112,6 +1113,10 @@ def control_bytes_in_a_value() -> None:
         "GREEN: const-task-close: " + tail(2, 2, short(r.root, "main"), short(r.root)),
     ]
     assert (result.code, result.stdout.splitlines()) == (0, wanted), result.stdout + result.stderr
+    # a repository that asks git for its log in UTF-16 is read in UTF-8 all the same: the same lines
+    git(r.root, "config", "i18n.logOutputEncoding", "UTF-16")
+    wide = scan(r.root)
+    assert (wide.code, wide.stdout.splitlines()) == (0, wanted), wide.stdout + wide.stderr
 
 
 def signed_note() -> None:
