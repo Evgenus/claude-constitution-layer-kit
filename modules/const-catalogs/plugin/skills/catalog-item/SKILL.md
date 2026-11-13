@@ -36,9 +36,9 @@ to cite: that is judgment, and the rest of this page.
 Read `const-catalogs.catalogs` in `constitution.yaml`. Each entry declares one numbered kind:
 `prefix` (lowercase letters and digits), `territory` (where its documents live), `width` (how
 many digits, 4 when absent). The document you are writing belongs to the catalog whose
-territory holds its path. Where two or more territories hold it, the catalog whose prefix its file
-name carries is its catalog. If none of their prefixes stands in the name, the first of them
-listed is.
+territory holds its path. Where two or more territories hold it, the catalog whose prefix and a hyphen
+open its file name judges it. If the name opens with none of their prefixes, the first of them
+listed judges it.
 
 If the kind is not listed and should be numbered, say so to the user before writing anything.
 The prefix is sticky, because an id never changes. Numbering a kind that already has

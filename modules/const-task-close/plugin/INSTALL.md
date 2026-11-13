@@ -76,7 +76,7 @@ A line that starts `BROKEN: const-task-close needs the Python package constituti
    No-Doc-Impact: api — comments reworded, no rule or message changed
    ```
    The reason is required and never judged by the check. A line naming no pair, or carrying no
-   reason, is a finding, and so is a wildcard: one line per pair. The dash is an em or en dash,
+   reason, is a finding, and so is a wildcard: one line per pair. A line with no value at all is not read, as git gives none. The dash is an em or en dash,
    spaced or not, or one or two hyphens spaced on both sides. Every declaration the check accepts is printed as a note, for the reviewer.
    A squash merge keeps a commit's trailer only when that message lands last; a project that
    squashes puts the line in the description.
