@@ -19,7 +19,7 @@ import shutil
 import subprocess
 import sys
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -1963,6 +1963,113 @@ def test_mover_asks_before_it_moves() -> None:
         " remove governed_only",
     )
     assert porcelain(rootless) == state and (rootless.root / OLD).exists(), "no root policy: the tree changed"
+    refused_for_a_document()
+
+
+UNWRITABLE = (  # typed by hand: V5 for a document the act would rewrite and cannot write
+    "BROKEN: {path} holds links the mover must rewrite, and it cannot be written (Permission denied) — fix:"
+    " make it writable — its permissions, a lock on the file, a file system mounted read-only — then run"
+    " the mover again"
+)
+UNREADABLE = (  # typed by hand: V5 for a covered document the act cannot read
+    "BROKEN: {path} is a covered document that cannot be read (Permission denied), so nobody can say which"
+    " of its links the move must repair — fix: make it readable — its permissions, or a link that leads"
+    " nowhere — then run the mover again"
+)
+
+
+def under_mode(
+    consumer: Consumer, rel: str, mode: int, *arguments: str
+) -> tuple[Result, str, dict[str, str]]:
+    """The mover run while the file at `rel` has the mode; then the file's mode back, and the tree's state
+    and every Markdown file's text as the run left them."""
+    path = consumer.root / rel
+    path.chmod(mode)
+    try:
+        done = mover(consumer, *arguments)
+    finally:  # where the act moved the file anyway, its mode is set back where it went
+        for where in (path, consumer.root / NEW):
+            if where.exists():
+                where.chmod(0o644)
+    texts = {p.relative_to(consumer.root).as_posix(): p.read_text() for p in consumer.root.rglob("*.md")}
+    return done, porcelain(consumer), texts
+
+
+def refused_for_a_document() -> None:
+    """A document the act must read and cannot, or must rewrite and cannot write, is a refusal before
+    anything moves or is written, in each of the three acts: exit 1, the whole stderr the refusal and the
+    closing line, nothing on stdout, the tree and every text as they were. A document the act would not
+    rewrite may stay read-only. As root a mode bit denies nothing, and these cases are not exercised."""
+    if os.geteuid() == 0:
+        return  # NOT EXERCISED: running as root, where a mode bit does not deny a read or a write
+    cases: list[tuple[str, Callable[[Consumer], None], str, int, tuple[str, ...], str]] = [
+        (
+            "a document linking to the moved one",
+            lambda c: None,
+            "docs/notes/two.md",
+            0o444,
+            (OLD, NEW),
+            UNWRITABLE,
+        ),
+        ("the moved document itself", lambda c: None, OLD, 0o444, (OLD, NEW), UNWRITABLE),
+        (
+            "a covered document nobody can read",
+            lambda c: None,
+            "docs/notes/two.md",
+            0o000,
+            (OLD, NEW),
+            UNREADABLE,
+        ),
+        (
+            "--moved after a move by hand",
+            hand_moved,
+            "docs/notes/two.md",
+            0o444,
+            ("--moved", OLD, NEW),
+            UNWRITABLE,
+        ),
+        (
+            "--ids after a move by hand",
+            hand_moved_for_ids,
+            "docs/notes/two.md",
+            0o444,
+            ("--ids",),
+            UNWRITABLE,
+        ),
+    ]
+    problems: list[str] = []
+    for label, prepare, rel, mode, arguments, line in cases:
+        consumer = moving_consumer()
+        prepare(consumer)
+        state = porcelain(consumer)
+        texts = {p.relative_to(consumer.root).as_posix(): p.read_text() for p in consumer.root.rglob("*.md")}
+        done, after, after_texts = under_mode(consumer, rel, mode, *arguments)
+        wanted = line.format(path=rel) + "\n" + STOPPED_NOTHING + "\n"
+        if (done.code, done.stdout, done.stderr) != (1, "", wanted):
+            problems.append(f"{label}: exit {done.code}: {done.stdout}{done.stderr}")
+        elif (after, after_texts) != (state, texts):
+            problems.append(f"{label}: the tree changed")
+    # a read-only document the move does not rewrite is no reason to refuse: the move is made, green
+    quiet = moving_consumer()
+    quiet.write("docs/notes/three.md", note("# Three\n\nNo links.\n", "note-three"))
+    quiet.commit()
+    done, _, texts = under_mode(quiet, "docs/notes/three.md", 0o444, OLD, NEW)
+    if done.code != 0 or not (quiet.root / NEW).exists():
+        problems.append(f"a read-only document the move does not rewrite: {done.stdout}{done.stderr}")
+    elif texts["docs/notes/three.md"] != note("# Three\n\nNo links.\n", "note-three"):
+        problems.append("a read-only document the move does not rewrite: its text changed")
+    assert not problems, "\n".join(problems)
+
+
+def hand_moved(consumer: Consumer) -> None:
+    (consumer.root / NEW).parent.mkdir(parents=True)
+    consumer.git("mv", OLD, NEW)
+
+
+def hand_moved_for_ids(consumer: Consumer) -> None:
+    """The move by hand of item 63, with the one link left that only the id can repair."""
+    hand_moved(consumer)
+    consumer.write("docs/notes/two.md", TWO.replace(", [r]", "").replace("[r]: one.md\n", ""))
 
 
 STOPPED_NOTHING = "BROKEN: the move could not run — nothing was changed"
@@ -1993,21 +2100,6 @@ def test_mover_says_when_it_stopped_midway() -> None:
         and (consumer.root / NEW).exists()
     )
     assert ok, done.stdout + done.stderr
-    # a defect inside the mover is said as one, and then the act is said to have stopped midway
-    readonly = moving_consumer()
-    locked = readonly.root / "docs/notes/two.md"
-    locked.chmod(0o444)
-    try:
-        defect = mover(readonly, OLD, NEW)
-    finally:
-        locked.chmod(0o644)
-    first, second = defect.stderr.splitlines()[:2]
-    assert defect.code == 1 and second == STOPPED_MIDWAY, defect.stderr
-    assert first.startswith("BROKEN: unexpected failure inside the checker: PermissionError: "), first
-    assert first.endswith(
-        " — fix: this is a defect of the gate, not of the repository; report it, with the traceback below, to"
-        " whoever maintains the plugin — until it is fixed do not move documents with it"
-    ), first
 
 
 @item(82, "the mover keeps CRLF and a byte order mark, and leaves a file that is not UTF-8 alone")

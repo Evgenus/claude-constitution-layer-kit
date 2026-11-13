@@ -45,8 +45,9 @@ class Request:
 
 def act(output: Output, request: Request, closing: Closing) -> int:
     """Everything that can refuse is asked first — the repository, the dials and where the log
-    goes, what is covered, the link checker the closing scan needs, the two paths — so that a
-    refusal finds the tree as it was. Only then is anything moved or written."""
+    goes, what is covered, the link checker the closing scan needs, the two paths, and whether every
+    document the act reads can be read and every one it rewrites can be written — so that a refusal
+    finds the tree as it was. Only then is anything moved or written."""
     root = repo_root(Path.cwd())
     if root is None:
         raise ConfigurationFailure(messages.v5_no_repository(str(Path.cwd())))
@@ -67,6 +68,8 @@ def act(output: Output, request: Request, closing: Closing) -> int:
             raise ConfigurationFailure(messages.v5_names_a_directory(request.new))
         old, new = _within(root, request.old), _within(root, request.new)
         _refuse_what_cannot_move(root, old, new, request.by_hand)
+    _refuse_what_cannot_be_rewritten(root, _planned(before, old, new, request), old, new, request.ids)
+    if not request.ids:
         if not request.by_hand:
             _move(root, old, new, closing)
         output.out(messages.v1_moved(old, new))
@@ -88,6 +91,47 @@ def act(output: Output, request: Request, closing: Closing) -> int:
     listed = 0 if request.ids else _list_mentions(output, root, covered, old, new)
     output.out(messages.v4_count(files, links, listed))
     return modes.scan_mode(output, root)
+
+
+def _planned(covered: Sequence[str], old: str, new: str, request: Request) -> list[tuple[str, str]]:
+    """The documents the act will read and may rewrite, each as the pair (where it lies now, where it
+    will lie when it is rewritten). For --ids and --moved nothing moves before the rewrites, so the
+    pairs are those the act takes. For a move they are the covered documents of the tree before it,
+    the moved one at its new place, and the moved one again where coverage did not hold it."""
+    if request.ids or request.by_hand:
+        return [(rel, rel) for rel in [*covered, *([new] if is_markdown(new) and new not in covered else [])]]
+    pairs = [(rel, new if rel == old else rel) for rel in covered]
+    return [*pairs, *([(old, new)] if is_markdown(new) and old not in covered else [])]
+
+
+def _refuse_what_cannot_be_rewritten(
+    root: Path, planned: Sequence[tuple[str, str]], old: str, new: str, ids: bool
+) -> None:
+    """Before anything moves or is written: a document the act must read cannot be read, or one it would
+    rewrite cannot be written. Either would stop the act midway, with the tree half changed — the closing
+    scan cannot read the first, and the rewrite fails on the second. A file that is not UTF-8 is no
+    refusal: the act leaves it alone and says so."""
+    texts: dict[tuple[str, str], str] = {}
+    for now, after in planned:
+        try:
+            with (root / now).open(encoding="utf-8", newline="") as handle:
+                texts[(now, after)] = handle.read()
+        except UnicodeDecodeError:
+            continue
+        except OSError as exc:
+            raise ConfigurationFailure(messages.v5_unreadable(now, _reason(exc))) from exc
+    known = modes.ids_of({after: text for (_, after), text in texts.items()}) if ids else None
+    for (now, after), text in texts.items():
+        if not _repair(after, text, old, new, known).links:
+            continue
+        try:  # opened for writing and closed again: nothing is written, the content and its time stay
+            os.close(os.open(root / now, os.O_WRONLY | os.O_NONBLOCK))
+        except OSError as exc:
+            raise ConfigurationFailure(messages.v5_unwritable(now, _reason(exc))) from exc
+
+
+def _reason(exc: OSError) -> str:
+    return exc.strerror or type(exc).__name__
 
 
 def _move(root: Path, old: str, new: str, closing: Closing) -> None:
