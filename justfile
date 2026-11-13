@@ -8,6 +8,10 @@ logs *args:
 metrics *args:
     python3 scripts/metrics.py {{args}}
 
+# Print the lines of the files the kit maintains, a report and never a check: one cloc run, as a tree of category, module and language; needs cloc on PATH; extra arguments go to the script (--json <path>|-)
+loc *args:
+    python3 scripts/metrics.py --loc {{args}}
+
 # List the most complex functions of the modules' own code, the script's default unless a limit is given; extra arguments go to the script (--json <path>|-)
 complexity limit="" *args:
     python3 scripts/metrics.py --complexity {{limit}} {{args}}
