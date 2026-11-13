@@ -9,9 +9,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from constitution_layer_kit import messages as shared_messages
 from constitution_layer_kit import pipeline
 from constitution_layer_kit.dials import load_dials
+from constitution_layer_kit.envelope import id_of_text
 from constitution_layer_kit.errors import ConfigurationFailure
+from constitution_layer_kit.index import build_index
 from constitution_layer_kit.output import Output
 from constitution_layer_kit.pipeline import ScanTarget
 from constitution_layer_kit.repository import (
@@ -28,7 +31,7 @@ from . import dials as own_dials
 from . import lychee, messages, modes, repair
 from .closing import Closing
 from .mentions import other_files
-from .model import Ids
+from .model import Ids, ReferencingDials
 from .repair import Rewritten
 
 
@@ -68,7 +71,8 @@ def act(output: Output, request: Request, closing: Closing) -> int:
             raise ConfigurationFailure(messages.v5_names_a_directory(request.new))
         old, new = _within(root, request.old), _within(root, request.new)
         _refuse_what_cannot_move(root, old, new, request.by_hand)
-    _refuse_what_cannot_be_rewritten(root, _planned(before, old, new, request), old, new, request.ids)
+    planned = _planned(root, dials, target, before, old, new, request)
+    _refuse_what_cannot_be_rewritten(root, planned, old, new, request.ids)
     if not request.ids:
         if not request.by_hand:
             _move(root, old, new, closing)
@@ -93,15 +97,89 @@ def act(output: Output, request: Request, closing: Closing) -> int:
     return modes.scan_mode(output, root)
 
 
-def _planned(covered: Sequence[str], old: str, new: str, request: Request) -> list[tuple[str, str]]:
+def _planned(
+    root: Path,
+    dials: ReferencingDials,
+    target: ScanTarget,
+    covered: Sequence[str],
+    old: str,
+    new: str,
+    request: Request,
+) -> list[tuple[str, str]]:
     """The documents the act will read and may rewrite, each as the pair (where it lies now, where it
-    will lie when it is rewritten). For --ids and --moved nothing moves before the rewrites, so the
-    pairs are those the act takes. For a move they are the covered documents of the tree before it,
-    the moved one at its new place, and the moved one again where coverage did not hold it."""
+    will lie when it is read). For --ids and --moved nothing moves before the rewrites, so the pairs are
+    the covered documents as they stand. For a move they are the documents covered in the tree as it will
+    stand after the move, worked out before it. The moved document is read whenever its new path is
+    Markdown, covered there or not — as the act reads it."""
     if request.ids or request.by_hand:
-        return [(rel, rel) for rel in [*covered, *([new] if is_markdown(new) and new not in covered else [])]]
-    pairs = [(rel, new if rel == old else rel) for rel in covered]
-    return [*pairs, *([(old, new)] if is_markdown(new) and old not in covered else [])]
+        after = list(covered)
+        source = {rel: rel for rel in after}
+    else:
+        source = _paths_after(root, old, new)
+        predicted = _covered_after(root, dials, target, source, old)
+        if predicted is None:  # the root policy itself moves: no coverage can be read after it
+            after = [new if rel == old else rel for rel in covered]
+            source = {**{rel: rel for rel in covered}, new: old}
+        else:
+            after = predicted
+    if is_markdown(new) and new not in after:
+        after = [*after, new]
+    return [(source.get(rel, old if rel == new else rel), rel) for rel in after]
+
+
+def _paths_after(root: Path, old: str, new: str) -> dict[str, str]:
+    """The Markdown paths the shared listing will give once the file has moved, each with the path that
+    holds its text now. The listing keeps a path git lists that is a file, through any link: so the
+    moved file goes from its old path to its new one, a link to the moved file drops out, since it will
+    lead nowhere, and a link to the new path comes in, since it will lead to the moved file."""
+    listed = git(["ls-files", "-z", "--cached", "--others", "--exclude-standard"], cwd=root)
+    if listed.returncode != 0:
+        raise ConfigurationFailure(shared_messages.c12_ls_files(str(root), first_line(listed.stderr)))
+    gone, coming = os.path.realpath(root / old), os.path.realpath(root / new)
+    paths: dict[str, str] = {}
+    for rel in os.fsdecode(listed.stdout).split("\0"):
+        if not rel or not is_markdown(rel) or rel == old:
+            continue
+        real = os.path.realpath(root / rel)
+        if real == gone:
+            continue
+        if real == coming:
+            paths[rel] = old
+        elif (root / rel).is_file():
+            paths[rel] = rel
+    if is_markdown(new):
+        paths[new] = old
+    return paths
+
+
+def _covered_after(
+    root: Path, dials: ReferencingDials, target: ScanTarget, paths: dict[str, str], old: str
+) -> list[str] | None:
+    """The covered documents of the tree after the move, by the rules the gate covers them by:
+    the territories; under governed_only, also a policy's territory or the root policy's. A policy is a
+    document in the root policy's territory that carries an id, the first by path for an id two carry,
+    as the shared index finds them. None when the root policy itself is among the paths that move."""
+    names = sorted(paths)
+    with Matcher() as matcher:
+        in_territory = sorted(matcher.match(dials.territories, names))
+        if not dials.governed_only:
+            return in_territory
+        root_policy = target.dials.root_policy
+        if root_policy is None or root_policy == old:
+            return None
+        index = build_index(root, target.dials, root_policy, matcher)  # the root as it stands, unmoved
+        considered = sorted({*names, root_policy})
+        in_root = matcher.match(index.root_territory, considered)
+        claimed: set[str] = set()
+        seen: set[str] = set()
+        for path in sorted(in_root):
+            text = read_text(root, paths.get(path, path))
+            policy_id = id_of_text(text) if text is not None else None
+            if policy_id is None or policy_id in seen:
+                continue
+            seen.add(policy_id)
+            claimed.update(matcher.match(target.dials.territory_of(policy_id), considered))
+    return [rel for rel in in_territory if rel in in_root or rel in claimed]
 
 
 def _refuse_what_cannot_be_rewritten(

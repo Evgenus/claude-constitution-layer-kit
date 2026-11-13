@@ -153,10 +153,14 @@ def trailers(root: Path, rng: Range, key: str) -> list[Declaration]:
     """Every value of the key among the range's commit messages, newest commit first, as git
     reads trailers: the message's last paragraph, every line `Key: value`."""
     where = [f"{rng.base}..{rng.tip}"] if rng.base is not None else ["-1", rng.tip]
-    done = git(  # log.showSignature=true would print a signature check before each formatted line
+    # log.showSignature=true would print a signature check before each formatted line, and a log output
+    # encoding other than UTF-8 would hand over bytes the reading below cannot split
+    done = git(
         [
             "-c",
             "log.showSignature=false",
+            "-c",
+            "i18n.logOutputEncoding=UTF-8",
             "log",
             f"--format=%h%x00%(trailers:key={key},valueonly,unfold,separator=%x00)",
             *where,
