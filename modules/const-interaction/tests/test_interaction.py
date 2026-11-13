@@ -271,7 +271,9 @@ def test_t5() -> None:
     push -f"` and `sh -c ">log; rm -rf build"`, both since 2026-11-13. An escaped `>` or `<` before
     `|` or `&`: `echo \\>|git push -f`, `echo \\>&git push -f` and `echo \\<&rm -rf build`.
     A `>` inside an unquoted `${…}`: `rm -${x:+>}rf build` and `git push -${x:+>}f`, and inside a quoted
-    one: `rm -"${x:+">"}"rf build` and `git push -"${x:+">"}"f`. A piece with a redirection counts two
+    one: `rm -"${x:+">"}"rf build` and `git push -"${x:+">"}"f`. Since wave 5, the string of
+    `flock -c`, which a shell runs: `flock x -c "true; git push -f"`, `flock x -c ">x; git push -f"`
+    and `flock --command ': ; rm -rf b' /tmp/l`. A piece with a redirection counts two
     subcommands and one finding. Every command here keeps each reading it has as written.
 
     Git's options are stepped over by the entry's matching: `-C .`, `-c k=v`, `--no-pager -C .`,
@@ -375,6 +377,11 @@ def test_t5() -> None:
     # fish runs `-C` and `-c` strings alike: every command flag met yields a string, both are read
     ask("fish -C 'set x 1' -c 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=3)
     ask("fish -c 'git push -f' -C 'set x 1'", d1("", "git push", "-f", "git push -f"), subcommands=3)
+    # flock hands the string of -c to a shell: it is read as shell text, beside its reading as words, so a
+    # command after a separator or a redirection in it asks
+    ask('flock x -c "true; git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=3)
+    ask('flock x -c ">x; git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=3)
+    ask("flock --command ': ; rm -rf b' /tmp/l", d1("", "rm", "-r", "rm -rf b"), subcommands=3)
     # a `>` inside a quoted `${…}` is text too
     ask('rm -"${x:+">"}"rf build', d1("", "rm", "-r", 'rm -"${x:+">"}"rf build'))
     ask('git push -"${x:+">"}"f', d1("", "git push", "-f", 'git push -"${x:+">"}"f'))
@@ -548,7 +555,8 @@ def test_t7() -> None:
     written; a shell added has its string read; a shell dropped passes; empty lists leave the
     defaults; a collision of a wrapper and a shell is judged on the merged lists; a later word
     with a `/` loads and reads; a wrapper with a command flag, `nix develop -c`, reads its
-    string.
+    string. A wrapper of the project's own marked `shell_text: true`, `su -c`, reads its string as
+    shell text too, so `su -c 'true; git push -f'` asks; unmarked, it passes.
     """
     result, _ = gate_on(command(FORCE_PUSH), dials_patch=own(destructive=[]))
     nothing_gated = (  # typed by hand
@@ -647,6 +655,12 @@ def test_t7() -> None:
         d1("", "rm", "-r", "uv ./run rm -rf b"),
         dials_patch=own(wrappers=[{"command": ["uv", "./run"]}]),
     )
+    su_text = own(wrappers=[{"command": ["su"], "command_flags": ["-c"], "shell_text": True}])
+    su_words = own(wrappers=[{"command": ["su"], "command_flags": ["-c"]}])
+    asked(  # a wrapper marked shell_text reads its string as shell text, so the command after `;` asks
+        "su -c 'true; git push -f'", git_push, subcommands=3, dials_patch=su_text
+    )
+    passed("su -c 'true; git push -f'", dials_patch=su_words)  # unmarked, its string is words: `true; ...`
     asked(  # a wrapper with a command flag reads the string after it
         "nix develop -c 'rm -rf b'",
         d1("", "rm", "-r", "rm -rf b"),
@@ -755,7 +769,8 @@ def reader_dial_cases(prefix: str) -> list[tuple[dict[str, object], str]]:
     read through the lists given."""
     wrapper_shape = (
         "command: [<words>] and, all optional, with_value: [<options>], positionals: <count>, numbers:"
-        " <count>, command_flags: [<options>]; or as command: [<words>] with drop: true to remove a default"
+        " <count>, command_flags: [<options>], shell_text: true; or as command: [<words>] with drop: true to"
+        " remove a default"
     )
     shell_shape = (
         "command: [<word>] and, all optional, with_value: [<options>], command_flags: [<options>]; or as"
@@ -794,7 +809,7 @@ def reader_dial_cases(prefix: str) -> list[tuple[dict[str, object], str]]:
         (
             own(wrappers=[{"command": ["uv"], "flags": ["-x"]}]),
             w + "entry 1: 'flags' is no field of a wrapper entry — fix: " + unknown + "command, with_value,"
-            " positionals, numbers, command_flags or drop",
+            " positionals, numbers, command_flags, shell_text or drop",
         ),
         (  # a wrapper's fields are not a shell's
             own(shells=[{"command": ["elvish"], "positionals": 1}]),
@@ -804,9 +819,23 @@ def reader_dial_cases(prefix: str) -> list[tuple[dict[str, object], str]]:
         (  # a line break in the key is shown escaped: the line stays one line
             own(wrappers=[{"command": ["uv"], "a\nb": 1}]),
             w + "entry 1: 'a\\nb' is no field of a wrapper entry — fix: " + unknown + "command, with_value,"
-            " positionals, numbers, command_flags or drop",
+            " positionals, numbers, command_flags, shell_text or drop",
         ),
         *((own(wrappers=[entry]), wrapper_command) for entry in unread_commands(["uv run"], ["/usr/bin/uv"])),
+        *(  # shell_text is true or false; true marks the string of a command flag, so it needs one
+            (
+                own(wrappers=[{"command": ["su"], "command_flags": ["-c"], "shell_text": value}]),
+                w + "entry 1: shell_text must be true or false — fix: write shell_text: true where a shell"
+                " runs the string of the entry's command flag, or leave the field out for false",
+            )
+            for value in ("yes", 1, None)
+        ),
+        (
+            own(wrappers=[{"command": ["su"], "shell_text": True}]),
+            w + "entry 1: shell_text is true and the entry has no command_flags, so it marks no string as"
+            " shell text — fix: give the entry its command flag, such as command_flags: [-c], or leave"
+            " shell_text out",
+        ),
         *((own(shells=[entry]), shell_command) for entry in unread_commands(["a b"], ["/bin/elvish"])),
         (
             own(shells=[{"command": ["elvish", "x"]}]),
@@ -1109,7 +1138,8 @@ def test_t10() -> None:
     flags without `-`, `teach` missing, `handles` empty, a handle that does not compile,
     `territories` empty, a malformed pair, a `verbosity` outside its one value. Also an
     `alternative` missing or blank, a flag holding a space, a pair with a field that is no text, an
-    option of either reader dial that starts with a capital X. The list in its
+    option of either reader dial that starts with a capital X, a `shell_text` that is not true or
+    false, and `shell_text: true` with no `command_flags`. The list in its
     headline is built from the `Verbosity` members, and the fix's "the one value today" is tied
     to there being one.
 
@@ -1345,8 +1375,8 @@ def test_t10() -> None:
     bad_line = (
         prefix + 'const-interaction.wrappers must be a list of entries — fix: write one entry per "- " item'
         " as command: [<words>] and, all optional, with_value: [<options>], positionals: <count>, numbers:"
-        " <count>, command_flags: [<options>]; or as command: [<words>] with drop: true to remove a default;"
-        " leave the key out for the defaults, an empty list leaves them as they are"
+        " <count>, command_flags: [<options>], shell_text: true; or as command: [<words>] with drop: true to"
+        " remove a default; leave the key out for the defaults, an empty list leaves them as they are"
     )
     bad_root = prepared(bad_reader)
     for entry_point, run in (
@@ -1610,6 +1640,8 @@ def test_t13() -> None:
     text, nested, with a quote or a `$(…)` inside, or never closed. Since round 4 of the audit, a piece
     with a redirection reads twice, as written and without it, and a guard asserts that every reading
     as written, the redirection pass switched off, is among those `split` returns, over every table.
+    Since wave 5, the string of `flock -c` reads as shell text and as words, and `env -S "echo a;
+    rm -rf b"` reads as words only.
 
     Ten texts a slip could turn into an endless loop run through the gate within the harness's
     bound: a lone backtick, backtick pairs empty or side by side, and an escape in double quotes
@@ -1661,8 +1693,13 @@ def test_t13() -> None:
         "chrt --sched-period 100 -d 0 rm -rf b": [("rm", "-rf", "b")],
         # flock's `-c` (`--command`) names a string a shell runs: read again, before the lock file or after it
         "flock /tmp/l -c 'rm -rf b'": [("rm", "-rf", "b")],
-        "flock -c 'rm -rf b' /tmp/l": [("rm", "-rf", "b", "/tmp/l")],
-        "flock --command 'rm -rf b' /tmp/l": [("rm", "-rf", "b", "/tmp/l")],
+        "flock -c 'rm -rf b' /tmp/l": [("rm", "-rf", "b"), ("rm", "-rf", "b", "/tmp/l")],
+        "flock --command 'rm -rf b' /tmp/l": [("rm", "-rf", "b"), ("rm", "-rf", "b", "/tmp/l")],
+        # flock's string is shell text (`shell_text: true`), read alone, the words after it flock's own; its
+        # reading as words, the words after it appended, stays beside it, so no reading is taken away. env -S
+        # splits its string into words and runs no shell, so a `;` there is a word
+        "flock x -c 'true; git push -f'": [("true",), ("git", "push", "-f"), ("true;", "git", "push", "-f")],
+        'env -S "echo a; rm -rf b"': [("echo", "a;", "rm", "-rf", "b")],
         # the shells added on 2026-10-05: `-c` and its string; fish's `-C` and its long forms too, yash's
         # `--cmdline`, mksh's `-T` takes the next word, fish's `-d` too
         "fish -c 'rm -rf b'": [("fish", "-c", "rm -rf b"), ("rm", "-rf", "b")],
@@ -1843,7 +1880,7 @@ def test_t13() -> None:
         # flock's `-c`: a `--` before its string is skipped when a word follows it, else it is the string;
         # a `--` after the string belongs to the command; no word after `-c` reads nothing
         "flock -c -- 'git push -f'": [("git", "push", "-f")],
-        "flock -c 'git push -f' -- y": [("git", "push", "-f", "--", "y")],
+        "flock -c 'git push -f' -- y": [("git", "push", "-f"), ("git", "push", "-f", "--", "y")],
         "flock -c --": [("--",)],
         "flock -c": [],
         # a redirection is read from the text outside quotes, never from a word whose quotes are gone: a

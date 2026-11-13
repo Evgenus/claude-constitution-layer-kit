@@ -553,6 +553,7 @@ const-interaction:                    # answer shape, assumptions and addressabl
   #     command_flags:
   #       - -c
   #       - --command
+  #     shell_text: true
   #   - command:
   #       - chrt
   #     with_value:
