@@ -2174,7 +2174,33 @@ def green_as_the_tree_stands() -> list[str]:
     last = done.stdout.splitlines()[-1] if done.stdout else ""
     if done.code != 0 or not last.startswith("GREEN: const-referencing: "):
         problems.append(f"a file moved to core.excludesFile: exit {done.code}: {done.stdout}{done.stderr}")
+    problems.extend(root_policy_moved())
     return problems
+
+
+def root_policy_moved() -> list[str]:
+    """Under governed_only the root policy moved leaves no root to read the coverage after the move from:
+    the mover asks nothing before it, as before the check, and the act stops midway at the coverage listing
+    after the move, with the shared C6 — a read-only document linking to the policy is never reached."""
+    consumer = H.fresh_consumer(
+        (
+            Write(
+                "docs/notes/two.md", note("# Two\n\nUnder [root](../policies/root-policy.md).\n", "note-two")
+            ),
+        )
+    )
+    consumer.write("constitution.yaml", dials_text(own(governed_only=True)))
+    consumer.commit()
+    moved = ("docs/policies/root-policy.md", "docs/archive/root-policy.md")
+    done, _, _ = under_mode(consumer, "docs/notes/two.md", 0o444, *moved)
+    wanted = [  # typed by hand
+        "BROKEN: constitution.yaml names root_policy 'docs/policies/root-policy.md' but no such file exists"
+        " — fix: create it, or point root_policy at the policy for policies",
+        STOPPED_MIDWAY,
+    ]
+    if done.code != 1 or done.stderr.splitlines()[:2] != wanted or not (consumer.root / moved[1]).exists():
+        return [f"the root policy moved: exit {done.code}: {done.stdout}{done.stderr}"]
+    return []
 
 
 def notes_only(consumer: Consumer) -> None:

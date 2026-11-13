@@ -49,5 +49,5 @@ The commit that brings this record also states its rulings in the module's docum
 
 ## Carry list
 
-1. R1, R2, R3 — [the mover's refusals](../../modules/const-referencing/MODULE.md#t6), row V5; [the mover's limits](../../modules/const-referencing/MODULE.md#t9), limit 12; [the check in the code](../../modules/const-referencing/plugin/scripts/referencing_gate/moving.py), `_planned`, `_covered_after` and `_refuse_what_cannot_be_rewritten`.
+1. R1, R2, R3 — [the mover's refusals](../../modules/const-referencing/MODULE.md#t6), row V5; [the mover's limits](../../modules/const-referencing/MODULE.md#t9), limit 12; [the check in the code](../../modules/const-referencing/plugin/scripts/referencing_gate/moving.py), `_planned`, `_paths_after`, `_covered_after` and `_refuse_what_cannot_be_rewritten`.
 2. R4 — [the mover's limits](../../modules/const-referencing/MODULE.md#t9), limit 12; [the check in the code](../../modules/const-referencing/plugin/scripts/referencing_gate/moving.py), `_unknowable`.
