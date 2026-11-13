@@ -8,7 +8,7 @@ logs *args:
 metrics *args:
     python3 scripts/metrics.py {{args}}
 
-# Print the lines of the files the kit maintains, a report and never a check: one cloc run, as a tree of category, module and language; needs cloc on PATH; extra arguments go to the script (--json <path>|-)
+# Print the lines of the files the kit maintains, a report and never a check: counted by cloc, as a tree of group, part (a module, for the module groups) and language; needs cloc on PATH; extra arguments go to the script (--json <path>|-)
 loc *args:
     python3 scripts/metrics.py --loc {{args}}
 

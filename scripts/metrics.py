@@ -71,19 +71,21 @@ Modes:  no arguments    the three tables on stdout: the documents, the proof kin
                                               touch its file.
                         This mode reads no module document and runs no hook. It names functions; it
                         gives no advice, and no number in it is a threshold.
-        --loc           the lines of the files the kit maintains, counted by cloc in one run, as one
-                        tree on stdout: a category, then for the categories under modules/ the module,
-                        then the language, each line with its files, blank, comment and code lines;
-                        with --json <path> the tree too and the same numbers as JSON in <path>; with
-                        --json -, the JSON on stdout and no tree (decision
-                        dec-0133-line-counts-in-the-metrics-report). The files are those git tracks,
-                        a symbolic link left out, and so are the generated or pinned files of
-                        `GENERATED`. Each file falls in the first category of `CATEGORIES` whose
-                        pattern it matches, and in `other` when it matches none. A file cloc knows no
-                        language of is in no count; the JSON key `uncounted` lists it, and a note
-                        on stderr counts it. cloc counts a file even when another holds the same text
-                        (--skip-uniqueness), and a Python docstring as comment. This mode reads no
-                        module document, runs no hook, and is not run by CI. It needs cloc on PATH.
+        --loc           the lines of the files the kit maintains, counted by cloc, as one tree on
+                        stdout: a group of `GROUPS`, then its part, then the language, each line with
+                        its files, blank, comment and code lines, and a totals line; with --json <path>
+                        the tree too and the same numbers as JSON in <path>; with --json -, the JSON on
+                        stdout and no tree (decision dec-0133-line-counts-in-the-metrics-report). The
+                        files are those git tracks, a symbolic link left out, and so are the files of
+                        `GENERATED`. Each file falls in the first part of `PARTS` that one of its
+                        patterns matches; in the groups `plugins` and `module-dev` a part is a module
+                        folder. A file no pattern matches falls in the group `other`. cloc runs once
+                        over the files, and once more per language of `NAMED_LANGUAGE` over the files
+                        it names, which cloc cannot tell by name. A file cloc knows no language of is
+                        in no count; the JSON key `uncounted` lists it, and a note on stderr names it.
+                        cloc counts a file even when another holds the same text (--skip-uniqueness),
+                        and a Python docstring as comment. This mode reads no module document, runs no
+                        hook, and is not run by CI. It needs cloc on PATH.
 Notes on stderr: a SessionStart command that exits other than 0 or times out (its stdout still counted,
 none when it timed out), and a shallow clone, whose churn is short.
 Exit:   0 whenever the inputs could be read, whatever they measure; 1, with a BROKEN line that says what
@@ -139,9 +141,11 @@ HANDLE = re.compile(r"([A-Z]?)(\d+)[a-z]?(?:[–-]([A-Z]?)(\d+)[a-z]?)?")
 SPAN = re.compile(r"`([^`]*)`")
 WHY_READ = "a number read from a document it cannot parse would be a guess, and the report states no guess"
 LINK_MODE = "120000"  # git's mode of a symbolic link
-# --loc: the files no one maintains by hand — generated, pinned, or legal text — left out of every count
+# --loc: the files no one maintains by hand — generated, pinned, legal text, or an empty marker — left out
+# of every count
 GENERATED = (
     "modules/*/plugin/ccusage/package-lock.json",
+    "shared/constitution_layer_kit/py.typed",
     "scripts/eval-receipts.json",
     "scripts/claude-code.version",
     "scripts/eval-model",
@@ -149,34 +153,44 @@ GENERATED = (
     "NOTICE",
     ".gitignore",
 )
-# --loc: each category, its title, and its fnmatch patterns over the path from the kit root (`*` crosses
-# a slash); a file falls in the first that matches. The categories of BY_MODULE add a module level.
-CATEGORIES = (
-    ("plugins", "Plugins: what a consumer installs", ("modules/*/plugin/*",)),
-    ("module-tests", "Module tests", ("modules/*/tests/*",)),
-    ("module-evals", "Module eval cases", ("modules/*/evals/*",)),
-    ("module-docs", "Module documents: MODULE.md and README.md", ("modules/*",)),
-    (
-        "shared-dev",
-        "Shared package, development side: its testing package, documents and build file",
-        ("shared/constitution_layer_kit/testing/*", "shared/*.md", "shared/pyproject.toml"),
-    ),
-    ("shared-runtime", "Shared package, what the gates import", ("shared/constitution_layer_kit/*",)),
+# --loc: the files cloc knows no language of by their name, each with the language to count it as
+NAMED_LANGUAGE = {"justfile": "make"}
+# --loc: each group, in the order the tree shows them, and its title
+GROUPS = (
+    ("plugins", "Plugins: what a consumer installs"),
+    ("module-dev", "Module dev content: tests, eval cases, MODULE.md and README.md, and the module template"),
+    ("shared", "Shared package: what the gates import, its test helpers, its pages and build file"),
+    ("tooling", "Kit tooling: tests, checks and CI, setup, runners and reports, the kit's own agents"),
+    ("docs", "Documents: the decision records, the research comparisons, the governing documents"),
+)
+# --loc: each part, its group, and its fnmatch patterns over the path from the kit root (`*` crosses a
+# slash). A file falls in the first part, in this order, that one of its patterns matches, so a narrow
+# part stands before a broad one of its group; the tree shows a group's parts in this order too. The part
+# MODULE stands for the module folder the path names, modules/<module>/, and shows sorted by name.
+MODULE = "<module>"
+PARTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    ("plugins", MODULE, ("modules/*/plugin/*",)),
+    ("module-dev", MODULE, ("modules/*",)),
+    ("module-dev", "module-template", ("module-template/*",)),
+    ("shared", "testing", ("shared/constitution_layer_kit/testing/*",)),
+    ("shared", "runtime", ("shared/constitution_layer_kit/*",)),
+    ("shared", "docs", ("shared/*",)),
+    ("tooling", "tests", ("scripts/layered-fixture/*", "scripts/tests/*", "scripts/git-hooks/tests/*")),
     (
         "tooling",
-        "Kit tooling: scripts, CI, justfile",
-        ("scripts/*", ".github/*", "justfile", "pyproject.toml"),
+        "checks",
+        ("scripts/check-*.py", "scripts/list-message-literals.py", "scripts/gate-list.sh", ".github/*"),
     ),
-    ("records", "Decision records and research comparisons", ("docs/decisions/*", "docs/research/*")),
+    ("tooling", "setup", ("scripts/setup-*.sh", "scripts/git-hooks/*", "justfile", "pyproject.toml")),
+    ("tooling", "runners", ("scripts/*",)),
+    ("tooling", "agents", (".claude/*", ".claude-plugin/*")),
+    ("docs", "decisions", ("docs/decisions/*",)),
+    ("docs", "research", ("docs/research/*",)),
     (
-        "kernel-docs",
-        "Kernel and governance: kernel, policies, plans, guides, templates, profiles, root documents",
+        "docs",
+        "governance",
         (
-            "docs/constitution/*",
-            "docs/policies/*",
-            "docs/guide/*",
-            "docs/*.md",
-            "module-template/*",
+            "docs/*",
             "templates/*",
             "profiles/*",
             "constitution.yaml",
@@ -186,10 +200,8 @@ CATEGORIES = (
             "CLAUDE.md",
         ),
     ),
-    ("agent-config", "The kit's own agents, skills and settings", (".claude/*", ".claude-plugin/*")),
 )
-BY_MODULE = frozenset({"plugins", "module-tests", "module-evals", "module-docs"})
-OTHER = ("other", "Matched by no category: add it to CATEGORIES or GENERATED")
+OTHER = ("other", "Matched by no group: add it to GROUPS or GENERATED")
 COUNTS = ("files", "blank", "comment", "code")
 
 
@@ -716,11 +728,11 @@ class Lines:
 
 @dataclass
 class Branch:
-    """A category or a module: its lines, per language, and, for a category of BY_MODULE, per module."""
+    """A group, a part or the totals: its lines, per language, and, for a group, per part."""
 
     lines: Lines = field(default_factory=Lines)
     languages: dict[str, Lines] = field(default_factory=dict)
-    modules: dict[str, Branch] = field(default_factory=dict)
+    parts: dict[str, Branch] = field(default_factory=dict)
 
     def add(self, language: str, row: dict[str, int]) -> None:
         self.lines.add(row)
@@ -731,20 +743,20 @@ class Branch:
             **asdict(self.lines),
             "languages": {name: asdict(lines) for name, lines in by_code(self.languages)},
         }
-        if self.modules:
-            out["modules"] = {name: self.modules[name].as_json() for name in sorted(self.modules)}
+        if self.parts:
+            out["parts"] = {name: part.as_json() for name, part in self.parts.items()}
         return out
 
 
-def category_of(path: str) -> str | None:
-    """The category of a path from the kit root: None for a file of GENERATED, `other` for one that no
-    category's pattern matches."""
+def place_of(path: str) -> tuple[str, str] | None:
+    """The group and part of a path from the kit root: None for a file of GENERATED, the group `other`
+    for one that no part's pattern matches."""
     if any(fnmatch.fnmatchcase(path, pattern) for pattern in GENERATED):
         return None
-    for name, _, patterns in CATEGORIES:
+    for group, part, patterns in PARTS:
         if any(fnmatch.fnmatchcase(path, pattern) for pattern in patterns):
-            return name
-    return OTHER[0]
+            return group, path.split("/")[1] if part == MODULE else part
+    return OTHER[0], "unsorted"
 
 
 def maintained() -> list[str]:
@@ -753,15 +765,15 @@ def maintained() -> list[str]:
     for entry in git("ls-files", "-s", "-z").split("\0"):
         mode, _, rest = entry.partition(" ")
         name = rest.partition("\t")[2]
-        if name and mode != LINK_MODE and category_of(name) is not None:
+        if name and mode != LINK_MODE and place_of(name) is not None:
             out.append(name)
     return out
 
 
-def cloc(paths: list[str]) -> tuple[str, dict[str, dict[str, object]]]:
+def cloc(paths: list[str], *options: str) -> tuple[str, dict[str, dict[str, object]]]:
     """cloc's version and its row per counted file, from one run over the paths, or Broken."""
     why = "  why: --loc counts lines with cloc and counts none itself\n"
-    command = ["cloc", "--list-file=-", "--by-file", "--json", "--quiet", "--skip-uniqueness"]
+    command = ["cloc", "--list-file=-", "--by-file", "--json", "--quiet", "--skip-uniqueness", *options]
     try:
         done = subprocess.run(
             command,
@@ -778,10 +790,10 @@ def cloc(paths: list[str]) -> tuple[str, dict[str, dict[str, object]]]:
             "  fix: install cloc (`brew install cloc`, or your system's package of it) and run again"
         ) from bad
     try:
-        counted = json.loads(done.stdout) if done.returncode == 0 else None
+        counted = json.loads(done.stdout) if done.returncode == 0 and done.stdout.strip() else {}
     except json.JSONDecodeError:
         counted = None
-    if not isinstance(counted, dict):
+    if not isinstance(counted, dict) or done.returncode != 0:
         raise Broken(
             f"`{' '.join(command)}` exited {done.returncode} with no JSON report ({done.stderr.strip()})\n"
             f"{why}  fix: check that `cloc --version` answers, then run again"
@@ -791,29 +803,47 @@ def cloc(paths: list[str]) -> tuple[str, dict[str, dict[str, object]]]:
     return str(header.get("cloc_version", "unknown")), counted
 
 
+def counted_files(paths: list[str]) -> tuple[str, dict[str, dict[str, object]]]:
+    """cloc's version and its row per counted file: one run over every path, by cloc's own languages,
+    and one more per language of NAMED_LANGUAGE over the files it names, which cloc cannot tell by name."""
+    named = {path for path in paths if path.rsplit("/", 1)[-1] in NAMED_LANGUAGE}
+    version, counted = cloc([path for path in paths if path not in named])
+    for language in sorted(set(NAMED_LANGUAGE.values())):
+        these = [path for path in sorted(named) if NAMED_LANGUAGE[path.rsplit("/", 1)[-1]] == language]
+        counted |= cloc(these, f"--force-lang={language}")[1]
+    return version, counted
+
+
 def count_lines(
     paths: list[str], counted: dict[str, dict[str, object]]
 ) -> tuple[dict[str, Branch], Branch, list[str]]:
-    """The categories in the order of CATEGORIES, `other` last, those with no file left out; the totals;
-    and the paths cloc counted no line of."""
-    order = [name for name, _, _ in CATEGORIES] + [OTHER[0]]
+    """The groups in the order of GROUPS, `other` last, each with its parts in the order of PARTS, a
+    module part sorted by name, a group or part with no file left out; the totals; and the paths cloc
+    counted no line of."""
     found: dict[str, Branch] = {}
     total = Branch()
     uncounted: list[str] = []
     for path in paths:
-        row = counted.get(path)
-        name = category_of(path)
-        if row is None or name is None:
+        row, place = counted.get(path), place_of(path)
+        if row is None or place is None:
             uncounted.append(path)
             continue
         language = str(row["language"])
         numbers = {key: int(row[key]) for key in ("blank", "comment", "code")}  # type: ignore[call-overload]
-        branch = found.setdefault(name, Branch())
-        branch.add(language, numbers)
-        if name in BY_MODULE:
-            branch.modules.setdefault(path.split("/")[1], Branch()).add(language, numbers)
+        group = found.setdefault(place[0], Branch())
+        group.add(language, numbers)
+        group.parts.setdefault(place[1], Branch()).add(language, numbers)
         total.add(language, numbers)
+    for group in found.values():
+        group.parts = {name: group.parts[name] for name in part_order(group.parts)}
+    order = [name for name, _ in GROUPS] + [OTHER[0]]
     return {name: found[name] for name in order if name in found}, total, uncounted
+
+
+def part_order(parts: dict[str, Branch]) -> list[str]:
+    """The names of a group's parts: those PARTS names in its order, then the module folders, sorted."""
+    named = list(dict.fromkeys(part for _, part, _ in PARTS if part in parts))
+    return named + sorted(name for name in parts if name not in named)
 
 
 def by_code(languages: dict[str, Lines]) -> list[tuple[str, Lines]]:
@@ -822,19 +852,15 @@ def by_code(languages: dict[str, Lines]) -> list[tuple[str, Lines]]:
 
 
 def line_tree(found: dict[str, Branch], total: Branch, version: str) -> str:
-    """The line counts as one plain-text tree: category, module where there is one, language."""
+    """The line counts as one plain-text tree: group, part, language."""
     blocks: list[list[tuple[str, Lines]]] = []
-    for name, branch in found.items():
-        rows = [(name, branch.lines)]
-        if branch.modules:
-            for module in sorted(branch.modules):
-                sub = branch.modules[module]
-                rows.append((f"  {module}", sub.lines))
-                rows.extend((f"    {language}", lines) for language, lines in by_code(sub.languages))
-        else:
-            rows.extend((f"  {language}", lines) for language, lines in by_code(branch.languages))
+    for name, group in found.items():
+        rows = [(name, group.lines)]
+        for part_name, part in group.parts.items():
+            rows.append((f"  {part_name}", part.lines))
+            rows.extend((f"    {language}", lines) for language, lines in by_code(part.languages))
         blocks.append(rows)
-    label = "category / module / language"
+    label = "group / part / language"
     width = max(len(label), *(len(text) for rows in blocks for text, _ in rows))
 
     def line(text: str, lines: Lines) -> str:
@@ -843,10 +869,10 @@ def line_tree(found: dict[str, Branch], total: Branch, version: str) -> str:
     head = label.ljust(width) + "".join(f"  {key:>8}" for key in COUNTS)
     rule = "-" * len(head)
     body = "\n\n".join("\n".join(line(text, lines) for text, lines in rows) for rows in blocks)
-    titles = {name: title for name, title, _ in CATEGORIES} | {OTHER[0]: OTHER[1]}
+    titles = dict(GROUPS) | {OTHER[0]: OTHER[1]}
     legend = "\n".join(f"  {name.ljust(width)}{titles[name]}" for name in found)
     title = f"Lines of the files the kit maintains, counted by cloc {version}, advisory: a report, no verdict"
-    return "\n".join([title, head, rule, body, rule, line("totals", total.lines), "", "Categories:", legend])
+    return "\n".join([title, head, rule, body, rule, line("totals", total.lines), "", "Groups:", legend])
 
 
 def line_report(found: dict[str, Branch], total: Branch, version: str, uncounted: list[str]) -> str:
@@ -855,7 +881,7 @@ def line_report(found: dict[str, Branch], total: Branch, version: str, uncounted
             "advisory": "a report of law 5 of CLAUDE.md: it judges nothing",
             "commit": git("rev-parse", "HEAD").strip(),
             "cloc": version,
-            "categories": {name: branch.as_json() for name, branch in found.items()},
+            "groups": {name: group.as_json() for name, group in found.items()},
             "totals": total.as_json(),
             "uncounted": uncounted,
         },
@@ -865,16 +891,16 @@ def line_report(found: dict[str, Branch], total: Branch, version: str, uncounted
 
 
 def lines_mode(json_path: str | None) -> None:
-    """The --loc mode: one cloc run, the tree on stdout or the JSON, a note for the uncounted files."""
+    """The --loc mode: the cloc runs, the tree on stdout or the JSON, a note for the uncounted files."""
     paths = maintained()
-    version, counted = cloc(paths)
+    version, counted = counted_files(paths)
     found, total, uncounted = count_lines(paths, counted)
     written = line_report(found, total, version, uncounted)
     if json_path == "-":
         print(written)
     else:
         write(json_path, written)
-        print(line_tree(found, total, version))
+        print(line_tree(found, total, version), flush=True)
     if uncounted:
         print(
             f"note: {len(uncounted)} maintained files of no language cloc knows, in no count:"
