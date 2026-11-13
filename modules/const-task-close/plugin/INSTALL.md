@@ -70,13 +70,13 @@ A line that starts `BROKEN: const-task-close needs the Python package constituti
    commits: an update still sitting in the working tree does not count until it is committed.
    Declare no impact where it is true, with one line per pair. The line is a trailer on a commit of
    the change, in the message's last paragraph. In that paragraph every line is `Key: value`, and one line without
-   a colon hides the whole paragraph from git. Or the line stands on its own line in the pull request's
+   a colon can hide the whole paragraph from git. Or the line stands on its own line in the pull request's
    description:
    ```text
    No-Doc-Impact: api — comments reworded, no rule or message changed
    ```
    The reason is required and never judged by the check. A line naming no pair, or carrying no
-   reason, is a finding, and so is a wildcard: one line per pair. A line with no value at all is not read, as git gives none. The dash is an em or en dash,
+   reason, is a finding, and so is a wildcard: one line per pair. The check skips a line whose value is empty or only blanks, in either form. The dash is an em or en dash,
    spaced or not, or one or two hyphens spaced on both sides. Every declaration the check accepts is printed as a note, for the reviewer.
    A squash merge keeps a commit's trailer only when that message lands last; a project that
    squashes puts the line in the description.
