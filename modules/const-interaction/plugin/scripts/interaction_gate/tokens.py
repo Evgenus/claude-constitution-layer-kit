@@ -339,6 +339,17 @@ def _unredirected(text: str) -> str:
     return "".join(out)
 
 
+def _brace_end(text: str, j: int) -> int:
+    """Where the `${…}` whose contents start at `j` ends: past its matching `}`, its contents read unit by
+    unit, so a nested `${…}`, a quote or a `$(…)` in it ends nothing; at the text's end if it never
+    closes, so its text is kept and nothing in it is dropped."""
+    while j < len(text):
+        if text[j] == "}":
+            return j + 1
+        j = _unit_end(text, j)
+    return len(text)
+
+
 def _target_end(text: str, i: int) -> int:
     """Where the target of a redirection whose operator ends at `i` ends: past the blanks before it, then
     the units of one word, up to a blank or the next redirection."""
@@ -351,12 +362,15 @@ def _target_end(text: str, i: int) -> int:
 
 def _unit_end(text: str, i: int) -> int:
     """The end of the unit that starts at `i`, read as one piece: an escape and the character it takes, a
-    quoted string, a backtick pair or a `$(…)`, else one character. Nothing in one is a redirection."""
+    quoted string, a backtick pair, a `$(…)` or a `${…}`, else one character. Nothing in one is a
+    redirection."""
     ch = text[i]
     if ch == "\\":
         return min(i + 2, len(text))
     if text.startswith("$(", i):
         return _substitution_end(text, i + 2)
+    if text.startswith("${", i):
+        return _brace_end(text, i + 2)
     if ch in ("'", "`"):
         close = text.find(ch, i + 1)
         return len(text) if close == -1 else close + 1

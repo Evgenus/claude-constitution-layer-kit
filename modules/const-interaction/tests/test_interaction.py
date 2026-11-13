@@ -254,6 +254,7 @@ def test_t5() -> None:
     word, `git push --force>/dev/null`, and one inside the string a shell runs, `bash -c ">x; git
     push -f"` and `sh -c ">log; rm -rf build"`, both since 2026-11-13. An escaped `>` or `<` before
     `|` or `&`: `echo \\>|git push -f`, `echo \\>&git push -f` and `echo \\<&rm -rf build`.
+    A `>` inside an unquoted `${…}`: `rm -${x:+>}rf build` and `git push -${x:+>}f`.
 
     Git's options are stepped over by the entry's matching: `-C .`, `-c k=v`, `--no-pager -C .`,
     `--git-dir .git` and `--git-dir=.git`, `--work-tree w`, `--namespace n`, and `--exec-path`,
@@ -302,6 +303,9 @@ def test_t5() -> None:
     asked("echo \\>|git push -f", d1("", "git push", "-f", "git push -f"), subcommands=2)
     asked("echo \\>&git push -f", d1("", "git push", "-f", "git push -f"), subcommands=2)
     asked("echo \\<&rm -rf build", d1("", "rm", "-r", "rm -rf build"), subcommands=2)
+    # a `>` inside an unquoted `${…}` is text: the flag around it stays whole and asks
+    asked("rm -${x:+>}rf build", d1("", "rm", "-r", "rm -${x:+>}rf build"))
+    asked("git push -${x:+>}f", d1("", "git push", "-f", "git push -${x:+>}f"))
     # git's options before the verb are skipped by the entry's matching, as for every program
     asked("git -C . push -f", d1("", "git push", "-f", "git -C . push -f"))
     asked("git -c k=v push -f", d1("", "git push", "-f", "git -c k=v push -f"))
@@ -1553,7 +1557,7 @@ def test_t13() -> None:
     follows it, an unbalanced quote, a bare subshell, `sudo -u`, a continuation line, `&>`, a
     brace group, an assignment alone.
 
-    148 readings in all, among them git's options kept in the words, `exec -a x`, each wrapper
+    157 readings in all, among them git's options kept in the words, `exec -a x`, each wrapper
     added on 2026-10-05 read to its command, `flock -c` before and after the lock file, each
     added shell with its string, a shell's strings (`-ce`, `-cl`, `-ec`, `-oc posix`,
     `-oe pipefail -c` in bash, `-oerrexit -c` in zsh and `-opipefail -c` in ksh, `-c -e`,
@@ -1567,7 +1571,8 @@ def test_t13() -> None:
     quotes: a quoted `>` stays a word, `env -S` runs no redirection, digits are a descriptor only as
     the start of a word, an attached operator cuts its word, `>|` is one operator, and an escaped,
     quoted or substituted `>` is text. An escaped `>` or `<` before `|` or `&` leaves it a separator,
-    while `>|`, `2>&1`, `>&2`, `&>log` and `<&-` stay redirections.
+    while `>|`, `2>&1`, `>&2`, `&>log` and `<&-` stay redirections. An unquoted `${…}` is one span of
+    text, nested, with a quote or a `$(…)` inside, or never closed.
 
     Ten texts a slip could turn into an endless loop run through the gate within the harness's
     bound: a lone backtick, backtick pairs empty or side by side, and an escape in double quotes
@@ -1822,6 +1827,17 @@ def test_t13() -> None:
         "echo x >&2": [("echo", "x")],
         "ls &>log": [("ls",)],
         "cat <&-": [("cat",)],
+        # an unquoted `${…}` is one span of text up to its matching `}`, a nested one, a quote and a `$(…)`
+        # inside it too; one never closed keeps its text and drops nothing
+        "echo ${a:->x} y": [("echo", "${a:->x}", "y")],
+        "echo ${a:-${b:->x}} y": [("echo", "${a:-${b:->x}}", "y")],
+        "echo ${a:-'}>x'} y": [("echo", "${a:-}>x}", "y")],
+        "echo ${a:-$(b >x)} y": [("b",), ("echo", "${a:-$(b", ">x)}", "y")],
+        "echo ${a:->x y": [("echo", "${a:->x", "y")],
+        "rm -${x:+>}rf build": [("rm", "-${x:+>}rf", "build")],
+        "echo ${a}>x y": [("echo", "${a}", "y")],
+        "echo ${a} >x y": [("echo", "${a}", "y")],
+        "echo ${}>x y": [("echo", "${}", "y")],
         ">|a": [],
         "|a >": [("a",)],
         "a >x| b": [("a",), ("b",)],
