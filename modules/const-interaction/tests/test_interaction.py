@@ -25,7 +25,10 @@ from pathlib import Path
 import pytest
 import yaml
 from constitution_layer_kit import messages as shared
+from constitution_layer_kit.effect import History
+from constitution_layer_kit.history import read_transcript
 from constitution_layer_kit.model import Broken, Finding
+from constitution_layer_kit.testing import items as shared_items
 from constitution_layer_kit.testing.acceptance import broken_first_line, expect, failure_of, item
 from constitution_layer_kit.testing.consumer import Consumer
 from constitution_layer_kit.testing.harness import (
@@ -49,7 +52,7 @@ from constitution_layer_kit.testing.items import (
     tr_line,
     tr_turn,
 )
-from interaction_gate import messages, start, tokens
+from interaction_gate import effect_rules, messages, start, tokens
 from interaction_gate.model import (
     DEFAULT_DESTRUCTIVE,
     DEFAULT_READER_LISTS,
@@ -183,6 +186,22 @@ def broken(result: Result, failure: Broken, closing: str = shared.c11_broken_cou
     assert closing in result.stderr, f"no count line after: {first}"
 
 
+def kept_as_written(texts: Sequence[str], lists: ReaderLists = DEFAULT_READER_LISTS) -> None:
+    """Every reading of each text as written, the redirection pass switched off, is among the readings
+    `split` returns: the pass may add a reading, never take one away, so a command that asked without it
+    asks with it."""
+    lost: dict[str, list[tuple[str, ...]]] = {}
+    for text in texts:
+        with pytest.MonkeyPatch.context() as patch:
+            patch.setattr(tokens, "_unredirected", lambda piece: piece)
+            written = [s.words for s in tokens.split(text, lists)]
+        read = [s.words for s in tokens.split(text, lists)]
+        missing = [words for words in written if words not in read]
+        if missing:
+            lost[text] = missing
+    assert not lost, f"readings as written lost: {lost}"
+
+
 # ---------------------------------------------------------------- the shell gate: red→green pairs
 
 FORCE_PUSH = "git -C . push --force origin main"
@@ -236,15 +255,24 @@ def test_t4() -> None:
     )()
 
 
-@item(5, "wrappers, assignments, a program path and git's global options hide nothing")
+@item(5, "wrappers, assignments, redirections, a program path and git's global options hide nothing")
 def test_t5() -> None:
-    """Wrappers, assignments, a program path, git's global options: none hides the verb.
+    """Wrappers, assignments, redirections, a program path, git's global options: none hides the verb.
 
     The cases, once held by the acceptance table of the module document: wrappers, shells,
     assignments, a program path and the options between a program and its verb hide nothing:
     `sudo /bin/rm -r`, `git -c k=v push -f`, `FOO=1 timeout 5 git stash drop`, `nohup git
     filter-repo`, `git gc --prune=now`, `env -i`, `sudo -k`, `sudo --user root`, `/usr/bin/env`,
-    `bash -lc`, `exec`, `exec -a x rm -r y`, `if ...; then`, a redirection `2>&1`.
+    `bash -lc`, `exec`, `exec -a x rm -r y`, `if ...; then`, a redirection `2>&1`. A redirection
+    before the program, its target attached or the next word, between the program and its verb, or
+    after a wrapper, since 2026-11-13: `2>/dev/null git push -f`, `2> /dev/null git push -f`,
+    `git 2>/dev/null push -f`, `sudo >x git push -f`, `>out.log rm -rf build`. One attached to a
+    word, `git push --force>/dev/null`, and one inside the string a shell runs, `bash -c ">x; git
+    push -f"` and `sh -c ">log; rm -rf build"`, both since 2026-11-13. An escaped `>` or `<` before
+    `|` or `&`: `echo \\>|git push -f`, `echo \\>&git push -f` and `echo \\<&rm -rf build`.
+    A `>` inside an unquoted `${…}`: `rm -${x:+>}rf build` and `git push -${x:+>}f`, and inside a quoted
+    one: `rm -"${x:+">"}"rf build` and `git push -"${x:+">"}"f`. A piece with a redirection counts two
+    subcommands and one finding. Every command here keeps each reading it has as written.
 
     Git's options are stepped over by the entry's matching: `-C .`, `-c k=v`, `--no-pager -C .`,
     `--git-dir .git` and `--git-dir=.git`, `--work-tree w`, `--namespace n`, and `--exec-path`,
@@ -256,37 +284,71 @@ def test_t5() -> None:
     `--command=`, yash's `--cmdline`, mksh's `-T`, and fish's `-C` and `-c` in both orders, both
     strings read.
     """
-    asked("sudo /bin/rm -r /tmp/x", d1("", "rm", "-r", "sudo /bin/rm -r /tmp/x"))
-    asked(
+    texts: list[str] = []
+
+    def ask(text: str, finding: Finding, subcommands: int = 1, **kwargs: object) -> None:
+        """The module's `asked`, the text kept for the guard at the end."""
+        texts.append(text)
+        asked(text, finding, subcommands, **kwargs)
+
+    ask("sudo /bin/rm -r /tmp/x", d1("", "rm", "-r", "sudo /bin/rm -r /tmp/x"))
+    ask(
         "git -c push.default=current push -f",
         d1("", "git push", "-f", "git -c push.default=current push -f"),
     )
-    asked("FOO=1 timeout 5 git stash drop", d1("", "git stash drop", "", "FOO=1 timeout 5 git stash drop"))
-    asked("nohup git filter-repo --path x", d1("", "git filter-repo", "", "nohup git filter-repo --path x"))
-    asked("git gc --prune=now", d1("git gc --prune=now", "git gc", "--prune=now"))
-    asked("env -i git push -f", d1("", "git push", "-f", "env -i git push -f"))
-    asked("sudo -k git push -f", d1("", "git push", "-f", "sudo -k git push -f"))
-    asked("sudo --user root git push -f", d1("", "git push", "-f", "sudo --user root git push -f"))
-    asked("/usr/bin/env git push -f", d1("", "git push", "-f", "/usr/bin/env git push -f"))
-    asked('bash -lc "git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=2)
-    asked("exec git push -f", d1("", "git push", "-f", "exec git push -f"))
+    ask("FOO=1 timeout 5 git stash drop", d1("", "git stash drop", "", "FOO=1 timeout 5 git stash drop"))
+    ask("nohup git filter-repo --path x", d1("", "git filter-repo", "", "nohup git filter-repo --path x"))
+    ask("git gc --prune=now", d1("git gc --prune=now", "git gc", "--prune=now"))
+    ask("env -i git push -f", d1("", "git push", "-f", "env -i git push -f"))
+    ask("sudo -k git push -f", d1("", "git push", "-f", "sudo -k git push -f"))
+    ask("sudo --user root git push -f", d1("", "git push", "-f", "sudo --user root git push -f"))
+    ask("/usr/bin/env git push -f", d1("", "git push", "-f", "/usr/bin/env git push -f"))
+    ask('bash -lc "git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=2)
+    ask("exec git push -f", d1("", "git push", "-f", "exec git push -f"))
     # exec is a wrapper whose own option -a takes a value, bash's manual: it stood in front of the verb
-    asked("exec -a x rm -r y", d1("", "rm", "-r", "exec -a x rm -r y"))
-    asked("if true; then git push -f; fi", d1("", "git push", "-f", "then git push -f"), subcommands=2)
-    asked("git push -f 2>&1", d1("", "git push", "-f", "git push -f 2>&1"))
+    ask("exec -a x rm -r y", d1("", "rm", "-r", "exec -a x rm -r y"))
+    ask("if true; then git push -f; fi", d1("", "git push", "-f", "then git push -f"), subcommands=2)
+    # a piece with a redirection is read twice, as written and without it: two subcommands, one finding
+    ask("git push -f 2>&1", d1("", "git push", "-f", "git push -f 2>&1"), subcommands=2)
+    # a redirection is no word of the command, wherever it stands: before the program, its target
+    # attached or the next word, between the program and its verb, after a wrapper
+    for text in (
+        "2>/dev/null git push -f",
+        "2> /dev/null git push -f",
+        "git 2>/dev/null push -f",
+        "sudo >x git push -f",
+    ):
+        ask(text, d1("", "git push", "-f", text), subcommands=2)
+    ask(">out.log rm -rf build", d1("", "rm", "-r", ">out.log rm -rf build"), subcommands=2)
+    # a redirection is read where it stands outside quotes: attached to a word it cuts the word, and in
+    # the string a shell runs it is read again, so the command after it in that string still asks
+    ask(
+        "git push --force>/dev/null",
+        d1("", "git push", "--force", "git push --force>/dev/null"),
+        subcommands=2,
+    )
+    ask('bash -c ">x; git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=3)
+    ask('sh -c ">log; rm -rf build"', d1("", "rm", "-r", "rm -rf build"), subcommands=3)
+    # an escaped `>` or `<` is text, so the `|` or `&` after it separates: the command after it asks
+    ask("echo \\>|git push -f", d1("", "git push", "-f", "git push -f"), subcommands=2)
+    ask("echo \\>&git push -f", d1("", "git push", "-f", "git push -f"), subcommands=2)
+    ask("echo \\<&rm -rf build", d1("", "rm", "-r", "rm -rf build"), subcommands=2)
+    # a `>` inside an unquoted `${…}` is text: the flag around it stays whole and asks
+    ask("rm -${x:+>}rf build", d1("", "rm", "-r", "rm -${x:+>}rf build"))
+    ask("git push -${x:+>}f", d1("", "git push", "-f", "git push -${x:+>}f"))
     # git's options before the verb are skipped by the entry's matching, as for every program
-    asked("git -C . push -f", d1("", "git push", "-f", "git -C . push -f"))
-    asked("git -c k=v push -f", d1("", "git push", "-f", "git -c k=v push -f"))
-    asked("git --no-pager -C . push -f", d1("", "git push", "-f", "git --no-pager -C . push -f"))
-    asked(
+    ask("git -C . push -f", d1("", "git push", "-f", "git -C . push -f"))
+    ask("git -c k=v push -f", d1("", "git push", "-f", "git -c k=v push -f"))
+    ask("git --no-pager -C . push -f", d1("", "git push", "-f", "git --no-pager -C . push -f"))
+    ask(
         "git --git-dir .git push --force",
         d1("", "git push", "--force", "git --git-dir .git push --force"),
     )
-    asked("git --git-dir=.git push -f", d1("", "git push", "-f", "git --git-dir=.git push -f"))
-    asked("git --work-tree w reset --hard", d1("", "git reset", "--hard", "git --work-tree w reset --hard"))
-    asked("git --namespace n push -f", d1("", "git push", "-f", "git --namespace n push -f"))
+    ask("git --git-dir=.git push -f", d1("", "git push", "-f", "git --git-dir=.git push -f"))
+    ask("git --work-tree w reset --hard", d1("", "git reset", "--hard", "git --work-tree w reset --hard"))
+    ask("git --namespace n push -f", d1("", "git push", "-f", "git --namespace n push -f"))
     # git's page gives the value of --exec-path as optional: the verb stands right after it
-    asked("git --exec-path push -f", d1("", "git push", "-f", "git --exec-path push -f"))
+    ask("git --exec-path push -f", d1("", "git push", "-f", "git --exec-path push -f"))
     # the wrappers of the defaults whose pages the kit read on 2026-10-05, each in the forms of its page
     for form in (
         "busybox",
@@ -301,18 +363,23 @@ def test_t5() -> None:
         "chrt 10",
         "chrt -f 10",
     ):
-        asked(f"{form} rm -rf build", d1("", "rm", "-r", f"{form} rm -rf build"))
+        ask(f"{form} rm -rf build", d1("", "rm", "-r", f"{form} rm -rf build"))
     # flock's `-c` after the lock file: the string it names is the command, read again
-    asked("flock /tmp/l -c 'rm -rf build'", d1("", "rm", "-r", "rm -rf build"))
+    ask("flock /tmp/l -c 'rm -rf build'", d1("", "rm", "-r", "rm -rf build"))
     # the shells of the defaults, `-c` and the forms of their pages: the string is read as commands
     for shell in ("fish", "ash", "mksh", "yash", "posh", "csh", "tcsh"):
-        asked(f"{shell} -c 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2)
-    asked("fish --command='git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2)
-    asked("yash --cmdline 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2)
-    asked("mksh -T /dev/tty2 -c 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2)
+        ask(f"{shell} -c 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2)
+    ask("fish --command='git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2)
+    ask("yash --cmdline 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2)
+    ask("mksh -T /dev/tty2 -c 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2)
     # fish runs `-C` and `-c` strings alike: every command flag met yields a string, both are read
-    asked("fish -C 'set x 1' -c 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=3)
-    asked("fish -c 'git push -f' -C 'set x 1'", d1("", "git push", "-f", "git push -f"), subcommands=3)
+    ask("fish -C 'set x 1' -c 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=3)
+    ask("fish -c 'git push -f' -C 'set x 1'", d1("", "git push", "-f", "git push -f"), subcommands=3)
+    # a `>` inside a quoted `${…}` is text too
+    ask('rm -"${x:+">"}"rf build', d1("", "rm", "-r", 'rm -"${x:+">"}"rf build'))
+    ask('git push -"${x:+">"}"f', d1("", "git push", "-f", 'git push -"${x:+">"}"f'))
+    # every command above keeps each reading it has as written
+    kept_as_written(texts)
 
 
 @item(6, "outside the list passes: a heredoc body, checkout -- ., an amend, a plain push, a flag after --")
@@ -349,11 +416,12 @@ def test_t6() -> None:
 
     With a consumer entry `[kubectl, delete]`, a word that is neither an option nor an option's
     value between the entry's words, or a `--`, is no match: `kubectl get pods delete`,
-    `kubectl -n prod get pods` and `kubectl -n prod -- delete pod x` pass.
+    `kubectl -n prod get pods` and `kubectl -n prod -- delete pod x` pass. So do `git help
+    restore`, `git - restore` and `git -C . help restore` for the default entry `git restore`.
     """
     entry = {"command": ["kubectl", "delete"], "teach": "a deleted resource is gone", "alternative": "scale"}
     kubectl = own(destructive=[entry])
-    passed("cat <<EOF\nrm -rf /\nEOF\n")
+    passed("cat <<EOF\nrm -rf /\nEOF\n", subcommands=2)  # `cat <<EOF` read as written and without it
     passed("git checkout -- .")
     passed("git commit --amend --no-edit")
     passed("git push origin main")
@@ -370,16 +438,20 @@ def test_t6() -> None:
     passed("kubectl -n prod -- delete pod x", entries=1, dials_patch=kubectl)
     # an option written with `=` takes no value after it: `get` ends the walk, `delete` is no verb here
     passed("kubectl --context=prod get delete", entries=1, dials_patch=kubectl)
+    # the same of a default entry: a plain word first, a lone `-`, a plain word after an option's value
+    passed("git help restore")
+    passed("git - restore")
+    passed("git -C . help restore")
     asked('echo "a<<EOF"\ngit push -f', d1("", "git push", "-f", "git push -f"), subcommands=2)
     asked('echo "a<<EOF"\ngit push -f\nEOF', d1("", "git push", "-f", "git push -f"), subcommands=3)
-    asked("cat <<EOF\ngit push -f", d1("", "git push", "-f", "git push -f"), subcommands=2)
+    asked("cat <<EOF\ngit push -f", d1("", "git push", "-f", "git push -f"), subcommands=3)
     passed(
         "git commit -q -F - <<'EOF'\nthe branch fix; git branch -f gated\nEOF",
-        subcommands=1,
+        subcommands=2,
     )
     passed(
         "git commit -m \"$(cat <<'EOF'\nthe branch fix; git branch -f gated\nEOF\n)\"",
-        subcommands=2,
+        subcommands=3,
     )
     asked('env -S "git push -f"', d1("", "git push", "-f", "git push -f"))
     asked('env -i -S "git push -f"', d1("", "git push", "-f", "git push -f"))
@@ -468,7 +540,8 @@ def test_t7() -> None:
     Options and their values stand between an entry's words and hide none: `kubectl -n prod
     delete`, `--context=prod`, `docker --context prod rm`, `terraform -chdir=infra destroy`,
     `helm -n prod uninstall`, `npx -y prisma migrate reset`, `uv run --with x rm -rf` with the
-    flag `-r`; the false prompt `kubectl -n delete get pods` is pinned as asking.
+    flag `-r`; the false prompt `kubectl -n delete get pods` is pinned as asking. A wrapper's
+    option `-X` loads and takes its value.
 
     The reader's dials: a wrapper added reads through (`uv run --with x`); a default dropped is
     read as a program, and an entry may name it; a default given again takes the fields as
@@ -587,6 +660,11 @@ def test_t7() -> None:
         dials_patch=own(wrappers=[{"command": ["bash"]}], shells=[{"command": ["bash"], "drop": True}]),
     )
     passed("ls", dials_patch=own(wrappers=[{"command": ["uv"], "with_value": [], "command_flags": []}]))
+    asked(  # an option of the dash and one letter, X included, loads and takes its value
+        "uv -X v rm -rf b",
+        d1("", "rm", "-r", "uv -X v rm -rf b"),
+        dials_patch=own(wrappers=[{"command": ["uv"], "with_value": ["-X"]}]),
+    )
     between("kubectl -n prod delete pod x", "kubectl delete")
     between("kubectl --context=prod delete pod x", "kubectl delete")
     between("kubectl --namespace prod delete pod x", "kubectl delete")
@@ -644,7 +722,13 @@ def test_t9() -> None:
         "stdout",
     )
     mis = H.run_gate("", args=["--command", "ls"])
-    expect(mis, 1, "BROKEN: misinvocation: --command applies to --scan", "stderr")
+    mis_wanted = (  # typed by hand, the whole stderr
+        "BROKEN: misinvocation: --command applies to --scan — fix: run with no arguments (hook) or --scan"
+        " [<dir>] [--command <text>]\n"
+        "BROKEN: the check could not run — 0 documents examined\n"
+    )
+    mis_ok = mis.code == 1 and mis.stdout == "" and mis.stderr == mis_wanted
+    assert mis_ok, f"misinvocation: exit {mis.code}: {mis.stderr}"
     # the split of the scan reads the wrappers the dials give: `uv` is no default wrapper, so the command
     # behind `uv run --with x` is examined only when the scan splits with the loaded lists
     uv_root = prepared(own(wrappers=[{"command": ["uv", "run"], "with_value": ["--with"]}]))
@@ -794,20 +878,28 @@ def reader_dial_cases(prefix: str) -> list[tuple[dict[str, object], str]]:
             w + "entry 1: with_value holds '-a\\nb', which holds white space, and an option is one word of"
             " the command line — fix: write each option as an item of its own, such as -u or --user",
         ),
-        (
-            own(wrappers=[{"command": ["uv"], "with_value": ["u"]}]),
-            w + "entry 1: with_value holds 'u', which does not start with '-', so it is no option — fix:"
-            " write it as the command line has it, with its dash, such as -u or --user",
+        *(  # a word that starts with a letter, a capital X too, is no option of a wrapper
+            (
+                own(wrappers=[{"command": ["uv"], "with_value": [option]}]),
+                w
+                + f"entry 1: with_value holds '{option}', which does not start with '-', so it is no option —"
+                " fix: write it as the command line has it, with its dash, such as -u or --user",
+            )
+            for option in ("u", "Xu")
         ),
         (  # a wrapper's options are the words that start with '-': a '+' never matches
             own(wrappers=[{"command": ["uv"], "command_flags": ["+c"]}]),
             w + "entry 1: command_flags holds '+c', which does not start with '-', so it is no option — fix:"
             " write it as the command line has it, with its dash, such as -u or --user",
         ),
-        (
-            own(shells=[{"command": ["elvish"], "with_value": ["o"]}]),
-            s + "entry 1: with_value holds 'o', which starts with neither '-' nor '+', so it is no option —"
-            " fix: write it as the command line has it, with its sign, such as -o, +o or --rcfile",
+        *(  # a word that starts with a letter, a capital X too, is no option of a shell
+            (
+                own(shells=[{"command": ["elvish"], "with_value": [option]}]),
+                s + f"entry 1: with_value holds '{option}', which starts with neither '-' nor '+', so it is"
+                " no option — fix: write it as the command line has it, with its sign, such as -o, +o or"
+                " --rcfile",
+            )
+            for option in ("o", "Xo")
         ),
         *(
             (
@@ -1015,7 +1107,9 @@ def test_t10() -> None:
     The cases, once held by the acceptance table of the module document: a key that is no dial,
     `destructive` not a list, an entry not a mapping, an unknown field, a command with a space,
     flags without `-`, `teach` missing, `handles` empty, a handle that does not compile,
-    `territories` empty, a malformed pair, a `verbosity` outside its one value. The list in its
+    `territories` empty, a malformed pair, a `verbosity` outside its one value. Also an
+    `alternative` missing or blank, a flag holding a space, a pair with a field that is no text, an
+    option of either reader dial that starts with a capital X. The list in its
     headline is built from the `Verbosity` members, and the fix's "the one value today" is tied
     to there being one.
 
@@ -1096,6 +1190,25 @@ def test_t10() -> None:
             prefix + "const-interaction.destructive entry 1: teach must be a non-empty text — fix: write the"
             " entry as command: [<words>], flags: [<flags>] (optional), teach: <why the act is hard to"
             " reverse>, alternative: <the reversible way>",
+        ),
+        *(  # an alternative missing, or blank
+            (
+                own(destructive=[entry]),
+                prefix + "const-interaction.destructive entry 1: alternative must be a non-empty text — fix:"
+                " write the entry as command: [<words>], flags: [<flags>] (optional), teach: <why the act is"
+                " hard to reverse>, alternative: <the reversible way>",
+            )
+            for entry in (
+                {"command": ["rm"], "teach": "t"},
+                {"command": ["rm"], "teach": "t", "alternative": "  "},
+            )
+        ),
+        (  # a flag holding a space is two words, never one flag
+            own(destructive=[{"command": ["rm"], "flags": ["-r f"], "teach": "t", "alternative": "a"}]),
+            prefix
+            + "const-interaction.destructive entry 1: flags must be a list of flags, each starting with"
+            " '-' — fix: write the entry as command: [<words>], flags: [<flags>] (optional), teach: <why the"
+            " act is hard to reverse>, alternative: <the reversible way>",
         ),
         (  # a program's path is dropped by the reading: the base name is the entry to write
             unread(["./scripts/deploy.sh"]),
@@ -1209,12 +1322,15 @@ def test_t10() -> None:
             " one value today: assumption and restatement lines appear only when triggered — or leave the key"
             " out for it",
         ),
-        (
-            own(boundary_examples=[{"violates": "x"}]),
-            prefix
-            + "const-interaction.boundary_examples must be a list of pairs {violates: <text>, complies:"
-            ' <text>} — fix: write one pair per "- " item with exactly those two fields, or leave the key'
-            " out",
+        *(  # a pair with a field missing, or a field that is no text
+            (
+                own(boundary_examples=[pair]),
+                prefix
+                + "const-interaction.boundary_examples must be a list of pairs {violates: <text>, complies:"
+                ' <text>} — fix: write one pair per "- " item with exactly those two fields, or leave the key'
+                " out",
+            )
+            for pair in ({"violates": "x"}, {"violates": 5, "complies": "c"})
         ),
     ]
     cases.extend(reader_dial_cases(prefix))
@@ -1309,7 +1425,8 @@ def test_t11() -> None:
 @item(12, "golden lines: D1 typed whole")
 def test_t12() -> None:
     """Golden lines: D1 for the force push typed whole against a fresh run, so a why emptied or a
-    word lost inside the message function is red."""
+    word lost inside the message function is red. Every default entry in each of its flags, 21
+    subcommands of one command, asks with its own why and fix, the reason typed whole."""
     result, _ = gate_on(command(FORCE_PUSH))
     reason = ask_reason(result) or ""
     wanted = (
@@ -1350,6 +1467,120 @@ def test_t12() -> None:
     assert ok, f"differs:\n{reason}"
     # the command, words and flag only point: cut at 80, then escaped; teach and alternative whole
     assert odd_ok, f"differs:\n{odd_reason}"
+    # Every default entry asks, in each of its flags, with its own why and fix: one command chains them all,
+    # and the reason is typed whole from this table, never from the defaults it pins. A row is the
+    # subcommand, the entry's words with the flag that matched, the why and the fix before the tail.
+    tail = (
+        "; to run it as written, confirm at the prompt — where no prompt can be shown, get the user's yes in"
+        " chat and run it again, one yes per command; to stop gating it, remove the entry from"
+        " const-interaction.destructive in constitution.yaml"
+    )
+    checkout = (
+        "a forced checkout throws away local changes to the files it switches; nothing brings them back",
+        "run git stash first, then check out; or commit the changes on a branch",
+    )
+    clean = (
+        "git clean deletes untracked files, which no commit holds; nothing brings them back",
+        "run git clean -n first to see what would go, then move what matters out of the tree",
+    )
+    branch = (
+        "-D deletes a branch whether or not it is merged, and -f moves one to another commit: the commits"
+        " left behind become unreachable",
+        "delete with -d, which refuses an unmerged branch, or tag the tip first (git tag keep/<name>)",
+    )
+    recursive = (
+        "a recursive rm deletes a directory tree outside git; nothing brings it back",
+        "use git rm for tracked files, or move the directory to a scratch location first",
+    )
+    rewrite = (
+        "rewrites history across every commit it touches",
+        "clone the repository first, and rewrite the clone",
+    )
+    defaults = (
+        ("git push -f", "git push with -f", *push_texts()),
+        ("git push --force", "git push with --force", *push_texts()),
+        (
+            "git reset --hard",
+            "git reset with --hard",
+            "a hard reset discards every uncommitted change in the working tree and the index, which nothing"
+            " brings back; with a target such as HEAD~1 it also drops the commits after the target from the"
+            " branch",
+            "run git stash first, or reset with --keep, which stops when a change would be lost; with a"
+            " target, also tag the tip first (git tag keep/<name>)",
+        ),
+        ("git checkout -f x", "git checkout with -f", *checkout),
+        ("git checkout --force x", "git checkout with --force", *checkout),
+        (
+            "git restore a",
+            "git restore",
+            "git restore discards the working-tree changes of the paths it names; nothing brings them back",
+            "run git stash first, or git diff to see what would be lost, then restore one path at a time",
+        ),
+        ("git clean -f", "git clean with -f", *clean),
+        ("git clean --force", "git clean with --force", *clean),
+        ("git branch -D b", "git branch with -D", *branch),
+        ("git branch -f b", "git branch with -f", *branch),
+        ("git branch --force b", "git branch with --force", *branch),
+        (
+            "git stash drop",
+            "git stash drop",
+            "a dropped stash is unreachable; nothing lists it again",
+            "apply it with git stash branch <name>, or leave it in the list",
+        ),
+        (
+            "git stash clear",
+            "git stash clear",
+            "clear drops every stash at once; nothing lists them again",
+            "drop one at a time after applying it with git stash branch <name>",
+        ),
+        (
+            "git rebase main",
+            "git rebase",
+            "a rebase rewrites the commits of the branch: their hashes change, and a branch others hold"
+            " diverges from theirs",
+            "tag the tip first (git tag keep/<name>), or make the change on a new branch and merge",
+        ),
+        ("git filter-branch", "git filter-branch", "filter-branch " + rewrite[0], rewrite[1]),
+        ("git filter-repo", "git filter-repo", "filter-repo " + rewrite[0], rewrite[1]),
+        (
+            "git reflog expire",
+            "git reflog expire",
+            "expiring the reflog removes the record that lets a lost commit be found again",
+            "leave the reflog; disk is cheaper than a lost commit",
+        ),
+        (
+            "git gc --prune=now",
+            "git gc with --prune=now",
+            "pruning now deletes every unreachable object at once, including those the reflog would have let"
+            " you recover",
+            "run git gc without --prune=now, which keeps recent unreachable objects",
+        ),
+        ("rm -r d", "rm with -r", *recursive),
+        ("rm -R d", "rm with -R", *recursive),
+        ("rm --recursive d", "rm with --recursive", *recursive),
+    )
+    chain = "; ".join(row[0] for row in defaults)
+    every, _ = gate_on(command(chain))
+    every_reason = ask_reason(every) or ""
+    every_wanted = (
+        "".join(
+            f"RED: destructive command: '{text}' matches the entry {matched}\n"
+            f"  why: {why}\n  fix: {fix}{tail}\n"
+            for text, matched, why, fix in defaults
+        )
+        + "RED: 21 finding(s) — 1 command examined (21 subcommand(s))"
+    )
+    assert every_reason == every_wanted, f"differs:\n{every_reason}"
+
+
+def push_texts() -> tuple[str, str]:
+    """The why and the fix of the default entry `git push`, typed by hand."""
+    return (
+        "a forced push rewrites the branch on the remote: every other clone of it diverges, and the"
+        " commits it replaced are unreachable there",
+        "push with --force-with-lease, which refuses when the remote moved, or push a new branch and"
+        " open a pull request",
+    )
 
 
 @item(13, "the readings typed by hand: every default wrapper, flag and shell, an entry's own")
@@ -1361,13 +1592,28 @@ def test_t13() -> None:
     follows it, an unbalanced quote, a bare subshell, `sudo -u`, a continuation line, `&>`, a
     brace group, an assignment alone.
 
-    75 readings in all, among them git's options kept in the words, `exec -a x`, each wrapper
+    160 readings in all, among them git's options kept in the words, `exec -a x`, each wrapper
     added on 2026-10-05 read to its command, `flock -c` before and after the lock file, each
     added shell with its string, a shell's strings (`-ce`, `-cl`, `-ec`, `-oc posix`,
     `-oe pipefail -c` in bash, `-oerrexit -c` in zsh and `-opipefail -c` in ksh, `-c -e`,
     `-c --`, arguments after the string, a script file with `-c` after it), fish's `-C` and `-c`
     in both orders and with a flag that waits, and `--` ending the options of a wrapper and of a
-    shell.
+    shell. Since 2026-11-12 also: each two-letter operator before a redirection, each shell word,
+    `<&` and `>&`, a heredoc whose terminator is the next line and two operators on one line, a
+    heredoc marker in quotes, an escape outside quotes, a substitution at the text's start, a `(`
+    and a quote inside `$(…)`, two backtick pairs, chrt's one number, a string two shell walks
+    find, flock's `-c` with `--`. Since 2026-11-13 also the redirection read from the text outside
+    quotes: a quoted `>` stays a word, `env -S` runs no redirection, digits are a descriptor only as
+    the start of a word, an attached operator cuts its word, `>|` is one operator, and an escaped,
+    quoted or substituted `>` is text. An escaped `>` or `<` before `|` or `&` leaves it a separator,
+    while `>|`, `2>&1`, `>&2`, `&>log` and `<&-` stay redirections. An unquoted `${…}` is one span of
+    text, nested, with a quote or a `$(…)` inside, or never closed. Since round 4 of the audit, a piece
+    with a redirection reads twice, as written and without it, and a guard asserts that every reading
+    as written, the redirection pass switched off, is among those `split` returns, over every table.
+
+    Ten texts a slip could turn into an endless loop run through the gate within the harness's
+    bound: a lone backtick, backtick pairs empty or side by side, and an escape in double quotes
+    or outside quotes, at the top level, before a heredoc operator and inside `$(…)`.
 
     A table typed by hand, never derived from the code, pins 151 readings: every default wrapper
     name, every valued flag of every wrapper, every default shell and every option of a shell
@@ -1376,7 +1622,7 @@ def test_t13() -> None:
     14 readings on lists of their own hold the fields no default uses: a wrapper of two words,
     `numbers`, a command flag after a positional word, a shell's long command flag.
 
-    11 readings of an entry's own words: `[git, -C]` and `[deploy.sh]` read as themselves, while a
+    12 readings of an entry's own words: `[git, -C]` and `[deploy.sh]` read as themselves, while a
     path, a wrapper, an assignment, `exec`, a wrapper alone, `x/` and a string handed on do not.
     Each of the fourteen default entries reads as itself.
     """
@@ -1503,9 +1749,156 @@ def test_t13() -> None:
         "nice -- -n 5 rm -rf b": [("-n", "5", "rm", "-rf", "b")],
         "sh -- -lc 'rm -rf b'": [("sh", "--", "-lc", "rm -rf b")],
         "git push \\\n -f": [("git", "push", "-f")],
-        "ls &> /dev/null; rm -r x": [("ls", "&>", "/dev/null"), ("rm", "-r", "x")],
+        "ls &> /dev/null; rm -r x": [("ls", "&>", "/dev/null"), ("ls",), ("rm", "-r", "x")],
         "{ git push -f; }": [("git", "push", "-f")],
         "FOO=1": [],
+        # a two-letter operator is read before its one-letter prefix: `&&`, `||` and `|&` each cut once,
+        # and the redirection after them is dropped with its target
+        "a &&> b": [("a",), (">", "b")],
+        "a ||&> b": [("a",), ("&>", "b")],
+        "a |&> b": [("a",), (">", "b")],
+        # each shell word is stripped, by name or by path, so the program after it is read
+        "! git push -f": [("git", "push", "-f")],
+        "if x; then :; else git push -f; fi": [("x",), (":",), ("git", "push", "-f")],
+        "if x; then :; elif git push -f; then :; fi": [("x",), (":",), ("git", "push", "-f"), (":",)],
+        "while git push -f; do :; done": [("git", "push", "-f"), (":",)],
+        "until git push -f; do :; done": [("git", "push", "-f"), (":",)],
+        "while x; do git push -f; done": [("x",), ("git", "push", "-f")],
+        "/bin/do git push -f": [("git", "push", "-f")],
+        # `<&` and `>&` redirect and cut nothing, at the text's start too, and are dropped with their target;
+        # a `&` that opens the text cuts; a redirection with no word after it is dropped alone
+        "cat <&3 & git push -f": [("cat", "<&3"), ("cat",), ("git", "push", "-f")],
+        "ls >& x; git push -f": [("ls", ">&", "x"), ("ls",), ("git", "push", "-f")],
+        "& ls >": [("ls", ">"), ("ls",)],
+        ">& x": [(">&", "x")],
+        # a heredoc whose terminator is the next line drops nothing but the operator's body, and the lines
+        # after it are read; of two operators on one line, the first one's body alone is dropped, so the
+        # second body is read as commands, which examines more
+        "cat <<EOF\nEOF\nls": [("cat", "<<EOF"), ("cat",), ("ls",)],
+        "cat <<A <<B\nx\nA\ny\nB\nls": [("cat", "<<A", "<<B"), ("cat",), ("y",), ("B",), ("ls",)],
+        # an operator inside quotes at the line's first character drops nothing; one after a closed quote
+        # inside `$(…)` drops its body
+        '"<<EOF"\ngit push -f\nEOF': [("<<EOF",), ("git", "push", "-f"), ("EOF",)],
+        'x $("a" <<EOF\nb\nEOF\n)': [("a", "<<EOF"), ("a",), ("x", "$(a", "<<EOF", ")")],
+        # a backtick opens a quote at the top-level split, so its `;` cuts nothing there; an escape outside
+        # quotes takes one character with it, at the text's end too
+        "echo `a; git push -f`": [("a",), ("git", "push", "-f"), ("echo", "`a;", "git", "push", "-f`")],
+        "echo \\;": [("echo", ";")],
+        "echo \\a; git push -f": [("echo", "a"), ("git", "push", "-f")],
+        # a substitution at the text's start is read; a quoted `)` ends none; two pairs of backticks apart
+        # are both read
+        "$(git push -f)": [("git", "push", "-f"), ("$(git", "push", "-f)")],
+        'echo $("a)" b) x': [("a)", "b"), ("echo", "$(a)", "b)", "x")],
+        "echo `a` `b`": [("a",), ("b",), ("echo", "`a`", "`b`")],
+        # a `(` inside `$(…)` opens a level that its `)` closes, at the top-level split and in the contents
+        "echo $( (cd x) ; git push -f)": [
+            ("cd", "x"),
+            ("git", "push", "-f"),
+            ("echo", "$(", "(cd", "x)", ";", "git", "push", "-f)"),
+        ],
+        'echo "$( (a) )"; git push -f': [("a",), ("echo", "$( (a) )"), ("git", "push", "-f")],
+        'echo $( "$( (x) )" ) $(git push -f)': [
+            ("x",),
+            ("$( (x) )",),
+            ("git", "push", "-f"),
+            ("echo", "$(", "$( (x) )", ")", "$(git", "push", "-f)"),
+        ],
+        # inside `$(…)`: a `$(` in single quotes is text, a quote that a nested `$(` interrupted is restored
+        # at its `)`, a single-quoted `)` closes nothing
+        "echo $(echo '$(') $(git push -f)": [
+            ("echo", "$("),
+            ("git", "push", "-f"),
+            ("echo", "$(echo", "$()", "$(git", "push", "-f)"),
+        ],
+        'echo $( "$(a)" ) $(git push -f)': [
+            ("a",),
+            ("$(a)",),
+            ("git", "push", "-f"),
+            ("echo", "$(", "$(a)", ")", "$(git", "push", "-f)"),
+        ],
+        "echo $(echo ')' ) $(git push -f)": [
+            ("echo", ")"),
+            ("git", "push", "-f"),
+            ("echo", "$(echo", ")", ")", "$(git", "push", "-f)"),
+        ],
+        "elif $( push &> 5 $(": [("push", "&>", "5", "$"), ("push", "$"), ("$(", "push", "&>", "5", "$(")],
+        # a wrapper's numbers: one word only and no number leaves it the program; no wrapper but chrt
+        # skips a number, and chrt one at most
+        "chrt x": [("x",)],
+        "nohup 5 rm -rf b": [("5", "rm", "-rf", "b")],
+        "chrt 10 5 rm -rf b": [("5", "rm", "-rf", "b")],
+        # a shell's strings: one both walks find is read once, in the order of their places; the zsh walk
+        # sees a command flag in a cluster of three letters; a long option no list knows takes no word
+        "zsh -coX 'git push -f' -coX 'git push -f'": [
+            ("zsh", "-coX", "git push -f", "-coX", "git push -f"),
+            ("git", "push", "-f"),
+        ],
+        "zsh -coerrexit 'git push -f'": [("zsh", "-coerrexit", "git push -f"), ("git", "push", "-f")],
+        "fish -coX -cXo -- --command=A": [
+            ("fish", "-coX", "-cXo", "--", "--command=A"),
+            ("--command=A",),
+            ("A",),
+        ],
+        "bash --norc deploy.sh": [("bash", "--norc", "deploy.sh")],
+        # flock's `-c`: a `--` before its string is skipped when a word follows it, else it is the string;
+        # a `--` after the string belongs to the command; no word after `-c` reads nothing
+        "flock -c -- 'git push -f'": [("git", "push", "-f")],
+        "flock -c 'git push -f' -- y": [("git", "push", "-f", "--", "y")],
+        "flock -c --": [("--",)],
+        "flock -c": [],
+        # a redirection is read from the text outside quotes, never from a word whose quotes are gone: a
+        # quoted `>` stays a word; `env -S` splits its string into words and runs no redirection, so `>x`
+        # is its program; digits are a descriptor only as the whole start of a word; `>|` is one operator
+        'echo ">" x': [("echo", ">", "x")],
+        "git commit -m '>x' -q": [("git", "commit", "-m", ">x", "-q")],
+        'env -S ">x git push -f"': [(">x", "git", "push", "-f")],
+        "git push --force>/dev/null": [("git", "push", "--force>/dev/null"), ("git", "push", "--force")],
+        "x2>y z": [("x2>y", "z"), ("x2", "z")],
+        "git push -f >| out": [("git", "push", "-f", ">|", "out"), ("git", "push", "-f")],
+        # the `|` of `>|` and the `&` of `>&`, `<&` and `&>` are no separators only after an operator: after
+        # an escaped `>` or `<`, which is text, each separates
+        "echo \\>|git push -f": [("echo", ">"), ("git", "push", "-f")],
+        "echo \\>&git push -f": [("echo", ">"), ("git", "push", "-f")],
+        "echo \\<&rm -rf build": [("echo", "<"), ("rm", "-rf", "build")],
+        "git push -f 2>&1": [("git", "push", "-f", "2>&1"), ("git", "push", "-f")],
+        "echo x >&2": [("echo", "x", ">&2"), ("echo", "x")],
+        "ls &>log": [("ls", "&>log"), ("ls",)],
+        "cat <&-": [("cat", "<&-"), ("cat",)],
+        # an unquoted `${…}` is one span of text up to its matching `}`, a nested one, a quote and a `$(…)`
+        # inside it too; one never closed keeps its text and drops nothing
+        "echo ${a:->x} y": [("echo", "${a:->x}", "y")],
+        "echo ${a:-${b:->x}} y": [("echo", "${a:-${b:->x}}", "y")],
+        "echo ${a:-'}>x'} y": [("echo", "${a:-}>x}", "y")],
+        "echo ${a:-$(b >x)} y": [("b", ">x"), ("b",), ("echo", "${a:-$(b", ">x)}", "y")],
+        "echo ${a:->x y": [("echo", "${a:->x", "y")],
+        "rm -${x:+>}rf build": [("rm", "-${x:+>}rf", "build")],
+        "echo ${a}>x y": [("echo", "${a}>x", "y"), ("echo", "${a}", "y")],
+        "echo ${a} >x y": [("echo", "${a}", ">x", "y"), ("echo", "${a}", "y")],
+        # a `${…}` inside double quotes is one span too: its quoted `>` is text, the quote goes on after it
+        'echo "${x:+">"}" y': [("echo", "${x:+>}", "y")],
+        'echo "${x:+">"}b" >x y': [("echo", "${x:+>}b", ">x", "y"), ("echo", "${x:+>}b", "y")],
+        'echo "${}${x:+">"}" >x y': [("echo", "${}${x:+>}", ">x", "y"), ("echo", "${}${x:+>}", "y")],
+        "echo ${}>x y": [("echo", "${}>x", "y"), ("echo", "${}", "y")],
+        ">|a": [(">|a",)],
+        "|a >": [("a", ">"), ("a",)],
+        "a >x| b": [("a", ">x"), ("a",), ("b",)],
+        # the operator, its descriptor and its target: digits of any length, a target after a blank, a
+        # second operator ending the target; an escaped `>` and every quoted or substituted one is text
+        "12>x y": [("12>x", "y"), ("y",)],
+        ">X b": [(">X", "b"), ("b",)],
+        "echo \\>x": [("echo", ">x")],
+        "echo \\>>x": [("echo", ">>x"), ("echo", ">")],
+        "echo $()>x": [("echo", "$()>x"), ("echo", "$()")],
+        "echo `a >x` b": [("a", ">x"), ("a",), ("echo", "`a", ">x`", "b")],
+        "echo ''>x y": [("echo", ">x", "y"), ("echo", "", "y")],
+        "echo 'a'>x": [("echo", "a>x"), ("echo", "a")],
+        'echo "">x y': [("echo", ">x", "y"), ("echo", "", "y")],
+        'echo "a >x': [("echo", '"a', ">x")],
+        'echo "$(echo ">")" y': [("echo", ">"), ("echo", "$(echo >)", "y")],
+        'echo "$(a) b">x y': [("a",), ("echo", "$(a) b>x", "y"), ("echo", "$(a) b", "y")],
+        'echo "$()" >x y': [("echo", "$()", ">x", "y"), ("echo", "$()", "y")],
+        'echo "a\\">x" y': [("echo", 'a">x', "y")],
+        'echo "\\a">y z': [("echo", "\\a>y", "z"), ("echo", "\\a", "z")],
     }
     # the reading of an entry's own words, the dials loader's test: every default entry reads as
     # itself; a path, a wrapper, an assignment, a shell word and a wrapper alone do not; a shell told
@@ -1525,6 +1918,7 @@ def test_t13() -> None:
         ("exec", "x"): ["x"],
         ("sudo",): [],
         ("x/",): [""],
+        (">x", "y"): [">x", "y"],
         ("bash", "-c", "x"): None,
         ("env", "-S", "x"): None,
     }
@@ -1670,6 +2064,25 @@ def test_t13() -> None:
     }
     wrong.update(own_wrong)
     assert not wrong, f"wrong: {wrong}"
+    # every text of the tables keeps each reading it has as written, the redirection pass switched off
+    kept_as_written([*readings, *pinned])
+    kept_as_written(list(own_readings), own_lists)
+    # The texts whose reading a slip could turn into an endless loop: a lone backtick, backtick pairs empty
+    # or side by side, an escape in double quotes at the top level, before a heredoc operator and inside
+    # `$(…)`, an escape outside quotes before one. Each runs through the gate within a bound, so a loop is
+    # a red item, not a hang. An escaped quote closes nothing and opens nothing, a backslash before a
+    # letter stays, and an operator inside the quote the escape leaves open drops no body.
+    git_push = d1("", "git push", "-f", "git push -f")
+    with H.bounded(shared_items.HANG_BOUND):
+        passed("echo `x")
+        passed("echo `a``b`", subcommands=3)
+        asked("echo `` `git push -f`", git_push, subcommands=2)
+        asked('echo "x\\"" ; git push -f', git_push, subcommands=2)
+        asked('echo "a\\b"; git push -f', git_push, subcommands=2)
+        passed('x "\\""<<EOF\nb\nEOF', subcommands=2)
+        passed("x \\' <<EOF\nb\nEOF", subcommands=2)
+        asked('x \\"" <<EOF\n"\ngit push -f\nEOF', git_push, subcommands=3)
+        asked('x $(echo "\\"" ) $(git push -f)', git_push, subcommands=3)
 
 
 # ---------------------------------------------------------------- the list-handles scan
@@ -1725,7 +2138,11 @@ def test_t20() -> None:
 def test_t21() -> None:
     """What is not a finding: a list in a fence, a one-item list, a nested list under a handled
     item, an anchor before the handle, a numbered list, a fence closed by a shorter one; and what
-    is: the first item only, and a loose list — blank lines between items — as one list."""
+    is: the first item only, and a loose list — blank lines between items — as one list. Not a
+    finding either: three items in a fence, a tilde fence with a backtick in its info string, a
+    fence that ends the list before it, a bold handle, the default forms `A.`, `a.`, `a1.` and
+    `Q-a`. A finding: the list after a backtick fence line with a backtick in its info string, and
+    a list continued by a line indented with spaces or with a tab."""
     text = (
         "# T\n\n```\n- x\n- y\n```\n\n- only one\n\nA paragraph ends the list.\n\n"
         "- 1. a\n  - nested\n  - nested\n- 2. b\n\n"
@@ -1743,12 +2160,45 @@ def test_t21() -> None:
     expect(loose, 2, "RED: docs/notes/b.md:3: list item without a handle — loose one", "stdout")
     fence = lists_scan({"docs/notes/c.md": "# T\n\n````\n- x\n- y\n```\n- z\n- w\n````\n"})
     expect(fence, 0, "GREEN: const-interaction: 4 document(s) examined", "stdout")
+    # Not a finding: three plain items in a fence; a tilde fence whose info string holds a backtick; a fence
+    # that closes the list before it; a bold handle; each default form of a letter, of a letter and digits
+    # and of a key with a dash.
+    green_text = (
+        "# T\n\n```\n- a\n- b\n- c\n```\n\nText.\n\n~~~ a`b\n- x\n- y\n~~~\n\nText.\n\n"
+        "- solo\n```\nx\n```\n- other\n\nText.\n\n- **a.** x\n- **b.** y\n\nText.\n\n"
+        "- A. one\n- B. two\n\nText.\n\n- a. one\n- b. two\n\nText.\n\n- a1. one\n- a2. two\n\nText.\n\n"
+        "- Q-a one\n- Q-b two\n"
+    )
+    expect(
+        lists_scan({"docs/notes/d.md": green_text}),
+        0,
+        "GREEN: const-interaction: 4 document(s) examined for lists with 6 handle form(s), 4 Markdown file(s)"
+        " scanned",
+        "stdout",
+    )
+    # A finding: a backtick fence whose info string holds a backtick opens none, so the list after it counts;
+    # a line indented by spaces or by a tab continues the list, so its second item joins the first.
+    red_text = (
+        "# T\n\n``` a`b\n- p\n- q\n\nText.\n\n- plain a\n  more\n- plain b\n\nText.\n\n"
+        "- tab a\n\tmore\n- tab b\n"
+    )
+    red = lists_scan({"docs/notes/e.md": red_text})
+    red_wanted = [
+        "RED: docs/notes/e.md:4: list item without a handle — p",
+        "RED: docs/notes/e.md:9: list item without a handle — plain a",
+        "RED: docs/notes/e.md:15: list item without a handle — tab a",
+        "RED: 3 finding(s) — 4 document(s) examined for lists with 6 handle form(s), 4 Markdown file(s)"
+        " scanned",
+    ]
+    red_ok = red.code == 2 and red_lines(red.stdout) == red_wanted
+    assert red_ok, f"exit {red.code}: {red.stdout}"
     assert ok, f"exit {result.code}: {result.stdout}"
 
 
 @item(22, "territories: a negated pattern takes a document out; a README at the top is covered")
 def test_t22() -> None:
-    """Territories: a negated pattern takes a document out; the default covers every Markdown file."""
+    """Territories: a negated pattern takes a document out; the default covers every Markdown file. A
+    repository with no dials file claims nothing, said by the scan's skip line."""
     out = lists_scan({"docs/notes/a.md": PLAIN}, dials_patch=own(territories=["*.md", "!docs/notes/**"]))
     expect(
         out,
@@ -1759,6 +2209,17 @@ def test_t22() -> None:
     )
     top = lists_scan({"README.md": PLAIN})
     expect(top, 2, "RED: README.md:3: list item without a handle — one item", "stdout")
+    # a repository with no dials file claims nothing: the scan's skip line, typed by hand
+    bare = H.fresh_consumer()
+    (bare.root / "constitution.yaml").unlink()
+    bare.commit()
+    skipped = LISTS.run_gate("", args=["--scan", str(bare.root)])
+    skip_line = (
+        f"GREEN: const-interaction: 0 documents examined — no constitution.yaml in {bare.root}: nothing is"
+        " claimed\n"
+    )
+    skip_ok = skipped.code == 0 and skipped.stdout == skip_line and skipped.stderr == ""
+    assert skip_ok, f"no dials file: exit {skipped.code}: {skipped.stdout}{skipped.stderr}"
 
 
 @item(23, "the list scan as a hook is its own C12; a misinvocation exits 1")
@@ -1800,7 +2261,7 @@ def test_t30() -> None:
     §6 of the module document states typed whole; the zero line typed by hand when the dial is
     empty; one line for each default dropped or replaced, none for an added entry; the pairs
     numbered and escaped. In the run that prints the rules and nothing more, every git call
-    carries the git cap of the cost sub-slot of §6."""
+    carries the git cap of the cost sub-slot of §6. The verbosity written out prints the same."""
     root = prepared()
     # the printer is a hook: each of its git calls has the hook's budget, logged before the call is made
     # with no clock, so that a slow git on a loaded machine cuts none of them
@@ -1828,6 +2289,10 @@ def test_t30() -> None:
     match = re.search(r"one line of ([0-9,]+) characters saying that no command is gated", module_doc)
     stated = int(match.group(1).replace(",", "")) if match else -1
     empty_ok = empty.code == 0 and empty.stdout == RULES + verbosity + zero + "\n" and stated == len(zero)
+    # the one value written out says the same line as the key left out
+    written = SESSION.run_gate(session_json(prepared(own(verbosity="triggered"))))
+    written_ok = written.code == 0 and written.stdout == RULES + verbosity and written.stderr == ""
+    assert written_ok, f"verbosity written out: exit {written.code}: {written.stdout[-200:]}{written.stderr}"
     pairs_root = prepared(own(boundary_examples=[{"violates": "an essay", "complies": "the word"}]))
     pairs = SESSION.run_gate(session_json(pairs_root))
     pairs_ok = pairs.stdout == RULES + verbosity + (
@@ -2012,7 +2477,12 @@ def test_t31() -> None:
         and "BROKEN: the session-start line could not be printed — the gate's state is unknown" in bad.stderr
     )
     arg = SESSION.run_gate(session_json(root), args=["--scan"])
-    arg_ok = arg.code == 1 and "BROKEN: misinvocation: unexpected argument --scan" in arg.stderr
+    arg_wanted = (  # typed by hand, the whole stderr
+        "BROKEN: misinvocation: unexpected argument --scan — fix: session-start takes no arguments; it reads"
+        " one SessionStart event on stdin\n"
+        "BROKEN: the session-start line could not be printed — the gate's state is unknown\n"
+    )
+    arg_ok = arg.code == 1 and arg.stderr == arg_wanted
     weird_parent = H.scratch_dir()
     weird_root = Consumer(weird_parent / WEIRD_DIR).build().root  # over 80 characters, a break, a backslash
     (weird_root / "constitution.yaml").unlink()
@@ -2068,7 +2538,9 @@ def test_t33() -> None:
         f" '{PLUGIN_ROOT / 'requirements.txt'}' — until then the gate's state is not said at session start"
     )
     broken_first_line(no_yaml, c2)
-    yaml_ok = messages.z1_could_not_run() in no_yaml.stderr and no_yaml.stdout == RULES
+    # typed by hand: the printer's closing line, the whole stderr after C2
+    closing = "BROKEN: the session-start line could not be printed — the gate's state is unknown"
+    yaml_ok = no_yaml.stderr == f"{c2}\n{closing}\n" and no_yaml.stdout == RULES
     assert yaml_ok, f"exit {no_yaml.code}, stdout {no_yaml.stdout[:80]!r}: {no_yaml.stderr}"
     bin_dir = H.scratch_dir()
     (bin_dir / "sh").symlink_to(H.sh)
@@ -2280,6 +2752,29 @@ def effect_lines(
     return result.stdout.splitlines()
 
 
+def w2_moments(
+    root: Path, sessions: dict[str, list[str]], gone: Sequence[str] = (), raw: dict[str, bytes] | None = None
+) -> list[tuple[str, str, str]]:
+    """W2's moments over the sessions, one transcript each, as (session, outcome, way): the rule's own code
+    run in this process on the sessions as the report reads them. Each moment is told apart, so outcomes
+    that trade places between sessions cannot keep a total. The transcripts named in `gone` are deleted
+    once read; `raw` adds bytes to the end of a transcript."""
+    folder = H.scratch_dir()
+    read = []
+    for name, lines in sorted(sessions.items()):
+        path = folder / f"{name}.jsonl"
+        path.write_bytes(("\n".join(lines) + "\n").encode("utf-8") + (raw or {}).get(name, b""))
+        session = read_transcript(path)
+        assert session is not None, name
+        read.append(session)
+    for name in gone:
+        (folder / f"{name}.jsonl").unlink()
+    history = History(
+        root, frozenset({"check-destructive.sh"}), tuple(read), (), "", NAMESPACE, "constitution.yaml"
+    )
+    return [(m.session, str(m.outcome), str(m.way) if m.way else "") for m in effect_rules.after_ask(history)]
+
+
 @item(
     43, "W1: a change of the module's dials is applied, or bypassed by B2 when a gate or a territory loosens"
 )
@@ -2288,7 +2783,10 @@ def test_effect_switch_off() -> None:
     the destructive list cut to one entry, the defaults gone (bypassed); an entry added (applied); severity
     warn (bypassed); severity back to block, with the territories narrowed to one folder, a pattern of the
     default gone (bypassed); a negated pattern added (bypassed); a handle form added (applied). The plugin
-    list names no plugin."""
+    list names no plugin. Then seven changes judged alone by the module's predicate: an entry replaced by a
+    flagless entry of another command, narrowed to other flags, or a flagless one narrowed to a flag,
+    loosens; a namespace the reader refuses before, after or on both sides, or a negated pattern removed,
+    does not."""
     consumer = H.fresh_consumer()
     rm = {"command": ["rm"], "flags": ["-r"], "teach": "t", "alternative": "a"}
     reset = {"command": ["git", "reset"], "flags": ["--hard"], "teach": "t", "alternative": "a"}
@@ -2306,6 +2804,33 @@ def test_effect_switch_off() -> None:
         consumer.commit()
     found = effect_lines(consumer.root, {})
     assert "  W1 (pattern): 7 moment(s): 3 applied, 4 bypassed, 0 missed — B2 4" in found, found
+    # Each change judged alone, by the module's own predicate of a loosened dial: an entry replaced by a
+    # flagless entry of another command, narrowed to other flags, or a flagless one narrowed to a flag,
+    # loosens; a namespace the reader refuses on either side, or a negated pattern removed, does not.
+    dropdb = {"command": ["dropdb"], "teach": "t", "alternative": "a"}
+    rm_f = {**rm, "flags": ["-f"]}
+    refused: dict[str, object] = {"marker": "x"}
+    changes: tuple[tuple[str, dict[str, object], dict[str, object], bool], ...] = (
+        ("rm replaced by a flagless dropdb", {"destructive": [rm]}, {"destructive": [dropdb]}, True),
+        ("rm -r narrowed to rm -f", {"destructive": [rm]}, {"destructive": [rm_f]}, True),
+        (
+            "dropdb narrowed to -x",
+            {"destructive": [dropdb]},
+            {"destructive": [{**dropdb, "flags": ["-x"]}]},
+            True,
+        ),
+        ("refused before", refused, {"destructive": [rm]}, False),
+        ("refused after", {"destructive": [rm]}, refused, False),
+        ("refused on both sides", refused, refused, False),
+        (
+            "a negated pattern removed",
+            {"territories": ["*.md", "!docs/**"]},
+            {"territories": ["*.md"]},
+            False,
+        ),
+    )
+    wrong = [name for name, old, new, loose in changes if effect_rules.loosened(old, new) is not loose]
+    assert not wrong, f"judged wrongly: {wrong}"
 
 
 @item(
@@ -2320,7 +2845,15 @@ def test_effect_after_ask() -> None:
     bypassed by B3, as is a refused `git push --force origin main`, a refusal recorded as a hook error, then
     `git push -f origin main`. No moment: a human turn first; an ask the user accepted, whose next command
     names the same target; a refused ask followed by commands that name nothing of it; an ask of another
-    plugin's script; a command that the gate asked for and that is another command."""
+    plugin's script; a command that the gate asked for and that is another command.
+
+    Each moment is then told apart, by the rule's own code run in this process, so two outcomes that
+    trade places keep no total. Twenty more sessions: the target from a quoted string, from the first of
+    two commands, of two words, of two letters; `..`, `--`, an option and one letter are no target; the
+    entry's words with the asked option, at the end of the words too; a Read call between ends nothing;
+    an ask with no call, or no result; an accepted ask found ran past a line that is no JSON, a bad
+    byte and another call's result in the same line; a later ask after an accepted one; an accepted
+    ask whose transcript is gone."""
     root = H.fresh_consumer().root
     rm = ("rm -rf build", "rm with -r")
     push = ("git push --force origin main", "git push with --force")
@@ -2372,6 +2905,84 @@ def test_effect_after_ask() -> None:
     }
     found = effect_lines(root, sessions)
     assert "  W2 (pattern): 3 moment(s): 1 applied, 2 bypassed, 0 missed — B3 2" in found, found
+    applied, bypassed = ("applied", ""), ("bypassed", "B3")
+    each = w2_moments(root, sessions)
+    assert each == [("a", *applied), ("b", *bypassed), ("c", *bypassed)], each
+
+    def later(sid: str, asked_command: str, entry: tuple[str, str], *commands: str) -> list[str]:
+        """A refused ask, then the later commands, each its own call."""
+        calls = [tr_tool(sid, root, f"l{n}", "Bash", command=one) for n, one in enumerate(commands)]
+        return [*asked(sid, asked_command, entry), *calls]
+
+    def ran_twice(sid: str, *between: str) -> list[str]:
+        """An ask the user accepted, the lines given after its call, then the same command again."""
+        return [
+            tr_tool(sid, root, "a", "Bash", command=rm[0]),
+            tr_ask(sid, root, "a", rm[0], rm[1]),
+            *between,
+            tr_tool(sid, root, "b", "Bash", command=rm[0]),
+        ]
+
+    other = {"type": "tool_result", "tool_use_id": "o", "content": NO_PROMPT, "is_error": True}
+    ours = {"type": "tool_result", "tool_use_id": "a", "content": "done", "is_error": False}
+    both = tr_line("user", "pair", root, EFFECT_AT, message={"role": "user", "content": [other, ours]})
+    more = {
+        # the target: a quoted string is split into words; the words after the entry's words in the first
+        # command that holds them; `..`, `--`, options and one letter are no target, two letters are one
+        "dots": later("dots", "rm -rf ..", rm, "cd .."),
+        "quoted": later("quoted", "bash -c 'rm -rf build'", rm, "find build -delete"),
+        "two": later("two", "rm -rf build dist", rm, "find build -delete"),
+        "segs": later("segs", "rm -rf build; rm -rf dist", rm, "find build -delete"),
+        "dashes": later("dashes", "rm -r -- build", rm, "rm -- other"),
+        "copy": later("copy", "rm -rf build", rm, "cp -rf a b"),
+        "short": later("short", "rm -rf a", rm, "ls a"),
+        "db": later("db", "rm -rf db", rm, "find db -delete"),
+        # no target: the entry's words with an option the asked command had, at the end of the words too;
+        # without the entry's words, or without the option, it names nothing
+        "form": later("form", "git push --force", push, "git push origin main --force"),
+        "end": later("end", "git push --force", push, "echo --force; git push"),
+        "other": later("other", "git push --force", push, "ls --force"),
+        "plain": later("plain", "git push --force", push, "git push origin main"),
+        # a call that is no shell command, between, ends nothing
+        "read": [
+            *asked("read", rm[0], rm),
+            tr_tool("read", root, "r", "Read", file_path="build/x"),
+            tr_tool("read", root, "b", "Bash", command="find build -delete"),
+        ],
+        # an ask with no call is no moment; an ask with no result did not run, and the same command again
+        # is applied; an accepted ask is found ran past a line that is no JSON, a bad byte in the file, and
+        # another call's result in the same line; a later ask is examined after an accepted one
+        "noc": [tr_ask("noc", root, "z", rm[0], rm[1])],
+        "nores": ran_twice("nores"),
+        "nojson": ran_twice(
+            "nojson", "a tool_result line that is no JSON", tr_result("nojson", root, "a", "done", False)
+        ),
+        "bad": ran_twice("bad", tr_result("bad", root, "a", "done", False)),
+        "pair": ran_twice("pair", both),
+        "after": [
+            *asked("after", rm[0], rm, accepted=True),
+            tr_tool("after", root, "c", "Bash", command="rm -rf dist"),
+            tr_ask("after", root, "c", "rm -rf dist", rm[1]),
+            tr_result("after", root, "c", NO_PROMPT, True),
+            tr_tool("after", root, "d", "Bash", command="rm -rf dist"),
+        ],
+        # an accepted ask whose transcript cannot be read again is taken as not run
+        "gone": ran_twice("gone", tr_result("gone", root, "a", "done", False)),
+    }
+    found_more = w2_moments(root, more, gone=["gone"], raw={"bad": b"\xff\n"})
+    wanted_more = [
+        ("after", *applied),
+        ("db", *bypassed),
+        ("end", *bypassed),
+        ("form", *bypassed),
+        ("gone", *applied),
+        ("nores", *applied),
+        ("quoted", *bypassed),
+        ("read", *bypassed),
+        ("segs", *bypassed),
+        ("two", *bypassed),
+    ]
+    assert found_more == wanted_more, found_more
 
 
 @item(45, "W3: the list scan on each commit of main in a throwaway clone: green applied, red bypassed by B4")
@@ -2403,7 +3014,8 @@ def test_effect_reader_rule() -> None:
     no reply before the third, and a reply after the third. The moments are the second text before the first
     turn and the one before the second turn: two. Without `--reader` they are counted and not judged; a fake
     reader that answers APPLIED judges them, and is given the rules a to i of the start text, taken from the
-    module's `rules.txt`. The lines are typed by hand."""
+    module's `rules.txt`, after the sentence of W4 typed by hand. Without `rules.txt` the sentence alone
+    is given. The lines are typed by hand."""
     root = H.fresh_consumer().root
     sid = "s46"
     lines = [
@@ -2429,10 +3041,22 @@ def test_effect_reader_rule() -> None:
     )
     effect_lines(root, {sid: lines}, spy, "--reader")
     prompts = (asked / "prompts").read_text(encoding="utf-8") if (asked / "prompts").exists() else ""
+    # typed by hand: the sentence of W4, then the rules a to i, each a line of `rules.txt` after its first
+    sentence = (
+        "The last reply before each message of the user follows the rules a to i of the start text, the"
+        " answer shape and the assumptions among them"
+    )
+    rules_text = sentence + ":\n" + "\n".join(RULES.splitlines()[1:])
     assert (
         "a. Classify the shape the question asks for" in prompts
         and "i. Write chat in plain language" in prompts
-    )
+        and rules_text in prompts
+    ), prompts
+    # without `rules.txt` the reader is given the sentence alone, closed by a full stop
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(effect_rules, "RULES_FILE", H.scratch_dir() / "rules.txt")
+        alone = effect_rules._reader_text()  # noqa: SLF001
+    assert alone == sentence + ".", alone
 
 
 # ---------------------------------------------------------------- the runner
