@@ -59,7 +59,7 @@ The decider chose A in chat on 2026-11-13, in the message that chose the tree.
 
 <a id="r1"></a>**R1.** `scripts/metrics.py --loc` counts the lines of the files the kit maintains, with `cloc`, and prints them as one tree: group, then part, then language. Each line gives files, blank, comment and code lines, and a totals line ends the tree. With `--json <path>` it also writes the same numbers as JSON, and with `--json -` it prints the JSON alone. The script's docstring defines the mode.
 
-<a id="r2"></a>**R2.** The files are those git tracks. A symbolic link is left out, since it would count the shared code twice. So are the files of `GENERATED` in the script. They are the lock file of `ccusage`, the eval receipts, and the pins of Claude Code and of the eval model. They are also the empty marker `py.typed`, `LICENSE`, `NOTICE` and `.gitignore`.
+<a id="r2"></a>**R2.** The files are those git tracks. A symbolic link is left out, since it would count the linked code twice. So are the files of `GENERATED` in the script. They are the lock file of `ccusage`, the eval receipts, and the pins of Claude Code and of the eval model. They are also the empty marker `py.typed`, `LICENSE`, `NOTICE` and `.gitignore`.
 
 <a id="r3"></a>**R3.** Five groups hold the files: `plugins`, `module-dev`, `shared`, `tooling` and `docs`. The table `PARTS` of the script gives each group's parts and their patterns. A file falls in the first part whose pattern matches it, so a narrow part stands before a broad one. In `plugins` and `module-dev` a part is a module folder, and `module-template` is one more part of `module-dev`. A file that no pattern matches falls in the group `other`, so a new folder shows up and is never lost.
 

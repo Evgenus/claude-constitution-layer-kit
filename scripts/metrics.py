@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Kit report, never a gate: measure each module, or with --loc the lines of the whole kit, and print it.
+"""Kit report, never a gate: measure each module, or with --loc the files the kit maintains, and print it.
 
 Kit tooling, never shipped in a module.
 
@@ -75,11 +75,11 @@ Modes:  no arguments    the three tables on stdout: the documents, the proof kin
                         gives no advice, and no number in it is a threshold.
         --loc           the lines of the files the kit maintains, counted by cloc, as one tree on
                         stdout: a group of `GROUPS`, then its part, then the language, each line with
-                        its files, blank, comment and code lines, then a totals line and the groups'
-                        titles; with --json <path> the tree too and the same numbers as JSON in <path>;
-                        with --json -, the JSON on stdout and no tree (decision
+                        its files, blank, comment and code lines; a totals line ends the tree, and the
+                        groups' titles follow it. With --json <path> the tree too and the same numbers
+                        as JSON in <path>; with --json -, the JSON on stdout and no tree (decision
                         dec-0134-line-counts-in-the-metrics-report). The files are those git tracks; a
-                        symbolic link is left out, since each is a module test's link to code counted
+                        symbolic link is left out, since each is a test folder's link to code counted
                         where it stands, and so are the files of `GENERATED`. Each file falls in the
                         first part of `PARTS` that one of its patterns matches; in the groups `plugins`
                         and `module-dev` a part is a module folder. A file no pattern matches falls in
@@ -108,7 +108,8 @@ Exit:   0 whenever the inputs could be read, whatever they measure; 1, with a BR
         is missing or out of order, a module document, a skill, plugin/hooks/hooks.json or a tracked file
         that cannot be read, PyYAML not installed, plugin/hooks/hooks.json or a skill's front matter that
         does not parse, a tracked Python file that does not parse, git that does not answer, cloc
-        that is not installed or does not answer (--loc), the arguments misused, or the JSON file
+        that is not installed or does not answer, or whose row for a file lacks a language or a whole
+        number of lines (--loc), the arguments misused, or the JSON file
         that cannot be written.
 No --self-test: no list runs it, so a self-test would be a test that nothing runs. The CI step runs the
 default mode and --complexity on every change, where only their output shows; --loc is run by hand,
@@ -178,7 +179,8 @@ GROUPS = (
     ("shared", "Shared package: what the gates import, its test helpers, its pages and build file"),
     (
         "tooling",
-        "Kit tooling: tests, checks and CI, setup, runners and reports, the kit's own agents and settings",
+        "Kit tooling: tests, checks and CI, setup, runners and reports, and the kit's own agents, skills,"
+        " settings and marketplace",
     ),
     ("docs", "Documents: the decision records, the research comparisons, the governing documents"),
 )
@@ -220,7 +222,10 @@ PARTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
         ),
     ),
 )
-OTHER = ("other", "Matched by no part: add a pattern to PARTS, or the file to GENERATED")
+OTHER = (
+    "other",
+    "Matched by no part: add a pattern to PARTS, under a group of GROUPS, or the file to GENERATED",
+)
 COUNTS = ("files", "blank", "comment", "code")
 
 
@@ -842,8 +847,8 @@ def numbers_of(path: str, row: dict[str, object]) -> tuple[str, dict[str, int]]:
         raise Broken(
             f"cloc's row for {path} lacks a language or a whole number of lines ({bad!r})\n"
             "  why: --loc counts lines with cloc and counts none itself\n"
-            "  fix: check that `cloc --version` answers and is a release whose --json rows hold `language`,"
-            " `blank`, `comment` and `code`, then run again"
+            "  fix: install a cloc release whose --by-file --json rows hold `language`, `blank`, `comment`"
+            " and `code` for each file, then run again"
         ) from bad
 
 
