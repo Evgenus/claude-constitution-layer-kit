@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Kit report, never a gate: measure each module from what the kit already holds, and print it.
+"""Kit report, never a gate: measure each module, or with --loc the lines of the whole kit, and print it.
+
+Kit tooling, never shipped in a module.
 
 Advisory in the sense of law 5 of CLAUDE.md: it judges nothing and blocks nothing. Its numbers are read
 by a person, who decides what they mean; no number here is a threshold, and none is held anywhere. The
@@ -73,19 +75,32 @@ Modes:  no arguments    the three tables on stdout: the documents, the proof kin
                         gives no advice, and no number in it is a threshold.
         --loc           the lines of the files the kit maintains, counted by cloc, as one tree on
                         stdout: a group of `GROUPS`, then its part, then the language, each line with
-                        its files, blank, comment and code lines, and a totals line; with --json <path>
-                        the tree too and the same numbers as JSON in <path>; with --json -, the JSON on
-                        stdout and no tree (decision dec-0134-line-counts-in-the-metrics-report). The
-                        files are those git tracks, a symbolic link left out, and so are the files of
-                        `GENERATED`. Each file falls in the first part of `PARTS` that one of its
-                        patterns matches; in the groups `plugins` and `module-dev` a part is a module
-                        folder. A file no pattern matches falls in the group `other`. cloc runs once
-                        over the files, and once more per language of `NAMED_LANGUAGE` over the files
-                        it names, which cloc cannot tell by name. A file cloc knows no language of is
-                        in no count; the JSON key `uncounted` lists it, and a note on stderr names it.
-                        cloc counts a file even when another holds the same text (--skip-uniqueness),
-                        and a Python docstring as comment. This mode reads no module document, runs no
-                        hook, and is not run by CI. It needs cloc on PATH.
+                        its files, blank, comment and code lines, then a totals line and the groups'
+                        titles; with --json <path> the tree too and the same numbers as JSON in <path>;
+                        with --json -, the JSON on stdout and no tree (decision
+                        dec-0134-line-counts-in-the-metrics-report). The files are those git tracks; a
+                        symbolic link is left out, since each is a module test's link to code counted
+                        where it stands, and so are the files of `GENERATED`. Each file falls in the
+                        first part of `PARTS` that one of its patterns matches; in the groups `plugins`
+                        and `module-dev` a part is a module folder. A file no pattern matches falls in
+                        the group `other`, part `unsorted`. Groups follow `GROUPS`, `other` last; a
+                        group's parts follow `PARTS`, its module folders after them, sorted; languages
+                        go most code first. A group or part with no file is left out. cloc runs once
+                        over the files, as `cloc --list-file=- --by-file --json --quiet
+                        --skip-uniqueness`, and once more with --force-lang per language of
+                        `NAMED_LANGUAGE` that names a tracked file, which cloc cannot tell by name. A
+                        file cloc knows no language of is in no count; the JSON key `uncounted` lists
+                        it, and a note on stderr names it. cloc counts a file even when another holds
+                        the same text (--skip-uniqueness), and a Python docstring as comment. This mode
+                        reads no module document, runs no hook, and is not run by CI. It needs cloc on
+                        PATH, beside git and PyYAML, which every mode needs. The JSON keys as written:
+                          advisory, commit  as in the default mode;
+                          cloc              cloc's version;
+                          groups            per group: files, blank, comment and code, `languages`
+                                            (the same four per language), and `parts` (the same
+                                            keys per part, `parts` aside);
+                          totals            the same keys over every file, `parts` aside;
+                          uncounted         the paths cloc counted no line of.
 Notes on stderr: a SessionStart command that exits other than 0 or times out (its stdout still counted,
 none when it timed out), and a shallow clone, whose churn is short.
 Exit:   0 whenever the inputs could be read, whatever they measure; 1, with a BROKEN line that says what
@@ -96,8 +111,9 @@ Exit:   0 whenever the inputs could be read, whatever they measure; 1, with a BR
         that is not installed or does not answer (--loc), the arguments misused, or the JSON file
         that cannot be written.
 No --self-test: no list runs it, so a self-test would be a test that nothing runs. The CI step runs the
-script itself on every change, where only its output shows, and the kit's `lint` and `types` entries of
-scripts/gate-list.sh hold its code, as they hold every script at the top of scripts/.
+default mode and --complexity on every change, where only their output shows; --loc is run by hand,
+where its output shows. The kit's `lint` and `types` entries of scripts/gate-list.sh hold its code, as
+they hold every script at the top of scripts/.
 Its name is metrics, never check-: the kit's check-gate-lists holds every scripts/check-*.py to the gate
 group, and this script is no check.
 """
@@ -160,13 +176,16 @@ GROUPS = (
     ("plugins", "Plugins: what a consumer installs"),
     ("module-dev", "Module dev content: tests, eval cases, MODULE.md and README.md, and the module template"),
     ("shared", "Shared package: what the gates import, its test helpers, its pages and build file"),
-    ("tooling", "Kit tooling: tests, checks and CI, setup, runners and reports, the kit's own agents"),
+    (
+        "tooling",
+        "Kit tooling: tests, checks and CI, setup, runners and reports, the kit's own agents and settings",
+    ),
     ("docs", "Documents: the decision records, the research comparisons, the governing documents"),
 )
 # --loc: each part, its group, and its fnmatch patterns over the path from the kit root (`*` crosses a
 # slash). A file falls in the first part, in this order, that one of its patterns matches, so a narrow
-# part stands before a broad one of its group; the tree shows a group's parts in this order too. The part
-# MODULE stands for the module folder the path names, modules/<module>/, and shows sorted by name.
+# part stands before a broad one of its group. The tree shows a group's named parts in this order, and then
+# its module folders, sorted: the part MODULE stands for the module folder the path names, modules/<module>/.
 MODULE = "<module>"
 PARTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("plugins", MODULE, ("modules/*/plugin/*",)),
@@ -201,7 +220,7 @@ PARTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
         ),
     ),
 )
-OTHER = ("other", "Matched by no group: add it to GROUPS or GENERATED")
+OTHER = ("other", "Matched by no part: add a pattern to PARTS, or the file to GENERATED")
 COUNTS = ("files", "blank", "comment", "code")
 
 
@@ -810,8 +829,22 @@ def counted_files(paths: list[str]) -> tuple[str, dict[str, dict[str, object]]]:
     version, counted = cloc([path for path in paths if path not in named])
     for language in sorted(set(NAMED_LANGUAGE.values())):
         these = [path for path in sorted(named) if NAMED_LANGUAGE[path.rsplit("/", 1)[-1]] == language]
-        counted |= cloc(these, f"--force-lang={language}")[1]
+        if these:
+            counted |= cloc(these, f"--force-lang={language}")[1]
     return version, counted
+
+
+def numbers_of(path: str, row: dict[str, object]) -> tuple[str, dict[str, int]]:
+    """The language and the blank, comment and code lines of cloc's row for a file, or Broken."""
+    try:
+        return str(row["language"]), {key: int(str(row[key])) for key in ("blank", "comment", "code")}
+    except (KeyError, ValueError) as bad:
+        raise Broken(
+            f"cloc's row for {path} lacks a language or a whole number of lines ({bad!r})\n"
+            "  why: --loc counts lines with cloc and counts none itself\n"
+            "  fix: check that `cloc --version` answers and is a release whose --json rows hold `language`,"
+            " `blank`, `comment` and `code`, then run again"
+        ) from bad
 
 
 def count_lines(
@@ -828,8 +861,7 @@ def count_lines(
         if row is None or place is None:
             uncounted.append(path)
             continue
-        language = str(row["language"])
-        numbers = {key: int(row[key]) for key in ("blank", "comment", "code")}  # type: ignore[call-overload]
+        language, numbers = numbers_of(path, row)
         group = found.setdefault(place[0], Branch())
         group.add(language, numbers)
         group.parts.setdefault(place[1], Branch()).add(language, numbers)
@@ -976,8 +1008,8 @@ def write(path: str | None, text: str) -> None:
         Path(path).write_text(text + "\n", encoding="utf-8")
     except OSError as bad:
         raise Broken(
-            f"{path} cannot be written ({bad.strerror})\n  why: the JSON is the report's copy for CI's"
-            " artifact\n  fix: name a path in a folder that exists and can be written to"
+            f"{path} cannot be written ({bad.strerror})\n  why: the JSON is the report's copy that was"
+            " asked for\n  fix: name a path in a folder that exists and can be written to"
         ) from bad
 
 

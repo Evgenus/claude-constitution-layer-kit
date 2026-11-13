@@ -63,11 +63,13 @@ The decider chose A in chat on 2026-11-13, in the message that chose the tree.
 
 <a id="r3"></a>**R3.** Five groups hold the files: `plugins`, `module-dev`, `shared`, `tooling` and `docs`. The table `PARTS` of the script gives each group's parts and their patterns. A file falls in the first part whose pattern matches it, so a narrow part stands before a broad one. In `plugins` and `module-dev` a part is a module folder, and `module-template` is one more part of `module-dev`. A file that no pattern matches falls in the group `other`, so a new folder shows up and is never lost.
 
-<a id="r4"></a>**R4.** `cloc` runs once over the files, with `--skip-uniqueness`, so that the modules' identical files each count. It runs once more for each language of `NAMED_LANGUAGE`, over the files that table names, since `cloc` cannot tell them by name. The `justfile` is counted as make there. A file `cloc` knows no language of is left out of every count, and a note on stderr names it. The numbers are `cloc`'s, and so a Python docstring counts as comment.
+<a id="r4"></a>**R4.** `cloc` runs once over the files, with `--skip-uniqueness`, so that the modules' identical files each count. It runs once more for each language of `NAMED_LANGUAGE` that names a tracked file, over those files, since `cloc` cannot tell them by name. The `justfile` is counted as make there. A file `cloc` knows no language of is left out of every count, and a note on stderr names it. The numbers are `cloc`'s, and so a Python docstring counts as comment.
 
 <a id="r5"></a>**R5.** The mode is advisory in the sense of [law 5 of CLAUDE.md](../../CLAUDE.md#law-5): no number is a threshold, and no check holds one. CI does not run it, and it is no entry of the gate list. It needs `cloc` on `PATH`. Where `cloc` does not start or gives no JSON, it exits 1 with a line that says what failed, why and the fix.
 
 <a id="r6"></a>**R6.** The kit's `justfile` runs the mode as `just loc`, its arguments passed on to the script.
+
+<a id="r7"></a>**R7.** The mode has no self-test, as R3 of [dec-0087-module-metrics-report](dec-0087-module-metrics-report.md#r3) rules for the whole script. No list runs it, so a self-test would be a test that nothing runs. CI runs the default mode and `--complexity`, and a person runs `--loc` by hand, where its output shows. The kit's `lint` and `types` entries hold its code.
 
 ## Applied
 
@@ -77,3 +79,4 @@ The commits before the one that creates this record built the mode and the recip
 
 1. R1, R2, R3, R4, R5 — [`scripts/metrics.py`](../../scripts/metrics.py), its docstring of `--loc`, and the tables `GENERATED`, `NAMED_LANGUAGE`, `GROUPS` and `PARTS`.
 2. R6 — [the `justfile`](../../justfile), the recipe `loc`.
+3. R7 — [`scripts/metrics.py`](../../scripts/metrics.py), its docstring, the paragraph "No --self-test".
