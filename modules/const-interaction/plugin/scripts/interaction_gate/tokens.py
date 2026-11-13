@@ -394,9 +394,12 @@ def _unit_end(text: str, i: int) -> int:
             if text.startswith("$(", j):
                 j = _substitution_end(text, j + 2)
                 continue
-            if text.startswith("${", j):  # read as outside quotes, where bash takes a `'` in it literally:
-                j = _brace_end(text, j + 2)  # one unmatched swallows the rest, and the reading as written
-                continue  # still stands beside this one, so nothing is hidden
+            # A `${…}` is read as outside quotes, where bash takes a `'` in it literally. An unmatched one
+            # then runs to the piece's end, so a redirection after it is not taken out and there is no
+            # second reading: `git push "${x:-'}" --force>/dev/null` passes, as with no redirection pass.
+            if text.startswith("${", j):
+                j = _brace_end(text, j + 2)
+                continue
             j += 2 if text[j] == "\\" else 1
         return min(j + 1, len(text))
     return i + 1

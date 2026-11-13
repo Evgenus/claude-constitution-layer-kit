@@ -72,8 +72,9 @@ class InteractionDials:
 @dataclass(frozen=True, slots=True)
 class Subcommand:
     """One simple command of the shell command, as the gate reads it: its words after the
-    wrappers, assignments and the program's directory are stripped, and the text it came from. A piece
-    with a redirection is read twice, as written and without its redirections: each reading is one."""
+    wrappers, assignments and the program's directory are stripped, and the text it came from. A
+    piece with a redirection is read twice, as written and without its redirections: each distinct
+    reading is one."""
 
     words: tuple[str, ...]
     text: str
