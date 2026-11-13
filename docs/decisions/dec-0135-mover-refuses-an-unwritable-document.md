@@ -35,13 +35,13 @@ The decider picked A in chat on 2026-11-13. On the same day the decider placed i
 
 ## Ruling
 
-<a id="r1"></a>**R1.** Before anything moves or is written, the mover reads every document the act will read. These are the documents covered in the tree as it will stand after the move. The mover works them out before the move, by the gate's own rules of coverage. The moved document is among them whenever its new path is Markdown, covered there or not. A document it cannot read is a V5 refusal that names it and the system's reason. A file that is not UTF-8 is no refusal: the act leaves it alone and says so.
+<a id="r1"></a>**R1.** Before anything moves or is written, the mover reads every document the act will read. These are the documents covered in the tree as it will stand after the move. The mover works them out before the move, by the gate's own rules of coverage. For `--moved` and `--ids` that tree is the tree as it stands. The moved document is among them whenever its new path is Markdown, covered there or not. A document it cannot read is a V5 refusal that names it and the system's reason. A file that is not UTF-8 is no refusal: the act leaves it alone and says so.
 
 <a id="r2"></a>**R2.** Each document whose rewrite would change a link is opened for writing and closed again, with nothing written. A document the system will not open so is a V5 refusal that names it and the system's reason. A read-only document the act would not rewrite is no refusal.
 
 <a id="r3"></a>**R3.** The check runs in all three acts: the move, `--moved` and `--ids`. Each refusal closes with the line that nothing was changed, and the tree stays as it was.
 
-<a id="r4"></a>**R4.** Where the root policy itself moves, no coverage can be read after the move, and the check asks the documents covered before it. The check cannot hold what changes after it, nor the older edges of the act. Limit 12 of the module's section 9 names each such edge, as wide as it is.
+<a id="r4"></a>**R4.** Where the tree after the move cannot be known exactly, the mover asks nothing before the move, as before this ruling. That is a moved `.gitignore`, the file `core.excludesFile` names, and under `governed_only` the root policy. The check cannot hold what changes after it, nor the older edges of the act. Limit 12 of the module's section 9 names each such edge, as wide as it is.
 
 ## Applied
 
@@ -49,5 +49,5 @@ The commit that brings this record also states its rulings in the module's docum
 
 ## Carry list
 
-1. R1, R2, R3 — [the mover's refusals](../../modules/const-referencing/MODULE.md#t6), row V5; [the mover's limits](../../modules/const-referencing/MODULE.md#t9), limit 12; [the check in the code](../../modules/const-referencing/plugin/scripts/referencing_gate/moving.py), `_planned`, `_covered_after` and `_refuse_what_cannot_be_rewritten`.
-2. R4 — [the mover's limits](../../modules/const-referencing/MODULE.md#t9), limit 12.
+1. R1, R2, R3 — [the mover's refusals](../../modules/const-referencing/MODULE.md#t6), row V5; [the mover's limits](../../modules/const-referencing/MODULE.md#t9), limit 12; [the check in the code](../../modules/const-referencing/plugin/scripts/referencing_gate/moving.py), `_planned`, `_paths_after`, `_covered_after` and `_refuse_what_cannot_be_rewritten`.
+2. R4 — [the mover's limits](../../modules/const-referencing/MODULE.md#t9), limit 12; [the check in the code](../../modules/const-referencing/plugin/scripts/referencing_gate/moving.py), `_unknowable`.
