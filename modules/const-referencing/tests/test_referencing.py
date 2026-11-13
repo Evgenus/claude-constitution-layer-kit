@@ -1930,7 +1930,8 @@ def porcelain(consumer: Consumer) -> str:
 
 @item(
     80,
-    "the mover asks everything that can refuse before it moves: no lychee, no root policy, a document it cannot read or rewrite",
+    "the mover asks everything that can refuse before it moves: no lychee, no root policy, a document it"
+    " cannot read or rewrite",
 )
 def test_mover_asks_before_it_moves() -> None:
     """Whatever the closing scan would fail on is asked before the file moves: no lychee, and
