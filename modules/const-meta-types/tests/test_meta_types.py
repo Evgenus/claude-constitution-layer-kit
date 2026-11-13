@@ -296,13 +296,22 @@ VALID = Write(NOTE_A, envelope("note-a"))
 @item(31, "C5: a key of the namespace that is no dial is refused, never ignored")
 def test_a_misspelt_dial() -> None:
     """A key of the namespace that is neither of the two is refused, never a setting ignored in
-    silence — `severty:` for `severity:` would otherwise leave the default in force unseen."""
+    silence — `severty:` for `severity:` would otherwise leave the default in force unseen. The scan
+    refuses it too, with the same line and its own closing line."""
     result, _ = gate_on(VALID, dials_patch=own(severty="warn"))
-    broken_first_line(
-        result,
+    line = (
         "BROKEN: constitution.yaml: const-meta-types.severty is no dial of this module — fix: a misspelt"
-        " dial would be ignored in silence, so none is: write one of severity, log_dir",
+        " dial would be ignored in silence, so none is: write one of severity, log_dir"
     )
+    broken_first_line(result, line)
+    # the scan refuses it too, the same line, then the scan's closing line
+    consumer = H.fresh_consumer()
+    consumer.dials.update(own(severty="warn"))
+    consumer.build()
+    scan = H.run_gate("", args=["--scan", str(consumer.root)])
+    closing = "BROKEN: the check could not run — 0 documents examined"
+    scan_ok = scan.code == 1 and scan.stdout == "" and scan.stderr == f"{line}\n{closing}\n"
+    assert scan_ok, f"scan: exit {scan.code}: {scan.stdout}{scan.stderr}"
 
 
 @item(18, "examined count: outside claimed territory prints 0 and exits 0")
@@ -418,10 +427,15 @@ def test_scan_red() -> None:
 
 @item(24, "scan: green with counts, and a note per void namespace")
 def test_scan_green() -> None:
+    """The green line with its counts, and the note of each void namespace as a whole line, typed by
+    hand; a namespace with the module prefix earns none."""
     result = _scan(bad=False)
     counts = messages.f9_scan_tail(len(POLICIES) + 1, BASE_MARKDOWN + 1, len(POLICIES))
     expect(result, 0, shared.g1_green_scan(counts), "stdout")
-    note = messages.n2_note_void_namespace("ghost")
+    note = (  # typed by hand
+        "note: namespace 'ghost' declares a territory but no policy with id 'ghost' lies in the root policy's"
+        " territory; it claims nothing until that policy exists"
+    )
     # a namespace key with a line break and 103 characters: the note names it cut at 80 and escaped,
     # each time on the one line — typed by hand
     wide = _scan(bad=False, void_key=VOID_KEY)
@@ -429,13 +443,21 @@ def test_scan_green() -> None:
         f"note: namespace '{VOID_SHOWN}' declares a territory but no policy with id '{VOID_SHOWN}' lies in"
         " the root policy's territory; it claims nothing until that policy exists"
     )
-    assert note in result.stdout and wide_note in wide.stdout, result.stdout + wide.stdout
+    noted = note in result.stdout.splitlines() and wide_note in wide.stdout.splitlines()
+    assert noted, result.stdout + wide.stdout
     # a namespace that starts with the prefix the file declares is a module's, so it is no void one and earns
     # no note; the prefix is the file's: declared as `const-meta-`, the same namespace is a void one
-    other = messages.n2_note_void_namespace("const-other")
+    other = (  # typed by hand
+        "note: namespace 'const-other' declares a territory but no policy with id 'const-other' lies in the"
+        " root policy's territory; it claims nothing until that policy exists"
+    )
     modules = _scan(bad=False, void_key="const-other")
     narrowed = _scan(bad=False, void_key="const-other", prefix="const-meta-")
-    ok = other not in modules.stdout and other in narrowed.stdout and narrowed.code == modules.code == 0
+    ok = (
+        "const-other" not in modules.stdout
+        and other in narrowed.stdout.splitlines()
+        and narrowed.code == modules.code == 0
+    )
     assert ok, modules.stdout + narrowed.stdout
 
 
@@ -492,7 +514,8 @@ def test_counts_follow_the_consumer(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @item(32, "the fix of F4 names only the field that failed")
 def test_fix_names_the_failing_field() -> None:
-    """The fix of F4 names the field that failed and no other; the line is typed as printed."""
+    """The fix of F4 names the field that failed and no other; the line is typed as printed. A write of
+    the root policy with an id that is not kebab-case stops at F4 too, its one finding."""
     result, _ = gate_on(
         Write(NOTE_A, document(id="note-a", type="non-authoritative", title="A", status="open"))
     )
@@ -518,6 +541,18 @@ def test_fix_names_the_failing_field() -> None:
     edge, _ = gate_on(
         Write(NOTE_A, document(id="note-a", type="non-authoritative", title="x" * 200, status="active"))
     )
+    # the root policy written with an id that is not kebab-case stops at F4 too, the one finding of its
+    # write, before its id is read as a namespace
+    root_status, _ = gate_on(
+        Write(ROOT_POLICY, document(id="Root_Policy", type="current-state", title="Root", status="active"))
+    )
+    root_only = (
+        "RED: docs/policies/root-policy.md: envelope field(s) invalid: id 'Root_Policy' is not kebab-case\n"
+        "  why: the envelope is the one place a document's authority is declared, and it is read by"
+        " machines\n"
+        "  fix: set the named field: id = stable kebab-case (never changed, never reused)\n"
+        "RED: 1 finding(s) — 1 document examined (docs/policies/root-policy.md)\n"
+    )
     # the hand-written fragments stay tied to the closed sets they gloss: a type added to the
     # enum is glossed, and each fragment's key is a field the checks report
     all_wrong = parse_envelope(document(id="X_", type="x", title="", status="x", policy="X_"))
@@ -534,9 +569,12 @@ def test_fix_names_the_failing_field() -> None:
         and long_title.code == 2
         and title_only in long_title.stderr
         and edge.code == 0
+        and root_status.code == 2
+        and root_status.stderr.startswith(root_only)
         and tied
     )
-    assert ok, f"{result.stderr}\n{declared.stderr}\n{long_title.stderr}\n{edge.stderr}\n{reported}"
+    said = f"{result.stderr}\n{declared.stderr}\n{long_title.stderr}\n{edge.stderr}\n{root_status.stderr}"
+    assert ok, f"{said}\n{reported}"
 
 
 @item(29, "golden line: the F1 fix as a literal, not as the function returns it")
@@ -1050,7 +1088,8 @@ def test_policy_pointer_once_per_session() -> None:
     the memo beside the output log holds the session, the repository and the policy, keeps its last
     lines, and with no home — no log_dir, no data directory — or no session nothing is pointed; a
     memo that cannot be written or read is said again, the verdict green, the unreadable one
-    reported not exercised as root. Every line typed by hand."""
+    reported not exercised as root. A log_dir two levels deep, neither folder made yet, still points
+    once. Every line typed by hand."""
     data = H.scratch_dir()
     env = {"CLAUDE_PLUGIN_DATA": str(data)}
     consumer = H.fresh_consumer()
@@ -1178,6 +1217,19 @@ def test_policy_pointer_once_per_session() -> None:
             context(in_repo) is not None
             and beside.is_file()
             and beside.read_text(encoding="utf-8") == f"s7\t{logged.root}\tdocs/policies/notes-policy.md\n",
+        )
+    )
+    # a log_dir two levels deep, neither folder made yet: the memo makes both, so the pointer is said once
+    deep = H.fresh_consumer()
+    deep.dials.update(own(log_dir=".gate-logs/meta"))
+    deep.build()
+    deep.write(".gitignore", ".gate-logs/\n")
+    deep_first = H.run_gate(event_json(deep.root, VALID, session="s9"))
+    deep_second = H.run_gate(event_json(deep.root, VALID, session="s9"))
+    checks.append(
+        (
+            "log_dir two levels deep: pointed once, the second write green plain",
+            context(deep_first) is not None and deep_second.code == 0 and deep_second.stdout == green + "\n",
         )
     )
     # with a note of the index — a second policy document carrying the notes policy's id — the note
@@ -1361,15 +1413,16 @@ def test_effect_w1() -> None:
 
 @item(41, "W2: a change of the dials is applied, or bypassed by B2 when severity goes down to warn")
 def test_effect_w2() -> None:
-    """Seven commits of the dials file. Applied: the namespace added at block, warn turned back to block,
-    block turned to the default by an empty namespace, `log_dir` added beside warn, and warn back to block.
-    Bypassed by B2: block turned to warn, and the default turned to warn by a namespace that had no
-    `severity` (a loosening the helper's own test of `block` to `warn` does not see)."""
+    """Eight commits of the dials file. Applied: the namespace added at warn, an adoption that lowers
+    nothing; warn turned to block; warn turned back to block; block turned to the default by an empty
+    namespace; that empty namespace turned to warn, which the shared helper cannot tell from the namespace
+    added; `log_dir` added beside warn; and warn back to block. Bypassed by B2: block turned to warn."""
     consumer = H.fresh_consumer()
     consumer.write(".gitignore", "logs/\n")  # the log folder a dial may name must be git-ignored
     consumer.commit()
     logs = "logs"
     steps: list[dict[str, object]] = [
+        {"severity": "warn"},
         {"severity": "block"},
         {"severity": "warn"},
         {"severity": "block"},
@@ -1382,7 +1435,7 @@ def test_effect_w2() -> None:
         consumer.write_dials(own(**step))
         consumer.commit()
     found = effect_lines(consumer.root, {})
-    assert "  W2 (pattern): 7 moment(s): 5 applied, 2 bypassed, 0 missed — B2 2" in found, found
+    assert "  W2 (pattern): 8 moment(s): 7 applied, 1 bypassed, 0 missed — B2 1" in found, found
 
 
 @item(
@@ -1465,7 +1518,8 @@ def test_effect_w5() -> None:
     """A Skill call for choose-meta-type earlier in the session makes a Write of a Markdown file in claimed
     territory applied; a Write with no load, one through a worktree of the project and one after the load of
     another skill are missed; an Edit, a Write outside the territory and a Write of a file that is no
-    Markdown are no moment."""
+    Markdown are no moment. A project with no dials file claims nothing: its Write of a note is no
+    moment, and the report runs."""
     root = H.fresh_consumer().root
     notes = root / NOTES_DIR
     worktree = root / ".claude" / "worktrees" / "w" / NOTES_DIR / "w.md"
@@ -1489,6 +1543,13 @@ def test_effect_w5() -> None:
     }
     found = effect_lines(root, sessions)
     assert "  W5 (pattern): 5 moment(s): 2 applied, 0 bypassed, 3 missed — B5 3" in found, found
+    # a project with no dials file claims nothing: a Write of a note there is no moment, and the report runs
+    bare = H.fresh_consumer()
+    (bare.root / "constitution.yaml").unlink()
+    bare.commit()
+    write = tr_call("s44d", bare.root, WAY_AT, "w1", "Write", bare.root / NOTES_DIR / "a.md")
+    plain = effect_lines(bare.root, {"s44d": [write]})
+    assert "  W5 (pattern): 0 moment(s): 0 applied, 0 bypassed, 0 missed" in plain, plain
 
 
 @item(

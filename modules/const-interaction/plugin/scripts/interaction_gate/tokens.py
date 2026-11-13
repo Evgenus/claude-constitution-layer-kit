@@ -24,6 +24,9 @@ ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 HEREDOC = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
 # `>&`, `&>` and `<&` redirect; they are no separators.
 REDIRECT_BEFORE = frozenset({">", "<"})
+# A redirection word: an optional descriptor number or `&`, the operator, then its target, or nothing when
+# the target is the next word. The shell takes it out of the command wherever it stands.
+REDIRECTION = re.compile(r"^(?:[0-9]+|&)?(?:<<<|<<-?|>>|>&|>\||<>|<&|>|<)(.*)$", re.DOTALL)
 
 
 def split(command: str, lists: ReaderLists) -> list[Subcommand]:
@@ -276,8 +279,9 @@ def _normalise(words: list[str], lists: ReaderLists) -> tuple[list[str], list[st
     """Strip assignments, shell words and wrappers, reduce the program to its base name, and leave
     every option after the program in the words; a shell told to run strings hands back each, in the
     order they stand, and a wrapper whose option names one hands back that one, each for its own
-    split. The list is empty when no string is handed on."""
-    rest = list(words)
+    split. The list is empty when no string is handed on. A redirection is dropped first, wherever it
+    stands, with its target when that is the next word: `2>/dev/null git push -f` is `git push -f`."""
+    rest = _without_redirections(words)
     while rest:
         head = rest[0].rsplit("/", 1)[-1]  # `/usr/bin/env` is `env`
         if ASSIGNMENT.match(rest[0]) or head in SHELL_WORDS:
@@ -299,6 +303,22 @@ def _normalise(words: list[str], lists: ReaderLists) -> tuple[list[str], list[st
     arguments = rest[1:]
     # the words after the strings are the shell's arguments: not read
     return rest, _shell_strings(arguments, shell.with_value, shell.command_flags)
+
+
+def _without_redirections(words: Sequence[str]) -> list[str]:
+    """The words with every redirection taken out, and the target of one that has none attached."""
+    kept: list[str] = []
+    target_next = False
+    for word in words:
+        if target_next:
+            target_next = False
+            continue
+        found = REDIRECTION.match(word)
+        if found is None:
+            kept.append(word)
+        else:
+            target_next = not found[1]
+    return kept
 
 
 def _wrapper(rest: list[str], wrappers: tuple[Wrapper, ...]) -> Wrapper | None:
