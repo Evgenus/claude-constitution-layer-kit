@@ -109,7 +109,7 @@ Exit:   0 whenever the inputs could be read, whatever they measure; 1, with a BR
         that cannot be read, PyYAML not installed, plugin/hooks/hooks.json or a skill's front matter that
         does not parse, a tracked Python file that does not parse, git that does not answer, the
         arguments misused, or the JSON file that cannot be written. With --loc, also cloc that is not
-        installed, that exits other than 0 or gives no JSON, or whose row for a file is no mapping or
+        installed, that exits other than 0 or gives no JSON object, or whose row for a file is no mapping or
         lacks a language or a whole number of lines.
 No --self-test: no list runs it, so a self-test would be a test that nothing runs. The CI step runs the
 default mode and --complexity on every change, where only their output shows; --loc is run by hand,
@@ -224,7 +224,8 @@ PARTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
 )
 OTHER = (
     "other",
-    "Matched by no part: add the file to GENERATED, or a pattern to PARTS in a group that GROUPS names",
+    "Matched by no part: add a pattern to PARTS in a group that GROUPS names, or, if no one maintains"
+    " the file by hand, add it to GENERATED",
 )
 COUNTS = ("files", "blank", "comment", "code")
 
@@ -814,12 +815,12 @@ def cloc(paths: list[str], *options: str) -> tuple[str, dict[str, dict[str, obje
             "  fix: install cloc (`brew install cloc`, or your system's package of it) and run again"
         ) from bad
     try:
-        counted = json.loads(done.stdout) if done.returncode == 0 and done.stdout.strip() else {}
+        counted = json.loads(done.stdout) if done.returncode == 0 else None
     except json.JSONDecodeError:
         counted = None
     if not isinstance(counted, dict) or done.returncode != 0:
         raise Broken(
-            f"`{' '.join(command)}` exited {done.returncode} with no JSON report ({done.stderr.strip()})\n"
+            f"`{' '.join(command)}` exited {done.returncode} with no JSON object ({done.stderr.strip()})\n"
             f"{why}  fix: install a cloc release that knows --list-file, --by-file, --json, --quiet,"
             " --skip-uniqueness and --force-lang (cloc 2.06 does), then run again"
         )
@@ -843,7 +844,10 @@ def counted_files(paths: list[str]) -> tuple[str, dict[str, dict[str, object]]]:
 def numbers_of(path: str, row: dict[str, object]) -> tuple[str, dict[str, int]]:
     """The language and the blank, comment and code lines of cloc's row for a file, or Broken."""
     try:
-        return str(row["language"]), {key: int(str(row[key])) for key in ("blank", "comment", "code")}
+        language = row["language"]
+        if not isinstance(language, str) or not language:
+            raise TypeError(f"language {language!r}")
+        return language, {key: int(str(row[key])) for key in ("blank", "comment", "code")}
     except (KeyError, TypeError, ValueError) as bad:
         raise Broken(
             f"cloc's row for {path} is no mapping, or lacks a language or a whole number of lines ({bad!r})\n"
