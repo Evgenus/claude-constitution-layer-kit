@@ -54,14 +54,14 @@
   "const-interaction": {
     "attempts": [
       {
-        "at": "2026-11-13T14:11:52Z",
+        "at": "2026-11-13T14:57:25Z",
         "cases": 1,
         "passed": 1,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:a790e50b56515eff529129dc0f176fc5ae7facadc194674a0b117ffa259a80d0",
+    "hash": "sha256:93a6574d55c9199d20e1431e37502b8c9587d26629e215a8c8f12a9ed3d16ceb",
     "model": "claude-opus-5-5"
   },
   "const-language": {
