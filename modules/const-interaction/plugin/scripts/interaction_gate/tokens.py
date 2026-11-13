@@ -35,8 +35,9 @@ def split(command: str, lists: ReaderLists) -> list[Subcommand]:
     """Every simple command of the text, in order of appearance: the top-level ones, then the
     contents of each `$(…)` and backtick substitution, then the string a shell is told to run
     with its command options (`-c`, fish's `-C`) or that a wrapper's command option names (`env -S`)
-    with the words after it, each split in turn. A heredoc's body is data and is dropped. The wrappers and
-    the shells are those of `lists`."""
+    with the words after it, each split in turn. A heredoc's body is data and is dropped. A piece that
+    holds a redirection is read as written and without its redirections, each distinct reading one
+    subcommand of the same piece (`Subcommand.piece`). The wrappers and the shells are those of `lists`."""
     found: list[Subcommand] = []
     _collect(_drop_heredocs(command), found, lists)
     return found
@@ -59,13 +60,25 @@ def _collect(text: str, found: list[Subcommand], lists: ReaderLists) -> None:
             continue
         for inner in _substitutions(stripped):
             _collect(inner, found, lists)
-        words = _words(_unredirected(stripped))
-        if not words:
-            continue
-        words, inner_commands = _normalise(words, lists)
-        if words:  # empty: nothing but shell words or assignments, or a wrapper whose value is the command
-            found.append(Subcommand(tuple(words), stripped))
-        for inner_command in inner_commands:
+        # The piece as written, and, where it holds a redirection, the piece without it: each distinct
+        # reading is a subcommand, so the pass can add a reading and never take one away. A string either
+        # reading hands on is read once.
+        unredirected = _unredirected(stripped)
+        texts = (stripped,) if unredirected == stripped else (stripped, unredirected)
+        place = len(found)  # the piece's number, shared by its readings
+        readings: list[tuple[str, ...]] = []
+        handed_on: list[str] = []
+        for text_read in texts:
+            words = _words(text_read)
+            if not words:
+                continue
+            words, inner_commands = _normalise(words, lists)
+            # empty: nothing but shell words or assignments, or a wrapper whose value is the command
+            if words and tuple(words) not in readings:
+                readings.append(tuple(words))
+            handed_on += [inner for inner in inner_commands if inner not in handed_on]
+        found.extend(Subcommand(words, stripped, place) for words in readings)
+        for inner_command in handed_on:
             _collect(inner_command, found, lists)
 
 
@@ -315,9 +328,10 @@ def _normalise(words: list[str], lists: ReaderLists) -> tuple[list[str], list[st
 
 def _unredirected(text: str) -> str:
     """The text of one simple command with every redirection taken out, as the shell reads it: an
-    operator outside quotes, `$(…)` and backticks, the digits that open its word before it, and its target,
-    the rest of the word or else the next word, quoted or not. `2>/dev/null git push -f` reads as
-    `git push -f`, `git push --force>/dev/null` as `git push --force`, and `echo ">"` keeps its `>`."""
+    operator outside quotes, `$(…)`, `${…}` and backticks, the digits that open its word before it, and
+    its target, the rest of the word or else the next word, quoted or not. `2>/dev/null git push -f`
+    reads as `git push -f`, `git push --force>/dev/null` as `git push --force`, and `echo ">"` keeps its
+    `>`. It is the second reading of a piece; the first is the piece as written (`_collect`)."""
     out: list[str] = []
     word_start = 0  # where the word being read starts in `out`
     i = 0
@@ -380,6 +394,9 @@ def _unit_end(text: str, i: int) -> int:
             if text.startswith("$(", j):
                 j = _substitution_end(text, j + 2)
                 continue
+            if text.startswith("${", j):  # read as outside quotes, where bash takes a `'` in it literally:
+                j = _brace_end(text, j + 2)  # one unmatched swallows the rest, and the reading as written
+                continue  # still stands beside this one, so nothing is hidden
             j += 2 if text[j] == "\\" else 1
         return min(j + 1, len(text))
     return i + 1

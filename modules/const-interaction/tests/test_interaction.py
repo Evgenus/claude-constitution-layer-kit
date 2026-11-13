@@ -186,6 +186,22 @@ def broken(result: Result, failure: Broken, closing: str = shared.c11_broken_cou
     assert closing in result.stderr, f"no count line after: {first}"
 
 
+def kept_as_written(texts: Sequence[str], lists: ReaderLists = DEFAULT_READER_LISTS) -> None:
+    """Every reading of each text as written, the redirection pass switched off, is among the readings
+    `split` returns: the pass may add a reading, never take one away, so a command that asked without it
+    asks with it."""
+    lost: dict[str, list[tuple[str, ...]]] = {}
+    for text in texts:
+        with pytest.MonkeyPatch.context() as patch:
+            patch.setattr(tokens, "_unredirected", lambda piece: piece)
+            written = [s.words for s in tokens.split(text, lists)]
+        read = [s.words for s in tokens.split(text, lists)]
+        missing = [words for words in written if words not in read]
+        if missing:
+            lost[text] = missing
+    assert not lost, f"readings as written lost: {lost}"
+
+
 # ---------------------------------------------------------------- the shell gate: red→green pairs
 
 FORCE_PUSH = "git -C . push --force origin main"
@@ -254,7 +270,9 @@ def test_t5() -> None:
     word, `git push --force>/dev/null`, and one inside the string a shell runs, `bash -c ">x; git
     push -f"` and `sh -c ">log; rm -rf build"`, both since 2026-11-13. An escaped `>` or `<` before
     `|` or `&`: `echo \\>|git push -f`, `echo \\>&git push -f` and `echo \\<&rm -rf build`.
-    A `>` inside an unquoted `${…}`: `rm -${x:+>}rf build` and `git push -${x:+>}f`.
+    A `>` inside an unquoted `${…}`: `rm -${x:+>}rf build` and `git push -${x:+>}f`, and inside a quoted
+    one: `rm -"${x:+">"}"rf build` and `git push -"${x:+">"}"f`. A piece with a redirection counts two
+    subcommands and one finding. Every command here keeps each reading it has as written.
 
     Git's options are stepped over by the entry's matching: `-C .`, `-c k=v`, `--no-pager -C .`,
     `--git-dir .git` and `--git-dir=.git`, `--work-tree w`, `--namespace n`, and `--exec-path`,
@@ -266,24 +284,32 @@ def test_t5() -> None:
     `--command=`, yash's `--cmdline`, mksh's `-T`, and fish's `-C` and `-c` in both orders, both
     strings read.
     """
-    asked("sudo /bin/rm -r /tmp/x", d1("", "rm", "-r", "sudo /bin/rm -r /tmp/x"))
-    asked(
+    texts: list[str] = []
+
+    def ask(text: str, finding: Finding, subcommands: int = 1, **kwargs: object) -> None:
+        """The module's `asked`, the text kept for the guard at the end."""
+        texts.append(text)
+        asked(text, finding, subcommands, **kwargs)
+
+    ask("sudo /bin/rm -r /tmp/x", d1("", "rm", "-r", "sudo /bin/rm -r /tmp/x"))
+    ask(
         "git -c push.default=current push -f",
         d1("", "git push", "-f", "git -c push.default=current push -f"),
     )
-    asked("FOO=1 timeout 5 git stash drop", d1("", "git stash drop", "", "FOO=1 timeout 5 git stash drop"))
-    asked("nohup git filter-repo --path x", d1("", "git filter-repo", "", "nohup git filter-repo --path x"))
-    asked("git gc --prune=now", d1("git gc --prune=now", "git gc", "--prune=now"))
-    asked("env -i git push -f", d1("", "git push", "-f", "env -i git push -f"))
-    asked("sudo -k git push -f", d1("", "git push", "-f", "sudo -k git push -f"))
-    asked("sudo --user root git push -f", d1("", "git push", "-f", "sudo --user root git push -f"))
-    asked("/usr/bin/env git push -f", d1("", "git push", "-f", "/usr/bin/env git push -f"))
-    asked('bash -lc "git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=2)
-    asked("exec git push -f", d1("", "git push", "-f", "exec git push -f"))
+    ask("FOO=1 timeout 5 git stash drop", d1("", "git stash drop", "", "FOO=1 timeout 5 git stash drop"))
+    ask("nohup git filter-repo --path x", d1("", "git filter-repo", "", "nohup git filter-repo --path x"))
+    ask("git gc --prune=now", d1("git gc --prune=now", "git gc", "--prune=now"))
+    ask("env -i git push -f", d1("", "git push", "-f", "env -i git push -f"))
+    ask("sudo -k git push -f", d1("", "git push", "-f", "sudo -k git push -f"))
+    ask("sudo --user root git push -f", d1("", "git push", "-f", "sudo --user root git push -f"))
+    ask("/usr/bin/env git push -f", d1("", "git push", "-f", "/usr/bin/env git push -f"))
+    ask('bash -lc "git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=2)
+    ask("exec git push -f", d1("", "git push", "-f", "exec git push -f"))
     # exec is a wrapper whose own option -a takes a value, bash's manual: it stood in front of the verb
-    asked("exec -a x rm -r y", d1("", "rm", "-r", "exec -a x rm -r y"))
-    asked("if true; then git push -f; fi", d1("", "git push", "-f", "then git push -f"), subcommands=2)
-    asked("git push -f 2>&1", d1("", "git push", "-f", "git push -f 2>&1"))
+    ask("exec -a x rm -r y", d1("", "rm", "-r", "exec -a x rm -r y"))
+    ask("if true; then git push -f; fi", d1("", "git push", "-f", "then git push -f"), subcommands=2)
+    # a piece with a redirection is read twice, as written and without it: two subcommands, one finding
+    ask("git push -f 2>&1", d1("", "git push", "-f", "git push -f 2>&1"), subcommands=2)
     # a redirection is no word of the command, wherever it stands: before the program, its target
     # attached or the next word, between the program and its verb, after a wrapper
     for text in (
@@ -292,33 +318,37 @@ def test_t5() -> None:
         "git 2>/dev/null push -f",
         "sudo >x git push -f",
     ):
-        asked(text, d1("", "git push", "-f", text))
-    asked(">out.log rm -rf build", d1("", "rm", "-r", ">out.log rm -rf build"))
+        ask(text, d1("", "git push", "-f", text), subcommands=2)
+    ask(">out.log rm -rf build", d1("", "rm", "-r", ">out.log rm -rf build"), subcommands=2)
     # a redirection is read where it stands outside quotes: attached to a word it cuts the word, and in
     # the string a shell runs it is read again, so the command after it in that string still asks
-    asked("git push --force>/dev/null", d1("", "git push", "--force", "git push --force>/dev/null"))
-    asked('bash -c ">x; git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=2)
-    asked('sh -c ">log; rm -rf build"', d1("", "rm", "-r", "rm -rf build"), subcommands=2)
+    ask(
+        "git push --force>/dev/null",
+        d1("", "git push", "--force", "git push --force>/dev/null"),
+        subcommands=2,
+    )
+    ask('bash -c ">x; git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=3)
+    ask('sh -c ">log; rm -rf build"', d1("", "rm", "-r", "rm -rf build"), subcommands=3)
     # an escaped `>` or `<` is text, so the `|` or `&` after it separates: the command after it asks
-    asked("echo \\>|git push -f", d1("", "git push", "-f", "git push -f"), subcommands=2)
-    asked("echo \\>&git push -f", d1("", "git push", "-f", "git push -f"), subcommands=2)
-    asked("echo \\<&rm -rf build", d1("", "rm", "-r", "rm -rf build"), subcommands=2)
+    ask("echo \\>|git push -f", d1("", "git push", "-f", "git push -f"), subcommands=2)
+    ask("echo \\>&git push -f", d1("", "git push", "-f", "git push -f"), subcommands=2)
+    ask("echo \\<&rm -rf build", d1("", "rm", "-r", "rm -rf build"), subcommands=2)
     # a `>` inside an unquoted `${…}` is text: the flag around it stays whole and asks
-    asked("rm -${x:+>}rf build", d1("", "rm", "-r", "rm -${x:+>}rf build"))
-    asked("git push -${x:+>}f", d1("", "git push", "-f", "git push -${x:+>}f"))
+    ask("rm -${x:+>}rf build", d1("", "rm", "-r", "rm -${x:+>}rf build"))
+    ask("git push -${x:+>}f", d1("", "git push", "-f", "git push -${x:+>}f"))
     # git's options before the verb are skipped by the entry's matching, as for every program
-    asked("git -C . push -f", d1("", "git push", "-f", "git -C . push -f"))
-    asked("git -c k=v push -f", d1("", "git push", "-f", "git -c k=v push -f"))
-    asked("git --no-pager -C . push -f", d1("", "git push", "-f", "git --no-pager -C . push -f"))
-    asked(
+    ask("git -C . push -f", d1("", "git push", "-f", "git -C . push -f"))
+    ask("git -c k=v push -f", d1("", "git push", "-f", "git -c k=v push -f"))
+    ask("git --no-pager -C . push -f", d1("", "git push", "-f", "git --no-pager -C . push -f"))
+    ask(
         "git --git-dir .git push --force",
         d1("", "git push", "--force", "git --git-dir .git push --force"),
     )
-    asked("git --git-dir=.git push -f", d1("", "git push", "-f", "git --git-dir=.git push -f"))
-    asked("git --work-tree w reset --hard", d1("", "git reset", "--hard", "git --work-tree w reset --hard"))
-    asked("git --namespace n push -f", d1("", "git push", "-f", "git --namespace n push -f"))
+    ask("git --git-dir=.git push -f", d1("", "git push", "-f", "git --git-dir=.git push -f"))
+    ask("git --work-tree w reset --hard", d1("", "git reset", "--hard", "git --work-tree w reset --hard"))
+    ask("git --namespace n push -f", d1("", "git push", "-f", "git --namespace n push -f"))
     # git's page gives the value of --exec-path as optional: the verb stands right after it
-    asked("git --exec-path push -f", d1("", "git push", "-f", "git --exec-path push -f"))
+    ask("git --exec-path push -f", d1("", "git push", "-f", "git --exec-path push -f"))
     # the wrappers of the defaults whose pages the kit read on 2026-10-05, each in the forms of its page
     for form in (
         "busybox",
@@ -333,18 +363,23 @@ def test_t5() -> None:
         "chrt 10",
         "chrt -f 10",
     ):
-        asked(f"{form} rm -rf build", d1("", "rm", "-r", f"{form} rm -rf build"))
+        ask(f"{form} rm -rf build", d1("", "rm", "-r", f"{form} rm -rf build"))
     # flock's `-c` after the lock file: the string it names is the command, read again
-    asked("flock /tmp/l -c 'rm -rf build'", d1("", "rm", "-r", "rm -rf build"))
+    ask("flock /tmp/l -c 'rm -rf build'", d1("", "rm", "-r", "rm -rf build"))
     # the shells of the defaults, `-c` and the forms of their pages: the string is read as commands
     for shell in ("fish", "ash", "mksh", "yash", "posh", "csh", "tcsh"):
-        asked(f"{shell} -c 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2)
-    asked("fish --command='git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2)
-    asked("yash --cmdline 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2)
-    asked("mksh -T /dev/tty2 -c 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2)
+        ask(f"{shell} -c 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2)
+    ask("fish --command='git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2)
+    ask("yash --cmdline 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2)
+    ask("mksh -T /dev/tty2 -c 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2)
     # fish runs `-C` and `-c` strings alike: every command flag met yields a string, both are read
-    asked("fish -C 'set x 1' -c 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=3)
-    asked("fish -c 'git push -f' -C 'set x 1'", d1("", "git push", "-f", "git push -f"), subcommands=3)
+    ask("fish -C 'set x 1' -c 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=3)
+    ask("fish -c 'git push -f' -C 'set x 1'", d1("", "git push", "-f", "git push -f"), subcommands=3)
+    # a `>` inside a quoted `${…}` is text too
+    ask('rm -"${x:+">"}"rf build', d1("", "rm", "-r", 'rm -"${x:+">"}"rf build'))
+    ask('git push -"${x:+">"}"f', d1("", "git push", "-f", 'git push -"${x:+">"}"f'))
+    # every command above keeps each reading it has as written
+    kept_as_written(texts)
 
 
 @item(6, "outside the list passes: a heredoc body, checkout -- ., an amend, a plain push, a flag after --")
@@ -386,7 +421,7 @@ def test_t6() -> None:
     """
     entry = {"command": ["kubectl", "delete"], "teach": "a deleted resource is gone", "alternative": "scale"}
     kubectl = own(destructive=[entry])
-    passed("cat <<EOF\nrm -rf /\nEOF\n")
+    passed("cat <<EOF\nrm -rf /\nEOF\n", subcommands=2)  # `cat <<EOF` read as written and without it
     passed("git checkout -- .")
     passed("git commit --amend --no-edit")
     passed("git push origin main")
@@ -409,14 +444,14 @@ def test_t6() -> None:
     passed("git -C . help restore")
     asked('echo "a<<EOF"\ngit push -f', d1("", "git push", "-f", "git push -f"), subcommands=2)
     asked('echo "a<<EOF"\ngit push -f\nEOF', d1("", "git push", "-f", "git push -f"), subcommands=3)
-    asked("cat <<EOF\ngit push -f", d1("", "git push", "-f", "git push -f"), subcommands=2)
+    asked("cat <<EOF\ngit push -f", d1("", "git push", "-f", "git push -f"), subcommands=3)
     passed(
         "git commit -q -F - <<'EOF'\nthe branch fix; git branch -f gated\nEOF",
-        subcommands=1,
+        subcommands=2,
     )
     passed(
         "git commit -m \"$(cat <<'EOF'\nthe branch fix; git branch -f gated\nEOF\n)\"",
-        subcommands=2,
+        subcommands=3,
     )
     asked('env -S "git push -f"', d1("", "git push", "-f", "git push -f"))
     asked('env -i -S "git push -f"', d1("", "git push", "-f", "git push -f"))
@@ -482,7 +517,7 @@ def test_t6() -> None:
     asked("bash +o posix -c 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2)
     asked('bash -o pipefail -c "git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=2)
     asked('bash -eo pipefail -c "git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=2)
-    asked("echo '$(<<EOF'\ngit push -f\nEOF", d1("", "git push", "-f", "git push -f"), subcommands=3)
+    asked("echo '$(<<EOF'\ngit push -f\nEOF", d1("", "git push", "-f", "git push -f"), subcommands=4)
     asked('echo "$(date) a<<EOF"\ngit push -f\nEOF', d1("", "git push", "-f", "git push -f"), subcommands=4)
 
 
@@ -1572,7 +1607,9 @@ def test_t13() -> None:
     the start of a word, an attached operator cuts its word, `>|` is one operator, and an escaped,
     quoted or substituted `>` is text. An escaped `>` or `<` before `|` or `&` leaves it a separator,
     while `>|`, `2>&1`, `>&2`, `&>log` and `<&-` stay redirections. An unquoted `${…}` is one span of
-    text, nested, with a quote or a `$(…)` inside, or never closed.
+    text, nested, with a quote or a `$(…)` inside, or never closed. Since round 4 of the audit, a piece
+    with a redirection reads twice, as written and without it, and a guard asserts that every reading
+    as written, the redirection pass switched off, is among those `split` returns, over every table.
 
     Ten texts a slip could turn into an endless loop run through the gate within the harness's
     bound: a lone backtick, backtick pairs empty or side by side, and an escape in double quotes
@@ -1712,14 +1749,14 @@ def test_t13() -> None:
         "nice -- -n 5 rm -rf b": [("-n", "5", "rm", "-rf", "b")],
         "sh -- -lc 'rm -rf b'": [("sh", "--", "-lc", "rm -rf b")],
         "git push \\\n -f": [("git", "push", "-f")],
-        "ls &> /dev/null; rm -r x": [("ls",), ("rm", "-r", "x")],
+        "ls &> /dev/null; rm -r x": [("ls", "&>", "/dev/null"), ("ls",), ("rm", "-r", "x")],
         "{ git push -f; }": [("git", "push", "-f")],
         "FOO=1": [],
         # a two-letter operator is read before its one-letter prefix: `&&`, `||` and `|&` each cut once,
         # and the redirection after them is dropped with its target
-        "a &&> b": [("a",)],
-        "a ||&> b": [("a",)],
-        "a |&> b": [("a",)],
+        "a &&> b": [("a",), (">", "b")],
+        "a ||&> b": [("a",), ("&>", "b")],
+        "a |&> b": [("a",), (">", "b")],
         # each shell word is stripped, by name or by path, so the program after it is read
         "! git push -f": [("git", "push", "-f")],
         "if x; then :; else git push -f; fi": [("x",), (":",), ("git", "push", "-f")],
@@ -1730,19 +1767,19 @@ def test_t13() -> None:
         "/bin/do git push -f": [("git", "push", "-f")],
         # `<&` and `>&` redirect and cut nothing, at the text's start too, and are dropped with their target;
         # a `&` that opens the text cuts; a redirection with no word after it is dropped alone
-        "cat <&3 & git push -f": [("cat",), ("git", "push", "-f")],
-        "ls >& x; git push -f": [("ls",), ("git", "push", "-f")],
-        "& ls >": [("ls",)],
-        ">& x": [],
+        "cat <&3 & git push -f": [("cat", "<&3"), ("cat",), ("git", "push", "-f")],
+        "ls >& x; git push -f": [("ls", ">&", "x"), ("ls",), ("git", "push", "-f")],
+        "& ls >": [("ls", ">"), ("ls",)],
+        ">& x": [(">&", "x")],
         # a heredoc whose terminator is the next line drops nothing but the operator's body, and the lines
         # after it are read; of two operators on one line, the first one's body alone is dropped, so the
         # second body is read as commands, which examines more
-        "cat <<EOF\nEOF\nls": [("cat",), ("ls",)],
-        "cat <<A <<B\nx\nA\ny\nB\nls": [("cat",), ("y",), ("B",), ("ls",)],
+        "cat <<EOF\nEOF\nls": [("cat", "<<EOF"), ("cat",), ("ls",)],
+        "cat <<A <<B\nx\nA\ny\nB\nls": [("cat", "<<A", "<<B"), ("cat",), ("y",), ("B",), ("ls",)],
         # an operator inside quotes at the line's first character drops nothing; one after a closed quote
         # inside `$(…)` drops its body
         '"<<EOF"\ngit push -f\nEOF': [("<<EOF",), ("git", "push", "-f"), ("EOF",)],
-        'x $("a" <<EOF\nb\nEOF\n)': [("a",), ("x", "$(a", "<<EOF", ")")],
+        'x $("a" <<EOF\nb\nEOF\n)': [("a", "<<EOF"), ("a",), ("x", "$(a", "<<EOF", ")")],
         # a backtick opens a quote at the top-level split, so its `;` cuts nothing there; an escape outside
         # quotes takes one character with it, at the text's end too
         "echo `a; git push -f`": [("a",), ("git", "push", "-f"), ("echo", "`a;", "git", "push", "-f`")],
@@ -1784,7 +1821,7 @@ def test_t13() -> None:
             ("git", "push", "-f"),
             ("echo", "$(echo", ")", ")", "$(git", "push", "-f)"),
         ],
-        "elif $( push &> 5 $(": [("push", "$"), ("$(", "push", "&>", "5", "$(")],
+        "elif $( push &> 5 $(": [("push", "&>", "5", "$"), ("push", "$"), ("$(", "push", "&>", "5", "$(")],
         # a wrapper's numbers: one word only and no number leaves it the program; no wrapper but chrt
         # skips a number, and chrt one at most
         "chrt x": [("x",)],
@@ -1815,49 +1852,51 @@ def test_t13() -> None:
         'echo ">" x': [("echo", ">", "x")],
         "git commit -m '>x' -q": [("git", "commit", "-m", ">x", "-q")],
         'env -S ">x git push -f"': [(">x", "git", "push", "-f")],
-        "git push --force>/dev/null": [("git", "push", "--force")],
-        "x2>y z": [("x2", "z")],
-        "git push -f >| out": [("git", "push", "-f")],
+        "git push --force>/dev/null": [("git", "push", "--force>/dev/null"), ("git", "push", "--force")],
+        "x2>y z": [("x2>y", "z"), ("x2", "z")],
+        "git push -f >| out": [("git", "push", "-f", ">|", "out"), ("git", "push", "-f")],
         # the `|` of `>|` and the `&` of `>&`, `<&` and `&>` are no separators only after an operator: after
         # an escaped `>` or `<`, which is text, each separates
         "echo \\>|git push -f": [("echo", ">"), ("git", "push", "-f")],
         "echo \\>&git push -f": [("echo", ">"), ("git", "push", "-f")],
         "echo \\<&rm -rf build": [("echo", "<"), ("rm", "-rf", "build")],
-        "git push -f 2>&1": [("git", "push", "-f")],
-        "echo x >&2": [("echo", "x")],
-        "ls &>log": [("ls",)],
-        "cat <&-": [("cat",)],
+        "git push -f 2>&1": [("git", "push", "-f", "2>&1"), ("git", "push", "-f")],
+        "echo x >&2": [("echo", "x", ">&2"), ("echo", "x")],
+        "ls &>log": [("ls", "&>log"), ("ls",)],
+        "cat <&-": [("cat", "<&-"), ("cat",)],
         # an unquoted `${…}` is one span of text up to its matching `}`, a nested one, a quote and a `$(…)`
         # inside it too; one never closed keeps its text and drops nothing
         "echo ${a:->x} y": [("echo", "${a:->x}", "y")],
         "echo ${a:-${b:->x}} y": [("echo", "${a:-${b:->x}}", "y")],
         "echo ${a:-'}>x'} y": [("echo", "${a:-}>x}", "y")],
-        "echo ${a:-$(b >x)} y": [("b",), ("echo", "${a:-$(b", ">x)}", "y")],
+        "echo ${a:-$(b >x)} y": [("b", ">x"), ("b",), ("echo", "${a:-$(b", ">x)}", "y")],
         "echo ${a:->x y": [("echo", "${a:->x", "y")],
         "rm -${x:+>}rf build": [("rm", "-${x:+>}rf", "build")],
-        "echo ${a}>x y": [("echo", "${a}", "y")],
-        "echo ${a} >x y": [("echo", "${a}", "y")],
-        "echo ${}>x y": [("echo", "${}", "y")],
-        ">|a": [],
-        "|a >": [("a",)],
-        "a >x| b": [("a",), ("b",)],
+        "echo ${a}>x y": [("echo", "${a}>x", "y"), ("echo", "${a}", "y")],
+        "echo ${a} >x y": [("echo", "${a}", ">x", "y"), ("echo", "${a}", "y")],
+        'echo "${}" >x y': [("echo", "${}", ">x", "y"), ("echo", "${}", "y")],
+        'echo "${a}b" >x y': [("echo", "${a}b", ">x", "y"), ("echo", "${a}b", "y")],
+        "echo ${}>x y": [("echo", "${}>x", "y"), ("echo", "${}", "y")],
+        ">|a": [(">|a",)],
+        "|a >": [("a", ">"), ("a",)],
+        "a >x| b": [("a", ">x"), ("a",), ("b",)],
         # the operator, its descriptor and its target: digits of any length, a target after a blank, a
         # second operator ending the target; an escaped `>` and every quoted or substituted one is text
-        "12>x y": [("y",)],
-        ">X b": [("b",)],
+        "12>x y": [("12>x", "y"), ("y",)],
+        ">X b": [(">X", "b"), ("b",)],
         "echo \\>x": [("echo", ">x")],
-        "echo \\>>x": [("echo", ">")],
-        "echo $()>x": [("echo", "$()")],
-        "echo `a >x` b": [("a",), ("echo", "`a", ">x`", "b")],
-        "echo ''>x y": [("echo", "", "y")],
-        "echo 'a'>x": [("echo", "a")],
-        'echo "">x y': [("echo", "", "y")],
+        "echo \\>>x": [("echo", ">>x"), ("echo", ">")],
+        "echo $()>x": [("echo", "$()>x"), ("echo", "$()")],
+        "echo `a >x` b": [("a", ">x"), ("a",), ("echo", "`a", ">x`", "b")],
+        "echo ''>x y": [("echo", ">x", "y"), ("echo", "", "y")],
+        "echo 'a'>x": [("echo", "a>x"), ("echo", "a")],
+        'echo "">x y': [("echo", ">x", "y"), ("echo", "", "y")],
         'echo "a >x': [("echo", '"a', ">x")],
         'echo "$(echo ">")" y': [("echo", ">"), ("echo", "$(echo >)", "y")],
-        'echo "$(a) b">x y': [("a",), ("echo", "$(a) b", "y")],
-        'echo "$()" >x y': [("echo", "$()", "y")],
+        'echo "$(a) b">x y': [("a",), ("echo", "$(a) b>x", "y"), ("echo", "$(a) b", "y")],
+        'echo "$()" >x y': [("echo", "$()", ">x", "y"), ("echo", "$()", "y")],
         'echo "a\\">x" y': [("echo", 'a">x', "y")],
-        'echo "\\a">y z': [("echo", "\\a", "z")],
+        'echo "\\a">y z': [("echo", "\\a>y", "z"), ("echo", "\\a", "z")],
     }
     # the reading of an entry's own words, the dials loader's test: every default entry reads as
     # itself; a path, a wrapper, an assignment, a shell word and a wrapper alone do not; a shell told
@@ -2023,6 +2062,9 @@ def test_t13() -> None:
     }
     wrong.update(own_wrong)
     assert not wrong, f"wrong: {wrong}"
+    # every text of the tables keeps each reading it has as written, the redirection pass switched off
+    kept_as_written([*readings, *pinned])
+    kept_as_written(list(own_readings), own_lists)
     # The texts whose reading a slip could turn into an endless loop: a lone backtick, backtick pairs empty
     # or side by side, an escape in double quotes at the top level, before a heredoc operator and inside
     # `$(…)`, an escape outside quotes before one. Each runs through the gate within a bound, so a loop is
@@ -2035,8 +2077,8 @@ def test_t13() -> None:
         asked("echo `` `git push -f`", git_push, subcommands=2)
         asked('echo "x\\"" ; git push -f', git_push, subcommands=2)
         asked('echo "a\\b"; git push -f', git_push, subcommands=2)
-        passed('x "\\""<<EOF\nb\nEOF')
-        passed("x \\' <<EOF\nb\nEOF")
+        passed('x "\\""<<EOF\nb\nEOF', subcommands=2)
+        passed("x \\' <<EOF\nb\nEOF", subcommands=2)
         asked('x \\"" <<EOF\n"\ngit push -f\nEOF', git_push, subcommands=3)
         asked('x $(echo "\\"" ) $(git push -f)', git_push, subcommands=3)
 
