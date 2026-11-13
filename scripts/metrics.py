@@ -107,10 +107,10 @@ Exit:   0 whenever the inputs could be read, whatever they measure; 1, with a BR
         failed, why and the fix, when they cannot: the module folders, a module document whose section
         is missing or out of order, a module document, a skill, plugin/hooks/hooks.json or a tracked file
         that cannot be read, PyYAML not installed, plugin/hooks/hooks.json or a skill's front matter that
-        does not parse, a tracked Python file that does not parse, git that does not answer, cloc
-        that is not installed or does not answer, or whose row for a file lacks a language or a whole
-        number of lines (--loc), the arguments misused, or the JSON file
-        that cannot be written.
+        does not parse, a tracked Python file that does not parse, git that does not answer, the
+        arguments misused, or the JSON file that cannot be written. With --loc, also cloc that is not
+        installed, that exits other than 0 or gives no JSON, or whose row for a file is no mapping or
+        lacks a language or a whole number of lines.
 No --self-test: no list runs it, so a self-test would be a test that nothing runs. The CI step runs the
 default mode and --complexity on every change, where only their output shows; --loc is run by hand,
 where its output shows. The kit's `lint` and `types` entries of scripts/gate-list.sh hold its code, as
@@ -224,7 +224,7 @@ PARTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
 )
 OTHER = (
     "other",
-    "Matched by no part: add a pattern to PARTS, under a group of GROUPS, or the file to GENERATED",
+    "Matched by no part: add the file to GENERATED, or a pattern to PARTS in a group that GROUPS names",
 )
 COUNTS = ("files", "blank", "comment", "code")
 
@@ -820,7 +820,8 @@ def cloc(paths: list[str], *options: str) -> tuple[str, dict[str, dict[str, obje
     if not isinstance(counted, dict) or done.returncode != 0:
         raise Broken(
             f"`{' '.join(command)}` exited {done.returncode} with no JSON report ({done.stderr.strip()})\n"
-            f"{why}  fix: check that `cloc --version` answers, then run again"
+            f"{why}  fix: install a cloc release that knows --list-file, --by-file, --json, --quiet,"
+            " --skip-uniqueness and --force-lang (cloc 2.06 does), then run again"
         )
     header = counted.pop("header", {})
     counted.pop("SUM", None)
@@ -843,12 +844,12 @@ def numbers_of(path: str, row: dict[str, object]) -> tuple[str, dict[str, int]]:
     """The language and the blank, comment and code lines of cloc's row for a file, or Broken."""
     try:
         return str(row["language"]), {key: int(str(row[key])) for key in ("blank", "comment", "code")}
-    except (KeyError, ValueError) as bad:
+    except (KeyError, TypeError, ValueError) as bad:
         raise Broken(
-            f"cloc's row for {path} lacks a language or a whole number of lines ({bad!r})\n"
+            f"cloc's row for {path} is no mapping, or lacks a language or a whole number of lines ({bad!r})\n"
             "  why: --loc counts lines with cloc and counts none itself\n"
-            "  fix: install a cloc release whose --by-file --json rows hold `language`, `blank`, `comment`"
-            " and `code` for each file, then run again"
+            "  fix: install a cloc release whose --by-file --json row for each file maps `language` to a"
+            " name and `blank`, `comment` and `code` to whole numbers (cloc 2.06 does), then run again"
         ) from bad
 
 
