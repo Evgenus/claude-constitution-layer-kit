@@ -17,16 +17,20 @@ BOLD = re.compile(r"^\*\*")
 
 
 def match(entries: Sequence[Entry], subcommands: Sequence[Subcommand]) -> list[Hit]:
-    """At most one hit per subcommand: the first entry it matches. An entry's first word is the
+    """At most one hit per subcommand: the first entry it matches, and one per piece and entry where two
+    readings of one piece match the same entry. An entry's first word is the
     program; each later word follows it with only options, and one value after an option given
     without `=`, between them. A flag matches by equality when long, inside a cluster when
     short; the scan of flags stops at `--`."""
     hits: list[Hit] = []
+    found: set[tuple[int, Entry]] = set()  # two readings of one piece that match one entry are one hit
     for subcommand in subcommands:
         for entry in entries:
             matched = _matches(entry, subcommand)
             if matched is not None:
-                hits.append(Hit(entry, subcommand, matched))
+                if (subcommand.piece, entry) not in found:
+                    found.add((subcommand.piece, entry))
+                    hits.append(Hit(entry, subcommand, matched))
                 break
     return hits
 
