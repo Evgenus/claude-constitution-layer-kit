@@ -1874,8 +1874,10 @@ def test_t13() -> None:
         "rm -${x:+>}rf build": [("rm", "-${x:+>}rf", "build")],
         "echo ${a}>x y": [("echo", "${a}>x", "y"), ("echo", "${a}", "y")],
         "echo ${a} >x y": [("echo", "${a}", ">x", "y"), ("echo", "${a}", "y")],
-        'echo "${}" >x y': [("echo", "${}", ">x", "y"), ("echo", "${}", "y")],
-        'echo "${a}b" >x y': [("echo", "${a}b", ">x", "y"), ("echo", "${a}b", "y")],
+        # a `${…}` inside double quotes is one span too: its quoted `>` is text, the quote goes on after it
+        'echo "${x:+">"}" y': [("echo", "${x:+>}", "y")],
+        'echo "${x:+">"}b" >x y': [("echo", "${x:+>}b", ">x", "y"), ("echo", "${x:+>}b", "y")],
+        'echo "${}${x:+">"}" >x y': [("echo", "${}${x:+>}", ">x", "y"), ("echo", "${}${x:+>}", "y")],
         "echo ${}>x y": [("echo", "${}>x", "y"), ("echo", "${}", "y")],
         ">|a": [(">|a",)],
         "|a >": [("a", ">"), ("a",)],
