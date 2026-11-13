@@ -284,7 +284,7 @@ What the module counts of its own effect in a project that installs it, [aspect 
 | W7 | the main branch holds no document that carries an open-question marker | each first-parent commit of the main branch in the window, the last 50, scanned by the module's `--scan` | `pattern` | B4 |
 | W8 | `A question is put to the user only at recorded stakes or at a genuine blocker; below that line the session makes the reasonable call and notes it in the commit message.` | each message of the assistant that puts a question | `reader` | B6 |
 
-Limits of the pattern: W2 reads an empty namespace, a namespace with no value and one removed as one that is not there. So a namespace emptied or removed, then written again at `warn`, counts as the module adopted at `warn`, applied and not bypassed. The shared helper that judges `severity` reads it so.
+Limits of the pattern: W2 has a limit of the shared `switch_off`, for a namespace emptied or removed, then written again at `warn`. Limit 18 of [kit-shared-gate-code §4](../../shared/GATE.md#g4) states it. Such a commit is still bypassed where it leaves out a default marker or territory pattern, or adds a negated one. The module's own `loosened` reads it so.
 
 **Judge** *(template rule)*. As [template §13](../../module-template/MODULE.md#t13) says; W8 is the one reader rule.
 

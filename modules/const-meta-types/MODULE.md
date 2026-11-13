@@ -258,4 +258,4 @@ What the module counts of its own effect in a project that installs it, [aspect 
 | W5 | Load `choose-meta-type` before writing a governed document. | Each Write of a Markdown file in claimed territory. | `pattern` | B5 |
 | W6 | The main branch holds no document in claimed territory that the guard's scan finds red. | Each first-parent commit of the main branch in the window, the scan run on a throwaway clone of it. | `pattern` | B4 |
 
-Limits of the pattern: W2 reads an empty namespace, a namespace with no value and one removed as one that is not there. So a namespace emptied or removed, then written again at `warn`, counts as the module adopted at `warn`, applied and not bypassed. This holds for every module whose severity the shared helper judges.
+Limits of the pattern: W2 has a limit of the shared `switch_off`, for a namespace emptied or removed, then written again at `warn`. Limit 18 of [kit-shared-gate-code §4](../../shared/GATE.md#g4) states it.
