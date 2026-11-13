@@ -1592,7 +1592,7 @@ def test_t13() -> None:
     follows it, an unbalanced quote, a bare subshell, `sudo -u`, a continuation line, `&>`, a
     brace group, an assignment alone.
 
-    157 readings in all, among them git's options kept in the words, `exec -a x`, each wrapper
+    160 readings in all, among them git's options kept in the words, `exec -a x`, each wrapper
     added on 2026-10-05 read to its command, `flock -c` before and after the lock file, each
     added shell with its string, a shell's strings (`-ce`, `-cl`, `-ec`, `-oc posix`,
     `-oe pipefail -c` in bash, `-oerrexit -c` in zsh and `-opipefail -c` in ksh, `-c -e`,
