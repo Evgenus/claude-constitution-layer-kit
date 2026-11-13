@@ -2126,6 +2126,44 @@ def green_where_coverage_changes() -> list[str]:
     last = done.stdout.splitlines()[-1] if done.stdout else ""
     if done.code != 0 or not last.startswith("GREEN: const-referencing: "):
         problems.append(f"a link to the moved file: exit {done.code}: {done.stdout}{done.stderr}")
+    problems.extend(green_as_the_tree_stands())
+    return problems
+
+
+def green_as_the_tree_stands() -> list[str]:
+    """--moved reads the tree as it stands, the move made by hand: a document moved out of coverage is read
+    where it went, and a policy moved out of the root territory governs nothing. A moved `.gitignore` changes
+    what git lists by rules the check does not read: the mover asks nothing before the move, so a file it
+    will hide may stay unreadable."""
+    problems: list[str] = []
+    out = moving_consumer()
+    notes_only(out)
+    (out.root / "other").mkdir()
+    out.git("mv", OLD, "other/one.md")
+    done = mover(out, "--moved", OLD, "other/one.md")
+    last = done.stdout.splitlines()[-1] if done.stdout else ""
+    if done.code != 0 or not last.startswith("GREEN: const-referencing: "):
+        problems.append(f"--moved out of coverage: exit {done.code}: {done.stdout}{done.stderr}")
+    governed = H.fresh_consumer(
+        (Write("docs/notes/two.md", note("# Two\n\nSee [p](../policies/notes-policy.md).\n", "note-two")),)
+    )
+    governed.write("constitution.yaml", dials_text(own(governed_only=True)))
+    governed.commit()
+    (governed.root / "docs/archive").mkdir()
+    governed.git("mv", "docs/policies/notes-policy.md", "docs/archive/notes-policy.md")
+    policy = ("--moved", "docs/policies/notes-policy.md", "docs/archive/notes-policy.md")
+    done, _, _ = under_mode(governed, "docs/notes/two.md", 0o444, *policy)
+    last = done.stdout.splitlines()[-1] if done.stdout else ""
+    if done.code != 0 or not last.startswith("GREEN: const-referencing: "):
+        problems.append(f"--moved, a policy out of the root: exit {done.code}: {done.stdout}{done.stderr}")
+    hidden = moving_consumer()
+    hidden.write("other/.gitignore", "u.md\n")
+    hidden.commit()
+    hidden.write("docs/u.md", note("# U\n\nSee [one](notes/one.md).\n", "note-u"))  # untracked
+    done, _, _ = under_mode(hidden, "docs/u.md", 0o000, "other/.gitignore", "docs/.gitignore")
+    last = done.stdout.splitlines()[-1] if done.stdout else ""
+    if done.code != 0 or not last.startswith("GREEN: const-referencing: "):
+        problems.append(f"a moved .gitignore that hides a file: exit {done.code}: {done.stdout}{done.stderr}")
     return problems
 
 

@@ -5,6 +5,7 @@ whole tree, whose verdict is the act's exit code."""
 from __future__ import annotations
 
 import os
+import posixpath
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -107,31 +108,48 @@ def _planned(
     request: Request,
 ) -> list[tuple[str, str]]:
     """The documents the act will read and may rewrite, each as the pair (where it lies now, where it
-    will lie when it is read). For --ids and --moved nothing moves before the rewrites, so the pairs are
-    the covered documents as they stand. For a move they are the documents covered in the tree as it will
-    stand after the move, worked out before it. The moved document is read whenever its new path is
-    Markdown, covered there or not — as the act reads it."""
-    if request.ids or request.by_hand:
-        after = list(covered)
-        source = {rel: rel for rel in after}
-    else:
-        source = _paths_after(root, old, new)
-        predicted = _covered_after(root, dials, target, source, old)
-        if predicted is None:  # the root policy itself moves: no coverage can be read after it
-            after = [new if rel == old else rel for rel in covered]
-            source = {**{rel: rel for rel in covered}, new: old}
-        else:
-            after = predicted
+    will lie when it is read). For --ids and --moved nothing moves before the rewrites: the tree already is
+    the tree the act reads, so the pairs are the covered documents as they stand, and the moved one. For a
+    move they are the documents covered in the tree as it will stand after the move, worked out before it;
+    the moved document is among them whenever its new path is Markdown, covered there or not. Where that
+    tree cannot be known exactly, nothing is asked, as before the check was made."""
+    if request.ids or request.by_hand:  # the tree already is the tree the act reads: nothing to predict
+        return [(rel, rel) for rel in [*covered, *([new] if is_markdown(new) and new not in covered else [])]]
+    if _unknowable(root, dials, target, old, new):
+        return []
+    source = _paths_after(root, old, new)
+    after = _covered_after(root, dials, target, source)
     if is_markdown(new) and new not in after:
         after = [*after, new]
-    return [(source.get(rel, old if rel == new else rel), rel) for rel in after]
+    return [(source[rel], rel) for rel in after]
+
+
+def _unknowable(root: Path, dials: ReferencingDials, target: ScanTarget, old: str, new: str) -> bool:
+    """Whether the move changes what git lists or what governs in a way the check cannot know before it.
+    A `.gitignore` moved, or the file `core.excludesFile` names, hides or shows files by git's own rules,
+    which the check does not read. Under governed_only the root policy moved, by its name, through a link
+    or in another case, leaves no root to read the coverage from."""
+    changed = {os.path.realpath(root / old), os.path.realpath(root / new)}
+    if posixpath.basename(old) == ".gitignore" or posixpath.basename(new) == ".gitignore":
+        return True
+    excludes = git(["config", "--path", "--get", "core.excludesFile"], cwd=root)
+    named = os.fsdecode(excludes.stdout).strip() if excludes.returncode == 0 else ""
+    if named and os.path.realpath(Path(root, named)) in changed:
+        return True
+    policy = target.dials.root_policy
+    if not dials.governed_only or policy is None:
+        return False
+    here, there = root / policy, root / old
+    return os.path.realpath(here) in changed or here.exists() and os.path.samefile(here, there)
 
 
 def _paths_after(root: Path, old: str, new: str) -> dict[str, str]:
     """The Markdown paths the shared listing will give once the file has moved, each with the path that
     holds its text now. The listing keeps a path git lists that is a file, through any link: so the
     moved file goes from its old path to its new one, a link to the moved file drops out, since it will
-    lead nowhere, and a link to the new path comes in, since it will lead to the moved file."""
+    lead nowhere, and a link to the new path comes in, since it will lead to the moved file. On a disk that
+    ignores case, a case-only rename leaves the old name leading to the file: such a link stays listed
+    and the act reads the moved file through it, unasked here, as on main."""
     listed = git(["ls-files", "-z", "--cached", "--others", "--exclude-standard"], cwd=root)
     if listed.returncode != 0:
         raise ConfigurationFailure(shared_messages.c12_ls_files(str(root), first_line(listed.stderr)))
@@ -153,20 +171,20 @@ def _paths_after(root: Path, old: str, new: str) -> dict[str, str]:
 
 
 def _covered_after(
-    root: Path, dials: ReferencingDials, target: ScanTarget, paths: dict[str, str], old: str
-) -> list[str] | None:
+    root: Path, dials: ReferencingDials, target: ScanTarget, paths: dict[str, str]
+) -> list[str]:
     """The covered documents of the tree after the move, by the rules the gate covers them by:
     the territories; under governed_only, also a policy's territory or the root policy's. A policy is a
     document in the root policy's territory that carries an id, the first by path for an id two carry,
-    as the shared index finds them. None when the root policy itself is among the paths that move."""
+    as the shared index finds them. The root policy itself does not move here (`_unknowable`)."""
     names = sorted(paths)
     with Matcher() as matcher:
         in_territory = sorted(matcher.match(dials.territories, names))
         if not dials.governed_only:
             return in_territory
         root_policy = target.dials.root_policy
-        if root_policy is None or root_policy == old:
-            return None
+        if root_policy is None:  # refused before: governed_only names no root policy
+            return in_territory
         index = build_index(root, target.dials, root_policy, matcher)  # the root as it stands, unmoved
         considered = sorted({*names, root_policy})
         in_root = matcher.match(index.root_territory, considered)
