@@ -10,6 +10,8 @@ holding any other document: no text here cites one.
 
 from __future__ import annotations
 
+import shlex
+
 from constitution_layer_kit import identity
 from constitution_layer_kit.messages import echoed, escaped
 from constitution_layer_kit.model import Broken, Finding, SharedKey
@@ -528,12 +530,21 @@ def v5_unwritable(path: str, reason: str) -> Broken:
     )
 
 
-def v5_takes_the_root_policy(old: str, new: str) -> Broken:
+def _shell(path: str) -> str:
+    """A path in a command to paste: quoted for a POSIX shell, then shown by the echo rule."""
+    return escaped(shlex.quote(path))
+
+
+def v5_takes_the_root_policy(old: str, new: str, folder: str) -> Broken:
+    """`folder`: the new path's folder, which the move had to make and the move by hand must make first;
+    empty when it exists."""
+    made = f"mkdir -p {_shell(folder)} && " if folder else ""
     return v5_refused(
         f"moving {escaped(old)} takes away the root policy {_file()} names, so the dials would name a file"
         " that is gone",
-        f"move it by hand with git mv -- {escaped(old)} {escaped(new)}, set root_policy to {escaped(new)} in"
-        f" {_file()}, then run {mover_command('--moved', escaped(old), escaped(new))}",
+        f"move it by hand with {made}git mv -- {_shell(old)} {_shell(new)}, set root_policy to {escaped(new)}"
+        f" in {_file()}, then run {mover_command('--moved', _shell(old), _shell(new))}; outside the root"
+        " policy's own territory, --moved then meets C9, whose fix follows",
     )
 
 
