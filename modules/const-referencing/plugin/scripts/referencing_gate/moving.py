@@ -5,6 +5,7 @@ whole tree, whose verdict is the act's exit code."""
 from __future__ import annotations
 
 import os
+import posixpath
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -76,7 +77,7 @@ def act(output: Output, request: Request, closing: Closing) -> int:
         if not request.by_hand:
             made = _move(root, old, new, closing)
     try:
-        plan = _plan(root, dials, target, old, new, request.ids, made is not None)
+        plan = _plan(root, dials, target, old, new, request.ids, made)
     except BaseException:  # an interrupt too: the move is undone before anything leaves
         if made is not None:
             _move_back(root, old, new, made, closing)
@@ -108,13 +109,21 @@ class Plan:
 
 
 def _plan(
-    root: Path, dials: ReferencingDials, target: ScanTarget, old: str, new: str, ids: bool, moved: bool
+    root: Path,
+    dials: ReferencingDials,
+    target: ScanTarget,
+    old: str,
+    new: str,
+    ids: bool,
+    made: Sequence[Path] | None,
 ) -> Plan:
     """The act on the tree as it is now — after the move, for a move: the covered documents and the moved
     one, whose own links are repaired wherever it went, covered there or not. A document it cannot read is
     a refusal; a file that is not UTF-8 is left alone. A document whose rewrite changes a link is opened for
     writing and closed again, nothing written, and one the system will not open is a refusal. A refusal
     names the moved document where the move back will leave it."""
+
+    moved = made is not None
 
     def shown(rel: str) -> str:
         return old if moved and rel == new else rel
@@ -126,7 +135,8 @@ def _plan(
         # the root policy was found by the listing before the move: --moved and --ids meet C6 there, so a
         # root policy missing here can only be the doing of the move just made
         if failure.broken.key is SharedKey.C6:
-            raise ConfigurationFailure(messages.v5_takes_the_root_policy(old, new)) from failure
+            folder = posixpath.dirname(new) if made else ""  # the move had to make it: git mv makes none
+            raise ConfigurationFailure(messages.v5_takes_the_root_policy(old, new, folder)) from failure
         raise
     repaired = [*covered, *([new] if is_markdown(new) and new not in covered else [])]
     texts: dict[str, str] = {}

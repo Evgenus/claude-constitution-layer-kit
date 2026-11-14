@@ -13,12 +13,14 @@ from __future__ import annotations
 
 import json
 import os
+import posixpath
 import re
 import shlex
 import shutil
 import subprocess
 import sys
 import time
+import urllib.parse
 from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -2231,50 +2233,108 @@ def green_as_the_tree_stands() -> list[str]:
     return problems
 
 
+ROOT = "docs/policies/root-policy.md"
+
+
+def taught_route(old: str, new: str, fix: str, after: str = "") -> list[str]:
+    """Under governed_only the root policy moved from `old` to `new`, a read-only document linking to
+    it: the refusal's whole stderr is `BROKEN: … — fix: ` with `fix` typed by hand, then the moved-back
+    line, the whole state unchanged. Then the route the fix teaches, its commands run as printed by a
+    POSIX shell and root_policy set to `new`: --moved ends green, or, with `after`, exits 1 with `after` as
+    its first line."""
+    link = "../policies/" + urllib.parse.quote(posixpath.basename(old))  # the root policy where it lies
+    consumer = H.fresh_consumer(
+        (Write("docs/notes/two.md", note(f"# Two\n\nUnder [root]({link}).\n", "note-two")),)
+    )
+    consumer.write("constitution.yaml", dials_text(own(governed_only=True)))
+    if old != ROOT:
+        consumer.git("mv", "--", ROOT, old)
+        dials = yaml.safe_load((consumer.root / "constitution.yaml").read_text())
+        consumer.write("constitution.yaml", yaml.safe_dump({**dials, "root_policy": old}, sort_keys=False))
+    consumer.commit()
+    state = whole_state(consumer)
+    done, now, _ = under_mode(consumer, "docs/notes/two.md", 0o444, old, new)
+    headline = (
+        f"BROKEN: moving {old} takes away the root policy constitution.yaml names, so the dials would name a"
+        " file that is gone — fix: "
+    )
+    wanted = headline + fix + "\n" + MOVED_BACK.format(old=old) + "\n"
+    label = f"{old} to {new}"
+    if (done.code, done.stdout, done.stderr) != (1, "", wanted) or now != state:
+        return [f"{label}: exit {done.code}: {done.stdout}{done.stderr}"]
+    by_hand = fix.split("by hand with ", 1)[1].split(", set root_policy", 1)[0]
+    then = fix.split(", then run ", 1)[1].split("; outside", 1)[0]
+    moved = subprocess.run(
+        by_hand, shell=True, cwd=consumer.root, capture_output=True, text=True, check=False
+    )  # noqa: S602
+    if moved.returncode != 0:
+        return [f"{label}: the move by hand as printed failed: {moved.stderr}"]
+    dials = yaml.safe_load((consumer.root / "constitution.yaml").read_text())
+    consumer.write("constitution.yaml", yaml.safe_dump({**dials, "root_policy": new}, sort_keys=False))
+    ran = subprocess.run(  # noqa: S602 — the point is to run the line as a reader would paste it
+        then, shell=True, cwd=consumer.root, capture_output=True, text=True, env=H.environment(), check=False
+    )
+    last = ran.stdout.splitlines()[-1] if ran.stdout else ""
+    if after:
+        if ran.returncode != 1 or ran.stderr.splitlines()[:1] != [after]:
+            return [f"{label}: --moved as printed: exit {ran.returncode}: {ran.stderr}"]
+    elif ran.returncode != 0 or not last.startswith("GREEN: const-referencing: "):
+        return [f"{label}: --moved as printed: exit {ran.returncode}: {ran.stdout}{ran.stderr}"]
+    return []
+
+
 def root_policy_moved() -> list[str]:
     """Under governed_only the root policy moved leaves the dials naming a file that is gone. The plan's
     listing fails after the move, the file is moved back, and the refusal teaches the one route that works:
-    the move by hand, root_policy set to the new path, then --moved. That route ends green."""
-    consumer = H.fresh_consumer(
-        (
-            Write(
-                "docs/notes/two.md", note("# Two\n\nUnder [root](../policies/root-policy.md).\n", "note-two")
-            ),
-        )
+    the move by hand, a folder made first where the new one is missing, root_policy set to the new path,
+    then --moved, every path quoted for the shell. That route ends green inside the root policy's own
+    territory; outside it, --moved meets C9. Before root_policy is set, --moved keeps the shared C6."""
+    script = MOVER.resolve()
+    tail = "; outside the root policy's own territory, --moved then meets C9, whose fix follows"
+    problems = taught_route(
+        ROOT,
+        "docs/policies/root.md",
+        "move it by hand with git mv -- docs/policies/root-policy.md docs/policies/root.md, set root_policy"
+        f' to docs/policies/root.md in constitution.yaml, then run sh "{script}" --moved'
+        f" docs/policies/root-policy.md docs/policies/root.md{tail}",
     )
+    problems += taught_route(
+        ROOT,
+        "docs/policies/sub/root-policy.md",
+        "move it by hand with mkdir -p docs/policies/sub && git mv -- docs/policies/root-policy.md"
+        " docs/policies/sub/root-policy.md, set root_policy to docs/policies/sub/root-policy.md in"
+        f' constitution.yaml, then run sh "{script}" --moved docs/policies/root-policy.md'
+        f" docs/policies/sub/root-policy.md{tail}",
+    )
+    problems += taught_route(
+        "docs/policies/root policy.md",
+        "docs/policies/root new.md",
+        "move it by hand with git mv -- 'docs/policies/root policy.md' 'docs/policies/root new.md', set"
+        " root_policy to docs/policies/root new.md in constitution.yaml, then run"
+        f" sh \"{script}\" --moved 'docs/policies/root policy.md' 'docs/policies/root new.md'{tail}",
+    )
+    problems += taught_route(
+        ROOT,
+        "docs/archive/root-policy.md",
+        "move it by hand with mkdir -p docs/archive && git mv -- docs/policies/root-policy.md"
+        " docs/archive/root-policy.md, set root_policy to docs/archive/root-policy.md in constitution.yaml,"
+        f' then run sh "{script}" --moved docs/policies/root-policy.md docs/archive/root-policy.md{tail}',
+        after="BROKEN: root policy 'docs/archive/root-policy.md' lies outside its own territory"
+        " ['docs/policies/**'] — fix: every chain of governance ends at the root; widen root-policy.territory"
+        " to include it",
+    )
+    # --moved after the move by hand, before root_policy is set: the shared C6, whose own fix fits there
+    consumer = H.fresh_consumer()
     consumer.write("constitution.yaml", dials_text(own(governed_only=True)))
     consumer.commit()
-    state = whole_state(consumer)
-    moved = ("docs/policies/root-policy.md", "docs/policies/root.md")
-    done, after, _ = under_mode(consumer, "docs/notes/two.md", 0o444, *moved)
-    script = MOVER.resolve()
-    wanted = (  # typed by hand
-        "BROKEN: moving docs/policies/root-policy.md takes away the root policy constitution.yaml names, so"
-        " the dials would name a file that is gone — fix: move it by hand with git mv --"
-        " docs/policies/root-policy.md docs/policies/root.md, set root_policy to docs/policies/root.md in"
-        f' constitution.yaml, then run sh "{script}" --moved docs/policies/root-policy.md'
-        " docs/policies/root.md\n" + MOVED_BACK.format(old=moved[0]) + "\n"
-    )
-    problems = []
-    if (done.code, done.stdout, done.stderr) != (1, "", wanted) or after != state:
-        problems.append(f"the root policy moved: exit {done.code}: {done.stdout}{done.stderr}")
-    # the route the refusal teaches, followed as printed; before root_policy is set, --moved keeps the
-    # shared C6, whose own fix fits a move made by hand
-    consumer.git("mv", "--", *moved)
-    early = mover(consumer, "--moved", *moved)
+    consumer.git("mv", "--", ROOT, "docs/policies/root.md")
+    early = mover(consumer, "--moved", ROOT, "docs/policies/root.md")
     shared_c6 = (  # typed by hand
         "BROKEN: constitution.yaml names root_policy 'docs/policies/root-policy.md' but no such file exists"
         " — fix: create it, or point root_policy at the policy for policies"
     )
     if early.code != 1 or early.stderr.splitlines()[:1] != [shared_c6]:
         problems.append(f"--moved before root_policy is set: exit {early.code}: {early.stderr}")
-    dials = yaml.safe_load((consumer.root / "constitution.yaml").read_text())
-    dials["root_policy"] = moved[1]
-    consumer.write("constitution.yaml", yaml.safe_dump(dials, sort_keys=False))
-    taught = mover(consumer, "--moved", *moved)
-    last = taught.stdout.splitlines()[-1] if taught.stdout else ""
-    if taught.code != 0 or not last.startswith("GREEN: const-referencing: "):
-        problems.append(f"the taught route: exit {taught.code}: {taught.stdout}{taught.stderr}")
     return problems
 
 
