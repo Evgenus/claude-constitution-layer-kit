@@ -5,17 +5,13 @@ whole tree, whose verdict is the act's exit code."""
 from __future__ import annotations
 
 import os
-import posixpath
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from constitution_layer_kit import messages as shared_messages
 from constitution_layer_kit import pipeline
 from constitution_layer_kit.dials import load_dials
-from constitution_layer_kit.envelope import id_of_text
 from constitution_layer_kit.errors import ConfigurationFailure
-from constitution_layer_kit.index import build_index
 from constitution_layer_kit.output import Output
 from constitution_layer_kit.pipeline import ScanTarget
 from constitution_layer_kit.repository import (
@@ -48,10 +44,13 @@ class Request:
 
 
 def act(output: Output, request: Request, closing: Closing) -> int:
-    """Everything that can refuse is asked first — the repository, the dials and where the log
-    goes, what is covered, the link checker the closing scan needs, the two paths, and whether every
-    document the act reads can be read and every one it rewrites can be written — so that a refusal
-    finds the tree as it was. Only then is anything moved or written."""
+    """Everything that can refuse without moving is asked first — the repository, the dials and where
+    the log goes, what is covered, the link checker the closing scan needs, the two paths. Then a move is
+    made with git, and the act plans on the tree as git lists it after the move: it reads every document
+    it reads, works out every rewrite and every mention in memory, and asks whether each document it will
+    rewrite can be written. A failure of the plan moves the file back, so that a refusal finds the tree
+    as it was. Only then is anything written. --moved and --ids move nothing: they plan on the tree as it
+    stands."""
     root = repo_root(Path.cwd())
     if root is None:
         raise ConfigurationFailure(messages.v5_no_repository(str(Path.cwd())))
@@ -67,171 +66,94 @@ def act(output: Output, request: Request, closing: Closing) -> int:
     if before is None:
         raise ConfigurationFailure(messages.v5_no_root_policy())
     old = new = ""
+    made: list[Path] | None = None  # the folders the move made; None while nothing moved
     if not request.ids:
         if request.new.endswith(("/", os.sep)):
             raise ConfigurationFailure(messages.v5_names_a_directory(request.new))
         old, new = _within(root, request.old), _within(root, request.new)
         _refuse_what_cannot_move(root, old, new, request.by_hand)
-    planned = _planned(root, dials, target, before, old, new, request)
-    _refuse_what_cannot_be_rewritten(root, planned, old, new, request.ids)
-    if not request.ids:
         if not request.by_hand:
-            _move(root, old, new, closing)
+            made = _move(root, old, new, closing)
+    try:
+        plan = _plan(root, dials, target, old, new, request.ids, made is not None)
+    except BaseException:  # an interrupt too: the move is undone before anything leaves
+        if made is not None:
+            _move_back(root, old, new, made, closing)
+        raise
+    if not request.ids:
         output.out(messages.v1_moved(old, new))
-    with Matcher() as matcher:  # asked again: the moved document lies elsewhere now
-        covered = modes.covered_documents(matcher, dials, target, list_markdown(root)) or []
-    # the moved document's own links are repaired wherever it went, covered there or not
-    repaired = [*covered, *([new] if is_markdown(new) and new not in covered else [])]
-    texts = {rel: text for rel in repaired if (text := _read(root, rel, output)) is not None}
-    files = links = 0
-    ids = modes.ids_of(texts) if request.ids else None
-    for rel, text in texts.items():
-        done = _repair(rel, text, old, new, ids)
-        if done.links:
-            closing.changed = True
-            with (root / rel).open("w", encoding="utf-8", newline="") as handle:  # line endings as they were
-                handle.write(done.text)
-            output.out(messages.v2_rewrote(rel, done.links))
-            files, links = files + 1, links + done.links
-    listed = 0 if request.ids else _list_mentions(output, root, covered, old, new)
-    output.out(messages.v4_count(files, links, listed))
+    for rel in plan.left_alone:
+        output.out(messages.v2_left_alone(rel))
+    links = 0
+    for rel, done in plan.rewrites:
+        closing.changed = True
+        with (root / rel).open("w", encoding="utf-8", newline="") as handle:  # line endings as they were
+            handle.write(done.text)
+        output.out(messages.v2_rewrote(rel, done.links))
+        links += done.links
+    for rel, line, text in plan.mentions:
+        output.out(messages.v3_mention(rel, line, text))
+    output.out(messages.v4_count(len(plan.rewrites), links, len(plan.mentions)))
     return modes.scan_mode(output, root)
 
 
-def _planned(
-    root: Path,
-    dials: ReferencingDials,
-    target: ScanTarget,
-    covered: Sequence[str],
-    old: str,
-    new: str,
-    request: Request,
-) -> list[tuple[str, str]]:
-    """The documents the act will read and may rewrite, each as the pair (where it lies now, where it
-    will lie when it is read). For --ids and --moved nothing moves before the rewrites: the tree already is
-    the tree the act reads, so the pairs are the covered documents as they stand, and the moved one. For a
-    move they are the documents covered in the tree as it will stand after the move, worked out before it;
-    the moved document is among them whenever its new path is Markdown, covered there or not. Where that
-    tree cannot be known exactly, nothing is asked, as before the check was made."""
-    if request.ids or request.by_hand:  # the tree already is the tree the act reads: nothing to predict
-        return [(rel, rel) for rel in [*covered, *([new] if is_markdown(new) and new not in covered else [])]]
-    if _unknowable(root, dials, target, old, new):
-        return []
-    source = _paths_after(root, old, new)
-    after = _covered_after(root, dials, target, source)
-    if is_markdown(new) and new not in after:
-        after = [*after, new]
-    return [(source[rel], rel) for rel in after]
+@dataclass(frozen=True, slots=True)
+class Plan:
+    """What the act will write and say, worked out before it writes anything."""
+
+    rewrites: list[tuple[str, Rewritten]]  # each document whose rewrite changes a link, with its new text
+    left_alone: list[str]  # the documents that are not UTF-8 text
+    mentions: list[tuple[str, int, str]]  # each place that names the old path outside a link
 
 
-def _unknowable(root: Path, dials: ReferencingDials, target: ScanTarget, old: str, new: str) -> bool:
-    """Whether the move changes what git lists or what governs in a way the check cannot know before it.
-    A `.gitignore` moved, or the file `core.excludesFile` names, hides or shows files by git's own rules,
-    which the check does not read. Under governed_only the root policy moved, by its name, through a link
-    or in another case, leaves no root to read the coverage from."""
-    changed = {os.path.realpath(root / old), os.path.realpath(root / new)}
-    if posixpath.basename(old) == ".gitignore" or posixpath.basename(new) == ".gitignore":
-        return True
-    excludes = git(["config", "--path", "--get", "core.excludesFile"], cwd=root)
-    named = os.fsdecode(excludes.stdout).strip() if excludes.returncode == 0 else ""
-    if named and os.path.realpath(Path(root, named)) in changed:
-        return True
-    policy = target.dials.root_policy
-    if not dials.governed_only or policy is None:
-        return False
-    here, there = root / policy, root / old
-    return os.path.realpath(here) in changed or here.exists() and os.path.samefile(here, there)
+def _plan(
+    root: Path, dials: ReferencingDials, target: ScanTarget, old: str, new: str, ids: bool, moved: bool
+) -> Plan:
+    """The act on the tree as it is now — after the move, for a move: the covered documents and the moved
+    one, whose own links are repaired wherever it went, covered there or not. A document it cannot read is
+    a refusal; a file that is not UTF-8 is left alone. A document whose rewrite changes a link is opened for
+    writing and closed again, nothing written, and one the system will not open is a refusal. A refusal
+    names the moved document where the move back will leave it."""
 
+    def shown(rel: str) -> str:
+        return old if moved and rel == new else rel
 
-def _paths_after(root: Path, old: str, new: str) -> dict[str, str]:
-    """The Markdown paths the shared listing will give once the file has moved, each with the path that
-    holds its text now. The listing keeps a path git lists that is a file, through any link: so the
-    moved file goes from its old path to its new one, a link to the moved file drops out, since it will
-    lead nowhere, and a link to the new path comes in, since it will lead to the moved file. On a disk that
-    ignores case, a case-only rename leaves the old name leading to the file: such a link stays listed
-    and the act reads the moved file through it, unasked here, as on main."""
-    listed = git(["ls-files", "-z", "--cached", "--others", "--exclude-standard"], cwd=root)
-    if listed.returncode != 0:
-        raise ConfigurationFailure(shared_messages.c12_ls_files(str(root), first_line(listed.stderr)))
-    gone, coming = os.path.realpath(root / old), os.path.realpath(root / new)
-    paths: dict[str, str] = {}
-    for rel in os.fsdecode(listed.stdout).split("\0"):
-        if not rel or not is_markdown(rel) or rel == old:
-            continue
-        real = os.path.realpath(root / rel)
-        if real == gone:
-            continue
-        if real == coming:
-            paths[rel] = old
-        elif (root / rel).is_file():
-            paths[rel] = rel
-    if is_markdown(new):
-        paths[new] = old
-    return paths
-
-
-def _covered_after(
-    root: Path, dials: ReferencingDials, target: ScanTarget, paths: dict[str, str]
-) -> list[str]:
-    """The covered documents of the tree after the move, by the rules the gate covers them by:
-    the territories; under governed_only, also a policy's territory or the root policy's. A policy is a
-    document in the root policy's territory that carries an id, the first by path for an id two carry,
-    as the shared index finds them. The root policy itself does not move here (`_unknowable`)."""
-    names = sorted(paths)
     with Matcher() as matcher:
-        in_territory = sorted(matcher.match(dials.territories, names))
-        if not dials.governed_only:
-            return in_territory
-        root_policy = target.dials.root_policy
-        if root_policy is None:  # refused before: governed_only names no root policy
-            return in_territory
-        index = build_index(root, target.dials, root_policy, matcher)  # the root as it stands, unmoved
-        considered = sorted({*names, root_policy})
-        in_root = matcher.match(index.root_territory, considered)
-        claimed: set[str] = set()
-        seen: set[str] = set()
-        for path in sorted(in_root):
-            text = read_text(root, paths.get(path, path))
-            policy_id = id_of_text(text) if text is not None else None
-            if policy_id is None or policy_id in seen:
-                continue
-            seen.add(policy_id)
-            claimed.update(matcher.match(target.dials.territory_of(policy_id), considered))
-    return [rel for rel in in_territory if rel in in_root or rel in claimed]
-
-
-def _refuse_what_cannot_be_rewritten(
-    root: Path, planned: Sequence[tuple[str, str]], old: str, new: str, ids: bool
-) -> None:
-    """Before anything moves or is written: a document the act must read cannot be read, or one it would
-    rewrite cannot be written. Either would stop the act midway, with the tree half changed — the closing
-    scan cannot read the first, and the rewrite fails on the second. A file that is not UTF-8 is no
-    refusal: the act leaves it alone and says so."""
-    texts: dict[tuple[str, str], str] = {}
-    for now, after in planned:
+        covered = modes.covered_documents(matcher, dials, target, list_markdown(root)) or []
+    repaired = [*covered, *([new] if is_markdown(new) and new not in covered else [])]
+    texts: dict[str, str] = {}
+    left_alone: list[str] = []
+    for rel in repaired:
         try:
-            with (root / now).open(encoding="utf-8", newline="") as handle:
-                texts[(now, after)] = handle.read()
+            with (root / rel).open(encoding="utf-8", newline="") as handle:
+                texts[rel] = handle.read()
         except UnicodeDecodeError:
-            continue
+            left_alone.append(rel)
         except OSError as exc:
-            raise ConfigurationFailure(messages.v5_unreadable(now, _reason(exc))) from exc
-    known = modes.ids_of({after: text for (_, after), text in texts.items()}) if ids else None
-    for (now, after), text in texts.items():
-        if not _repair(after, text, old, new, known).links:
+            raise ConfigurationFailure(messages.v5_unreadable(shown(rel), _reason(exc))) from exc
+    known = modes.ids_of(texts) if ids else None
+    rewrites: list[tuple[str, Rewritten]] = []
+    for rel, text in texts.items():
+        done = _repair(rel, text, old, new, known)
+        if not done.links:
             continue
         try:  # opened for writing and closed again: nothing is written, the content and its time stay
-            os.close(os.open(root / now, os.O_WRONLY | os.O_NONBLOCK))
+            os.close(os.open(root / rel, os.O_WRONLY | os.O_NONBLOCK))
         except OSError as exc:
-            raise ConfigurationFailure(messages.v5_unwritable(now, _reason(exc))) from exc
+            raise ConfigurationFailure(messages.v5_unwritable(shown(rel), _reason(exc))) from exc
+        rewrites.append((rel, done))
+    written = {rel: done.text for rel, done in rewrites}
+    mentions = [] if ids else _mentions(root, covered, old, new, written)
+    return Plan(rewrites, left_alone, mentions)
 
 
 def _reason(exc: OSError) -> str:
     return exc.strerror or type(exc).__name__
 
 
-def _move(root: Path, old: str, new: str, closing: Closing) -> None:
-    """git mv, into a directory made for it where none exists — and unmade again when git refuses."""
+def _move(root: Path, old: str, new: str, closing: Closing) -> list[Path]:
+    """git mv, into a directory made for it where none exists — and unmade again when git refuses. The
+    folders it made are returned, deepest first, for the move back."""
     made: list[Path] = []
     parent = (root / new).parent
     while not parent.exists():
@@ -245,19 +167,25 @@ def _move(root: Path, old: str, new: str, closing: Closing) -> None:
             directory.rmdir()
         raise ConfigurationFailure(messages.v5_git_mv(first_line(moved.stderr)))
     closing.changed = True
+    return made
 
 
-def _read(root: Path, rel: str, output: Output) -> str | None:
-    """A document exactly as it is on disk: line endings kept, and no character replaced — a
-    file that is not UTF-8 is left alone and said to be, since writing it back would damage it."""
-    try:
-        with (root / rel).open(encoding="utf-8", newline="") as handle:
-            return handle.read()
-    except UnicodeDecodeError:
-        output.out(messages.v2_left_alone(rel))
-    except OSError:
-        pass
-    return None
+def _move_back(root: Path, old: str, new: str, made: Sequence[Path], closing: Closing) -> None:
+    """The move undone: the file moved back with git, and the folders the move made removed again. When
+    that fails, the closing line says where the file is."""
+    back = git(["mv", "--", new, old], cwd=root)
+    if back.returncode != 0:
+        closing.stranded = messages.v4_move_back_failed(old, new, first_line(back.stderr))
+        return
+    for directory in made:
+        try:
+            directory.rmdir()
+        except OSError as exc:
+            where = directory.relative_to(root).as_posix()
+            closing.stranded = messages.v4_folder_left(old, where, _reason(exc))
+            return
+    closing.changed = False
+    closing.moved_back = old
 
 
 def _repair(rel: str, text: str, old: str, new: str, ids: Ids | None) -> Rewritten:
@@ -268,20 +196,22 @@ def _repair(rel: str, text: str, old: str, new: str, ids: Ids | None) -> Rewritt
     return repair.inbound(rel, text, old, new)
 
 
-def _list_mentions(output: Output, root: Path, covered: Sequence[str], old: str, new: str) -> int:
+def _mentions(
+    root: Path, covered: Sequence[str], old: str, new: str, written: dict[str, str]
+) -> list[tuple[str, int, str]]:
     """Every text file git lists is read for the old path: the covered documents, the Markdown
-    files outside coverage, and the other files. A symbolic link outside coverage is not read."""
+    files outside coverage, and the other files. A symbolic link outside coverage is not read. A document
+    the act rewrites is read as it will be written."""
     known = set(covered)
     uncovered = [rel for rel in list_markdown(root) if rel not in known and not (root / rel).is_symlink()]
-    listed = 0
+    found: list[tuple[str, int, str]] = []
     for rel in [*covered, *uncovered, *other_files(root)]:
         if rel == new:
             continue
-        text = read_text(root, rel)
+        text = written[rel] if rel in written else read_text(root, rel)
         for mention in repair.mentions(text or "", repair.names_of(rel, old)):
-            output.out(messages.v3_mention(rel, mention.line, mention.text))
-            listed += 1
-    return listed
+            found.append((rel, mention.line, mention.text))
+    return found
 
 
 def _within(root: Path, given: str) -> str:

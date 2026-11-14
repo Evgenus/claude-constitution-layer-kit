@@ -1,21 +1,19 @@
 ---
 id: dec-0135-mover-refuses-an-unwritable-document
 type: task-record
-title: The mover refuses before the move a document it cannot read or rewrite
+title: The mover refuses a document it cannot read or rewrite, and a refused move is moved back
 status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
 
-# The mover refuses before the move a document it cannot read or rewrite
+# The mover refuses a document it cannot read or rewrite, and a refused move is moved back
 
-## Context
+## 1. A document the mover cannot read or rewrite
 
-The mover of [`const-referencing`](../requirements.md#const-referencing) moves a document and rewrites the links to it. Before the change, a covered document that could not be written stopped the act after the move. The user saw the defect line of the shared code, C12.11, with a traceback, and then the line that the act stopped midway. The file had moved, and some links were rewritten. A covered document that could not be read was passed over at the rewrite. The closing scan then failed on it, also after the move. Item 81 of the module's tests held the first case as it was. The test session of wave 4 found it and put the right behaviour to the decider.
+The mover of [`const-referencing`](../requirements.md#const-referencing) moves a document and rewrites the links to it. Before this change, a covered document that could not be written stopped the act after the move. The user saw the defect line of the shared code, C12.11, with a traceback, and then the line that the act stopped midway. The file had moved, and some links were rewritten. A covered document that could not be read was passed over at the rewrite. The closing scan then failed on it, also after the move. The test session of wave 4 found the first case and put the right behaviour to the decider.
 
-## Options
-
-- **A. A refusal before the move.** The mover asks whether each document it would rewrite can be written, and refuses with a teaching line and nothing changed.
+- **A. A refusal that changes nothing.** The mover asks whether each document it would rewrite can be written, and refuses with a teaching line and nothing changed.
   - **Pros:** it fits the mover's other refusals, which all change nothing; no traceback reaches the user.
   - **Cons:** plugin code and a message change, so the eval receipt goes stale; a file can still change between the check and the write.
 - **B. Keep the defect line.** The C12.11 line, then the line that the act stopped midway.
@@ -25,29 +23,46 @@ The mover of [`const-referencing`](../requirements.md#const-referencing) moves a
   - **Pros:** a smaller change than A; no traceback.
   - **Cons:** the move has still happened, and the user repairs the tree by hand.
 
-## Recommendation
+The session recommended A, as a later rollout item and not inside wave 4, because it keeps the mover's rule that a refusal changes nothing. The decider picked A in chat on 2026-11-13. On the same day the decider placed it in wave 5, as item 9.42 of the rollout plan.
 
-A, as a later rollout item and not inside wave 4. The session recommended it because it keeps the mover's rule that a refusal changes nothing.
-
-## Choice
-
-The decider picked A in chat on 2026-11-13. On the same day the decider placed it in wave 5, as item 9.42 of the rollout plan, before the release.
-
-## Ruling
-
-<a id="r1"></a>**R1.** Before anything moves or is written, the mover reads every document the act will read. These are the documents covered in the tree as it will stand after the move. The mover works them out before the move, by the gate's own rules of coverage. For `--moved` and `--ids` that tree is the tree as it stands. The moved document is among them whenever its new path is Markdown, covered there or not. A document it cannot read is a V5 refusal that names it and the system's reason. A file that is not UTF-8 is no refusal: the act leaves it alone and says so.
+<a id="r1"></a>**R1.** A document the act must read and cannot is a V5 refusal that names it and the system's reason. A file that is not UTF-8 is no refusal: the act leaves it alone and says so.
 
 <a id="r2"></a>**R2.** Each document whose rewrite would change a link is opened for writing and closed again, with nothing written. A document the system will not open so is a V5 refusal that names it and the system's reason. A read-only document the act would not rewrite is no refusal.
 
-<a id="r3"></a>**R3.** The check runs in all three acts: the move, `--moved` and `--ids`. Each refusal closes with the line that nothing was changed, and the tree stays as it was.
+<a id="r3"></a>**R3.** The check runs in all three acts: the move, `--moved` and `--ids`. A refusal changes nothing, and nothing is written before the check has passed.
 
-<a id="r4"></a>**R4.** Where the tree after the move cannot be known exactly, the mover asks nothing before the move, as before this ruling. That is a moved `.gitignore`, the file `core.excludesFile` names, and under `governed_only` the root policy. The check cannot hold what changes after it, nor the older edges of the act. Limit 12 of the module's section 9 names each such edge, as wide as it is.
+## 2. How the check knows the tree after a move
+
+The first design asked before the move. It predicted the tree as git would list it after the move. That was the listing, the territories and the policies, with the moved file at its new path. Three rounds of the wave's carry audit found that the prediction differed from what git lists. Round 4 found four more needless refusals against main. They came from a file moved to `.GITIGNORE` in another case on a disk that ignores case, and from the `core.excludesFile` file in another case. They also came from git's default ignore file inside the repository, and from a symlink that names the moved file in another case.
+
+- **A. Fold case, and add git's default ignore file.** The prediction learns the four cases.
+  - **Pros:** the smallest change; the check stays before the move.
+  - **Cons:** git's rules are wider than any copy of them, and each round of the audit found new ones.
+- **B. State the four in limit 12.** The prediction stays, and the limit names its holes.
+  - **Pros:** no code change.
+  - **Cons:** four needless refusals stay, against the rule that no case main passes may be refused without need.
+- **C. Drop the prediction.** The mover makes the move with git, plans on the tree as git lists it, and moves the file back when the plan refuses.
+  - **Pros:** the check reads exactly what the act reads, with the act's own code; no rule of git is copied.
+  - **Cons:** a refusal moves the file twice; a move back can itself fail.
+
+The orchestrating session put the three options to the decider. The decider picked C on 2026-11-14 in the orchestrating session's chat. The first design was left because its copy of git's rules kept falling short of git.
+
+<a id="r4"></a>**R4.** Everything that can refuse without moving is asked first. A move is then made with git. On the tree as git lists it after the move, the act lists and reads every document it reads. It works out every rewrite and every mention in memory, and makes the check of R1 and R2. Only then does it write.
+
+<a id="r5"></a>**R5.** A failure of that plan moves the file back with git and removes the folders the move made. An interrupt does the same. A refusal then closes with the line that the file was moved back and nothing was changed. A refusal names the moved document by the path it was moved back to.
+
+<a id="r6"></a>**R6.** A move back that fails says so and names where the file is, before the line that the act stopped midway. A folder the move made that cannot be removed is said the same way.
+
+<a id="r7"></a>**R7.** `--moved` and `--ids` move nothing: they plan on the tree as it stands, and a refusal closes with the line that nothing was changed.
+
+<a id="r8"></a>**R8.** What the check cannot cover is stated in limit 12 of the module's section 9, each edge as wide as it is.
 
 ## Applied
 
-The commit that brings this record also states its rulings in the module's document and its code. The commit before it on the same branch changed the code and the tests. So the record is born `inactive`.
+The commits of this record's branch apply every ruling. The rulings of section 1 were applied first under the first design. Before the yes, the record was corrected in place to the design of section 2, and the code and the module's document with it. The record is `inactive`.
 
 ## Carry list
 
-1. R1, R2, R3 — [the mover's refusals](../../modules/const-referencing/MODULE.md#t6), row V5; [the mover's limits](../../modules/const-referencing/MODULE.md#t9), limit 12; [the check in the code](../../modules/const-referencing/plugin/scripts/referencing_gate/moving.py), `_planned`, `_paths_after`, `_covered_after` and `_refuse_what_cannot_be_rewritten`.
-2. R4 — [the mover's limits](../../modules/const-referencing/MODULE.md#t9), limit 12; [the check in the code](../../modules/const-referencing/plugin/scripts/referencing_gate/moving.py), `_unknowable`.
+1. R1, R2, R3 — [the mover's refusals](../../modules/const-referencing/MODULE.md#t6), row V5; [the mover's limits](../../modules/const-referencing/MODULE.md#t9), limit 12; [the check in the code](../../modules/const-referencing/plugin/scripts/referencing_gate/moving.py), `_plan`.
+2. R4, R5, R6, R7 — [the mover's refusals](../../modules/const-referencing/MODULE.md#t6), row V5; [the mover's limits](../../modules/const-referencing/MODULE.md#t9), limit 12; [the act in the code](../../modules/const-referencing/plugin/scripts/referencing_gate/moving.py), `act`, `_plan` and `_move_back`; [the closing line](../../modules/const-referencing/plugin/scripts/referencing_gate/closing.py), `Closing`.
+3. R8 — [the mover's limits](../../modules/const-referencing/MODULE.md#t9), limit 12.
