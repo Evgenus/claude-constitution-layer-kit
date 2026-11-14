@@ -19,8 +19,8 @@ Shown = Mapping[int, Sequence[str]]  # a number, and the paths whose names show 
 
 
 def catalog_of(claiming: Sequence[Catalog], stem: str) -> Catalog | None:
-    """Of several catalogs whose territories hold one document, the one whose prefix the file
-    name carries judges it, else the first listed; of none, None."""
+    """Of several catalogs whose territories hold one document, the one whose prefix and a hyphen
+    open the file name judges it, else the first listed; of none, None."""
     carried = next((c for c in claiming if stem.startswith(c.prefix + "-")), None)
     return carried or next(iter(claiming), None)
 
