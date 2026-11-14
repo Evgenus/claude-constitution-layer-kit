@@ -45,7 +45,7 @@ The session recommended C, because each layer closes what only it can. It follow
 
 ## Applied
 
-The commits of this record's branch apply every ruling. The package takes the version 2.6.0, by the rule of versions of the shared code. The change adds four functions, three messages and a constant, and a helper of the testing subpackage. Module `const-referencing` uses `stat_or_none` and `listed_file`. So its entry files now require 2.6.0 as the shared release. Its install note and the install guide name the tag v2.6.0 as the one to install. Modules `const-catalogs` and `const-change-cost` use `reached`, so every entry file of both requires 2.6.0 too, and their install notes name the same tag. No other module's required release changes, since no other module uses a name the new release adds. The record is born `inactive`.
+The commits of this record's branch apply every ruling. The package takes the version 2.6.0, by the rule of versions of the shared code. The change adds four functions, three messages and a constant, and a helper of the testing subpackage. Module [`const-referencing`](../requirements.md#const-referencing) uses `stat_or_none` and `listed_file`. So its entry files now require 2.6.0 as the shared release. Its install note and the install guide name the tag v2.6.0 as the one to install. Modules [`const-catalogs`](../requirements.md#const-catalogs) and [`const-change-cost`](../requirements.md#const-change-cost) use `reached`, so every entry file of both requires 2.6.0 too, and their install notes name the same tag. No other module's required release changes, since no other module uses a name the new release adds. The record is born `inactive`.
 
 ## Carry list
 
