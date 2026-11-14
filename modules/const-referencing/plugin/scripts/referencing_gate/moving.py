@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 import posixpath
+import stat
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,6 +24,7 @@ from constitution_layer_kit.repository import (
     list_markdown,
     read_text,
     repo_root,
+    stat_or_none,
 )
 from constitution_layer_kit.territory import Matcher
 
@@ -177,55 +179,93 @@ def _reason(exc: OSError) -> str:
 
 def _move(root: Path, old: str, new: str, closing: Closing) -> list[Path]:
     """git mv, into a directory made for it where none exists — and unmade again when git refuses. The
-    folders it made are returned, deepest first, for the move back. An interrupt while git moves leaves
-    the move done or not: git's index says which, and the move is undone either way before it goes on."""
-    made: list[Path] = []
+    folders it made are returned, deepest first, for the move back. From the first folder made, the act
+    counts as changed. An interrupt while it makes the folders or while git moves the file is settled where
+    git's index and the disk agree, and said where they do not."""
+    missing: list[Path] = []
     parent = (root / new).parent
-    while not parent.exists():
-        made.append(parent)
+    while _found(root, parent.relative_to(root).as_posix()) is None:
+        missing.append(parent)
         parent = parent.parent
-    for directory in reversed(made):
-        directory.mkdir()
+    made: list[Path] = []  # deepest first
+    closing.changed = True  # before the first folder: from here on, "nothing was changed" needs an undo
     try:
+        for directory in reversed(missing):
+            directory.mkdir()
+            made.insert(0, directory)
         moved = git(["mv", "--", old, new], cwd=root)
     except BaseException:
-        if _indexed(root, new) and not _indexed(root, old):  # git moved it: move it back
-            closing.changed = True
-            _move_back(root, old, new, made, closing)
-        elif _indexed(root, old) and os.path.lexists(root / old):  # git did not move it
-            _remove_made(root, old, made, closing, moved=False)
-        else:  # the index and the disk disagree: say where to look
-            closing.stranded = messages.v4_move_cut(old, new)
+        _settle(root, old, new, made, closing)
         raise
     if moved.returncode != 0:
         for directory in made:
             directory.rmdir()
+        closing.changed = False
         raise ConfigurationFailure(messages.v5_git_mv(first_line(moved.stderr)))
-    closing.changed = True
     return made
 
 
 def _move_back(root: Path, old: str, new: str, made: Sequence[Path], closing: Closing) -> None:
     """The move undone: the file moved back with git, and the folders the move made removed again. When
-    that fails, the closing line says where the file is. An interrupt while git moves it back is asked of
-    git's index as well: moved back, the folders go too; not moved back, the line says where the file is."""
+    that fails, the closing line says where the file is. An interrupt while git moves it back is settled
+    where git's index and the disk agree, and said where they do not."""
     try:
         back = git(["mv", "--", new, old], cwd=root)
     except BaseException:
-        if _indexed(root, old) and not _indexed(root, new):
-            _remove_made(root, old, made, closing)
-        else:
-            closing.stranded = messages.v4_move_back_cut(old, new)
+        _settle(root, old, new, made, closing, again=False)
         raise
+    closing.uncertain = None
     if back.returncode != 0:
         closing.stranded = messages.v4_move_back_failed(old, new, first_line(back.stderr))
         return
     _remove_made(root, old, made, closing)
 
 
+def _settle(
+    root: Path, old: str, new: str, made: Sequence[Path], closing: Closing, again: bool = True
+) -> None:
+    """After an interrupt, where the file is, asked of git's index and of the disk by its exact name. Both
+    at `old`: the folders the move made are removed. Both at `new`: with `again`, the move is undone; else
+    the line says the file is at `new`. Anything else, or a second interrupt while this asks, leaves the
+    line that the file may stand at either path."""
+    closing.uncertain = (old, new)
+    at = _where(root, old, new)
+    if at == old:
+        _remove_made(root, old, made, closing, moved=not again)  # in the move back, it is back
+    elif at == new and again:
+        closing.uncertain = None
+        _move_back(root, old, new, made, closing)
+    elif at == new:
+        closing.uncertain = None
+        closing.stranded = messages.v4_move_back_cut(old, new)
+
+
+def _where(root: Path, old: str, new: str) -> str | None:
+    """`old` or `new` where git's index and the disk both hold the file there and not at the other path;
+    None where they do not agree."""
+    index = (_indexed(root, old), _indexed(root, new))
+    disk = (_on_disk(root, old), _on_disk(root, new))
+    if index == disk == (True, False):
+        return old
+    if index == disk == (False, True):
+        return new
+    return None
+
+
+def _on_disk(root: Path, rel: str) -> bool:
+    """Whether the disk holds the path by its exact name: a folder's listing, so that a disk that ignores
+    case cannot answer for a name in another case."""
+    path = root / rel
+    try:
+        return path.name in os.listdir(path.parent)
+    except OSError:
+        return False
+
+
 def _remove_made(root: Path, old: str, made: Sequence[Path], closing: Closing, moved: bool = True) -> None:
     """The folders a move made, removed deepest first, the file at `old` again — or still, where git never
     `moved` it: nothing was changed."""
+    closing.uncertain = None
     for directory in made:
         try:
             directory.rmdir()
@@ -283,7 +323,8 @@ def _refuse_what_cannot_move(root: Path, old: str, new: str, by_hand: bool) -> N
     if old == new:
         raise ConfigurationFailure(messages.v5_same(old))
     if by_hand:
-        if (root / old).exists() or not (root / new).is_file():
+        found_new = _found(root, new)
+        if _found(root, old) is not None or found_new is None or not stat.S_ISREG(found_new.st_mode):
             raise ConfigurationFailure(messages.v5_not_moved(old, new))
         return
     _refuse_unmovable_source(root, old)
@@ -292,27 +333,38 @@ def _refuse_what_cannot_move(root: Path, old: str, new: str, by_hand: bool) -> N
     _refuse_blocked_target(root, old, new)
 
 
+def _found(root: Path, rel: str) -> os.stat_result | None:
+    """What the system says of a path the mover was given (`stat_or_none`): None where it is absent. A
+    path nobody can reach — a folder above it nobody may search — is a refusal of its own, on every
+    Python, never read as absent."""
+    try:
+        return stat_or_none(root / rel)
+    except OSError as exc:
+        raise ConfigurationFailure(messages.v5_unreachable(rel, _reason(exc))) from exc
+
+
 def _refuse_unmovable_source(root: Path, old: str) -> None:
     """The file to move is a file git lists, not a link."""
     listed = git(["ls-files", "--error-unmatch", "--", old], cwd=root)
-    if listed.returncode != 0 or not (root / old).is_file():
+    found = _found(root, old) if listed.returncode == 0 else None
+    if found is None or not stat.S_ISREG(found.st_mode):
         raise ConfigurationFailure(messages.v5_not_listed(old))
-    if (root / old).is_symlink():
+    if os.path.islink(root / old):
         raise ConfigurationFailure(messages.v5_is_a_link(old))
 
 
 def _refuse_blocked_target(root: Path, old: str, new: str) -> None:
     """The new path is free — save the file itself under a name in another case — and its nearest
     existing ancestor is a directory."""
+    there = _found(root, new)
     # where the file system ignores case, a new name in another case "exists": it is the file itself
-    renamed_in_case = (
-        old.lower() == new.lower() and (root / new).exists() and (root / new).samefile(root / old)
-    )
-    if (root / new).exists() and not renamed_in_case:
+    renamed_in_case = old.lower() == new.lower() and there is not None and (root / new).samefile(root / old)
+    if there is not None and not renamed_in_case:
         raise ConfigurationFailure(messages.v5_target_exists(new))
     for ancestor in (root / new).parents:
-        if ancestor.exists():
-            if not ancestor.is_dir():
+        found = _found(root, ancestor.relative_to(root).as_posix()) if ancestor != root else os.stat(root)
+        if found is not None:
+            if not stat.S_ISDIR(found.st_mode):
                 raise ConfigurationFailure(
                     messages.v5_parent_is_a_file(ancestor.relative_to(root).as_posix())
                 )

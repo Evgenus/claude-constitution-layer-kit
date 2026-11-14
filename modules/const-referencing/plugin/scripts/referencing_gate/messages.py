@@ -420,10 +420,10 @@ def v4_move_back_cut(old: str, new: str) -> str:
     )
 
 
-def v4_move_cut(old: str, new: str) -> str:
+def v4_either(old: str, new: str) -> str:
     return (
-        f"BROKEN: the move was cut short by an interrupt — git's index and the disk disagree about"
-        f" {escaped(old)} and {escaped(new)}: look at git status"
+        f"BROKEN: an interrupt cut the move short, and the file may stand at {escaped(old)} or at"
+        f" {escaped(new)}: look at git status and the disk, and put it back with git mv"
     )
 
 
@@ -525,6 +525,13 @@ def v5_parent_is_a_file(path: str) -> Broken:
     return v5_refused(
         f"{escaped(path)} is a file, so nothing can lie inside it",
         "name a new path whose directories exist or can be made",
+    )
+
+
+def v5_unreachable(path: str, reason: str) -> Broken:
+    return v5_refused(
+        f"{escaped(path)} cannot be reached ({echoed(reason)}), so nobody can say whether it is there",
+        "make the folders above it searchable — their permissions — then run the mover again",
     )
 
 

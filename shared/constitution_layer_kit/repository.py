@@ -128,24 +128,34 @@ def list_markdown(root: Path) -> list[str]:
     return sorted({p for p in paths if p and is_markdown(p) and listed_file(root, p)})
 
 
-# The errors that say a path is no file, as Path.is_file reads them on every Python: gone, a folder on the
+# The errors that say a path is absent, as Path.is_file reads them on every Python: gone, a folder on the
 # way that is a file, a link that leads nowhere or round in a loop.
 _ABSENT = frozenset({errno.ENOENT, errno.ENOTDIR, errno.EBADF, errno.ELOOP})
 
 
-def listed_file(root: Path, rel: str) -> bool:
-    """Whether a path git lists is a file, through any link. A path that is gone, or a link that leads
-    nowhere, is none. A path the gate cannot reach — a folder above it nobody may search — is a
-    configuration failure, C12.10, on every Python: `Path.is_file` raises there before 3.14 and returns
-    False from 3.14 on, which would pass the file over without a word. So the answer is asked of
-    `os.stat`, which raises on every version."""
+def stat_or_none(path: Path) -> os.stat_result | None:
+    """What the system says of a path, through any link: None where it is absent — gone, behind a file, a
+    link that leads nowhere or loops. Any other error is raised, on every Python: `Path.is_file`,
+    `exists` and `is_dir` raise there before 3.14 and return False from 3.14 on, which would read a path
+    nobody can reach as absent and pass it over without a word. So the answer is asked of `os.stat`,
+    which raises on every version."""
     try:
-        mode = os.stat(root / rel).st_mode
+        return os.stat(path)
     except OSError as exc:
         if exc.errno in _ABSENT:
-            return False
+            return None
+        raise
+
+
+def listed_file(root: Path, rel: str) -> bool:
+    """Whether a path git lists is a file, through any link (`stat_or_none`). A path the gate cannot reach
+    — a folder above it nobody may search, a name too long for the system — is a configuration failure,
+    C12.10."""
+    try:
+        found = stat_or_none(root / rel)
+    except OSError as exc:
         raise ConfigurationFailure(messages.c12_unreadable(rel)) from exc
-    return stat.S_ISREG(mode)
+    return found is not None and stat.S_ISREG(found.st_mode)
 
 
 def is_ignored(root: Path, rel: str) -> bool:
