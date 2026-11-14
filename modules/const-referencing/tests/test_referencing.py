@@ -2232,9 +2232,9 @@ def green_as_the_tree_stands() -> list[str]:
 
 
 def root_policy_moved() -> list[str]:
-    """Under governed_only the root policy moved leaves no root to list the coverage after the move: the
-    listing's C6 is a failure of the plan, before anything is written, so the file is moved back and the
-    tree is as it was."""
+    """Under governed_only the root policy moved leaves the dials naming a file that is gone. The plan's
+    listing fails after the move, the file is moved back, and the refusal teaches the one route that works:
+    the move by hand, root_policy set to the new path, then --moved. That route ends green."""
     consumer = H.fresh_consumer(
         (
             Write(
@@ -2245,17 +2245,37 @@ def root_policy_moved() -> list[str]:
     consumer.write("constitution.yaml", dials_text(own(governed_only=True)))
     consumer.commit()
     state = whole_state(consumer)
-    moved = ("docs/policies/root-policy.md", "docs/archive/root-policy.md")
+    moved = ("docs/policies/root-policy.md", "docs/policies/root.md")
     done, after, _ = under_mode(consumer, "docs/notes/two.md", 0o444, *moved)
+    script = MOVER.resolve()
     wanted = (  # typed by hand
-        "BROKEN: constitution.yaml names root_policy 'docs/policies/root-policy.md' but no such file exists"
-        " — fix: create it, or point root_policy at the policy for policies\n"
-        + MOVED_BACK.format(old=moved[0])
-        + "\n"
+        "BROKEN: moving docs/policies/root-policy.md takes away the root policy constitution.yaml names, so"
+        " the dials would name a file that is gone — fix: move it by hand with git mv --"
+        " docs/policies/root-policy.md docs/policies/root.md, set root_policy to docs/policies/root.md in"
+        f' constitution.yaml, then run sh "{script}" --moved docs/policies/root-policy.md'
+        " docs/policies/root.md\n" + MOVED_BACK.format(old=moved[0]) + "\n"
     )
+    problems = []
     if (done.code, done.stdout, done.stderr) != (1, "", wanted) or after != state:
-        return [f"the root policy moved: exit {done.code}: {done.stdout}{done.stderr}"]
-    return []
+        problems.append(f"the root policy moved: exit {done.code}: {done.stdout}{done.stderr}")
+    # the route the refusal teaches, followed as printed; before root_policy is set, --moved keeps the
+    # shared C6, whose own fix fits a move made by hand
+    consumer.git("mv", "--", *moved)
+    early = mover(consumer, "--moved", *moved)
+    shared_c6 = (  # typed by hand
+        "BROKEN: constitution.yaml names root_policy 'docs/policies/root-policy.md' but no such file exists"
+        " — fix: create it, or point root_policy at the policy for policies"
+    )
+    if early.code != 1 or early.stderr.splitlines()[:1] != [shared_c6]:
+        problems.append(f"--moved before root_policy is set: exit {early.code}: {early.stderr}")
+    dials = yaml.safe_load((consumer.root / "constitution.yaml").read_text())
+    dials["root_policy"] = moved[1]
+    consumer.write("constitution.yaml", yaml.safe_dump(dials, sort_keys=False))
+    taught = mover(consumer, "--moved", *moved)
+    last = taught.stdout.splitlines()[-1] if taught.stdout else ""
+    if taught.code != 0 or not last.startswith("GREEN: const-referencing: "):
+        problems.append(f"the taught route: exit {taught.code}: {taught.stdout}{taught.stderr}")
+    return problems
 
 
 def fake_git(log: Path, on_move_back: str = "", interrupt: bool = False) -> dict[str, str]:
