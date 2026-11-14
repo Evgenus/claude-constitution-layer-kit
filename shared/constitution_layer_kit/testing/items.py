@@ -1559,6 +1559,7 @@ class SharedItems:
             "C12.9": messages.c12_invocation("bad " + "a\nb" + "c" * 100),
             "C12.10": messages.c12_unreadable(path),
             "C12.11": messages.c12_unexpected("ValueError: " + "v" * 100),
+            "C12.16": messages.c12_unreachable(path, "Permission\n" + "d" * 100),
             "C13": messages.c13_log_dir_not_ignored(path),
             "C16": messages.c16_shared_too_old(self.ns, "1.0.1", "1.0.0", path, VERSION_UNTIL),
             "C17": messages.c17_module_too_old(self.ns, "1.4.2", "2.0.0", path, VERSION_UNTIL),
@@ -1607,6 +1608,9 @@ class SharedItems:
             "C12.10": f"BROKEN: {esc} is listed by git but cannot be read — fix: check that the file can be"
             " read: its permissions, those of a folder above it, or a name too long for the system",
             "C12.11": "unexpected failure inside the checker: ValueError: " + "v" * 68 + "… [112 characters]",
+            "C12.16": f"BROKEN: {esc} cannot be reached (Permission\\n{'d' * 69}… [111 characters]), so"
+            " nobody can say what stands there — fix: make the folders above it searchable — their"
+            " permissions — then run it again",
             "C13": f"BROKEN: {self.file}: {self.ns}.log_dir '{esc}' is not ignored by git — fix: a log"
             " inside the working tree must be git-ignored, or every verdict dirties the tree; add the"
             " directory to .gitignore, or remove the key",

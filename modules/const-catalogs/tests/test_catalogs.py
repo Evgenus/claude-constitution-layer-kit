@@ -715,6 +715,32 @@ def test_edit_that_creates_is_new() -> None:
     expect(result, 2, K4.render(), "stderr")
 
 
+@acceptance_item(86, "a written file behind a folder nobody may search is the shared C12.16, on every Python")
+def test_written_file_unreachable() -> None:
+    """Whether the written file exists decides whether its number is judged. Behind a folder nobody may
+    search, Path.exists raised before 3.14, the defect line, and returned False from 3.14 on, where the file
+    was judged as a new item. Now the shared C12.16 says nobody can tell, on every Python. As root a mode bit
+    denies nothing, and the case is not exercised."""
+    if os.geteuid() == 0:
+        return  # NOT EXERCISED: running as root, where a mode bit does not deny a search
+    rel = "docs/items/shut/itm-0002-second.md"
+    consumer = H.fresh_consumer()
+    consumer.write("constitution.yaml", dials_text())
+    consumer.write(ITEM_A, item())
+    shut = consumer.root / "docs/items/shut"
+    shut.mkdir()
+    shut.chmod(0o000)
+    try:
+        result = H.run_gate(event_json(consumer.root, Write(rel, item("itm-0002-second"))))
+    finally:
+        shut.chmod(0o755)
+    broken_typed(
+        result,
+        f"BROKEN: {rel} cannot be reached (Permission denied), so nobody can say what stands there — fix:"
+        " make the folders above it searchable — their permissions — then run it again",
+    )
+
+
 @acceptance_item(46, "a free number below the highest passes: the gate asks for free, not for next")
 def test_free_number_below_the_highest() -> None:
     """The gate asks for a free number, not for the next one: allocation is advice, a gap is legitimate."""

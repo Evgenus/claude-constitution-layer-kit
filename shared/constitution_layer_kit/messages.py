@@ -435,6 +435,15 @@ def c12_unreadable(rel: str) -> Broken:
     )
 
 
+def c12_unreachable(path: str, reason: str) -> Broken:
+    """A path the run must ask about, behind a folder nobody may search: `reason` is the system's words."""
+    return Broken(
+        SharedKey.C12,
+        f"{escaped(path)} cannot be reached ({echoed(reason)}), so nobody can say what stands there",
+        "make the folders above it searchable — their permissions — then run it again",
+    )
+
+
 def c12_interrupted() -> Broken:
     return Broken(
         SharedKey.C12,
