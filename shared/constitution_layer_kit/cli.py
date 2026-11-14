@@ -198,7 +198,7 @@ def guarded(
         finally:
             output.flush()
         if interrupted:
-            die_by_interrupt()
+            return die_by_interrupt()
         return EXIT_BROKEN
 
 

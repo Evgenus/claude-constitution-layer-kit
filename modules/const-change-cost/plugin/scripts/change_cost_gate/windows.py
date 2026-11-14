@@ -13,12 +13,17 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 from bisect import bisect_left
 from contextlib import ExitStack
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import BinaryIO
+
+from constitution_layer_kit import messages as shared
+from constitution_layer_kit.errors import ConfigurationFailure
+from constitution_layer_kit.repository import reached
 
 from .model import COMPACTION, ReplyKey
 
@@ -90,18 +95,36 @@ def read_record(raw: bytes, session: str) -> Record | None:
 
 def transcripts_of(path: Path) -> list[Transcript]:
     """The session's transcript and every `.jsonl` under the folder named after it, plain files only: a
-    symbolic link is left out, as ccusage's own walk leaves it out."""
+    symbolic link is left out, as ccusage's own walk leaves it out. A file or a folder of them nobody can
+    reach or list is the shared C12.16, on every Python, never left out: the count would run short."""
     base = path.parent.parent
     found: list[Path] = []
-    if path.is_file() and not path.is_symlink():
+    if _plain_file(path):
         found.append(path)
     folder = path.with_suffix("")
-    for top, _, names in os.walk(folder, followlinks=False):
+    for top, _, names in os.walk(folder, onerror=_unlisted, followlinks=False):
         for name in sorted(names):
             candidate = Path(top) / name
-            if name.endswith(".jsonl") and candidate.is_file() and not candidate.is_symlink():
+            if name.endswith(".jsonl") and _plain_file(candidate):
                 found.append(candidate)
     return [Transcript(candidate, candidate.relative_to(base)) for candidate in found]
+
+
+def _plain_file(path: Path) -> bool:
+    """A file that stands, and no link; C12.16 where nobody can reach it."""
+    found = reached(path, str(path))
+    return found is not None and stat.S_ISREG(found.st_mode) and not os.path.islink(path)
+
+
+def _unlisted(exc: OSError) -> None:
+    """os.walk's word on a folder it could not list: a folder that is gone or no folder holds no transcript;
+    one that stands is the shared C12.16."""
+    folder = os.fsdecode(exc.filename) if exc.filename is not None else ""
+    found = reached(Path(folder), folder)
+    if found is not None and stat.S_ISDIR(found.st_mode):
+        raise ConfigurationFailure(
+            shared.c12_unreachable(folder, exc.strerror or type(exc).__name__)
+        ) from exc
 
 
 def survey(files: list[Transcript], session: str, start_ms: int) -> Survey:

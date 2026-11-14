@@ -14,7 +14,7 @@ from constitution_layer_kit import messages as shared
 from constitution_layer_kit.errors import ConfigurationFailure
 from constitution_layer_kit.output import Output
 from constitution_layer_kit.pipeline import Skip, WriteTarget
-from constitution_layer_kit.repository import list_markdown, read_text
+from constitution_layer_kit.repository import list_markdown, reached, read_text
 from constitution_layer_kit.territory import Matcher
 
 from . import dials as catalog_dials
@@ -52,9 +52,12 @@ def _examine_write(
     and the same verdict rendered again with it: advice costs a green write nothing, and no
     verdict waits for it."""
     root, rel, text = target.root, target.rel, target.text
-    # a file that does not exist yet is a new item, and its number must be free
+    # a file that does not exist yet is a new item, and its number must be free; one nobody can reach is
+    # the shared C12.16, on every Python, since nobody can say which it is
     taken = (
-        None if (root / rel).exists() else numbers_taken(catalog, _items(matcher, catalogs, catalog, root))
+        None
+        if reached(root / rel, rel) is not None
+        else numbers_taken(catalog, _items(matcher, catalogs, catalog, root))
     )
     item = examine(catalog, rel, text, taken)
     if not any(finding.key in NAMES_A_NUMBER for finding in item.findings):

@@ -88,10 +88,16 @@ def git(
         raise ConfigurationFailure(failure) from exc
 
 
+def _can_stand_in(folder: Path) -> bool:
+    """A folder git can run in: one that stands and may be searched. os.path answers False behind a folder
+    nobody may search, on every Python, so the walk goes up past it; the gate then names the path itself."""
+    return os.path.isdir(folder) and os.access(folder, os.X_OK)
+
+
 def repo_root(path: Path) -> Path | None:
     """The real path of the repository containing `path` (which need not exist), or None."""
-    probe = path if path.is_dir() else path.parent
-    while not probe.is_dir():
+    probe = path if _can_stand_in(path) else path.parent
+    while not _can_stand_in(probe):
         if probe.parent == probe:
             return None
         probe = probe.parent
@@ -145,6 +151,18 @@ def stat_or_none(path: Path) -> os.stat_result | None:
         if exc.errno in _ABSENT:
             return None
         raise
+
+
+def reached(path: Path, shown: str) -> os.stat_result | None:
+    """What the system says of `path` (`stat_or_none`): None where it is absent. Any other error is the
+    shared C12.16, naming the path as `shown`, on every Python: a path behind a folder nobody may search is
+    never read as absent."""
+    try:
+        return stat_or_none(path)
+    except OSError as exc:
+        raise ConfigurationFailure(
+            messages.c12_unreachable(shown, exc.strerror or type(exc).__name__)
+        ) from exc
 
 
 def listed_file(root: Path, rel: str) -> bool:
