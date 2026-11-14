@@ -35,11 +35,13 @@ The shared guard caught no interrupt. After Ctrl-C an entry printed a traceback 
 
 The session recommended C, because each layer closes what only it can. It follows the decider's standing lean to ask the thing itself rather than model it: the mover asks git's index where the file is. The yes is the wave's merge.
 
-<a id="r3"></a>**R3.** The shared guard catches an interrupt wherever the run is. It prints the new shared line C12.15, then the entry's closing line, and exits 130, with no traceback.
+<a id="r3"></a>**R3.** The shared guard catches an interrupt wherever the run is. It prints the new shared line C12.15, whose text stands true with no line below it. The guard makes no claim of its own about what was done by then. It prints an entry's own line after C12.15 only where the entry's closing callable carries `interrupted`, a line made from the entry's own state. The failure closing line is not reused. The guard then flushes, restores the default action of the interrupt and sends it to the process itself. So the process dies by the interrupt, as Python does for one nobody caught, and a shell shows 130 and stops a loop.
 
-<a id="r4"></a>**R4.** An interrupt while git moves the file, or moves it back, is asked of git's index. Moved, the file is moved back. Not moved, the folders the move made are removed. Moved back, those folders are removed too. Where the index and the disk disagree, or the move back was not made, a line says so and names the file. The midway line follows it.
+<a id="r4"></a>**R4.** The mover's closing carries such a line, and the mover counts as changed from before the first folder its move makes. An interrupt can come while the mover makes those folders, while git moves the file, or while git moves it back. The mover then settles it only where git's index and the disk agree. The disk is asked by the file's exact name. Both at the old path: the folders the move made are removed. Both at the new path: in a move the file is moved back. In a move back, the line says it is at the new path. Where they disagree, or a second interrupt lands while the mover asks, the line says the file may stand at either path and names both.
 
-<a id="r5"></a>**R5.** A second interrupt, a signal that ends the process at once, and an interrupt before the guard opens print no line of the kit. The shared limit 19 and limit 12 of `const-referencing` say so.
+<a id="r5"></a>**R5.** A signal that ends the process at once, and an interrupt before the guard opens, print no line of the kit. So does a second interrupt in an entry that hands the guard no line of its own. The shared limit 19 and limit 12 of `const-referencing` say so.
+
+<a id="r6"></a>**R6.** R3 and R4 reverse the clause "save after an interrupt" in R6 of [dec-0135-mover-refuses-an-unwritable-document](dec-0135-mover-refuses-an-unwritable-document.md#r6). After an interrupt, as after any failure, the mover's line says where the file is.
 
 ## Applied
 
@@ -49,6 +51,7 @@ The commits of this record's branch apply every ruling. The package takes the ve
 
 1. R1 — [the shared limits](../../shared/GATE.md#g4), limit 7; [the shared messages](../../shared/MESSAGES.md#g3), row C12.10; [the listing in the code](../../shared/constitution_layer_kit/repository.py), `listed_file` and `list_markdown`.
 2. R2 — [the mover's limits](../../modules/const-referencing/MODULE.md#t9), limit 12; [the mention listing in the code](../../modules/const-referencing/plugin/scripts/referencing_gate/mentions.py), `_listed_file`.
-3. R3 — [the shared limits](../../shared/GATE.md#g4), limit 19; [the shared messages](../../shared/MESSAGES.md#g3), row C12.15; [the guard in the code](../../shared/constitution_layer_kit/cli.py), `guarded`.
-4. R4 — [the mover's refusals](../../modules/const-referencing/MODULE.md#t6), row V5; [the mover's limits](../../modules/const-referencing/MODULE.md#t9), limit 12; [the act in the code](../../modules/const-referencing/plugin/scripts/referencing_gate/moving.py), `_move`, `_move_back`, `_remove_made` and `_indexed`.
+3. R3 — [the shared limits](../../shared/GATE.md#g4), limit 19; [the shared messages](../../shared/MESSAGES.md#g3), row C12.15; [the guard in the code](../../shared/constitution_layer_kit/cli.py), `guarded` and `die_by_interrupt`.
+4. R4 — [the mover's refusals](../../modules/const-referencing/MODULE.md#t6), row V5; [the mover's limits](../../modules/const-referencing/MODULE.md#t9), limit 12; [the act in the code](../../modules/const-referencing/plugin/scripts/referencing_gate/moving.py), `_move`, `_move_back`, `_settle`, `_where`, `_on_disk` and `_remove_made`; [the closing line](../../modules/const-referencing/plugin/scripts/referencing_gate/closing.py), `Closing`.
 5. R5 — [the shared limits](../../shared/GATE.md#g4), limit 19; [the mover's limits](../../modules/const-referencing/MODULE.md#t9), limit 12.
+6. R6 — history only: the reversal of a clause of an accepted record, which stays as it was accepted.

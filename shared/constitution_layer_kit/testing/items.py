@@ -19,6 +19,7 @@ import os
 import re
 import shlex
 import shutil
+import signal
 import site
 import subprocess
 import sys
@@ -1604,7 +1605,7 @@ class SharedItems:
             + "… [107 characters] — fix: "
             + messages.USAGE,
             "C12.10": f"BROKEN: {esc} is listed by git but cannot be read — fix: check that the file can be"
-            " read: its permissions, or a link that leads nowhere",
+            " read: its permissions, or those of a folder above it",
             "C12.11": "unexpected failure inside the checker: ValueError: " + "v" * 68 + "… [112 characters]",
             "C13": f"BROKEN: {self.file}: {self.ns}.log_dir '{esc}' is not ignored by git — fix: a log"
             " inside the working tree must be git-ignored, or every verdict dirties the tree; add the"
@@ -2419,13 +2420,15 @@ def test_copy_with_links_followed(subject: Subject) -> None:
 
 @item(
     141,
-    "not fail-open: an unexpected exception exits 1, BROKEN first, the traceback after; an interrupt exits"
-    " 130 with its line and the closing line",
+    "not fail-open: an unexpected exception exits 1, BROKEN first, the traceback after; an interrupt prints"
+    " its line and dies by the signal, so a shell's loop stops",
 )
 def test_unexpected_failure(subject: Subject) -> None:
     """Not fail-open: an exception nobody planned for exits 1, its BROKEN line first, the closing line
     after it, then the traceback, and nothing before them. An interrupt (Ctrl-C), raised where the
-    exception was, is no defect: exit 130, its line typed by hand and the closing line, no traceback."""
+    exception was, is no defect: its line alone, typed by hand, no closing line and no traceback, and the
+    process dies by the interrupt, as Python does for one nobody caught. So a shell's loop over the entry,
+    sent Ctrl-C as a terminal sends it to the whole group, stops at once."""
     it = shared(subject, "unexpected_failure")
     shadow = it.h.scratch_dir()
     (shadow / "yaml.py").write_text(
@@ -2443,13 +2446,47 @@ def test_unexpected_failure(subject: Subject) -> None:
         encoding="utf-8",
     )
     stopped, _ = it.s.gate_on(it.s.valid, env={"PYTHONPATH": str(stop)})
-    line = (  # typed by hand
-        "BROKEN: interrupted before the run was done — fix: run it again, and let it finish; the line below"
-        " says what had been done by then"
+    wanted = "BROKEN: interrupted before the run was done — fix: run it again, and let it finish\n"  # by hand
+    said = f"wanted death by SIGINT, stderr {wanted!r}; got exit {stopped.code}: {stopped.stderr[:600]}"
+    assert (stopped.code, stopped.stderr) == (-signal.SIGINT, wanted), said
+    interrupted_loop(it)
+
+
+def interrupted_loop(it: SharedItems) -> None:
+    """A shell's loop of three runs of the entry, sent Ctrl-C as a terminal sends it, to the whole process
+    group, from inside the first run: the loop stops there, as it does when Python dies by an interrupt."""
+    _, root = it.s.gate_on(it.s.valid)
+    group = it.h.scratch_dir()
+    (group / "yaml.py").write_text(
+        "import os, signal\n\n\nclass YAMLError(Exception): pass\n\n\n"
+        "def safe_load(text): os.killpg(os.getpgid(0), signal.SIGINT)\n",
+        encoding="utf-8",
     )
-    wanted = f"{line}\n{it.s.closing}\n"
-    said = f"wanted exit 130, stderr {wanted!r}; got exit {stopped.code}: {stopped.stderr[:600]}"
-    assert (stopped.code, stopped.stderr) == (130, wanted), said
+    if it.s.scan_only:
+        stdin, args, where = "", it.scan_args(root), None
+    elif it.s.event_driven:
+        stdin, args, where = it.payload(root, it.s.valid), [], None
+    else:
+        stdin, args, where = "", list(it.s.act_args), root
+    given = group / "stdin"
+    given.write_text(stdin, encoding="utf-8")
+    run = " ".join(shlex.quote(a) for a in [it.h.sh, str(it.h.wrapper), *args])
+    loop = (
+        f'for i in 1 2 3; do {run} < {shlex.quote(str(given))} > /dev/null 2>&1; echo "after $i rc=$?"; done;'
+        " echo loop-done"
+    )
+    done = subprocess.run(
+        [it.h.sh, "-c", loop],
+        cwd=where,
+        env=it.h.environment({"PYTHONPATH": str(group)}),
+        capture_output=True,
+        text=True,
+        check=False,
+        start_new_session=True,
+        timeout=60,
+    )
+    said = f"wanted the loop stopped in its first run; got exit {done.returncode}: {done.stdout!r}"
+    assert "loop-done" not in done.stdout and "after 2" not in done.stdout, said
 
 
 @item(142, "an Edit event without its documented fields is a configuration failure")
@@ -2644,7 +2681,7 @@ def test_document_unreadable(subject: Subject) -> None:
     _, root = it.s.gate_on(it.s.valid, files={sibling: it.s.valid.text})
     line = (
         f"BROKEN: {sibling} is listed by git but cannot be read — fix: check that the file can be read:"
-        " its permissions, or a link that leads nowhere"
+        " its permissions, or those of a folder above it"
     )
     it.unreadable(root / sibling, lambda: it.h.run_gate("", args=["--scan", str(root)]), line)
     # a document behind a folder nobody may search: the same failure on every Python. Path.is_file raises
@@ -2658,7 +2695,7 @@ def test_document_unreadable(subject: Subject) -> None:
     subprocess.run(["git", *who, "commit", "-qm", "shut"], cwd=root, check=True, capture_output=True)
     line = (
         f"BROKEN: {hidden} is listed by git but cannot be read — fix: check that the file can be read:"
-        " its permissions, or a link that leads nowhere"
+        " its permissions, or those of a folder above it"
     )
     it.unreadable(root / shut, lambda: it.h.run_gate("", args=["--scan", str(root)]), line)
 
@@ -2710,7 +2747,7 @@ def test_policy_unreadable(subject: Subject) -> None:
 
     line = (
         f"BROKEN: {policy} is listed by git but cannot be read — fix: check that the file can be read:"
-        " its permissions, or a link that leads nowhere"
+        " its permissions, or those of a folder above it"
     )
     it.unreadable(root / policy, again, line)
     said = (runs[-1].stdout + runs[-1].stderr).splitlines()

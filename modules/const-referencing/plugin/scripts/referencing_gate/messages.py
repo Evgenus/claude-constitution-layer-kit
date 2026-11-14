@@ -420,10 +420,10 @@ def v4_move_back_cut(old: str, new: str) -> str:
     )
 
 
-def v4_move_cut(old: str, new: str) -> str:
+def v4_either(old: str, new: str) -> str:
     return (
-        f"BROKEN: the move was cut short by an interrupt — git's index and the disk disagree about"
-        f" {escaped(old)} and {escaped(new)}: look at git status"
+        f"BROKEN: an interrupt cut the move short, and the file may stand at {escaped(old)} or at"
+        f" {escaped(new)}: look at git status and the disk, and put it back with git mv"
     )
 
 

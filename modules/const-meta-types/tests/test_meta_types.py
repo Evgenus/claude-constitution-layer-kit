@@ -987,7 +987,7 @@ def test_unreadable_twin_is_broken() -> None:
         path.chmod(mode)
     first = (
         "BROKEN: docs/notes/twin.md is listed by git but cannot be read — fix: check that the file can be"
-        " read: its permissions, or a link that leads nowhere"
+        " read: its permissions, or those of a folder above it"
     )
     count = "BROKEN: the check could not run — 0 documents examined"
     broken_first_line(governed, first)

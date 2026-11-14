@@ -10,15 +10,21 @@ from . import messages
 
 @dataclass(slots=True)
 class Closing:
-    """The line that closes a failure. Before the act has changed anything it can say so; once a
-    file has moved or been rewritten it must not. A move undone says so and names the file; a move back
-    that failed says where the file is, before the line that the act stopped midway."""
+    """The line that closes a failure, and the one that closes an interrupt: both read the act's own
+    state. Before the act has changed anything it can say so; once a folder is made, a file moved or a
+    document rewritten it must not. A move undone says so and names the file; a move back that failed says
+    where the file is, before the line that the act stopped midway. Where an interrupt cut a move or a move
+    back and git's index and the disk did not agree — or a second interrupt came first — the line says the
+    file may stand at either path and names both."""
 
     changed: bool = False
     moved_back: str = ""  # the path a move was undone to, when it was
     stranded: str = ""  # the line saying where the file is, when the move back failed
+    uncertain: tuple[str, str] | None = None  # (old, new) while a move or a move back is not settled
 
     def __call__(self) -> str:
+        if self.uncertain is not None:
+            return messages.v4_either(*self.uncertain) + "\n" + messages.v4_stopped_midway()
         if self.stranded:
             return self.stranded + "\n" + messages.v4_stopped_midway()
         if self.changed:
@@ -26,3 +32,7 @@ class Closing:
         if self.moved_back:
             return messages.v4_moved_back(self.moved_back)
         return messages.v4_nothing_changed()
+
+    def interrupted(self) -> str:
+        """The line the shared guard prints after an interrupt: the same reading of the act's state."""
+        return self()
