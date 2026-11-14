@@ -29,8 +29,8 @@ from pathlib import Path
 
 import pytest
 import yaml
-from budgets_gate import messages, start
-from budgets_gate.model import Key, characters, rule_of_thumb
+from budgets_gate import effect_rules, messages, start
+from budgets_gate.model import Key, characters, longest, rule_of_thumb
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.model import Finding
 from constitution_layer_kit.testing.acceptance import broken_first_line, check_case, item
@@ -404,7 +404,9 @@ ENTRY_FIX = (
 
 @item(10, "this module's C5 lines typed by hand, each exit 1 with the count line")
 def test_t10() -> None:
-    """This module's dial failures typed by hand, each exit 1 with the count line after it."""
+    """This module's dial failures typed by hand, each exit 1 with the count line after it. A reason with a
+    carriage return, none, or one that is no text is refused; the fix of a departure lists two ceilings
+    by name, or says none is set. The smallest max, 1, is taken, so a document of 10 is red."""
     pairs: list[tuple[dict[str, object], str]] = [
         (
             own(budget=1),
@@ -532,9 +534,35 @@ def test_t10() -> None:
             " paths: [<patterns>], allow: [<ceiling names>], reason: <one line saying why these documents"
             " stand as written>; the ceilings are named in const-doc-budgets.ceilings: notes",
         ),
+        (
+            own(departures=[{**LIFT, "reason": "one\rtwo"}]),
+            C5 + "departures entry 1: reason must be one non-empty line saying why" + DEP_FIX,
+        ),
+        (
+            own(departures=[{"paths": ["docs/notes/**"], "allow": ["notes"]}]),
+            C5 + "departures entry 1: reason must be one non-empty line saying why" + DEP_FIX,
+        ),
+        (
+            own(departures=[{**LIFT, "reason": 5}]),
+            C5 + "departures entry 1: reason must be one non-empty line saying why" + DEP_FIX,
+        ),
+        (
+            own(ceilings=[NOTES, GUIDE], departures=[{**LIFT, "reason": ""}]),
+            C5 + "departures entry 1: reason must be one non-empty line saying why — fix: write the entry as"
+            " paths: [<patterns>], allow: [<ceiling names>], reason: <one line saying why these documents"
+            " stand as written>; the ceilings are named in const-doc-budgets.ceilings: notes, guide",
+        ),
+        (
+            own(ceilings=[], departures=[LIFT]),
+            C5 + "departures entry 1: 'notes' names no ceiling — fix: write the entry as paths: [<patterns>],"
+            " allow: [<ceiling names>], reason: <one line saying why these documents stand as written>; the"
+            " ceilings are named in const-doc-budgets.ceilings: none is set",
+        ),
     ]
     for patch, line in pairs:
         broken(gate_on(Write("docs/notes/a.md", doc(10)), patch)[0], line)
+    smallest, _ = gate_on(Write("docs/notes/a.md", doc(10)), own(ceilings=[{**NOTES, "max": 1}]))
+    exactly(smallest, 2, "", block(b1("docs/notes/a.md", "10", "9", "1"), "docs/notes/a.md"))
     block_scalar = own(departures=[{**LIFT, "reason": "stands\n"}])  # what `reason: |` gives: trimmed, taken
     trimmed, _ = gate_on(Write("docs/notes/a.md", doc(10)), block_scalar)
     exactly(
@@ -547,7 +575,7 @@ def test_t10() -> None:
 @item(11, "window dates unquoted and quoted are taken; a timestamp is refused")
 def test_t11() -> None:
     """Dates as YAML reads them unquoted, date objects, and quoted, strings, are both taken; a
-    timestamp is no date."""
+    timestamp is no date, nor is the basic form '20260801' quoted, nor the number 20260801."""
     base = yaml.safe_dump({**Consumer(Path()).dials}, sort_keys=False)
 
     def raw(start: str, end: str) -> str:
@@ -559,13 +587,18 @@ def test_t11() -> None:
     unquoted, _ = gate_on(Write("docs/notes/a.md", doc(10)), raw_dials=raw("2026-08-01", "2026-09-01"))
     quoted, _ = gate_on(Write("docs/notes/a.md", doc(10)), raw_dials=raw("'2026-08-01'", "'2026-09-01'"))
     stamp, _ = gate_on(Write("docs/notes/a.md", doc(10)), raw_dials=raw("2026-08-01 10:00:00", "2026-09-01"))
+    basic, _ = gate_on(Write("docs/notes/a.md", doc(10)), raw_dials=raw("'20260801'", "2026-09-01"))
+    number, _ = gate_on(Write("docs/notes/a.md", doc(10)), raw_dials=raw("20260801", "2026-09-01"))
     ok = green("10 characters against the ceiling 'notes' of 100")
     exactly(unquoted, 0, ok)
     exactly(quoted, 0, ok)
-    broken(
-        stamp,
-        C5 + "ceilings entry 1: window.from and window.to must each be a date written YYYY-MM-DD" + ENTRY_FIX,
-    )
+    for refused in (stamp, basic, number):
+        broken(
+            refused,
+            C5
+            + "ceilings entry 1: window.from and window.to must each be a date written YYYY-MM-DD"
+            + ENTRY_FIX,
+        )
 
 
 @item(12, "no ceiling, the default: a visible skip in the hook, a zero in the scan; a file under none")
@@ -603,7 +636,8 @@ def test_t12() -> None:
 @item(13, "golden scan: stale departure, one note per ceiling, a warning, a finding, the count line")
 def test_t13() -> None:
     """The scan, golden: a stale departure, one note per ceiling — a departure lifting one document, a
-    ceiling holding nothing — a warning, a finding, the count line, each typed whole."""
+    ceiling holding nothing — a warning, a finding, the count line, each typed whole. A stale entry of two
+    patterns names both."""
     empty = {**GUIDE, "name": "empty", "paths": ["/docs/none/**"]}
     lift = {"paths": ["docs/notes/frozen-*.md"], "allow": ["notes"], "reason": "accepted before the ceiling"}
     stale = {"paths": ["docs/gone/**"], "allow": ["guide"], "reason": "moved away"}
@@ -652,6 +686,23 @@ def test_t13() -> None:
     )
     exactly(scan(root), 2, wanted)
     exactly(scan(cut), 0, cut_wanted)
+    both = prepared(
+        own(
+            departures=[
+                {"paths": ["docs/gone/**", "docs/lost/**"], "allow": ["notes"], "reason": "moved away"}
+            ]
+        )
+    )
+    exactly(  # a stale entry of two patterns names both
+        scan(both),
+        0,
+        "note: const-doc-budgets.departures entry 1 (docs/gone/**, docs/lost/**) lifts nothing: it matches"
+        " no document a ceiling it names holds; the documents were deleted or moved, or the pattern or the"
+        " names are wrong\n"
+        "note: ceiling 'notes' — 100 characters, error, window 2026-08-01 to 2026-09-01: no document\n"
+        "GREEN: const-doc-budgets: 0 document(s) measured under 1 ceiling(s) and 1 departure(s), 3 Markdown"
+        " file(s) scanned\n",
+    )
 
 
 @dataclass(frozen=True)
@@ -661,7 +712,9 @@ class Link:
     target: str
 
 
-def history_repo(dates: Sequence[tuple[str, dict[str, str | Link | None]]], signed: bool = False) -> Path:
+def history_repo(
+    dates: Sequence[tuple[str, dict[str, str | bytes | Link | None]]], signed: bool = False
+) -> Path:
     """A repository whose first-parent line is the given commits, each at its date: {path: text}, a
     `Link` making the path a symbolic link, None deleting the file. No other commit, so the report's
     numbers depend on nothing else. `signed`: every commit is signed through a fake `gpg.program`, and
@@ -679,6 +732,9 @@ def history_repo(dates: Sequence[tuple[str, dict[str, str | Link | None]]], sign
             elif isinstance(text, Link):
                 (root / rel).parent.mkdir(parents=True, exist_ok=True)
                 os.symlink(text.target, root / rel)
+            elif isinstance(text, bytes):
+                (root / rel).parent.mkdir(parents=True, exist_ok=True)
+                (root / rel).write_bytes(text)
             else:
                 consumer.write(rel, text)
         env = {**os.environ, "GIT_AUTHOR_DATE": stamp, "GIT_COMMITTER_DATE": stamp}
@@ -692,7 +748,7 @@ def history_repo(dates: Sequence[tuple[str, dict[str, str | Link | None]]], sign
     return root
 
 
-HISTORY: list[tuple[str, dict[str, str | Link | None]]] = [
+HISTORY: list[tuple[str, dict[str, str | bytes | Link | None]]] = [
     ("2026-08-10T10:00:00+0000", {"docs/notes/a.md": doc(50)}),
     ("2026-08-11T09:00:00+0000", {"docs/notes/a.md": doc(80)}),
     ("2026-08-11T17:00:00+0000", {"docs/notes/a.md": doc(60), "docs/notes/b.md": doc(70)}),
@@ -902,7 +958,9 @@ def test_t24() -> None:
     """The report measures a symbolic link as the scan does: a link to a file in the tree is that file
     at the link's own path, through a chain and a linked folder too; a link to a folder, out of the
     tree, absolute, to a file with a slash after it, to nothing or through a missing folder, or in a
-    loop is left out."""
+    loop is left out. A link that climbs to the top folder and back down, one with an empty part and one
+    through `.` are measured, in a second commit too, where their targets are read already. A chain of 40
+    links is followed and one of 41 is not."""
     root = history_repo(
         [
             (
@@ -934,6 +992,49 @@ def test_t24() -> None:
         " docs/notes/link.md at 90\n"
         "window notes: 2026-08-20 to 2026-08-20, a span of 0 day(s), the longest docs/notes/link.md at"
         " 90; plus 10 % rounded up to 1,000: 1,000; set now: 100\n"
+        "const-doc-budgets: history since 2026-08-20 — 1 commit(s) of the first-parent line read, 1"
+        " day(s) with data, 1 ceiling(s); a report, nothing judged\n",
+    )
+    # a link that climbs to the top and back down, one with an empty part, one through `.`, each kept in a
+    # second commit whose links are read already; a chain of 41 links, of which the first passes 41
+    climbs = history_repo(
+        [
+            (
+                "2026-08-20T09:00:00+0000",
+                {
+                    "docs/notes/a.md": doc(50),
+                    "docs/long.md": doc(90),
+                    "docs/notes/top.md": Link("../../docs/long.md"),
+                    "docs/notes/double.md": Link("..//notes/a.md"),
+                    "docs/notes/dot.md": Link("./a.md"),
+                },
+            ),
+            ("2026-08-21T09:00:00+0000", {"docs/notes/a.md": doc(60)}),
+        ]
+    )
+    chain: dict[str, str | bytes | Link | None] = {"docs/notes/a.md": doc(50)}
+    chain.update({f"docs/notes/c{n:02}.md": Link(f"c{n + 1:02}.md") for n in range(1, 41)})
+    chain["docs/notes/c41.md"] = Link("a.md")
+    chained = history_repo([("2026-08-20T09:00:00+0000", chain)])
+    exactly(
+        scan(climbs, "--since", "2026-08-20"),
+        0,
+        "2026-08-20 notes: 4 document(s) at the day's last commit, the longest of the day docs/notes/top.md"
+        " at 90\n"
+        "2026-08-21 notes: 4 document(s) at the day's last commit, the longest of the day docs/notes/top.md"
+        " at 90\n"
+        "window notes: 2026-08-20 to 2026-08-21, a span of 1 day(s), the longest docs/notes/top.md at 90;"
+        " plus 10 % rounded up to 1,000: 1,000; set now: 100\n"
+        "const-doc-budgets: history since 2026-08-20 — 2 commit(s) of the first-parent line read, 2"
+        " day(s) with data, 1 ceiling(s); a report, nothing judged\n",
+    )
+    exactly(  # c02 to c41 pass 40 links or fewer and are a.md; c01 passes 41 and is left out
+        scan(chained, "--since", "2026-08-20"),
+        0,
+        "2026-08-20 notes: 41 document(s) at the day's last commit, the longest of the day docs/notes/a.md"
+        " at 50\n"
+        "window notes: 2026-08-20 to 2026-08-20, a span of 0 day(s), the longest docs/notes/a.md at 50;"
+        " plus 10 % rounded up to 1,000: 1,000; set now: 100\n"
         "const-doc-budgets: history since 2026-08-20 — 1 commit(s) of the first-parent line read, 1"
         " day(s) with data, 1 ceiling(s); a report, nothing judged\n",
     )
@@ -1001,7 +1102,8 @@ def test_t15() -> None:
 @item(16, "the count and the rule of thumb on values typed by hand")
 def test_t16() -> None:
     """The count and the rule of thumb on values typed by hand: code points, a CRLF as one, a byte-order
-    mark as one; the longest plus 10 %, rounded up to 1,000."""
+    mark as one; the longest plus 10 %, its margin rounded up, the sum rounded up to 1,000. The longest of
+    a list, in either order, a tie the first in path order."""
     family = "\U0001f468‍\U0001f469‍\U0001f467"  # three people and two joiners: 5 code points
     counts = [
         (characters("a\r\nb"), 3),
@@ -1012,15 +1114,27 @@ def test_t16() -> None:
     ]
     thumbs = [(rule_of_thumb(30126), 34000), (rule_of_thumb(71590), 79000), (rule_of_thumb(12313), 14000)]
     thumbs += [(rule_of_thumb(1000), 2000), (rule_of_thumb(909), 1000)]
+    # the margin rounded up to a whole character, then the sum to 1,000: 910 + 91, 10,000 + 1,000, 9,091 + 910
+    thumbs += [(rule_of_thumb(910), 2000), (rule_of_thumb(10000), 11000), (rule_of_thumb(9091), 11000)]
     ok = all(got == want for got, want in [*counts, *thumbs])
     assert ok, f"counts {counts}; thumbs {thumbs}"
+    # the one tie rule of the scan and the report: the longer wins, in either order; a tie goes to the
+    # first in path order
+    picks = [
+        (longest([("docs/b.md", 90), ("docs/a.md", 50)]), ("docs/b.md", 90)),
+        (longest([("docs/a.md", 50), ("docs/b.md", 90)]), ("docs/b.md", 90)),
+        (longest([("docs/b.md", 70), ("docs/a.md", 70)]), ("docs/a.md", 70)),
+        (longest([("docs/a.md", 70), ("docs/b.md", 70)]), ("docs/a.md", 70)),
+        (longest([]), None),
+    ]
+    assert all(got == want for got, want in picks), f"picks {picks}"
 
 
 @item(17, "a file that is not valid UTF-8 is measured, a bad byte one character")
 def test_t17() -> None:
     """A file that is not valid UTF-8 is measured, each replacement character the decoder puts in one:
     a lone 0xff byte is one, and so is a three-byte sequence cut after two bytes, which a count per byte
-    makes two."""
+    makes two. The history report counts the same file, committed, the same way."""
     root = prepared()
     (root / "docs/notes").mkdir(parents=True, exist_ok=True)
     bad = (
@@ -1029,6 +1143,18 @@ def test_t17() -> None:
     (root / "docs/notes/bin.md").write_bytes(b"# T\n\n" + bad + b"\n")  # 101 characters
     finding = b1("docs/notes/bin.md", "101", "1")
     exactly(after_write(root, "docs/notes/bin.md"), 2, "", block(finding, "docs/notes/bin.md"))
+    # the history report reads the committed blob the same way
+    history = history_repo([("2026-08-20T09:00:00+0000", {"docs/notes/bin.md": b"# T\n\n" + bad + b"\n"})])
+    exactly(
+        scan(history, "--since", "2026-08-20"),
+        0,
+        "2026-08-20 notes: 1 document(s) at the day's last commit, the longest of the day docs/notes/bin.md"
+        " at 101\n"
+        "window notes: 2026-08-20 to 2026-08-20, a span of 0 day(s), the longest docs/notes/bin.md at 101;"
+        " plus 10 % rounded up to 1,000: 1,000; set now: 100\n"
+        "const-doc-budgets: history since 2026-08-20 — 1 commit(s) of the first-parent line read, 1 day(s)"
+        " with data, 1 ceiling(s); a report, nothing judged\n",
+    )
 
 
 @item(18, "an event other than a write is a configuration failure")
@@ -1184,7 +1310,12 @@ def test_t20() -> None:
         )
     )
     arg = SESSION.run_gate(session_json(prepared()), args=["--scan"])
-    arg_ok = arg.code == 1 and "BROKEN: misinvocation: unexpected argument --scan" in arg.stderr
+    arg_ok = (arg.code, arg.stdout, arg.stderr) == (
+        1,
+        "",
+        "BROKEN: misinvocation: unexpected argument --scan — fix: session-start takes no arguments; it reads"
+        f" one SessionStart event on stdin\n{could_not_run}\n",
+    )
     shadow = H.scratch_dir()
     (shadow / "yaml.py").write_text("raise ImportError('simulated absence')\n", encoding="utf-8")
     no_yaml = SESSION.run_gate(session_json(prepared()), env={"PYTHONPATH": str(shadow)})
@@ -1327,7 +1458,8 @@ def test_effect_path_bypass() -> None:
     """Two ceilings hold documents. A write examined by a run of the gate's hook, passed or blocked, is
     applied; a write no run examined, a shell redirect, a write through a worktree of the project and a
     write under the second ceiling are bypassed by B1. A document no ceiling holds, a file that is no
-    Markdown and a path outside the project are no moment. The line is typed by hand."""
+    Markdown and a path outside the project are no moment. With no ceiling set, a write is no moment either.
+    The lines are typed by hand."""
     consumer = H.fresh_consumer()
     plans = {**NOTES, "name": "plans", "paths": ["docs/plans/**"]}
     consumer.write_dials(own(ceilings=[NOTES, plans]))
@@ -1350,6 +1482,10 @@ def test_effect_path_bypass() -> None:
     found = effect_lines(root, {sid: lines}, no_plugins())
     wanted = "  W1 (pattern): 6 moment(s): 2 applied, 4 bypassed, 0 missed — B1 4"
     assert wanted in found, found
+    bare = H.fresh_consumer().root  # no ceiling: the gate holds nothing, so a write is no moment
+    unheld = [tr_call("s25b", bare, WAY_AT, "t1", "Write", bare / "docs" / "notes" / "a.md")]
+    none_held = effect_lines(bare, {"s25b": unheld}, no_plugins())
+    assert "  W1 (pattern): 0 moment(s): 0 applied, 0 bypassed, 0 missed" in none_held, none_held
 
 
 @item(26, "W2: the plugin disabled, or a ceiling raised, lowered to a warning or removed, is bypassed by B2")
@@ -1358,7 +1494,9 @@ def test_effect_switch_off() -> None:
     block written out (applied); its number raised (bypassed); lowered (applied); its level moved to warning
     (bypassed); back to error (applied); a departure added (bypassed); that departure removed (applied); the
     ceiling removed (bypassed); put back (applied); severity warn (bypassed). A fake plugin list that lists
-    the gate for this project disabled adds one more, bypassed. The lines are typed by hand."""
+    the gate for this project disabled adds one more, bypassed. The lines are typed by hand. Then the test
+    alone, in process: a departure kept while a ceiling is lowered takes nothing away, and a max that is
+    text, absent or true counts as none, so a max of 1 after it is a raise."""
     consumer = H.fresh_consumer()
     root = consumer.root
     steps = [
@@ -1382,6 +1520,39 @@ def test_effect_switch_off() -> None:
     disabled = json.dumps([{"id": f"{NAMESPACE}@m", "enabled": False, "projectPath": str(root)}])
     again = effect_lines(root, {}, no_plugins(disabled))
     assert "  W2 (pattern): 12 moment(s): 6 applied, 6 bypassed, 0 missed — B2 6" in again, again
+    # the test alone, in process, at its edges: a departure kept while a ceiling is lowered takes nothing
+    # away; a max that is text, absent or true counts as none, so any number after it is a raise
+    notes = {"name": "notes", "max": 150}
+    edges: list[tuple[str, dict[str, object], dict[str, object], bool]] = [
+        (
+            "a departure kept, a ceiling lowered",
+            {"ceilings": [notes], "departures": [DEPARTURE]},
+            {"ceilings": [{**notes, "max": 100}], "departures": [DEPARTURE]},
+            False,
+        ),
+        (
+            "a max of text, then 1",
+            {"ceilings": [{**notes, "max": "x"}]},
+            {"ceilings": [{**notes, "max": 1}]},
+            True,
+        ),
+        ("no max, then 1", {"ceilings": [{"name": "notes"}]}, {"ceilings": [{**notes, "max": 1}]}, True),
+        (
+            "a max of true, then 1",
+            {"ceilings": [{**notes, "max": True}]},
+            {"ceilings": [{**notes, "max": 1}]},
+            True,
+        ),
+    ]
+    turned = []
+    for name, old, new, want in edges:
+        try:
+            got: object = effect_rules.loosened(old, new)
+        except Exception as error:  # noqa: BLE001 — a failure is a wrong answer too
+            got = error
+        if got != want:
+            turned.append(f"{name}: {got!r}")
+    assert not turned, "\n".join(turned)
 
 
 @item(27, "W3: the scan on each commit of main in a throwaway clone: green applied, a long document bypassed")
@@ -1416,7 +1587,8 @@ def test_effect_escape() -> None:
 def test_effect_skill_before_edit() -> None:
     """An Edit of the dials file that writes a `max:` after a load of `set-ceilings`, in full, and a Write
     of the file that holds `ceilings:` after a load, bare, are applied. The same Edit with no load, a Write
-    of `departures:` after a load of another skill, and an Edit made before the load are missed by B5. An
+    of `departures:` after a load of another skill, an Edit made before the load, and an Edit whose old text
+    alone names a ceiling's field are missed by B5. An
     Edit of the dials file that touches no ceiling and an Edit of a Markdown file that names the ceilings are
     no moment. The line is typed by hand."""
     root = H.fresh_consumer().root
@@ -1438,6 +1610,9 @@ def test_effect_skill_before_edit() -> None:
         "s28d": [load("s28d", "const-doc-budgets:other"), write("s28d", "w", "  departures: []\n")],
         "s28e": [edit("s28e", "e", "    max: 9000"), load("s28e", SKILL_NAME)],
         "s28f": [edit("s28f", "e", "  severity: warn")],
+        "s28h": [  # a ceiling's line taken out: the old text alone names it
+            tr_tool("s28h", root, "e", "Edit", file_path=dials, old_string="    max: 9000\n", new_string="")
+        ],
         "s28g": [
             tr_tool(
                 "s28g",
@@ -1451,7 +1626,7 @@ def test_effect_skill_before_edit() -> None:
         ],
     }
     found = effect_lines(root, sessions, no_plugins())
-    assert "  W4 (pattern): 5 moment(s): 2 applied, 0 bypassed, 3 missed — B5 3" in found, found
+    assert "  W4 (pattern): 6 moment(s): 2 applied, 0 bypassed, 4 missed — B5 4" in found, found
 
 
 NOTED = Write("docs/notes/ok.md", doc(151))

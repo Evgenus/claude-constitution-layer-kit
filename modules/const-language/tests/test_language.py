@@ -54,7 +54,6 @@ from constitution_layer_kit.testing.items import (
     Subject,
     fake_claude,
     git_patch,
-    reader_fake,
     tr_call,
     tr_hook,
     tr_line,
@@ -62,7 +61,7 @@ from constitution_layer_kit.testing.items import (
 )
 from language_gate import dials as own_dials
 from language_gate import effect_rules, messages, rules, start, vale
-from language_gate.model import Departure, Rule
+from language_gate.model import Departure, Hit, Prepared, Rule
 from language_gate.prepare import prepare
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
@@ -103,6 +102,7 @@ GRADE_HIGHER = (
 )
 GRADE_HIGHER_VALUE = 44.02
 PLAIN = "# T\n\nThe cat sat on the mat. It was warm. We went home.\n"
+ONE_WORD = "# T\n\nGo.\n"  # sentences of one word: a grade below 0
 LONG_SENTENCE = (
     "The cat sat on the mat and the dog ran to the door and the bird flew up to the roof and the fish"
     " swam in the pond and the sun set."
@@ -249,7 +249,8 @@ def sentence_headline(words: int, text: str, limit: int = 25) -> str:
 @item(1, "L1 typed whole; a plain document green; the ceiling exclusive and a dial")
 def test_t1() -> None:
     """L1 typed whole for a document of long words; a plain document is green; the ceiling is
-    exclusive and a dial; a headline of a grade-only document at line 1."""
+    exclusive and a dial, 0 and 0.5 taken as the C5 line allows; a headline of a grade-only document at
+    line 1."""
     found = messages.l1_grade(DOC, GRADE_RED_VALUE, 10.0)
     result, _ = gate_on(Write(DOC, GRADE_RED))
     typed = (
@@ -266,13 +267,17 @@ def test_t1() -> None:
     # over the grade: not a finding
     no_finding(GRADE_RED, own(grade_ceiling=43.6))
     one_finding(GRADE_RED, messages.l1_grade(DOC, GRADE_RED_VALUE, 43.5).headline, own(grade_ceiling=43.5))
+    # the lowest ceilings the C5 line allows, 0 and a fraction above it, are taken: one word reads below 0
+    no_finding(ONE_WORD, own(grade_ceiling=0))
+    no_finding(ONE_WORD, own(grade_ceiling=0.5))
     expect(result, 2, f"RED: 1 finding(s) — 1 document examined ({DOC})", "stderr")
 
 
 @item(2, "L2 typed whole with the sentence echoed; 25 words pass; the limit a dial; a heading counts")
 def test_t2() -> None:
     """L2 typed whole for a sentence of 32 words, its start echoed; 25 words exactly pass; the
-    limit is a dial; a heading is a sentence to the rule."""
+    limit is a dial, 1 the lowest it takes; a heading is a sentence to the rule; a sentence that opens
+    right after an emphasis mark is echoed from its first word."""
     found = messages.l2_sentence(DOC, 3, 32, 25, LONG_SENTENCE)
     typed = (
         f"RED: {DOC}:3: a sentence of 32 words, over the limit of 25 — The cat sat on the mat and the"
@@ -288,6 +293,12 @@ def test_t2() -> None:
     no_finding(SENTENCE_GREEN)
     no_finding(SENTENCE_RED, own(sentence_words=32))
     one_finding(SENTENCE_RED, sentence_headline(32, LONG_SENTENCE, 31), own(sentence_words=31))
+    no_finding(ONE_WORD, own(sentence_words=1))  # the lowest limit the C5 line allows
+    one_finding(  # a sentence right after a mark: the echo starts at its first word, the mark left out
+        f"# T\n\nShort. *{LONG_SENTENCE}*\n",
+        f"{DOC}:3: a sentence of 32 words, over the limit of 25 — The cat sat on the mat and the dog ran to"
+        " the door and the bird flew up to the r… [131 characters]",
+    )
     one_finding(heading, messages.l2_sentence(DOC, 1, 26, 25, heading.split("\n")[0][2:]).headline)
 
 
@@ -388,7 +399,7 @@ def test_t4() -> None:
 def test_t5() -> None:
     """L5: a note by default, green; red under levels.passive error, typed whole; nothing under off,
     bare or quoted; a rule at warning keeps its note on a red run too; a form of be inside a word
-    is no passive."""
+    is no passive; a passive in capitals is one."""
     found = messages.l5_passive(DOC, 3, "was written")
     typed = (
         f"RED: {DOC}:3: passive voice — 'was written'\n"
@@ -419,6 +430,11 @@ def test_t5() -> None:
         " const-language.levels.passive is warning"
     ), "the note typed whole"
     one_finding(PASSIVE, found.headline, own(levels={"passive": "error"}))
+    one_finding(  # in any case: a title-cased passive is one too
+        "# T\n\nThe Report Was Written yesterday.\n",
+        f"{DOC}:3: passive voice — 'Was Written'",
+        own(levels={"passive": "error"}),
+    )
     assert off.code == 0 and "note:" not in off.stdout, f"off: exit {off.code}, no note"
     assert bare.code == 0 and "note:" not in bare.stdout, (
         f"a bare off, false to YAML: exit {bare.code}, no note"
@@ -432,7 +448,13 @@ def test_t5() -> None:
 
 @item(6, "L6 a Vale comment is red and the rule it names still fires; across lines; code is a mention")
 def test_t6() -> None:
-    """L6 typed whole: a Vale comment is a finding, and the rule it would switch off still fires."""
+    """L6 typed whole: a Vale comment is a finding, and the rule it would switch off still fires. What
+    the gate hands Vale is typed for each case of PREPARED: a comment after a fence that closed, by its
+    own character at its length or longer, is blanked and reported; inside a fence that never closed, or
+    that a shorter run or the other character does not close, it is a mention; so on the last line of a
+    fence with a long closer, in a fence far down, and across lines in a fence. A comment beside a code
+    span, before or after it, is blanked; one across lines keeps its line breaks; an envelope becomes empty
+    lines, and a comment below it keeps its line."""
     comment = "<!-- vale Language.Simpler = NO -->"
     found = messages.l6_vale_comment(DOC, 3, comment)
     typed = (
@@ -465,6 +487,62 @@ def test_t6() -> None:
     no_finding(COMMENT_GREEN)
     one_finding(mentioned, messages.l4_simpler(DOC, 7, "prior to", "before").headline)
     one_finding(in_span, messages.l4_simpler(DOC, 3, "prior to", "before").headline)
+    wrong = [f"{name}: {got}" for name, text, want in PREPARED if (got := prepare(text)) != want]
+    assert not wrong, "\n".join(wrong)
+
+
+# What the gate hands Vale, each case typed by hand: the text, and each Vale comment it blanked with its
+# line. A comment in prose is blanked to spaces, its line breaks kept; one inside a fence or a code span is
+# a mention, left as it stands. A fence closes on a line of its own character, at least as long as it.
+OFF = "<!-- vale off -->"  # 17 characters
+BLANK = " " * len(OFF)
+PREPARED: list[tuple[str, str, Prepared]] = [
+    (
+        "after a closed ``` fence",
+        f"```\nx\n```\n{OFF}\nB\n",
+        Prepared(f"```\nx\n```\n{BLANK}\nB\n", ((4, OFF),)),
+    ),
+    (
+        "after a closed ~~~ fence",
+        f"~~~\nx\n~~~\n{OFF}\nB\n",
+        Prepared(f"~~~\nx\n~~~\n{BLANK}\nB\n", ((4, OFF),)),
+    ),
+    (
+        "``` closed by a longer run",
+        f"```\nx\n````\n{OFF}\n",
+        Prepared(f"```\nx\n````\n{BLANK}\n", ((4, OFF),)),
+    ),
+    ("```` not closed by ```", f"````\nx\n```\n{OFF}\n", Prepared(f"````\nx\n```\n{OFF}\n", ())),
+    ("``` not closed by ~~~", f"```\nx\n~~~\n{OFF}\n", Prepared(f"```\nx\n~~~\n{OFF}\n", ())),
+    ("a fence never closed", f"```\n{OFF}\n", Prepared(f"```\n{OFF}\n", ())),
+    (
+        "on the last line in a fence whose closer is longer than it",
+        f"```\n{OFF}\n" + "`" * 30 + "\n",
+        Prepared(f"```\n{OFF}\n" + "`" * 30 + "\n", ()),
+    ),
+    (
+        "in a fence 25 lines down",
+        "Line.\n" * 25 + f"```\n{OFF}\n```\n",
+        Prepared("Line.\n" * 25 + f"```\n{OFF}\n```\n", ()),
+    ),
+    (
+        "across lines in a fence",
+        "```\n<!-- vale\noff -->\n```\n",
+        Prepared("```\n<!-- vale\noff -->\n```\n", ()),
+    ),
+    ("right after a code span", f"`x`{OFF}\n", Prepared(f"`x`{BLANK}\n", ((1, OFF),))),
+    ("right before a code span", f"{OFF} `x`\n", Prepared(f"{BLANK} `x`\n", ((1, OFF),))),
+    (
+        "across lines in prose",
+        "A\n<!-- vale\noff -->\nB\n",
+        Prepared("A\n" + " " * 9 + "\n" + " " * 7 + "\nB\n", ((2, "<!-- vale\noff -->"),)),
+    ),
+    (
+        "below an envelope, blanked to empty lines",
+        f"---\nid: a\ntitle: T\n---\n{OFF}\n# T\n",
+        Prepared(f"\n\n\n\n{BLANK}\n# T\n", ((5, OFF),)),
+    ),
+]
 
 
 @item(
@@ -538,7 +616,8 @@ def test_t8() -> None:
 
 @item(9, "levels: a rule at warning notes; all off refused; unknown rule and level are C5")
 def test_t9() -> None:
-    """Levels: grade at warning is a note and the write is green; every rule off is refused; an
+    """Levels: grade at warning is a note and the write is green; grade or sentence off leaves the rules
+    after it at work, so a plain replacement is still red; every rule off is refused; an
     unknown rule, a level that is none of the three, and a mapping that is not one, each C5."""
     found = messages.l1_grade(DOC, GRADE_RED_VALUE, 10.0)
     warned, _ = gate_on(Write(DOC, GRADE_RED), own(levels={"grade": "warning"}))
@@ -546,6 +625,11 @@ def test_t9() -> None:
     expect(context(warned), 0, messages.n2_warning(DOC, Rule.GRADE, found), "stdout")
     expect(context(warned), 0, green_hook(), "stdout")
     broken(gate_on(Write(DOC, PLAIN), all_off)[0], messages.c5_all_off())
+    # a rule at off is left out, and every rule after it is still written: grade and sentence come first
+    simpler_typed = f"RED: {DOC}:3: 'prior to' where the plain word is 'before'"
+    for first in ("grade", "sentence"):
+        found_off = headlines(gate_on(Write(DOC, SIMPLER_RED), own(levels={first: "off"}))[0])
+        assert found_off == [simpler_typed], f"{first} off: {found_off}"
     broken(
         gate_on(Write(DOC, PLAIN), own(levels={"tone": "error"}))[0],
         shared.c5_unknown_dial("levels.tone", [f"levels.{r.value}" for r in Rule]),
@@ -796,7 +880,9 @@ def test_t11() -> None:
     and the item holds the lower time bounds only, no upper bound. Each fake logs what it was
     asked, and the old one was asked its version and nothing else. Vale's first line of 93
     characters holding a backslash is shown whole and escaped in each of the three C12 texts that
-    carry it."""
+    carry it. A failing run with no JSON Text shows the first line of stderr, else of stdout, else its
+    exit; an empty Text shows the exit; output that is no JSON, or no object, is C12; a run that prints
+    nothing is no finding, and a --version that prints nothing is C12 saying so."""
     none = H.scratch_dir()
     for tool in ("python3", "git", "sh", "dirname"):
         source = os.path.realpath(sys.executable) if tool == "python3" else command_path(tool)
@@ -983,6 +1069,61 @@ def test_t11() -> None:
     assert "--no-global" in (failing / "calls").read_text(), (
         "the failing vale was run with the generated configuration"
     )
+    # Vale's output read in each other shape a run can give, each line typed by hand
+    could_not = (
+        " — fix: repair what the message names — the binary, its permissions, the temporary directory — then"
+        " run the check again"
+    )
+    runs = {
+        "no JSON Text: the first line of stderr": (
+            "echo 'boom one' >&2; echo 'boom two' >&2; exit 2",
+            f"BROKEN: vale could not run: boom one{could_not}",
+        ),
+        "no JSON Text, stdout alone": (
+            "echo 'out one'; echo 'out two'; exit 2",
+            f"BROKEN: vale could not run: out one{could_not}",
+        ),
+        "stdout and stderr: stderr's line": (
+            "echo 'out one'; echo 'err one' >&2; exit 2",
+            f"BROKEN: vale could not run: err one{could_not}",
+        ),
+        "JSON without Text": (
+            "echo '{\"Code\":\"E1\"}'; echo 'err one' >&2; exit 2",
+            f"BROKEN: vale could not run: err one{could_not}",
+        ),
+        "an empty JSON Text": (
+            'echo \'{"Text":""}\'; exit 2',
+            f"BROKEN: vale could not run: exit 2{could_not}",
+        ),
+        "no output at all": ("exit 2", f"BROKEN: vale could not run: exit 2{could_not}"),
+        "output that is no JSON": (
+            "echo 'not json'",
+            "BROKEN: vale could not run: its output is not JSON: Expecting value: line 1 column 1 (char 0)"
+            + could_not,
+        ),
+        "JSON that is no object": (
+            "echo '[]'",
+            f"BROKEN: vale could not run: its output is not a JSON object{could_not}",
+        ),
+    }
+    shapes = []
+    for name, (body, line) in runs.items():
+        shaped = fake_vale(
+            H.scratch_dir(), f'case "$1" in --version) echo "vale version 3.23.0";; *) {body};; esac'
+        )
+        result = gate_on(Write(DOC, PLAIN), env={"PATH": str(shaped)})[0]
+        if failure_of(lambda: broken(result, line)) is not None:  # noqa: B023 — called at once
+            shapes.append(f"{name}: {result}")
+    silent = fake_vale(H.scratch_dir(), 'case "$1" in --version) echo "vale version 3.23.0";; *) :;; esac')
+    quiet_run = gate_on(Write(DOC, PLAIN), env={"PATH": str(silent)})[0]
+    if failure_of(lambda: expect(quiet_run, 0, green_hook(), "stdout")) is not None:
+        shapes.append(f"a run that prints nothing is no finding: {quiet_run}")
+    nothing = fake_vale(H.scratch_dir(), "exit 0")
+    no_output = gate_on(Write(DOC, PLAIN), env={"PATH": str(nothing)})[0]
+    silent_version = f"BROKEN: vale did not report its version (no output) — fix: {repair}"
+    if failure_of(lambda: broken(no_output, silent_version)) is not None:
+        shapes.append(f"a --version that prints nothing: {no_output}")
+    assert not shapes, "\n".join(shapes)
 
 
 @item(12, "the cap after a write: the first findings that fit in 8,000 characters; the scan lists all")
@@ -1414,6 +1555,10 @@ def test_t18() -> None:
     ], f"exit {result.code}: {result.stderr.strip()}"
     spans = "Use ```d``` and `a ```b` here, ``x`` stays.\n"
     assert prepare(spans).text == "Use `  d  ` and `a    b` here, ``x`` stays.\n", "each span at its length"
+    lettered = "Use ```X``` here.\n"  # the delimiters alone are stripped, never a letter beside them
+    assert prepare(lettered).text == "Use `  X  ` here.\n", (
+        f"a span opening with a letter: {prepare(lettered)}"
+    )
 
 
 @item(
@@ -1422,8 +1567,9 @@ def test_t18() -> None:
 def test_t19() -> None:
     """Departures: an entry by pattern allows a rule in every document it matches; one by path allows
     that document alone; an entry allowing one rule does not allow another; a stale entry is a note,
-    typed by hand, first on stdout, and the scan green; the hook honours a departure too; the count
-    line names the departures."""
+    typed by hand, first on stdout, and the scan green, an entry of two paths naming both; the hook honours
+    a departure too; the count line names the departures. A hit the entry allows, before a hit it does not,
+    leaves that later hit red."""
     by_pattern = own(
         departures=[{"paths": ["docs/notes/**"], "allow": ["simpler"], "reason": "frozen notes"}]
     )
@@ -1436,6 +1582,11 @@ def test_t19() -> None:
     path_run = scan(two, by_path)
     other_rule = scan({DOC: GRADE_RED + "\nDo it prior to noon.\n"}, by_pattern)
     stale_run = scan({DOC: PLAIN}, stale)
+    stale_two = own(
+        departures=[{"paths": ["docs/gone/**", "docs/lost/**"], "allow": ["grade"], "reason": "gone"}]
+    )
+    stale_two_run = scan({DOC: PLAIN}, stale_two)
+    allowed_first = scan({DOC: f"# T\n\nDo it prior to noon.\n\n{LONG_SENTENCE}\n"}, by_pattern)
     note = "note: const-language.departures entry 1 (docs/gone/**) matches no covered document; the documents it allowed were deleted or moved, or the pattern is wrong"  # noqa: E501 — a golden line is typed whole
     hooked, _ = gate_on(Write(DOC, SIMPLER_RED), by_path)
     expect(pattern_run, 0, green_scan(5, departures=1), "stdout")
@@ -1453,6 +1604,14 @@ def test_t19() -> None:
         "the note typed whole"
     )
     expect(hooked, 0, green_hook(), "stdout")
+    note_two = "note: const-language.departures entry 1 (docs/gone/**, docs/lost/**) matches no covered document; the documents it allowed were deleted or moved, or the pattern is wrong"  # noqa: E501 — a golden line is typed whole
+    assert stale_two_run.code == 0 and stale_two_run.stdout.splitlines()[0] == note_two, (
+        f"a stale entry of two paths names both: {stale_two_run.stdout.splitlines()[:1]}"
+    )
+    assert headlines(allowed_first, "stdout") == [
+        f"RED: {DOC}:5: a sentence of 32 words, over the limit of 25 — The cat sat on the mat and the dog ran"
+        " to the door and the bird flew up to the r… [130 characters]"
+    ], f"an allowed hit leaves the later hits of the document red: {headlines(allowed_first, 'stdout')}"
 
 
 def own_dials_entry(patch: dict[str, object]) -> Departure | None:
@@ -1858,7 +2017,8 @@ def test_effect_w1() -> None:
     """The covered documents are the notes folder. A write examined by a run of check-language.sh is
     applied; a write no run examined, one through a worktree of the project and a shell redirect are
     bypassed by B1; a write outside the territory and a file that is no Markdown are no moment. Under the
-    default territories a README at the top is covered."""
+    default territories a README at the top is covered. With no dials file nothing is covered, so a write
+    is no moment of W1 or W5."""
     root = noted_root()
     sid = "s26"
     inside = root / NOTES
@@ -1879,6 +2039,14 @@ def test_effect_w1() -> None:
     again = [tr_call("s26b", plain, WAY_AT, "t1", "Write", plain / "README.md")]
     other = effect_lines(plain, {"s26b": again})
     assert "  W1 (pattern): 1 moment(s): 0 applied, 1 bypassed, 0 missed — B1 1" in other, other
+    bare = prepared(remove="constitution.yaml")  # no dials file claims nothing
+    unclaimed = [tr_call("s26c", bare, WAY_AT, "t1", "Write", bare / NOTES / "a.md")]
+    none_found = effect_lines(bare, {"s26c": unclaimed})
+    zero = [line for line in none_found if line.startswith(("  W1 ", "  W5 "))]
+    assert zero == [
+        "  W1 (pattern): 0 moment(s): 0 applied, 0 bypassed, 0 missed",
+        "  W5 (pattern): 0 moment(s): 0 applied, 0 bypassed, 0 missed",
+    ], none_found
 
 
 @item(27, "W2: a change of the dials is applied, or bypassed by B2 when it takes strictness away")
@@ -1887,7 +2055,9 @@ def test_effect_w2() -> None:
     twice, a rule raised to error twice. Bypassed by B2: severity turned to warn, then block with the grade
     ceiling raised, the sentence limit raised, a rule lowered to warning, an exception added, a departure
     added. The lowerings outnumber the raisings of one kind, so a test turned the wrong way changes the
-    count."""
+    count. Then the test alone: a ceiling lowered from 12 to 11 takes nothing away; warning to off, and a
+    bare off, do; a bare on and a level that is none of the three are read as the default, without a
+    failure."""
     consumer = H.fresh_consumer()
     departure = {"paths": ["docs/**"], "allow": ["grade"], "reason": "an accepted record"}
     base: dict[str, object] = {"severity": "block", "grade_ceiling": 12, "sentence_words": 30}
@@ -1916,6 +2086,23 @@ def test_effect_w2() -> None:
         consumer.commit()
     found = effect_lines(consumer.root, {})
     assert "  W2 (pattern): 11 moment(s): 5 applied, 6 bypassed, 0 missed — B2 6" in found, found
+    # each edge of the test, old and new namespace side by side, typed by hand
+    edges: list[tuple[str, dict[str, object], dict[str, object], bool]] = [
+        ("a ceiling lowered, still above the default", {"grade_ceiling": 12}, {"grade_ceiling": 11}, False),
+        ("warning lowered to off", {"levels": {"passive": "warning"}}, {"levels": {"passive": "off"}}, True),
+        ("a bare off, false to YAML", {}, {"levels": {"passive": False}}, True),
+        ("a bare on, true to YAML, is no level", {}, {"levels": {"passive": True}}, False),
+        ("a level that is none of the three", {}, {"levels": {"grade": "loud"}}, False),
+    ]
+    turned = []
+    for name, old, new, want in edges:
+        try:
+            got: object = effect_rules.loosened(old, new)
+        except Exception as error:  # noqa: BLE001 — a failure is a wrong answer too
+            got = error
+        if got != want:
+            turned.append(f"{name}: {got!r}")
+    assert not turned, "\n".join(turned)
 
 
 @item(
@@ -2047,7 +2234,8 @@ def test_effect_w6() -> None:
 def test_effect_w7() -> None:
     """A session of two human turns and three texts of the assistant, a tool call between the first two:
     the moments are the second text and the third, not the first. Not judged without `--reader`; judged by
-    a fake reader that answers APPLIED with it. The moment's excerpt holds the text it judges."""
+    a fake reader that answers APPLIED with it, and is given the rule's text, typed here, each time. The
+    moment's excerpt holds the text it judges."""
     root = noted_root()
     sid = "s32"
     lines = [
@@ -2060,15 +2248,67 @@ def test_effect_w7() -> None:
     ]
     plain = effect_lines(root, {sid: lines})
     assert "  W7 (reader): 2 moment(s), not judged — run again with --reader to judge them" in plain, plain
-    env, _ = reader_fake(H.scratch_dir(), "claude.ai", json.dumps({"result": "APPLIED"}))
+    asked = H.scratch_dir() / "prompts"
+    status = json.dumps({"authMethod": "claude.ai"})
+    answer = json.dumps({"result": "APPLIED"})
+    env = fake_claude(
+        H.scratch_dir(),
+        'case "$1" in\n  --version) echo "9.9.9 (Claude Code)" ;;\n'
+        f"  auth) echo {shlex.quote(status)} ;;\n"
+        f'  -p) printf "%s\\n" "$2" >> {shlex.quote(str(asked))}; echo {shlex.quote(answer)} ;;\n'
+        "esac\n",
+    )
     judged = effect_lines(root, {sid: lines}, env, "--reader")
     assert "  W7 (reader): 2 moment(s): 2 applied, 0 bypassed, 0 missed" in judged, judged
+    rule_typed = (
+        "The rule:\nThe final reply of each turn is plain English: short sentences, short words, no idiom,"
+        " the actor named.\n\nThe moment"
+    )
+    prompts = asked.read_text(encoding="utf-8")
+    assert prompts.count(rule_typed) == 2, f"the reader is given the rule as typed: {prompts[:400]}"
     path = H.scratch_dir() / "direct.jsonl"
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     session = read_transcript(path)
     assert session is not None
     said = [getattr(session.events[i], "text", "") for i in effect_rules.final_texts(session)]
     assert said == ["two", "three"], said
+
+
+@item(34, "Vale's alerts read: line, column, match and message as given, each with its fallback when odd")
+def test_t34() -> None:
+    """Each alert of Vale's JSON becomes one hit, read in process and typed here. A line and the first
+    number of a span are taken as given. A line missing, 0 or below, or not a number, is line 1. A span
+    missing, empty or not starting with a number is column 1. A match or a message missing is empty. Vale
+    3.23.0 gives every alert a line from 1 and a span of two numbers, so the fallbacks keep a later Vale's
+    odd alert from breaking the gate."""
+    check: dict[str, object] = {"Check": "Language.Simpler"}
+    cases: list[tuple[str, dict[str, object], Hit]] = [
+        (
+            "as given",
+            {**check, "Line": 7, "Span": [3, 9], "Match": "prior to", "Message": "before"},
+            Hit(Rule.SIMPLER, 7, 3, "prior to", "before"),
+        ),
+        ("no line, no span, no match, no message", check, Hit(Rule.SIMPLER, 1, 1, "", "")),
+        ("line 0", {**check, "Line": 0, "Span": [4, 5]}, Hit(Rule.SIMPLER, 1, 4, "", "")),
+        ("line below 0", {**check, "Line": -2, "Span": [4]}, Hit(Rule.SIMPLER, 1, 4, "", "")),
+        (
+            "a line that is text, an empty span",
+            {**check, "Line": "3", "Span": []},
+            Hit(Rule.SIMPLER, 1, 1, "", ""),
+        ),
+        ("a span of text", {**check, "Line": 2, "Span": ["a", 5]}, Hit(Rule.SIMPLER, 2, 1, "", "")),
+    ]
+    wrong = []
+    for name, alert, want in cases:
+        try:
+            got: object = vale._hit(alert)  # noqa: SLF001 — the reader of one alert, typed case by case
+        except Exception as error:  # noqa: BLE001 — a failure is a wrong answer too
+            got = error
+        if got != want:
+            wrong.append(f"{name}: {got!r}")
+    other = vale._hit({"Check": "Other.Rule", "Line": 1})  # noqa: SLF001 — an alert of no rule of the gate
+    assert other is None, f"an alert of no rule of the gate is none: {other!r}"
+    assert not wrong, "\n".join(wrong)
 
 
 # ---------------------------------------------------------------- the list

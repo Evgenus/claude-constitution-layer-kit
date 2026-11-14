@@ -1025,7 +1025,7 @@ const-doc-budgets:                    # a character ceiling per group of documen
       window:
         from: 2026-10-09
         to: 2026-11-08
-    - name: guide-pages   # set 2026-11-09 on the pages' first day: docs/guide/developing-a-module.md at 16,242 characters plus 10 %, rounded up to 1,000; at warning until 30 days of data
+    - name: guide-pages   # set 2026-11-09 on the pages' first day: docs/guide/developing-a-module.md at 16,242 characters plus 10 %, rounded up to 1,000; at warning until 30 days of data (decision dec-0115-long-documents-split-and-carry-entries-follow-moved-text, R10)
       paths: *guide_pages
       max: 18000
       level: warning

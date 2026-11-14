@@ -22,16 +22,22 @@ OPERATORS = ("&&", "||", "|&", ";", "|", "&", "\n")
 SHELL_WORDS = frozenset({"{", "}", "!", "if", "then", "else", "elif", "while", "until", "do", "fi", "done"})
 ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 HEREDOC = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
-# `>&`, `&>` and `<&` redirect; they are no separators.
+# `>&`, `&>`, `<&` and `>|` redirect; their `&` and `|` are no separators.
 REDIRECT_BEFORE = frozenset({">", "<"})
+# The redirection operators, longest first. One is read where it stands outside quotes, in a word or
+# alone; the digits that open its word are its descriptor, and its target is the rest of the word or the
+# next word. The shell takes all of it out of the command.
+REDIRECTIONS = ("&>>", "&>", "<<<", "<<-", "<<", "<>", "<&", ">>", ">&", ">|", "<", ">")
+BLANKS = frozenset(" \t\n")
 
 
 def split(command: str, lists: ReaderLists) -> list[Subcommand]:
     """Every simple command of the text, in order of appearance: the top-level ones, then the
     contents of each `$(…)` and backtick substitution, then the string a shell is told to run
     with its command options (`-c`, fish's `-C`) or that a wrapper's command option names (`env -S`)
-    with the words after it, each split in turn. A heredoc's body is data and is dropped. The wrappers and
-    the shells are those of `lists`."""
+    with the words after it, each split in turn. A heredoc's body is data and is dropped. A piece that
+    holds a redirection is read as written and without its redirections, each distinct reading one
+    subcommand of the same piece (`Subcommand.piece`). The wrappers and the shells are those of `lists`."""
     found: list[Subcommand] = []
     _collect(_drop_heredocs(command), found, lists)
     return found
@@ -41,7 +47,8 @@ def reading(words: Sequence[str], lists: ReaderLists) -> list[str] | None:
     """The words as the gate reads a piece that starts with them: none left out, or the words that
     stay. None where the reading hands a string on to be split again, as `bash -c "…"` and `env -S "…"`
     do. The dials loader asks it of an entry's command: one this does not give back as written can
-    never match."""
+    never match. The words come with no text, so no quote tells a redirection from a word: none is
+    dropped here, and an entry word such as `>x` reads as itself."""
     rest, inner = _normalise(list(words), lists)
     return None if inner else rest
 
@@ -53,13 +60,25 @@ def _collect(text: str, found: list[Subcommand], lists: ReaderLists) -> None:
             continue
         for inner in _substitutions(stripped):
             _collect(inner, found, lists)
-        words = _words(stripped)
-        if not words:
-            continue
-        words, inner_commands = _normalise(words, lists)
-        if words:  # empty: nothing but shell words or assignments, or a wrapper whose value is the command
-            found.append(Subcommand(tuple(words), stripped))
-        for inner_command in inner_commands:
+        # The piece as written, and, where it holds a redirection, the piece without it: each distinct
+        # reading is a subcommand, so the pass can add a reading and never take one away. A string both
+        # readings hand on alike is read once; one handed on in two forms is read as two strings.
+        unredirected = _unredirected(stripped)
+        texts = (stripped,) if unredirected == stripped else (stripped, unredirected)
+        place = len(found)  # the piece's number, shared by its readings
+        readings: list[tuple[str, ...]] = []
+        handed_on: list[str] = []
+        for text_read in texts:
+            words = _words(text_read)
+            if not words:
+                continue
+            words, inner_commands = _normalise(words, lists)
+            # empty: nothing but shell words or assignments, or a wrapper whose value is the command
+            if words and tuple(words) not in readings:
+                readings.append(tuple(words))
+            handed_on += [inner for inner in inner_commands if inner not in handed_on]
+        found.extend(Subcommand(words, stripped, place) for words in readings)
+        for inner_command in handed_on:
             _collect(inner_command, found, lists)
 
 
@@ -191,11 +210,16 @@ class _Separator:
         self._take(1)
 
     def _operator(self) -> str | None:
-        """The operator that starts at `i`, or None; `>&`, `&>` and `<&` are redirections."""
+        """The operator that starts at `i`, or None; `>&`, `&>`, `<&` and `>|` are redirections. Whether a
+        `>` or `<` stands before is read from the last unit taken, never from the raw character: an escape
+        is one unit of two characters (`\\>`), so a unit equal to `>` or `<` is an operator. No quoted
+        character can be that unit, since a quote's closing character is taken as a unit of its own, and
+        this is asked only outside quotes."""
         operator = next((op for op in OPERATORS if self.text.startswith(op, self.i)), None)
-        if operator == "&" and (
-            (self.i > 0 and self.text[self.i - 1] in REDIRECT_BEFORE) or self.text.startswith("&>", self.i)
-        ):
+        before = self.current[-1] if self.current else ""
+        if operator == "|" and before == ">":
+            return None  # `>|` redirects, clobbering a file
+        if operator == "&" and (before in REDIRECT_BEFORE or self.text.startswith("&>", self.i)):
             return None  # a redirection, not a background operator
         return operator
 
@@ -276,7 +300,8 @@ def _normalise(words: list[str], lists: ReaderLists) -> tuple[list[str], list[st
     """Strip assignments, shell words and wrappers, reduce the program to its base name, and leave
     every option after the program in the words; a shell told to run strings hands back each, in the
     order they stand, and a wrapper whose option names one hands back that one, each for its own
-    split. The list is empty when no string is handed on."""
+    split. The list is empty when no string is handed on. The words come with their redirections taken
+    out of the text already (`_unredirected`); a word here is a word, whatever it holds."""
     rest = list(words)
     while rest:
         head = rest[0].rsplit("/", 1)[-1]  # `/usr/bin/env` is `env`
@@ -299,6 +324,86 @@ def _normalise(words: list[str], lists: ReaderLists) -> tuple[list[str], list[st
     arguments = rest[1:]
     # the words after the strings are the shell's arguments: not read
     return rest, _shell_strings(arguments, shell.with_value, shell.command_flags)
+
+
+def _unredirected(text: str) -> str:
+    """The text of one simple command with every redirection taken out, as the shell reads it: an
+    operator outside quotes, `$(…)`, `${…}` and backticks, the digits that open its word before it, and
+    its target, the rest of the word or else the next word, quoted or not. `2>/dev/null git push -f`
+    reads as `git push -f`, `git push --force>/dev/null` as `git push --force`, and `echo ">"` keeps its
+    `>`. It is the second reading of a piece; the first is the piece as written (`_collect`)."""
+    out: list[str] = []
+    word_start = 0  # where the word being read starts in `out`
+    i = 0
+    while i < len(text):
+        if text[i] in BLANKS:
+            out.append(text[i])
+            i += 1
+            word_start = len(out)
+            continue
+        operator = next((op for op in REDIRECTIONS if text.startswith(op, i)), None)
+        if operator is None:
+            end = _unit_end(text, i)
+            out.append(text[i:end])
+            i = end
+            continue
+        if "".join(out[word_start:]).isdecimal():  # `2>x`: a descriptor only as the whole start of a word
+            del out[word_start:]
+        i = _target_end(text, i + len(operator))
+    return "".join(out)
+
+
+def _brace_end(text: str, j: int) -> int:
+    """Where the `${…}` whose contents start at `j` ends: past its matching `}`, its contents read unit by
+    unit, so a nested `${…}`, a quote or a `$(…)` in it ends nothing; at the text's end if it never
+    closes, so its text is kept and nothing in it is dropped."""
+    while j < len(text):
+        if text[j] == "}":
+            return j + 1
+        j = _unit_end(text, j)
+    return len(text)
+
+
+def _target_end(text: str, i: int) -> int:
+    """Where the target of a redirection whose operator ends at `i` ends: past the blanks before it, then
+    the units of one word, up to a blank or the next redirection."""
+    while i < len(text) and text[i] in " \t":
+        i += 1
+    while i < len(text) and text[i] not in BLANKS and not text.startswith(REDIRECTIONS, i):
+        i = _unit_end(text, i)
+    return i
+
+
+def _unit_end(text: str, i: int) -> int:
+    """The end of the unit that starts at `i`, read as one piece: an escape and the character it takes, a
+    quoted string, a backtick pair, a `$(…)` or a `${…}`, else one character. Nothing in one is a
+    redirection."""
+    ch = text[i]
+    if ch == "\\":
+        return min(i + 2, len(text))
+    if text.startswith("$(", i):
+        return _substitution_end(text, i + 2)
+    if text.startswith("${", i):
+        return _brace_end(text, i + 2)
+    if ch in ("'", "`"):
+        close = text.find(ch, i + 1)
+        return len(text) if close == -1 else close + 1
+    if ch == '"':
+        j = i + 1
+        while j < len(text) and text[j] != '"':
+            if text.startswith("$(", j):
+                j = _substitution_end(text, j + 2)
+                continue
+            # A `${…}` is read as outside quotes, as bash 3.2 reads it; zsh, dash and ksh take a `'` in it
+            # literally. Read as a quote, a `'` starts one span: to the next `'`, then to the `}`, then to the
+            # closing `"`, else to the piece's end. The second reading keeps a redirection inside that span:
+            # `git push "${x:-'}" --force>/dev/null` passes, as with no redirection pass.
+            if text.startswith("${", j):
+                j = _brace_end(text, j + 2)
+                continue
+            j += 2 if text[j] == "\\" else 1
+        return min(j + 1, len(text))
+    return i + 1
 
 
 def _wrapper(rest: list[str], wrappers: tuple[Wrapper, ...]) -> Wrapper | None:

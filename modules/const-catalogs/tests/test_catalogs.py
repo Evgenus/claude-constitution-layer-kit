@@ -22,12 +22,14 @@ import shutil
 import subprocess
 import sys
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
 import pytest
 import yaml
-from catalogs_gate import messages, start
+from catalogs_gate import history, messages, start
 from catalogs_gate.history import HOOK_SECONDS
 from catalogs_gate.model import Advice, Catalog, NameToTake, Reach, Read
 from constitution_layer_kit import messages as shared
@@ -328,6 +330,15 @@ def scan_of(files: dict[str, str], dials_patch: dict[str, object] | None = None)
     return H.run_gate("", args=["--scan", str(consumer.root)])
 
 
+def whole(result: Result, code: int, line: str, where: str = "stdout") -> None:
+    """The run exited `code` and printed `line` as one whole line on `where`: not a text that merely contains
+    it, so a prefix or a tail added to a typed line fails."""
+    lines = (result.stdout if where == "stdout" else result.stderr).splitlines()
+    assert result.code == code and line in lines, (
+        f"wanted exit {code} and the line {line!r}; got exit {result.code}: {lines}"
+    )
+
+
 def broken(result: Result, failure: Broken) -> None:
     broken_typed(result, failure.render())
 
@@ -361,6 +372,16 @@ def test_not_an_item() -> None:
     result, _ = gate_on(Write(ELSEWHERE, NO_ENVELOPE))
     skip = messages.g1_skip_not_an_item(ELSEWHERE, [CATALOG])
     expect(result, 0, shared.g1_green_skip(skip), "stdout")
+    # two catalogs listed: the prefixes are joined by a comma and a space
+    two, _ = gate_on(
+        Write(ELSEWHERE, NO_ENVELOPE), dials_patch=catalogs(entry(), entry("note", ["docs/notes/**"]))
+    )
+    whole(
+        two,
+        0,
+        "GREEN: const-catalogs: 0 documents examined — docs/elsewhere/a.md lies in no catalog's territory"
+        " (itm, note)",
+    )
     # a path over 80 characters holding a line break: the skip line stays whole, the break escaped
     long_path = "docs/elsewhere/a\n" + "b" * 100 + ".md"
     long_result, _ = gate_on(Write(long_path, NO_ENVELOPE))
@@ -536,13 +557,11 @@ def test_two_catalogs() -> None:
     """Two kinds, two prefixes, one sequence each: the same number in both is no collision."""
     patch = catalogs(entry(), entry("note", ["docs/notes/**"]))
     files = {ITEM_A: item(), "docs/notes/note-0001-first.md": item("note-0001-first")}
-    expect(
+    whole(  # typed by hand
         scan_of(files, patch),
         0,
-        shared.g1_green_scan(
-            messages.f9_scan_tail(2, 2 + BASE_MARKDOWN, [reach(1), reach(1, catalog=NOTES)])
-        ),
-        "stdout",
+        "GREEN: const-catalogs: 2 catalogued item(s) examined, 5 Markdown file(s) scanned, 2 catalog(s):"
+        " itm up to itm-0001, note up to note-0001",
     )
 
 
@@ -620,8 +639,11 @@ def test_scan_gap_is_legitimate() -> None:
 @acceptance_item(49, "scan: a listed catalog with no item yet is named, with a zero count")
 def test_scan_empty_catalog() -> None:
     """A listed catalog with no item yet is named as such: a visible zero, and the first number is 1."""
-    expect(
-        scan_of({}), 0, shared.g1_green_scan(messages.f9_scan_tail(0, BASE_MARKDOWN, [reach(None)])), "stdout"
+    whole(  # typed by hand
+        scan_of({}),
+        0,
+        "GREEN: const-catalogs: 0 catalogued item(s) examined, 3 Markdown file(s) scanned, 1 catalog(s):"
+        " itm none yet",
     )
 
 
@@ -778,8 +800,15 @@ def test_scan_names_history() -> None:
     would stand in front of the name of the first file the commit added, and a name without a folder
     — an item in the top folder — would carry it as part of its stem and lose its number."""
     result = H.run_gate("", args=["--scan", str(top_deleted().root)])
-    wanted = shared.g1_green_scan(messages.f9_scan_tail(1, 1 + BASE_MARKDOWN, [reach(1, 2)]))
-    top = shared.g1_green_scan(messages.f9_scan_tail(1, 1 + BASE_MARKDOWN, [reach(1, 2, TOP_LEVEL)]))
+    wanted = (  # typed by hand; a top-folder catalog is the same line
+        "GREEN: const-catalogs: 1 catalogued item(s) examined, 4 Markdown file(s) scanned, 1 catalog(s):"
+        " itm up to itm-0001, itm-0002 in history"
+    )
+    top = wanted
+    only = H.fresh_consumer((*SETUP, VALID))  # the one item deleted: the tree holds none, history held 1
+    only.git("rm", "-q", ITEM_A)
+    only.commit()
+    gone = H.run_gate("", args=["--scan", str(only.root)])
     signed = top_level_deleted(signed=True)
     shown = subprocess.run(
         ["git", "log", "-1", "--format=%h"], cwd=signed.root, capture_output=True, text=True, check=False
@@ -788,9 +817,15 @@ def test_scan_names_history() -> None:
         pytest.fail(f"git log did not print the check: {shown.stdout}{shown.stderr}")
     plain = H.run_gate("", args=["--scan", str(top_level_deleted(signed=False).root)])
     after = H.run_gate("", args=["--scan", str(signed.root)])
-    expect(result, 0, wanted, "stdout")
-    expect(plain, 0, top, "stdout")
-    expect(after, 0, top, "stdout")
+    whole(result, 0, wanted)
+    whole(plain, 0, top)
+    whole(after, 0, top)
+    whole(  # typed by hand: the tree holds no item and history held number 1, which the line must say
+        gone,
+        0,
+        "GREEN: const-catalogs: 0 catalogued item(s) examined, 3 Markdown file(s) scanned, 1 catalog(s):"
+        " itm none yet, itm-0001 in history",
+    )
 
 
 @acceptance_item(54, "a name an item was renamed to counts as added: rename detection is off")
@@ -803,8 +838,11 @@ def test_renamed_name_is_history() -> None:
     consumer.git("rm", "-q", at("itm-0007-first"))
     consumer.commit()
     result = H.run_gate("", args=["--scan", str(consumer.root)])
-    expect(
-        result, 0, shared.g1_green_scan(messages.f9_scan_tail(0, BASE_MARKDOWN, [reach(None, 7)])), "stdout"
+    whole(  # typed by hand
+        result,
+        0,
+        "GREEN: const-catalogs: 0 catalogued item(s) examined, 3 Markdown file(s) scanned, 1 catalog(s):"
+        " itm none yet, itm-0007 in history",
     )
 
 
@@ -816,8 +854,12 @@ def test_shallow_clone_says_so() -> None:
         ["git", "clone", "-q", "--depth", "1", source, str(clone)], check=True, capture_output=True
     )
     result = H.run_gate("", args=["--scan", str(clone)])
-    tail = messages.f9_scan_tail(1, 1 + BASE_MARKDOWN, [reach(1)], Read.SHALLOW)
-    expect(result, 0, shared.g1_green_scan(tail), "stdout")
+    whole(  # typed by hand
+        result,
+        0,
+        "GREEN: const-catalogs: 1 catalogued item(s) examined, 4 Markdown file(s) scanned, 1 catalog(s):"
+        " itm up to itm-0001; history incomplete in a shallow clone",
+    )
 
 
 @acceptance_item(56, "a repository with no commit yet: no history, no failure")
@@ -935,13 +977,39 @@ def calls_before_history(log: Path) -> int:
     return next(number for number, args in enumerate(asked) if "--verify" in args)
 
 
+def read_history_asked(seconds: float, clock: Callable[[], float]) -> tuple[history.History, list[float]]:
+    """`read_history` over a git that answers at once and a clock the test moves, in the module only: the
+    history it reads (one item, number 3) and the timeout each git call was given."""
+    given: list[float] = []
+
+    def run(command: list[str], **kwargs: float) -> subprocess.CompletedProcess[bytes]:
+        given.append(kwargs["timeout"])
+        if "--is-shallow-repository" in command:
+            out = b"false\n"
+        elif "log" in command:
+            out = b"docs/items/itm-0003-x.md\0"
+        else:
+            out = b""
+        return subprocess.CompletedProcess(command, 0, out, b"")
+
+    spies = (
+        mock.patch.object(history, "subprocess", SimpleNamespace(run=run, TimeoutExpired=TimeoutError)),
+        mock.patch.object(history, "time", SimpleNamespace(monotonic=clock)),
+    )
+    with spies[0], spies[1]:
+        return history.read_history(Path("."), seconds), given
+
+
 @acceptance_item(66, "a history twenty seconds slow costs no verdict: the block comes in time")
 def test_slow_history_costs_no_verdict() -> None:
     """A history that takes twenty seconds to list: the block still comes, within the hook's patience. The
     history is given its own 5 s, or what the hook's deadline has left where that is less: with the gate
     declared with 2 s, no git call, the history's included, is given more than that. With the deadline
     already spent when the history is asked, the history is not read and starts no git, and the block stands,
-    exit 2, never the shared C12.14 (exit 1): no verdict waits for advice or falls with it."""
+    exit 2, never the shared C12.14 (exit 1): no verdict waits for advice or falls with it. The edges of that
+    clock are read on `read_history` itself, over a git that answers at once and a clock moved by hand: with
+    0.5 s left the history is read, each git call given that 0.5 s; with the deadline long past, a call is
+    given 0.01 s; with none left no git starts. The history's own cap is typed: 5 s."""
     consumer = H.fresh_consumer(SETUP)
     env, _ = fake_git(on_log="exec /bin/sleep 20")
     patch, log = git_patch(H)
@@ -963,7 +1031,7 @@ def test_slow_history_costs_no_verdict() -> None:
         and block in red.stderr
         and elapsed < 9
         and bool(own)
-        and max(own) > HOOK_SECONDS - 0.5  # the history read has its own 5 s
+        and 4.5 < max(own) <= 5.0  # the history read has its own 5 s, typed by hand
         and short.code == 2
         and block in short.stderr
         and bool(left)
@@ -973,6 +1041,17 @@ def test_slow_history_costs_no_verdict() -> None:
         and "budget" not in spent.stderr
         and asked == before_history  # a read asked with nothing left starts no git
     )
+    half, half_calls = read_history_asked(0.5, lambda: 0.0)  # 0.5 s left: git would answer, so it is asked
+    assert half.read is Read.ALL and half.stems == ("itm-0003-x",), f"0.5 s left: history {half}"
+    assert half_calls == [0.5, 0.5, 0.5], f"0.5 s left: each git call is given the 0.5 s, got {half_calls}"
+    ticks = iter([0.0])  # the deadline set at 0; every later look at the clock finds it long past
+    late, late_calls = read_history_asked(0.5, lambda: next(ticks, 10.0))
+    assert late_calls == [0.01, 0.01, 0.01], (
+        f"deadline long past: each call is given 0.01 s, got {late_calls}"
+    )
+    assert late.read is Read.ALL, f"the answers came, so the history is read: {late}"
+    none, none_calls = read_history_asked(0, lambda: 0.0)
+    assert none.read is Read.NOT and none_calls == [], f"no time left: no git: {none} {none_calls}"
     assert ok, (
         f"exit {red.code} in {elapsed:.1f} s (bound 9 s), saying history was not read; the most any git call"
         f" was given: {max(own, default=0):.2f} s, and {max(left, default=0):.2f} s under a hook of 2 s;"
@@ -997,11 +1076,11 @@ def test_unread_history_in_the_scan() -> None:
     consumer = H.fresh_consumer((*SETUP, VALID))
     env, _ = fake_git(on_log="exit 97")
     result = H.run_gate("", args=["--scan", str(consumer.root)], env=env)
-    expect(
+    whole(  # typed by hand
         result,
         0,
-        shared.g1_green_scan(messages.f9_scan_tail(1, 1 + BASE_MARKDOWN, [reach(1)], Read.NOT)),
-        "stdout",
+        "GREEN: const-catalogs: 1 catalogued item(s) examined, 4 Markdown file(s) scanned, 1 catalog(s):"
+        " itm up to itm-0001; history could not be read",
     )
 
 
@@ -1056,6 +1135,14 @@ def test_full_catalog_is_named() -> None:
     )
     ok = result.code == 0 and tail in result.stdout
     assert ok, f"exit {result.code}: {tail}"
+    # one number short of full: width 1 and itm-8 as the highest, itm-9 is still free, so no "(full"
+    short = scan_of({at("itm-8-eighth"): item("itm-8-eighth")}, catalogs(entry(width=1)))
+    whole(  # typed by hand
+        short,
+        0,
+        "GREEN: const-catalogs: 1 catalogued item(s) examined, 4 Markdown file(s) scanned, 1 catalog(s):"
+        " itm up to itm-8",
+    )
 
 
 @acceptance_item(60, "adoption: the next number goes above a number a malformed name shows")
@@ -1167,6 +1254,57 @@ GOLDEN = {
     " could not be read",
 }
 
+SLUG_THEN_ID = "the slug is lowercase words and digits joined by '-'; then set id to that name without .md"
+LEGACY_ZERO = at("ITM-0-zero")
+
+# whole stderr lines typed by hand, to their last word: a text cut short, or changed at its end, fails
+GOLDEN_LINES = {
+    "K1 fix": (
+        "  fix: name the file itm-0001-<slug>.md: itm-0001 is the catalog's next number, one more than the"
+        f" highest it has held, deleted items included; {SLUG_THEN_ID}"
+    ),
+    "K4 fix": (
+        f"  fix: {ITEM_A} keeps its number; name the file itm-0002-<slug>.md: itm-0002 is the catalog's"
+        f" next number, one more than the highest it has held, deleted items included; {SLUG_THEN_ID}"
+    ),
+    "not read": (
+        "  fix: name the file itm-0001-<slug>.md: itm-0001 is one more than the highest number seen — this"
+        " clone's history is incomplete or could not be read (a shallow clone, a history too long to read"
+        " in time, or a git that gave no list), so check that no deleted item went higher; " + SLUG_THEN_ID
+    ),
+    "keep": (
+        "  fix: rename the file with git mv to itm-0006-<slug>.md: it keeps its number, which others may"
+        " already cite, written in lowercase with exactly 4 digit(s), zero-padded; the slug is lowercase"
+        " words and digits joined by '-'; then set id to that name without .md, and rewrite the links to"
+        " the old name"
+    ),
+    "keep zero": (
+        "  fix: rename the file with git mv to itm-0000-<slug>.md: it keeps its number, which others may"
+        " already cite, written in lowercase with exactly 4 digit(s), zero-padded; the slug is lowercase"
+        " words and digits joined by '-'; then set id to that name without .md, and rewrite the links to"
+        " the old name"
+    ),
+    "contested": (
+        f"  fix: the name shows number 6, and so does {at('itm-0006-new')}: only one of the two can be"
+        " itm-0006. The one that others already cite by that number keeps it — rename it with git mv to"
+        " itm-0006-<slug>.md; the other takes one more than the highest the catalog has held, which the"
+        f" scan's last line names; {SLUG_THEN_ID}"
+    ),
+    "contested zero": (
+        f"  fix: the name shows number 0, and so does {at('itm-0000-new')}: only one of the two can be"
+        " itm-0000. The one that others already cite by that number keeps it — rename it with git mv to"
+        " itm-0000-<slug>.md; the other takes one more than the highest the catalog has held, which the"
+        f" scan's last line names; {SLUG_THEN_ID}"
+    ),
+    "K2 unterminated": (
+        f"RED: {ITEM_A}: id cannot be read: the file's YAML block is opened with '---' but never closed"
+    ),
+    "K2 unterminated fix": (
+        f"  fix: close the YAML block with a line holding only '---'; the block carries id: {STEM_A}"
+    ),
+    "K2 yaml fix": f"  fix: repair the YAML between the '---' lines; the block carries id: {STEM_A}",
+}
+
 # K3 is the scan's, on stdout
 K3_GOLDEN = [
     f"RED: catalog 'itm': 2 items carry number itm-0001: {ITEM_A}, {SECOND_TAKEN}",
@@ -1187,7 +1325,9 @@ def test_golden_lines() -> None:
     of K4's fix, and the opening of every advice text: next, keep, contested, words, full, wide, not
     read. Seen to fail with the keep text broken, and with one word of the K1 why changed. A path of over
     80 characters with a line break stands whole and escaped in K1, K3, K4 and the contested fix; a long
-    file name is cut; a YAML error with a backslash stands whole, its backslash doubled."""
+    file name is cut; a YAML error with a backslash stands whole, its backslash doubled. The fixes of
+    next, not read, keep, contested, and of the two K2 envelope shapes, are typed whole to their last word and
+    matched as whole lines, the keep and contested fixes also for number 0."""
     runs = {
         "K1": gate_on(Write(at("first"), item("first")))[0],
         "K2 missing": gate_on(Write(ITEM_A, item(drop=("id",))))[0],
@@ -1227,7 +1367,15 @@ def test_golden_lines() -> None:
     runs["not read"] = H.run_gate(
         event_json(H.fresh_consumer(SETUP).root, BLOCKED), env=fake_git(on_log="exit 97")[0]
     )
+    zero = {LEGACY_ZERO: item("ITM-0-zero")}
+    runs["keep zero"] = gate_on(Write(LEGACY_ZERO, item("ITM-0-zero")), files=zero)[0]
+    both_zero = {**zero, at("itm-0000-new"): item("itm-0000-new")}
+    runs["contested zero"] = gate_on(Write(LEGACY_ZERO, item("ITM-0-zero")), files=both_zero)[0]
+    runs["K2 unterminated"] = gate_on(Write(ITEM_A, f"---\nid: {STEM_A}\n\n# Item\n"))[0]
+    runs["K2 yaml fix"] = gate_on(Write(ITEM_A, "---\nid: [unclosed\n---\n"))[0]
+    runs["K2 unterminated fix"] = runs["K2 unterminated"]
     missing = [key for key, line in GOLDEN.items() if line not in runs[key].stderr]
+    missing += [key for key, line in GOLDEN_LINES.items() if line not in runs[key].stderr.splitlines()]
     k3 = scan_of(COLLIDING).stdout
     missing += [line for line in K3_GOLDEN if line not in k3]
     two = {f"{WEIRD_DIR}/itm-0001-a.md": item("itm-0001-a"), f"{WEIRD_DIR}/itm-0001-b.md": item("itm-0001-b")}
@@ -1358,7 +1506,14 @@ def test_session_start_skips_and_failures() -> None:
         and f"{wide_tail.split(' — ')[0]} is not inside a git repository" in wide_no_repo.stdout
     )
     arg = SESSION.run_gate(session_json(session_root()), args=["--scan"])
-    arg_ok = arg.code == 1 and "BROKEN: misinvocation: unexpected argument --scan" in arg.stderr
+    arg_ok = (
+        arg.code == 1
+        and arg.stderr
+        == (  # typed by hand: the whole of stderr, the printer's closing line last
+            "BROKEN: misinvocation: unexpected argument --scan — fix: session-start takes no arguments;"
+            f" it reads one SessionStart event on stdin\n{COULD_NOT_RUN}\n"
+        )
+    )
     assert no_dials_ok, f"no dials got: {no_dials.stdout!r} {no_dials.stderr[:200]!r}"
     assert from_sub_ok, f"no dials from a subfolder got: {from_sub.stdout!r} {from_sub.stderr[:200]!r}"
     assert no_repo_ok, f"no repository got: {no_repo.stdout!r} {no_repo.stderr[:200]!r}"
@@ -1560,7 +1715,7 @@ def test_effect_path_bypass() -> None:
     """A write examined by a run of the gate's hook is applied; a write no run examined, two shell commands
     that change an item and a write through a worktree of the project are bypassed by B1, the worktree's read
     as the path in the root. A file outside every territory, one that is no Markdown and a path outside the
-    project are no moment."""
+    project are no moment. So is a Write of an item path in a project that lists no catalog."""
     consumer = H.fresh_consumer()
     consumer.write_dials(listing())
     root, sid = consumer.root, "s79"
@@ -1579,16 +1734,22 @@ def test_effect_path_bypass() -> None:
     found = effect_lines(root, {sid: lines}, no_plugins())
     wanted = "  W1 (pattern): 6 moment(s): 1 applied, 5 bypassed, 0 missed — B1 5"
     assert wanted in found, found
+    # a project that lists no catalog: the gate examines nothing, so a Write of an item path is no moment
+    bare = H.fresh_consumer().root
+    unlisted = tr_call("s79b", bare, WAY_AT, "t1", "Write", bare / "docs" / "items" / "itm-0001-a.md")
+    quiet = effect_lines(bare, {"s79b": [unlisted]}, no_plugins())
+    assert "  W1 (pattern): 0 moment(s): 0 applied, 0 bypassed, 0 missed" in quiet, quiet
 
 
 @acceptance_item(80, "W2: the plugin disabled, or a dial of the gate loosened, is bypassed by B2")
 def test_effect_switch_off() -> None:
-    """Eight commits of the dials file, the namespace changed at each: a catalog listed (applied); a second
+    """Nine commits of the dials file, the namespace changed at each: a catalog listed (applied); a second
     catalog listed (applied); severity warn where none stood, so from the default block (bypassed); severity
     block again (applied); the first catalog's territory narrowed to another pattern (bypassed); a negated
-    pattern added to it (bypassed); its width changed (applied); the second catalog unlisted (bypassed). A
-    fake plugin list that lists the gate for this project disabled adds one more, bypassed. The lines are
-    typed by hand."""
+    pattern added to it (bypassed); its width changed (applied); the second catalog unlisted (bypassed); the
+    negated pattern removed again, so the territory grows (applied). A fake plugin list that lists the gate
+    for this project disabled adds one more, bypassed. Catalog entries that are none (a string, an entry
+    with no prefix, a number) change nothing: three commits, all applied. The lines are typed by hand."""
     consumer = H.fresh_consumer()
     root = consumer.root
     first, second = entry(), entry("note", ["docs/notes/**"])
@@ -1602,15 +1763,26 @@ def test_effect_switch_off() -> None:
         {"catalogs": [entry(territory=["docs/items/some/**", "!docs/items/some/x/**"]), second]},
         {"catalogs": [entry(territory=["docs/items/some/**", "!docs/items/some/x/**"], width=5), second]},
         {"catalogs": [entry(territory=["docs/items/some/**", "!docs/items/some/x/**"], width=5)]},
+        {"catalogs": [entry(territory=["docs/items/some/**"], width=5)]},
     ]
-    for step in steps:
+    for number, step in enumerate(steps, start=1):
         consumer.write_dials({NAMESPACE: step})
         consumer.commit()
+        if number == 8:  # read once before the last step, so that two outcomes swapped cannot cancel out
+            eight = effect_lines(root, {}, no_plugins())
+            assert "  W2 (pattern): 8 moment(s): 4 applied, 4 bypassed, 0 missed — B2 4" in eight, eight
     found = effect_lines(root, {}, no_plugins())
-    assert "  W2 (pattern): 8 moment(s): 4 applied, 4 bypassed, 0 missed — B2 4" in found, found
+    assert "  W2 (pattern): 9 moment(s): 5 applied, 4 bypassed, 0 missed — B2 4" in found, found
     disabled = json.dumps([{"id": f"{NAMESPACE}@m", "enabled": False, "projectPath": str(root)}])
     again = effect_lines(root, {}, no_plugins(disabled))
-    assert "  W2 (pattern): 9 moment(s): 4 applied, 5 bypassed, 0 missed — B2 5" in again, again
+    assert "  W2 (pattern): 10 moment(s): 5 applied, 5 bypassed, 0 missed — B2 5" in again, again
+    # entries that are no catalog (a string, an entry with no prefix) are none listed and none dropped
+    odd = H.fresh_consumer()
+    for step in ([first], [first, "itm", {"territory": ["docs/x/**"]}, 7], [first]):
+        odd.write_dials({NAMESPACE: {"catalogs": step}})
+        odd.commit()
+    quiet = effect_lines(odd.root, {}, no_plugins())
+    assert "  W2 (pattern): 3 moment(s): 3 applied, 0 bypassed, 0 missed" in quiet, quiet
 
 
 @acceptance_item(
@@ -1681,7 +1853,8 @@ def test_effect_skill_before_write() -> None:
     """A Write of a Markdown file in a catalog's territory after a Skill call for catalog-item, in full or
     bare, is applied; one with no load before it, one after a load of another skill and one whose load comes
     after the write are missed; an Edit of an item, a Write of a Markdown file outside every territory and a
-    Write of a file that is no Markdown are no moment. The line is typed by hand."""
+    Write of a file that is no Markdown are no moment. So is a Write in a project that lists no catalog. The
+    line is typed by hand."""
     consumer = H.fresh_consumer()
     consumer.write_dials(listing())
     root = consumer.root
@@ -1704,6 +1877,11 @@ def test_effect_skill_before_write() -> None:
     }
     found = effect_lines(root, sessions, no_plugins())
     assert "  W5 (pattern): 5 moment(s): 2 applied, 0 bypassed, 3 missed — B5 3" in found, found
+    # a project that lists no catalog: the same Write, with no skill loaded, is no moment
+    bare = H.fresh_consumer().root
+    bare_write = tr_call("s83h", bare, WAY_AT, "w", "Write", bare / "docs" / "items" / "itm-0001-a.md")
+    quiet = effect_lines(bare, {"s83h": [bare_write]}, no_plugins())
+    assert "  W5 (pattern): 0 moment(s): 0 applied, 0 bypassed, 0 missed" in quiet, quiet
 
 
 @acceptance_item(
@@ -1735,6 +1913,31 @@ def test_effect_escape() -> None:
         ["git", "status", "--porcelain", "--ignored"], cwd=root, capture_output=True, text=True, check=False
     )
     assert after.stdout == before.stdout, (before.stdout, after.stdout)
+
+
+@acceptance_item(85, "the effect report's absence path: PyYAML missing is C2, the report is not made")
+def test_effect_report_without_pyyaml() -> None:
+    """The report run with PyYAML missing: exit 1, the shared C2 as the first line of stderr, ending in the
+    report's own clause, "until then the effect report is not made", and the report's closing line; stdout
+    stays empty. The two lines are typed by hand."""
+    shadow = H.scratch_dir()
+    (shadow / "yaml.py").write_text("raise ImportError('simulated absence')\n", encoding="utf-8")
+    root = H.fresh_consumer().root
+    result = H.run_gate(
+        "",
+        args=["--transcripts", str(H.scratch_dir())],
+        env={"CLAUDE_PLUGIN_DATA": str(H.scratch_dir()), "PYTHONPATH": str(shadow)},
+        command=[H.sh, str(EFFECT)],
+        cwd=root,
+    )
+    c2 = (
+        "BROKEN: const-catalogs needs PyYAML — fix: run: python3 -m pip install -r"
+        f" '{PLUGIN_ROOT / 'requirements.txt'}' — until then the effect report is not made"
+    )
+    assert result.stdout == "", result.stdout
+    assert result.code == 1 and result.stderr == (
+        c2 + "\nBROKEN: the report could not run — no rule counted\n"
+    ), f"exit {result.code}: {result.stderr!r}"
 
 
 def claim(territory: Sequence[str]) -> dict[str, object]:
