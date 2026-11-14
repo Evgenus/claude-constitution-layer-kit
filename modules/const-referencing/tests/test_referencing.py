@@ -1559,6 +1559,9 @@ def test_id_repair_leaves_an_ambiguous_id_alone() -> None:
     done = mover(consumer, "--ids")
     kept = "See [note-twin](t.md)." in (consumer.root / SOURCE).read_text()
     assert kept and messages.v4_count(0, 0, 0) in done.stdout, done.stdout + done.stderr
+    # --ids moves nothing, so its first line is the count, typed by hand, never a MOVED line
+    counted = "0 file(s) rewritten, 0 link(s), 0 mention(s) listed; the whole tree is checked next"
+    assert done.stdout.splitlines()[:1] == [counted], done.stdout
     # the letters round a link's text are the text's own: `Xnote-oneX` is no id, though `note-one` is one
     letters = moving_consumer()
     unchanged = "See [Xnote-oneX](gone.md) and [Xnote-one](gone.md) and [note-oneX](gone.md).\n"
@@ -1930,8 +1933,8 @@ def porcelain(consumer: Consumer) -> str:
 
 @item(
     80,
-    "the mover asks everything that can refuse before it moves: no lychee, no root policy, a document it"
-    " cannot read or rewrite",
+    "the mover asks before it moves what can refuse without moving; a document it cannot read or rewrite is"
+    " asked after the move, and the file is moved back",
 )
 def test_mover_asks_before_it_moves() -> None:
     """Whatever the closing scan would fail on is asked before the file moves: no lychee, and
@@ -2338,6 +2341,19 @@ def test_mover_says_when_it_stopped_midway() -> None:
         and (consumer.root / NEW).exists()
     )
     assert ok, done.stdout + done.stderr
+    # --moved moves nothing itself: its first rewrite is what makes a later failure a stop midway
+    by_hand = moving_consumer()
+    hand_moved(by_hand)
+    late = subprocess.run(
+        [H.sh, str(MOVER), "--moved", OLD, NEW],
+        cwd=by_hand.root,
+        capture_output=True,
+        text=True,
+        env=merged,
+        check=False,
+    )
+    lines = late.stderr.splitlines()
+    assert late.returncode == 1 and STOPPED_MIDWAY in lines and STOPPED_NOTHING not in lines, late.stderr
 
 
 @item(82, "the mover keeps CRLF and a byte order mark, and leaves a file that is not UTF-8 alone")
