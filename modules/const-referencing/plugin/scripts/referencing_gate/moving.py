@@ -207,7 +207,6 @@ def _move_back(root: Path, old: str, new: str, made: Sequence[Path], closing: Cl
     """The move undone: the file moved back with git, and the folders the move made removed again. When
     that fails, the closing line says where the file is. An interrupt while git moves it back is settled
     where git's index and the disk agree, and said where they do not."""
-    closing.uncertain = (old, new)
     try:
         back = git(["mv", "--", new, old], cwd=root)
     except BaseException:

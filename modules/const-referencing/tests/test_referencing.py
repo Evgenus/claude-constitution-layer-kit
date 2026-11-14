@@ -2643,6 +2643,13 @@ def interrupts() -> list[str]:
             "closing": either(),
             "locked": locked,
         },
+        {  # where the disk ignores case, only the exact name tells the two paths apart
+            "label": "a case-only rename, after git renamed it",
+            "git": {"cut_move": "after"},
+            "closing": MOVED_BACK.format(old=OLD),
+            "unchanged": True,
+            "new": case_new,
+        },
         {
             "label": "a case-only rename, the disk renamed and git's index not",
             "git": {"cut_move": "before", "on_move": f"mv -- {OLD} {case_new}"},
