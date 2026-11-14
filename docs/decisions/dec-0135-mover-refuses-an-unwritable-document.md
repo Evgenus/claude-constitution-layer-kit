@@ -29,7 +29,7 @@ The session recommended A, as a later rollout item and not inside wave 4, becaus
 
 <a id="r2"></a>**R2.** Each document whose rewrite would change a link is opened for writing and closed again, with nothing written. A document the system will not open so is a V5 refusal that names it and the system's reason. A read-only document the act would not rewrite is no refusal.
 
-<a id="r3"></a>**R3.** The check runs in all three acts: the move, `--moved` and `--ids`. A refusal changes nothing, save the edges R8 names. No document is written before the check has passed: only the move comes first, and a refusal undoes it, as R5 says.
+<a id="r3"></a>**R3.** The check runs in all three acts: the move, `--moved` and `--ids`. A refusal changes nothing, save the edges limit 12 states, as R8 says. No document is written before the check has passed: only the move comes first, and a refusal undoes it, as R5 says.
 
 ## 2. How the check knows the tree after a move
 
