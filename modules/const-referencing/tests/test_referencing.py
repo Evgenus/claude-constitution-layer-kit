@@ -2016,14 +2016,19 @@ def whole_state(consumer: Consumer) -> tuple[str, str, list[str], dict[str, byte
 
 
 def under_mode(
-    consumer: Consumer, rel: str, mode: int, *arguments: str, env: dict[str, str] | None = None
+    consumer: Consumer,
+    rel: str,
+    mode: int,
+    *arguments: str,
+    env: dict[str, str] | None = None,
+    cwd: str = "",
 ) -> tuple[Result, tuple[str, str, list[str], dict[str, bytes]], dict[str, str]]:
     """The mover run while the file at `rel` has the mode; then the file's mode back, and the tree's whole
     state and every Markdown file's text as the run left them."""
     path = consumer.root / rel
     path.chmod(mode)
     try:
-        done = mover(consumer, *arguments, env=env)
+        done = mover(consumer, *arguments, env=env, cwd=cwd)
     finally:  # where the act moved the file anyway, its mode is set back where it went
         for where in (path, consumer.root / arguments[-1]):
             if where.exists():
@@ -2236,12 +2241,23 @@ def green_as_the_tree_stands() -> list[str]:
 ROOT = "docs/policies/root-policy.md"
 
 
-def taught_route(old: str, new: str, fix: str, after: str = "") -> list[str]:
-    """Under governed_only the root policy moved from `old` to `new`, a read-only document linking to
-    it: the refusal's whole stderr is `BROKEN: … — fix: ` with `fix` typed by hand, then the moved-back
-    line, the whole state unchanged. Then the route the fix teaches, its commands run as printed by a
-    POSIX shell and root_policy set to `new`: --moved ends green, or, with `after`, exits 1 with `after` as
-    its first line."""
+def taught_route(
+    old: str,
+    new: str,
+    fix: str,
+    after: str = "",
+    given: tuple[str, ...] = (),
+    here: str = "",
+    run: bool = True,
+    shown: str = "",
+) -> list[str]:
+    """Under governed_only the root policy moved from `old` to `new`, paths from the repository's top, a
+    read-only document linking to it. The mover runs in the folder `here`, with the arguments `given` as a
+    user types them there (`old` and `new` when none). The refusal's whole stderr is `BROKEN: … — fix: ` with
+    `fix` typed by hand, then the moved-back line, `old` shown as `shown` where it differs, the whole state
+    unchanged. Then, with `run`, the route the
+    fix teaches: its commands run as printed by a POSIX shell in `here`, and root_policy set to `new`.
+    --moved then ends green, or, with `after`, exits 1 with `after` as its first line."""
     link = "../policies/" + urllib.parse.quote(posixpath.basename(old))  # the root policy where it lies
     consumer = H.fresh_consumer(
         (Write("docs/notes/two.md", note(f"# Two\n\nUnder [root]({link}).\n", "note-two")),)
@@ -2253,26 +2269,30 @@ def taught_route(old: str, new: str, fix: str, after: str = "") -> list[str]:
         consumer.write("constitution.yaml", yaml.safe_dump({**dials, "root_policy": old}, sort_keys=False))
     consumer.commit()
     state = whole_state(consumer)
-    done, now, _ = under_mode(consumer, "docs/notes/two.md", 0o444, old, new)
+    arguments = given or (old, new)
+    done, now, _ = under_mode(consumer, "docs/notes/two.md", 0o444, *arguments, cwd=here)
     headline = (
-        f"BROKEN: moving {old} takes away the root policy constitution.yaml names, so the dials would name a"
-        " file that is gone — fix: "
+        f"BROKEN: moving {shown or old} takes away the root policy constitution.yaml names, so the dials"
+        " would name a file that is gone — fix: "
     )
-    wanted = headline + fix + "\n" + MOVED_BACK.format(old=old) + "\n"
+    wanted = headline + fix + "\n" + MOVED_BACK.format(old=shown or old) + "\n"
     label = f"{old} to {new}"
     if (done.code, done.stdout, done.stderr) != (1, "", wanted) or now != state:
         return [f"{label}: exit {done.code}: {done.stdout}{done.stderr}"]
+    if not run:
+        return []
+    where = consumer.root / here
     by_hand = fix.split("by hand with ", 1)[1].split(", set root_policy", 1)[0]
     then = fix.split(", then run ", 1)[1].split("; outside", 1)[0]
-    moved = subprocess.run(
-        by_hand, shell=True, cwd=consumer.root, capture_output=True, text=True, check=False
-    )  # noqa: S602
+    moved = subprocess.run(  # noqa: S602 — the point is to run the line as a reader would paste it
+        by_hand, shell=True, cwd=where, capture_output=True, text=True, check=False
+    )
     if moved.returncode != 0:
         return [f"{label}: the move by hand as printed failed: {moved.stderr}"]
     dials = yaml.safe_load((consumer.root / "constitution.yaml").read_text())
     consumer.write("constitution.yaml", yaml.safe_dump({**dials, "root_policy": new}, sort_keys=False))
-    ran = subprocess.run(  # noqa: S602 — the point is to run the line as a reader would paste it
-        then, shell=True, cwd=consumer.root, capture_output=True, text=True, env=H.environment(), check=False
+    ran = subprocess.run(  # noqa: S602 — as above
+        then, shell=True, cwd=where, capture_output=True, text=True, env=H.environment(), check=False
     )
     last = ran.stdout.splitlines()[-1] if ran.stdout else ""
     if after:
@@ -2283,46 +2303,135 @@ def taught_route(old: str, new: str, fix: str, after: str = "") -> list[str]:
     return []
 
 
+# the fix line of the refusal, typed by hand; {made} is the folder's mkdir where the move made one
+ROUTE = (
+    "move it by hand with {made}git mv -- {old} {new}, set root_policy to {top} in constitution.yaml, a path"
+    " from the repository's top, then run sh \"{script}\" --moved -- {old} {new}; outside the root policy's"
+    " own territory, --moved then meets C9, whose fix follows"
+)
+OUTSIDE = (  # the shared C9, typed by hand
+    "BROKEN: root policy '{path}' lies outside its own territory ['docs/policies/**'] — fix: every chain of"
+    " governance ends at the root; widen root-policy.territory to include it"
+)
+
+
 def root_policy_moved() -> list[str]:
     """Under governed_only the root policy moved leaves the dials naming a file that is gone. The plan's
     listing fails after the move, the file is moved back, and the refusal teaches the one route that works:
-    the move by hand, a folder made first where the new one is missing, root_policy set to the new path,
-    then --moved, every path quoted for the shell. That route ends green inside the root policy's own
-    territory; outside it, --moved meets C9. Before root_policy is set, --moved keeps the shared C6."""
-    script = MOVER.resolve()
-    tail = "; outside the root policy's own territory, --moved then meets C9, whose fix follows"
-    problems = taught_route(
-        ROOT,
-        "docs/policies/root.md",
-        "move it by hand with git mv -- docs/policies/root-policy.md docs/policies/root.md, set root_policy"
-        f' to docs/policies/root.md in constitution.yaml, then run sh "{script}" --moved'
-        f" docs/policies/root-policy.md docs/policies/root.md{tail}",
-    )
-    problems += taught_route(
-        ROOT,
-        "docs/policies/sub/root-policy.md",
-        "move it by hand with mkdir -p docs/policies/sub && git mv -- docs/policies/root-policy.md"
-        " docs/policies/sub/root-policy.md, set root_policy to docs/policies/sub/root-policy.md in"
-        f' constitution.yaml, then run sh "{script}" --moved docs/policies/root-policy.md'
-        f" docs/policies/sub/root-policy.md{tail}",
-    )
-    problems += taught_route(
-        "docs/policies/root policy.md",
-        "docs/policies/root new.md",
-        "move it by hand with git mv -- 'docs/policies/root policy.md' 'docs/policies/root new.md', set"
-        " root_policy to docs/policies/root new.md in constitution.yaml, then run"
-        f" sh \"{script}\" --moved 'docs/policies/root policy.md' 'docs/policies/root new.md'{tail}",
-    )
-    problems += taught_route(
-        ROOT,
-        "docs/archive/root-policy.md",
-        "move it by hand with mkdir -p docs/archive && git mv -- docs/policies/root-policy.md"
-        " docs/archive/root-policy.md, set root_policy to docs/archive/root-policy.md in constitution.yaml,"
-        f' then run sh "{script}" --moved docs/policies/root-policy.md docs/archive/root-policy.md{tail}',
-        after="BROKEN: root policy 'docs/archive/root-policy.md' lies outside its own territory"
-        " ['docs/policies/**'] — fix: every chain of governance ends at the root; widen root-policy.territory"
-        " to include it",
-    )
+    the move by hand, a folder made first where the new one is missing, root_policy set to the new path from
+    the repository's top, then --moved. Every path of a command is given from where the user stands, quoted
+    for the shell, after `--`. The route ends green inside the root policy's own territory; outside it,
+    --moved meets C9. A path holding a backslash is shown escaped, so its route fails as pasted: a stated
+    edge. Before root_policy is set, --moved keeps the shared C6."""
+    s = MOVER.resolve()
+    problems: list[str] = []
+    cases: list[tuple[str, str, str, dict[str, object]]] = [
+        (
+            ROOT,
+            "docs/policies/root.md",
+            ROUTE.format(
+                made="", old=ROOT, new="docs/policies/root.md", top="docs/policies/root.md", script=s
+            ),
+            {},
+        ),
+        (
+            ROOT,
+            "docs/policies/sub/root-policy.md",
+            ROUTE.format(
+                made="mkdir -p -- docs/policies/sub && ",
+                old=ROOT,
+                new="docs/policies/sub/root-policy.md",
+                top="docs/policies/sub/root-policy.md",
+                script=s,
+            ),
+            {},
+        ),
+        (
+            ROOT,
+            "docs/policies/a/b/root.md",
+            ROUTE.format(  # two folders, both new
+                made="mkdir -p -- docs/policies/a/b && ",
+                old=ROOT,
+                new="docs/policies/a/b/root.md",
+                top="docs/policies/a/b/root.md",
+                script=s,
+            ),
+            {},
+        ),
+        (
+            "docs/policies/root policy.md",
+            "docs/policies/root new.md",
+            ROUTE.format(
+                made="",
+                old="'docs/policies/root policy.md'",
+                new="'docs/policies/root new.md'",
+                top="docs/policies/root new.md",
+                script=s,
+            ),
+            {},
+        ),
+        (
+            ROOT,
+            "docs/archive/root-policy.md",
+            ROUTE.format(
+                made="mkdir -p -- docs/archive && ",
+                old=ROOT,
+                new="docs/archive/root-policy.md",
+                top="docs/archive/root-policy.md",
+                script=s,
+            ),
+            {"after": OUTSIDE.format(path="docs/archive/root-policy.md")},
+        ),
+        (
+            ROOT,
+            "-archive/root-policy.md",
+            ROUTE.format(  # a new path that starts with a dash
+                made="mkdir -p -- -archive && ",
+                old=ROOT,
+                new="-archive/root-policy.md",
+                top="-archive/root-policy.md",
+                script=s,
+            ),
+            {
+                "given": ("--", ROOT, "-archive/root-policy.md"),
+                "after": OUTSIDE.format(path="-archive/root-policy.md"),
+            },
+        ),
+        (
+            "docs/policies/-root.md",
+            "docs/policies/new.md",
+            ROUTE.format(  # an old path that starts with a dash
+                made="", old="-root.md", new="new.md", top="docs/policies/new.md", script=s
+            ),
+            {"given": ("--", "-root.md", "new.md"), "here": "docs/policies"},
+        ),
+        (
+            ROOT,
+            "docs/policies/a/root.md",
+            ROUTE.format(  # from a subfolder, with .. paths
+                made="mkdir -p -- ../policies/a && ",
+                old="../policies/root-policy.md",
+                new="../policies/a/root.md",
+                top="docs/policies/a/root.md",
+                script=s,
+            ),
+            {"given": ("../policies/root-policy.md", "../policies/a/root.md"), "here": "docs/notes"},
+        ),
+        (
+            "docs/policies/r\\p.md",
+            "docs/policies/q.md",
+            ROUTE.format(  # shown escaped: a stated edge
+                made="",
+                old="'docs/policies/r\\\\p.md'",
+                new="docs/policies/q.md",
+                top="docs/policies/q.md",
+                script=s,
+            ),
+            {"run": False, "shown": "docs/policies/r\\\\p.md"},
+        ),
+    ]
+    for old, new, fix, more in cases:
+        problems += taught_route(old, new, fix, **more)  # type: ignore[arg-type]
     # --moved after the move by hand, before root_policy is set: the shared C6, whose own fix fits there
     consumer = H.fresh_consumer()
     consumer.write("constitution.yaml", dials_text(own(governed_only=True)))

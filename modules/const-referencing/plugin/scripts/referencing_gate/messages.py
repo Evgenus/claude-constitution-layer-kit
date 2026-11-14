@@ -535,16 +535,18 @@ def _shell(path: str) -> str:
     return escaped(shlex.quote(path))
 
 
-def v5_takes_the_root_policy(old: str, new: str, folder: str) -> Broken:
-    """`folder`: the new path's folder, which the move had to make and the move by hand must make first;
-    empty when it exists."""
-    made = f"mkdir -p {_shell(folder)} && " if folder else ""
+def v5_takes_the_root_policy(old: str, new: str, here_old: str, here_new: str, here_folder: str) -> Broken:
+    """`old` and `new` from the repository's top; `here_old`, `here_new` and `here_folder` as the user types
+    them where they stand. `here_folder`: the new path's folder, which the move had to make and the move by
+    hand must make first; empty when it exists. Every command ends its options before the paths."""
+    made = f"mkdir -p -- {_shell(here_folder)} && " if here_folder else ""
     return v5_refused(
         f"moving {escaped(old)} takes away the root policy {_file()} names, so the dials would name a file"
         " that is gone",
-        f"move it by hand with {made}git mv -- {_shell(old)} {_shell(new)}, set root_policy to {escaped(new)}"
-        f" in {_file()}, then run {mover_command('--moved', _shell(old), _shell(new))}; outside the root"
-        " policy's own territory, --moved then meets C9, whose fix follows",
+        f"move it by hand with {made}git mv -- {_shell(here_old)} {_shell(here_new)}, set root_policy to"
+        f" {escaped(new)} in {_file()}, a path from the repository's top, then run"
+        f" {mover_command('--moved', '--', _shell(here_old), _shell(here_new))}; outside the root policy's"
+        " own territory, --moved then meets C9, whose fix follows",
     )
 
 
