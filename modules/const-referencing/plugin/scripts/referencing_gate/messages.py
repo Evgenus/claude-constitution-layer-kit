@@ -398,6 +398,26 @@ def v4_nothing_changed() -> str:
     return "BROKEN: the move could not run — nothing was changed"
 
 
+def v4_moved_back(old: str) -> str:
+    return (
+        f"BROKEN: the move could not run — the file was moved back to {escaped(old)}, and nothing was changed"
+    )
+
+
+def v4_move_back_failed(old: str, new: str, detail: str) -> str:
+    return (
+        f"BROKEN: the move could not be undone — git mv refused to move {escaped(new)} back to"
+        f" {escaped(old)}: {escaped(detail)}; the file is at {escaped(new)}"
+    )
+
+
+def v4_folder_left(old: str, folder: str, reason: str) -> str:
+    return (
+        f"BROKEN: the move was undone, the file back at {escaped(old)}, but the folder {escaped(folder)} it"
+        f" made could not be removed ({echoed(reason)})"
+    )
+
+
 def v4_stopped_midway() -> str:
     return (
         "BROKEN: the act stopped midway — what the lines above name was moved or rewritten, and the"

@@ -1988,28 +1988,51 @@ def markdown_texts(consumer: Consumer) -> dict[str, str]:
     return {p.relative_to(consumer.root).as_posix(): p.read_text() for p in md if not p.is_symlink()}
 
 
+MOVED_BACK = "BROKEN: the move could not run — the file was moved back to {old}, and nothing was changed"
+
+
+def whole_state(consumer: Consumer) -> tuple[str, str, list[str], dict[str, bytes]]:
+    """What "changed nothing" holds: git status, the index's entries, every folder and every file's bytes,
+    the repository's own folder left out. A folder's time and a moved file's change time are not held."""
+    root = consumer.root
+    index = subprocess.run(["git", "ls-files", "-s"], cwd=root, capture_output=True, text=True, check=True)
+    folders, files = [], {}
+    for path in sorted(root.rglob("*")):
+        rel = path.relative_to(root).as_posix()
+        if rel == ".git" or rel.startswith(".git/"):
+            continue
+        if path.is_dir() and not path.is_symlink():
+            folders.append(rel)
+        elif path.is_symlink():
+            files[rel] = os.readlink(path).encode()
+        else:
+            files[rel] = path.read_bytes()
+    return porcelain(consumer), index.stdout, folders, files
+
+
 def under_mode(
-    consumer: Consumer, rel: str, mode: int, *arguments: str
-) -> tuple[Result, str, dict[str, str]]:
-    """The mover run while the file at `rel` has the mode; then the file's mode back, and the tree's state
-    and every Markdown file's text as the run left them."""
+    consumer: Consumer, rel: str, mode: int, *arguments: str, env: dict[str, str] | None = None
+) -> tuple[Result, tuple[str, str, list[str], dict[str, bytes]], dict[str, str]]:
+    """The mover run while the file at `rel` has the mode; then the file's mode back, and the tree's whole
+    state and every Markdown file's text as the run left them."""
     path = consumer.root / rel
     path.chmod(mode)
     try:
-        done = mover(consumer, *arguments)
+        done = mover(consumer, *arguments, env=env)
     finally:  # where the act moved the file anyway, its mode is set back where it went
         for where in (path, consumer.root / arguments[-1]):
             if where.exists():
                 where.chmod(0o644)
-    texts = markdown_texts(consumer)
-    return done, porcelain(consumer), texts
+    return done, whole_state(consumer), markdown_texts(consumer)
 
 
 def refused_for_a_document() -> None:
     """A document the act must read and cannot, or must rewrite and cannot write, is a refusal before
-    anything moves or is written, in each of the three acts: exit 1, the whole stderr the refusal and the
-    closing line, nothing on stdout, the tree and every text as they were. A document the act would not
-    rewrite may stay read-only. As root a mode bit denies nothing, and these cases are not exercised."""
+    anything is written, in each of the three acts. A move is made first and moved back: exit 1, the whole
+    stderr the refusal and the closing line that the file was moved back, nothing on stdout, and git's
+    status, the index, every folder and every file as they were. --moved and --ids move nothing and close
+    with the line that nothing was changed. A document the act would not rewrite may stay read-only. As
+    root a mode bit denies nothing, and these cases are not exercised."""
     if os.geteuid() == 0:
         return  # NOT EXERCISED: running as root, where a mode bit does not deny a read or a write
     cases: list[tuple[str, Callable[[Consumer], None], str, int, tuple[str, ...], str]] = [
@@ -2067,13 +2090,14 @@ def refused_for_a_document() -> None:
     for label, prepare, rel, mode, arguments, line in cases:
         consumer = moving_consumer()
         prepare(consumer)
-        state = porcelain(consumer)
-        texts = markdown_texts(consumer)
-        done, after, after_texts = under_mode(consumer, rel, mode, *arguments)
-        wanted = line.format(path=rel) + "\n" + STOPPED_NOTHING + "\n"
+        state = whole_state(consumer)
+        done, after, _ = under_mode(consumer, rel, mode, *arguments)
+        moved = not arguments[0].startswith("-")
+        closing = MOVED_BACK.format(old=arguments[0]) if moved else STOPPED_NOTHING
+        wanted = line.format(path=rel) + "\n" + closing + "\n"
         if (done.code, done.stdout, done.stderr) != (1, "", wanted):
             problems.append(f"{label}: exit {done.code}: {done.stdout}{done.stderr}")
-        elif (after, after_texts) != (state, texts):
+        elif after != state:
             problems.append(f"{label}: the tree changed")
     # a read-only document the move does not rewrite is no reason to refuse: the move is made, green
     quiet = moving_consumer()
@@ -2085,6 +2109,7 @@ def refused_for_a_document() -> None:
     elif texts["docs/notes/three.md"] != note("# Three\n\nNo links.\n", "note-three"):
         problems.append("a read-only document the move does not rewrite: its text changed")
     problems.extend(green_where_coverage_changes())
+    problems.extend(move_back_failures())
     assert not problems, "\n".join(problems)
 
 
@@ -2133,8 +2158,8 @@ def green_where_coverage_changes() -> list[str]:
 def green_as_the_tree_stands() -> list[str]:
     """--moved reads the tree as it stands, the move made by hand: a document moved out of coverage is read
     where it went, and a policy moved out of the root territory governs nothing. A moved `.gitignore` changes
-    what git lists by rules the check does not read, and so does the file core.excludesFile names: the mover
-    asks nothing before such a move, so a file it will hide may stay unreadable."""
+    what git lists, and so does a file moved to the path core.excludesFile names: the documents asked are
+    those git lists after the move, so a file it hides may stay unreadable."""
     problems: list[str] = []
     out = moving_consumer()
     notes_only(out)
@@ -2179,9 +2204,9 @@ def green_as_the_tree_stands() -> list[str]:
 
 
 def root_policy_moved() -> list[str]:
-    """Under governed_only the root policy moved leaves no root to read the coverage after the move from:
-    the mover asks nothing before it, as before the check, and the act stops midway at the coverage listing
-    after the move, with the shared C6 — a read-only document linking to the policy is never reached."""
+    """Under governed_only the root policy moved leaves no root to list the coverage after the move: the
+    listing's C6 is a failure of the plan, before anything is written, so the file is moved back and the
+    tree is as it was."""
     consumer = H.fresh_consumer(
         (
             Write(
@@ -2191,16 +2216,82 @@ def root_policy_moved() -> list[str]:
     )
     consumer.write("constitution.yaml", dials_text(own(governed_only=True)))
     consumer.commit()
+    state = whole_state(consumer)
     moved = ("docs/policies/root-policy.md", "docs/archive/root-policy.md")
-    done, _, _ = under_mode(consumer, "docs/notes/two.md", 0o444, *moved)
-    wanted = [  # typed by hand
+    done, after, _ = under_mode(consumer, "docs/notes/two.md", 0o444, *moved)
+    wanted = (  # typed by hand
         "BROKEN: constitution.yaml names root_policy 'docs/policies/root-policy.md' but no such file exists"
-        " — fix: create it, or point root_policy at the policy for policies",
-        STOPPED_MIDWAY,
-    ]
-    if done.code != 1 or done.stderr.splitlines()[:2] != wanted or not (consumer.root / moved[1]).exists():
+        " — fix: create it, or point root_policy at the policy for policies\n"
+        + MOVED_BACK.format(old=moved[0])
+        + "\n"
+    )
+    if (done.code, done.stdout, done.stderr) != (1, "", wanted) or after != state:
         return [f"the root policy moved: exit {done.code}: {done.stdout}{done.stderr}"]
     return []
+
+
+def fake_git(log: Path, on_move_back: str = "", interrupt: bool = False) -> dict[str, str]:
+    """A git first on PATH that hands every call to the real one. On the second `git mv` of a run, the move
+    back, it first runs `on_move_back`. With `interrupt`, the first `git ls-files` after the first `git mv`
+    sends an interrupt to the mover, as a user's Ctrl-C would. It logs each call's arguments to `log`."""
+    real = shutil.which("git")
+    assert real, "git"
+    folder = H.scratch_dir()
+    mark = folder / "moved"
+    stop = (
+        f"  ls-files) if [ -f {shlex.quote(str(mark))} ] && [ ! -f {shlex.quote(str(mark))}.int ]; then"
+        f" touch {shlex.quote(str(mark))}.int; kill -INT $PPID; sleep 1; fi;;\n"
+        if interrupt
+        else ""
+    )
+    body = (
+        f'printf "%s\\n" "$*" >> {shlex.quote(str(log))}\n'
+        'case "$1" in\n'
+        f"  mv) if [ -f {shlex.quote(str(mark))} ]; then {on_move_back or ':'}; fi;"
+        f" touch {shlex.quote(str(mark))};;\n"
+        f"{stop}"
+        "esac\n"
+        f'exec {shlex.quote(real)} "$@"\n'
+    )
+    fake_program(folder / "git", body)
+    return {"PATH": f"{folder}{os.pathsep}{os.environ['PATH']}"}
+
+
+def move_back_failures() -> list[str]:
+    """The move back itself: refused by git, the closing line says where the file is, then that the act
+    stopped midway; a folder the move made that cannot be removed is said, the file back in its place; an
+    interrupt between the move and the first write moves the file back too."""
+    problems: list[str] = []
+    refused = moving_consumer()
+    log = H.scratch_dir() / "git.log"
+    env = fake_git(log, on_move_back="echo 'fatal: planted' >&2; exit 128")
+    done, _, _ = under_mode(refused, "docs/notes/two.md", 0o444, OLD, NEW, env=env)
+    wanted = (  # typed by hand
+        UNWRITABLE.format(path="docs/notes/two.md")
+        + "\nBROKEN: the move could not be undone — git mv refused to move docs/moved/deep/first.md back to"
+        " docs/notes/one.md: fatal: planted; the file is at docs/moved/deep/first.md\n"
+        + STOPPED_MIDWAY
+        + "\n"
+    )
+    if (done.code, done.stdout, done.stderr) != (1, "", wanted) or not (refused.root / NEW).exists():
+        problems.append(f"a move back git refuses: exit {done.code}: {done.stdout}{done.stderr}")
+    left = moving_consumer()
+    blocker = left.root / "docs/moved/deep/blocker.txt"
+    env = fake_git(H.scratch_dir() / "git.log", on_move_back=f"touch {shlex.quote(str(blocker))}")
+    done, _, _ = under_mode(left, "docs/notes/two.md", 0o444, OLD, NEW, env=env)
+    wanted = (  # typed by hand
+        UNWRITABLE.format(path="docs/notes/two.md")
+        + "\nBROKEN: the move was undone, the file back at docs/notes/one.md, but the folder"
+        " docs/moved/deep it made could not be removed (Directory not empty)\n" + STOPPED_MIDWAY + "\n"
+    )
+    if (done.code, done.stdout, done.stderr) != (1, "", wanted) or not (left.root / OLD).exists():
+        problems.append(f"a folder left after the move back: exit {done.code}: {done.stdout}{done.stderr}")
+    stopped = moving_consumer()
+    state = whole_state(stopped)
+    done = mover(stopped, OLD, NEW, env=fake_git(H.scratch_dir() / "git.log", interrupt=True))
+    if done.code == 0 or "KeyboardInterrupt" not in done.stderr or whole_state(stopped) != state:
+        problems.append(f"an interrupt after the move: exit {done.code}: {done.stdout}{done.stderr}")
+    return problems
 
 
 def notes_only(consumer: Consumer) -> None:
