@@ -2080,6 +2080,14 @@ def refused_for_a_document() -> None:
             ("--ids",),
             UNREADABLE,
         ),
+        (  # where the disk ignores case the new name is the file itself; either way the move is undone
+            "a case-only rename, a document linking to it read-only",
+            lambda c: None,
+            "docs/notes/two.md",
+            0o444,
+            (OLD, "docs/notes/One.md"),
+            UNWRITABLE,
+        ),
         (  # its own links are repaired wherever it goes, so it is read though no territory holds it there
             "the moved document nobody can read, moved out of coverage",
             notes_only,
@@ -2202,6 +2210,23 @@ def green_as_the_tree_stands() -> list[str]:
     last = done.stdout.splitlines()[-1] if done.stdout else ""
     if done.code != 0 or not last.startswith("GREEN: const-referencing: "):
         problems.append(f"a file moved to core.excludesFile: exit {done.code}: {done.stdout}{done.stderr}")
+    # git's default ignore file, $HOME/.config/git/ignore, inside the repository: a file moved there hides one
+    home = moving_consumer()
+    home.write("staged.txt", "u.md\n")
+    home.write("empty-global", "")
+    home.commit()
+    home.write("docs/u.md", note("# U\n\nSee [one](notes/one.md).\n", "note-u"))  # untracked
+    quiet = {
+        "HOME": str(home.root),
+        "GIT_CONFIG_GLOBAL": str(home.root / "empty-global"),
+        "XDG_CONFIG_HOME": "",
+    }
+    done, _, _ = under_mode(home, "docs/u.md", 0o000, "staged.txt", ".config/git/ignore", env=quiet)
+    last = done.stdout.splitlines()[-1] if done.stdout else ""
+    if done.code != 0 or not last.startswith("GREEN: const-referencing: "):
+        problems.append(
+            f"a file moved to git's default ignore file: exit {done.code}: {done.stdout}{done.stderr}"
+        )
     problems.extend(root_policy_moved())
     return problems
 
