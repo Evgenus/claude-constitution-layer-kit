@@ -135,8 +135,9 @@ def _plan(
         # the root policy was found by the listing before the move: --moved and --ids meet C6 there, so a
         # root policy missing here can only be the doing of the move just made
         if failure.broken.key is SharedKey.C6:
-            folder = posixpath.dirname(new) if made else ""  # the move had to make it: git mv makes none
-            raise ConfigurationFailure(messages.v5_takes_the_root_policy(old, new, folder)) from failure
+            folder = _from_here(root, posixpath.dirname(new)) if made else ""  # git mv makes no folder
+            route = (old, new, _from_here(root, old), _from_here(root, new), folder)
+            raise ConfigurationFailure(messages.v5_takes_the_root_policy(*route)) from failure
         raise
     repaired = [*covered, *([new] if is_markdown(new) and new not in covered else [])]
     texts: dict[str, str] = {}
@@ -163,6 +164,11 @@ def _plan(
     written = {rel: done.text for rel, done in rewrites}
     mentions = [] if ids else _mentions(root, covered, old, new, written)
     return Plan(rewrites, left_alone, mentions)
+
+
+def _from_here(root: Path, rel: str) -> str:
+    """A path from the repository's top as the user types it where they stand: from the working folder."""
+    return os.path.relpath(os.path.realpath(root / rel), os.path.realpath(Path.cwd()))
 
 
 def _reason(exc: OSError) -> str:
