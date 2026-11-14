@@ -29,7 +29,7 @@ The session recommended A, as a later rollout item and not inside wave 4, becaus
 
 <a id="r2"></a>**R2.** Each document whose rewrite would change a link is opened for writing and closed again, with nothing written. A document the system will not open so is a V5 refusal that names it and the system's reason. A read-only document the act would not rewrite is no refusal.
 
-<a id="r3"></a>**R3.** The check runs in all three acts: the move, `--moved` and `--ids`. A refusal changes nothing. No document is written before the check has passed: only the move comes first, and a refusal undoes it, as R5 says.
+<a id="r3"></a>**R3.** The check runs in all three acts: the move, `--moved` and `--ids`. A refusal changes nothing, save the edges R8 names. No document is written before the check has passed: only the move comes first, and a refusal undoes it, as R5 says.
 
 ## 2. How the check knows the tree after a move
 
@@ -51,11 +51,11 @@ The orchestrating session put the three options to the decider in its chat. It r
 
 <a id="r5"></a>**R5.** A failure of that plan moves the file back with git and removes the folders the move made. An interrupt does the same. A refusal then closes with the line that the file was moved back and nothing was changed. A refusal names the moved document by the path it was moved back to.
 
-<a id="r6"></a>**R6.** A move back that fails says so and names where the file is, before the line that the act stopped midway. A folder the move made that cannot be removed is said the same way.
+<a id="r6"></a>**R6.** A move back that fails says so and names where the file is, before the line that the act stopped midway, save after an interrupt. A folder the move made that cannot be removed is said the same way.
 
 <a id="r7"></a>**R7.** `--moved` and `--ids` move nothing: they plan on the tree as it stands, and a refusal closes with the line that nothing was changed.
 
-<a id="r8"></a>**R8.** What the check cannot cover is stated in limit 12 of the module's section 9, each edge as wide as it is.
+<a id="r8"></a>**R8.** What the check and the move back cannot hold stands in limit 12 of the module's section 9. Each edge is stated as wide as it is.
 
 ## Applied
 
