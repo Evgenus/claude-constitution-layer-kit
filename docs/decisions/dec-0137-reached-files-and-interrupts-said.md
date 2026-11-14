@@ -15,9 +15,9 @@ The carry audit of items 9.42 and 9.43 of the rollout plan left two gaps of the 
 
 The shared listing kept a path git lists only where `Path.is_file` held. Under a folder nobody may search, that call raises on the older interpreters the kit supports and returns False on later ones. So on the older ones a scan printed C12.11, the defect line of the shared code. On the later ones it passed the file over without a word. It could end green on a document it never read. The mention listing of [`const-referencing`](../requirements.md#const-referencing) had the same shape. No real choice existed: the verdict must not hang on the interpreter, and a silent skip is never a verdict.
 
-<a id="r1"></a>**R1.** A path git lists is a file when `os.stat` says so, through any link. As before, a path that is gone is no file. Nor is a path behind a file, or a link that leads nowhere or loops. Any other error of `os.stat` is the shared C12.10, on every interpreter. The shared function is `repository.listed_file`, and the shared listing uses it.
+<a id="r1"></a>**R1.** A path git lists is a file when `os.stat` says so, through any link. As before, a path that is gone is no file. Nor is a path behind a file, or a link that leads nowhere or loops. Any other error of `os.stat` is the shared C12.10, on every interpreter. That includes a name too long for the system in a folder that exists. The text of C12.10 names that cause with the others. The shared function is `repository.listed_file`, and the shared listing uses it.
 
-<a id="r2"></a>**R2.** The mention listing of `const-referencing` keeps its own copy of that rule. So the module needs no later release of the shared package than the one it requires. A file it can reach and cannot read is still passed over, as before.
+<a id="r2"></a>**R2.** The mention listing of `const-referencing` keeps its own copy of that rule. So the module needs no later release of the shared package than the one it requires. It asks whether a path is a link before anything else, and a link is never read, wherever it leads. A file it can reach and cannot read is still passed over, as before.
 
 ## 2. An interrupt
 

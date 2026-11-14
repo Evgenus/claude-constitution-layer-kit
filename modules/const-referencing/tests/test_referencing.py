@@ -1079,7 +1079,7 @@ def test_governed_only_policy_unreadable() -> None:
         (root / policy).chmod(mode)
     line = (
         f"BROKEN: {policy} is listed by git but cannot be read — fix: check that the file can be read: its"
-        " permissions, or those of a folder above it"
+        " permissions, those of a folder above it, or a name too long for the system"
     )
     broken_first_line(result, line)
     first = f"exit 1, first stderr line: {line}"
@@ -1163,8 +1163,22 @@ def mentions_over_odd_files() -> None:
     broken_typed(
         behind,
         "BROKEN: tools/shut/hidden.sh is listed by git but cannot be read — fix: check that the file can be"
-        " read: its permissions, or those of a folder above it",
+        " read: its permissions, those of a folder above it, or a name too long for the system",
     )
+    # a committed link is never read, wherever it leads: one to a file behind such a folder is no failure
+    (shut / "hidden.sh").unlink()
+    consumer.commit()
+    vault = H.scratch_dir() / "vault" / "shut"
+    vault.mkdir(parents=True)
+    (vault / "names.txt").write_text("note-gone\n", encoding="utf-8")
+    (root / "tools/peek.txt").symlink_to(vault / "names.txt")
+    consumer.commit()
+    vault.chmod(0)
+    try:
+        linked = H.run_gate("", args=["--scan", str(root)])
+    finally:
+        vault.chmod(0o755)
+    assert linked.code == 0 and "cannot be read" not in linked.stderr, linked.stdout + linked.stderr
 
 
 @item(43, "R8: a name outside Markdown no covered document carries; off by default")
@@ -3616,7 +3630,7 @@ def the_budget_is_one() -> None:
         readable = H.run_gate("", args=["--scan", str(both.root)], env=path_with(None))
         unreadable_typed = (  # typed by hand: a scan's first line for a file git lists and nobody reads
             f"BROKEN: {shut} is listed by git but cannot be read — fix: check that the file can be read: its"
-            " permissions, or those of a folder above it"
+            " permissions, those of a folder above it, or a name too long for the system"
         )
         broken_typed(hooked, X1_TYPED)
         broken_typed(scanned, unreadable_typed)

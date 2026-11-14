@@ -430,7 +430,8 @@ def c12_unreadable(rel: str) -> Broken:
     return Broken(
         SharedKey.C12,
         f"{escaped(rel)} is listed by git but cannot be read",
-        "check that the file can be read: its permissions, or those of a folder above it",
+        "check that the file can be read: its permissions, those of a folder above it, or a name too long for"
+        " the system",
     )
 
 

@@ -1605,7 +1605,7 @@ class SharedItems:
             + "… [107 characters] — fix: "
             + messages.USAGE,
             "C12.10": f"BROKEN: {esc} is listed by git but cannot be read — fix: check that the file can be"
-            " read: its permissions, or those of a folder above it",
+            " read: its permissions, those of a folder above it, or a name too long for the system",
             "C12.11": "unexpected failure inside the checker: ValueError: " + "v" * 68 + "… [112 characters]",
             "C13": f"BROKEN: {self.file}: {self.ns}.log_dir '{esc}' is not ignored by git — fix: a log"
             " inside the working tree must be git-ignored, or every verdict dirties the tree; add the"
@@ -2681,7 +2681,7 @@ def test_document_unreadable(subject: Subject) -> None:
     _, root = it.s.gate_on(it.s.valid, files={sibling: it.s.valid.text})
     line = (
         f"BROKEN: {sibling} is listed by git but cannot be read — fix: check that the file can be read:"
-        " its permissions, or those of a folder above it"
+        " its permissions, those of a folder above it, or a name too long for the system"
     )
     it.unreadable(root / sibling, lambda: it.h.run_gate("", args=["--scan", str(root)]), line)
     # a document behind a folder nobody may search: the same failure on every Python. Path.is_file raises
@@ -2695,9 +2695,48 @@ def test_document_unreadable(subject: Subject) -> None:
     subprocess.run(["git", *who, "commit", "-qm", "shut"], cwd=root, check=True, capture_output=True)
     line = (
         f"BROKEN: {hidden} is listed by git but cannot be read — fix: check that the file can be read:"
-        " its permissions, or those of a folder above it"
+        " its permissions, those of a folder above it, or a name too long for the system"
     )
     it.unreadable(root / shut, lambda: it.h.run_gate("", args=["--scan", str(root)]), line)
+    # a name too long for the system, standing only in git's index: in a folder that exists the system
+    # answers that the name is too long, C12.10 with that cause named; in a missing folder it answers that
+    # the folder is missing first, and the entry is left out as a deleted file is
+    long_name = "n" * 300 + ".md"
+    for folder, said in ((str(Path(it.s.valid.target).parent), True), ("docs/gone", False)):
+        _, root = it.s.gate_on(it.s.valid)
+        if said:
+            (root / folder).mkdir(parents=True, exist_ok=True)
+        entry = f"{folder}/{long_name}"
+        index_only(root, entry, it.s.valid.text)
+        result = it.h.run_gate("", args=["--scan", str(root)])
+        line = (
+            f"BROKEN: {entry} is listed by git but cannot be read — fix: check that the file can be read:"
+            " its permissions, those of a folder above it, or a name too long for the system"
+        )
+        if said:
+            it.broken_as_typed(result, line)
+        else:
+            assert "cannot be read" not in result.stderr, f"{entry}: {result.stderr}"
+
+
+def index_only(root: Path, rel: str, text: str) -> None:
+    """A committed entry of git's index with no file on disk: git keeps a name the system refuses."""
+    who = ["-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid"]
+    blob = subprocess.run(
+        ["git", "hash-object", "-w", "--stdin"],
+        cwd=root,
+        input=text,
+        text=True,
+        capture_output=True,
+        check=True,
+    ).stdout.strip()
+    subprocess.run(
+        ["git", "update-index", "--add", "--cacheinfo", f"100644,{blob},{rel}"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(["git", *who, "commit", "-qm", "index only"], cwd=root, check=True, capture_output=True)
 
 
 @item(157, "C4: a dials file that is not UTF-8 is C4, its line and column named, never a defect of the gate")
@@ -2747,7 +2786,7 @@ def test_policy_unreadable(subject: Subject) -> None:
 
     line = (
         f"BROKEN: {policy} is listed by git but cannot be read — fix: check that the file can be read:"
-        " its permissions, or those of a folder above it"
+        " its permissions, those of a folder above it, or a name too long for the system"
     )
     it.unreadable(root / policy, again, line)
     said = (runs[-1].stdout + runs[-1].stderr).splitlines()

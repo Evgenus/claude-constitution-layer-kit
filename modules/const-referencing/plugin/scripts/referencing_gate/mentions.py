@@ -29,7 +29,10 @@ def other_files(root: Path) -> list[str]:
         raise ConfigurationFailure(shared.c12_ls_files(str(root), first_line(result.stderr)))
     paths = sorted({p for p in os.fsdecode(result.stdout).split("\0") if p and not is_markdown(p)})
     return [
-        p for p in paths if _listed_file(root, p) and not (root / p).is_symlink() and not _binary(root / p)
+        p
+        for p in paths
+        # a link first, never followed: os.path.islink answers on every interpreter, and is not read
+        if not os.path.islink(root / p) and _listed_file(root, p) and not _binary(root / p)
     ]
 
 
