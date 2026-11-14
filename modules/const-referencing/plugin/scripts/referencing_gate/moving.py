@@ -177,7 +177,8 @@ def _reason(exc: OSError) -> str:
 
 def _move(root: Path, old: str, new: str, closing: Closing) -> list[Path]:
     """git mv, into a directory made for it where none exists — and unmade again when git refuses. The
-    folders it made are returned, deepest first, for the move back."""
+    folders it made are returned, deepest first, for the move back. An interrupt while git moves leaves
+    the move done or not: git's index says which, and the move is undone either way before it goes on."""
     made: list[Path] = []
     parent = (root / new).parent
     while not parent.exists():
@@ -185,7 +186,17 @@ def _move(root: Path, old: str, new: str, closing: Closing) -> list[Path]:
         parent = parent.parent
     for directory in reversed(made):
         directory.mkdir()
-    moved = git(["mv", "--", old, new], cwd=root)
+    try:
+        moved = git(["mv", "--", old, new], cwd=root)
+    except BaseException:
+        if _indexed(root, new) and not _indexed(root, old):  # git moved it: move it back
+            closing.changed = True
+            _move_back(root, old, new, made, closing)
+        elif _indexed(root, old) and os.path.lexists(root / old):  # git did not move it
+            _remove_made(root, old, made, closing, moved=False)
+        else:  # the index and the disk disagree: say where to look
+            closing.stranded = messages.v4_move_cut(old, new)
+        raise
     if moved.returncode != 0:
         for directory in made:
             directory.rmdir()
@@ -196,11 +207,25 @@ def _move(root: Path, old: str, new: str, closing: Closing) -> list[Path]:
 
 def _move_back(root: Path, old: str, new: str, made: Sequence[Path], closing: Closing) -> None:
     """The move undone: the file moved back with git, and the folders the move made removed again. When
-    that fails, the closing line says where the file is."""
-    back = git(["mv", "--", new, old], cwd=root)
+    that fails, the closing line says where the file is. An interrupt while git moves it back is asked of
+    git's index as well: moved back, the folders go too; not moved back, the line says where the file is."""
+    try:
+        back = git(["mv", "--", new, old], cwd=root)
+    except BaseException:
+        if _indexed(root, old) and not _indexed(root, new):
+            _remove_made(root, old, made, closing)
+        else:
+            closing.stranded = messages.v4_move_back_cut(old, new)
+        raise
     if back.returncode != 0:
         closing.stranded = messages.v4_move_back_failed(old, new, first_line(back.stderr))
         return
+    _remove_made(root, old, made, closing)
+
+
+def _remove_made(root: Path, old: str, made: Sequence[Path], closing: Closing, moved: bool = True) -> None:
+    """The folders a move made, removed deepest first, the file at `old` again — or still, where git never
+    `moved` it: nothing was changed."""
     for directory in made:
         try:
             directory.rmdir()
@@ -209,7 +234,12 @@ def _move_back(root: Path, old: str, new: str, made: Sequence[Path], closing: Cl
             closing.stranded = messages.v4_folder_left(old, where, _reason(exc))
             return
     closing.changed = False
-    closing.moved_back = old
+    closing.moved_back = old if moved else ""
+
+
+def _indexed(root: Path, rel: str) -> bool:
+    """Whether git's index holds the path: where git itself says a file is after a move."""
+    return git(["ls-files", "--error-unmatch", "--", rel], cwd=root).returncode == 0
 
 
 def _repair(rel: str, text: str, old: str, new: str, ids: Ids | None) -> Rewritten:

@@ -270,4 +270,5 @@ class Examination:
 # and shows the first stderr line to the user. Exit 1 therefore never blocks.
 EXIT_GREEN = 0  # green, or nothing to examine (the count line says which)
 EXIT_BROKEN = 1  # configuration failure: the checker could not run
+EXIT_INTERRUPTED = 130  # an interrupt (Ctrl-C), as a shell reports one: 128 and the signal's number
 EXIT_RED = 2  # finding: the repository is wrong

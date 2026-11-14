@@ -2417,10 +2417,15 @@ def test_copy_with_links_followed(subject: Subject) -> None:
     expect(result, 0, green, "stdout")
 
 
-@item(141, "not fail-open: an unexpected exception exits 1, BROKEN first, the traceback after")
+@item(
+    141,
+    "not fail-open: an unexpected exception exits 1, BROKEN first, the traceback after; an interrupt exits"
+    " 130 with its line and the closing line",
+)
 def test_unexpected_failure(subject: Subject) -> None:
     """Not fail-open: an exception nobody planned for exits 1, its BROKEN line first, the closing line
-    after it, then the traceback, and nothing before them."""
+    after it, then the traceback, and nothing before them. An interrupt (Ctrl-C), raised where the
+    exception was, is no defect: exit 130, its line typed by hand and the closing line, no traceback."""
     it = shared(subject, "unexpected_failure")
     shadow = it.h.scratch_dir()
     (shadow / "yaml.py").write_text(
@@ -2432,6 +2437,19 @@ def test_unexpected_failure(subject: Subject) -> None:
     ok = result.code == 1 and result.stderr.startswith(head + "Traceback (most recent call last):\n")
     said = f"wanted exit 1, stderr {head!r} then the traceback; got exit {result.code}: {result.stderr[:600]}"
     assert ok, said
+    stop = it.h.scratch_dir()
+    (stop / "yaml.py").write_text(
+        "class YAMLError(Exception): pass\n\n\ndef safe_load(text): raise KeyboardInterrupt\n",
+        encoding="utf-8",
+    )
+    stopped, _ = it.s.gate_on(it.s.valid, env={"PYTHONPATH": str(stop)})
+    line = (  # typed by hand
+        "BROKEN: interrupted before the run was done — fix: run it again, and let it finish; the line below"
+        " says what had been done by then"
+    )
+    wanted = f"{line}\n{it.s.closing}\n"
+    said = f"wanted exit 130, stderr {wanted!r}; got exit {stopped.code}: {stopped.stderr[:600]}"
+    assert (stopped.code, stopped.stderr) == (130, wanted), said
 
 
 @item(142, "an Edit event without its documented fields is a configuration failure")

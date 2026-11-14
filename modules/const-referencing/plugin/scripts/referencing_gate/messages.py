@@ -413,6 +413,20 @@ def v4_move_back_failed(old: str, new: str, detail: str) -> str:
     )
 
 
+def v4_move_back_cut(old: str, new: str) -> str:
+    return (
+        f"BROKEN: the move could not be undone — an interrupt stopped git mv from moving {escaped(new)} back"
+        f" to {escaped(old)}; the file is at {escaped(new)}"
+    )
+
+
+def v4_move_cut(old: str, new: str) -> str:
+    return (
+        f"BROKEN: the move was cut short by an interrupt — git's index and the disk disagree about"
+        f" {escaped(old)} and {escaped(new)}: look at git status"
+    )
+
+
 def v4_folder_left(old: str, folder: str, reason: str) -> str:
     return (
         f"BROKEN: the move was undone, the file back at {escaped(old)}, but the folder {escaped(folder)} it"

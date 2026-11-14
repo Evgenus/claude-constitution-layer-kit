@@ -434,6 +434,14 @@ def c12_unreadable(rel: str) -> Broken:
     )
 
 
+def c12_interrupted() -> Broken:
+    return Broken(
+        SharedKey.C12,
+        "interrupted before the run was done",
+        "run it again, and let it finish; the line below says what had been done by then",
+    )
+
+
 def c12_unexpected(detail: str) -> Broken:
     return Broken(
         SharedKey.C12,

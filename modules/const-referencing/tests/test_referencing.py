@@ -2465,31 +2465,52 @@ def root_policy_moved() -> list[str]:
     return problems
 
 
-def fake_git(log: Path, on_move_back: str = "", interrupt: bool = False) -> dict[str, str]:
-    """A git first on PATH that hands every call to the real one. On the second `git mv` of a run, the move
-    back, it first runs `on_move_back`. With `interrupt`, the first `git ls-files` after the first `git mv`
-    sends an interrupt to the mover, as a user's Ctrl-C would. It logs each call's arguments to `log`."""
+def fake_git(
+    log: Path,
+    on_move_back: str = "",
+    interrupt: bool = False,
+    cut_move: str = "",
+    cut_back: str = "",
+    on_move: str = "",
+) -> dict[str, str]:
+    """A git first on PATH that hands every call to the real one and logs each call's arguments to `log`.
+    On the second `git mv` of a run, the move back, it first runs `on_move_back`. With `interrupt`, the first
+    `git ls-files` after the first `git mv` sends an interrupt to the mover, as a user's Ctrl-C would.
+    `cut_move` and `cut_back`, "before" or "after", send it at the first or the second `git mv`, before the
+    real git moves the file or after it. On the first `git mv` it first runs `on_move`."""
     real = shutil.which("git")
     assert real, "git"
     folder = H.scratch_dir()
-    mark = folder / "moved"
-    stop = (
-        f"  ls-files) if [ -f {shlex.quote(str(mark))} ] && [ ! -f {shlex.quote(str(mark))}.int ]; then"
-        f" touch {shlex.quote(str(mark))}.int; kill -INT $PPID; sleep 1; fi;;\n"
+    mark = shlex.quote(str(folder / "moved"))
+    stop = "kill -INT $PPID; sleep 2"
+
+    def at(cut: str, when: str) -> str:
+        return stop if cut == when else ":"
+
+    listing = (
+        f"  ls-files) if [ -f {mark} ] && [ ! -f {mark}.int ]; then touch {mark}.int; {stop}; fi;;\n"
         if interrupt
         else ""
     )
     body = (
         f'printf "%s\\n" "$*" >> {shlex.quote(str(log))}\n'
         'case "$1" in\n'
-        f"  mv) if [ -f {shlex.quote(str(mark))} ]; then {on_move_back or ':'}; fi;"
-        f" touch {shlex.quote(str(mark))};;\n"
-        f"{stop}"
+        f"  mv) if [ -f {mark} ]; then {on_move_back or ':'}; {at(cut_back, 'before')};"
+        f' {shlex.quote(real)} "$@"; s=$?; {at(cut_back, "after")}; exit $s; fi; touch {mark};'
+        f" {on_move or ':'}; {at(cut_move, 'before')};"
+        f' {shlex.quote(real)} "$@"; s=$?; {at(cut_move, "after")}; exit $s;;\n'
+        f"{listing}"
         "esac\n"
         f'exec {shlex.quote(real)} "$@"\n'
     )
     fake_program(folder / "git", body)
     return {"PATH": f"{folder}{os.pathsep}{os.environ['PATH']}"}
+
+
+INTERRUPTED = (  # the shared C12.15, typed by hand
+    "BROKEN: interrupted before the run was done — fix: run it again, and let it finish; the line below says"
+    " what had been done by then"
+)
 
 
 def move_back_failures() -> list[str]:
@@ -2521,11 +2542,74 @@ def move_back_failures() -> list[str]:
     )
     if (done.code, done.stdout, done.stderr) != (1, "", wanted) or not (left.root / OLD).exists():
         problems.append(f"a folder left after the move back: exit {done.code}: {done.stdout}{done.stderr}")
-    stopped = moving_consumer()
-    state = whole_state(stopped)
-    done = mover(stopped, OLD, NEW, env=fake_git(H.scratch_dir() / "git.log", interrupt=True))
-    if done.code == 0 or "KeyboardInterrupt" not in done.stderr or whole_state(stopped) != state:
-        problems.append(f"an interrupt after the move: exit {done.code}: {done.stdout}{done.stderr}")
+    problems.extend(interrupts())
+    return problems
+
+
+def interrupts() -> list[str]:
+    """An interrupt (Ctrl-C) at each moment of a move: exit 130, the shared interrupt line, then the closing
+    line that says what was done by then, and no traceback. In the plan, the file is moved back (and where
+    git refuses that, the line says where the file is); while git moves it, git's index says whether it
+    moved, and it is moved back or its folders removed; while git moves it back, the same; after the first
+    write, the act stopped midway."""
+    problems: list[str] = []
+    back = MOVED_BACK.format(old=OLD)
+    where = (  # typed by hand
+        "BROKEN: the move could not be undone — an interrupt stopped git mv from moving"
+        " docs/moved/deep/first.md back to docs/notes/one.md; the file is at docs/moved/deep/first.md"
+    )
+    refused = (  # typed by hand
+        "BROKEN: the move could not be undone — git mv refused to move docs/moved/deep/first.md back to"
+        " docs/notes/one.md: fatal: planted; the file is at docs/moved/deep/first.md"
+    )
+    cases: list[tuple[str, dict[str, object], str, bool, str]] = [
+        ("in the plan", {"interrupt": True}, back, True, ""),
+        (
+            "in the plan, the move back refused",
+            {"interrupt": True, "on_move_back": "echo 'fatal: planted' >&2; exit 128"},
+            refused + "\n" + STOPPED_MIDWAY,
+            False,
+            "",
+        ),
+        ("before git moves the file", {"cut_move": "before"}, STOPPED_NOTHING, True, ""),
+        ("after git moved the file", {"cut_move": "after"}, back, True, ""),
+        ("after git moved the file back", {"cut_back": "after"}, back, True, "docs/notes/two.md"),
+        (
+            "before git moves the file back",
+            {"cut_back": "before"},
+            where + "\n" + STOPPED_MIDWAY,
+            False,
+            "docs/notes/two.md",
+        ),
+        (  # the disk moved and git's index did not: neither moved nor moved back can be claimed
+            "between the disk's move and git's index",
+            {"cut_move": "before", "on_move": f"mv -- {OLD} {NEW}"},
+            "BROKEN: the move was cut short by an interrupt — git's index and the disk disagree about"
+            f" {OLD} and {NEW}: look at git status\n" + STOPPED_MIDWAY,
+            False,
+            "",
+        ),
+    ]
+    for label, how, closing, unchanged, locked in cases:
+        consumer = moving_consumer()
+        state = whole_state(consumer)
+        env = fake_git(H.scratch_dir() / "git.log", **how)  # type: ignore[arg-type]
+        if locked:  # a refusal in the plan, so that the move back runs
+            done, after, _ = under_mode(consumer, locked, 0o444, OLD, NEW, env=env)
+        else:
+            done = mover(consumer, OLD, NEW, env=env)
+            after = whole_state(consumer)
+        wanted = INTERRUPTED + "\n" + closing + "\n"
+        if (done.code, done.stdout, done.stderr) != (130, "", wanted) or (unchanged and after != state):
+            problems.append(f"an interrupt {label}: exit {done.code}: {done.stdout}{done.stderr}")
+    # after the first write: the link checker of the closing scan is where the interrupt lands
+    late = moving_consumer()
+    dying = 'case "$1" in --version) echo "lychee 0.24.2";; *) kill -INT $PPID; sleep 2;; esac\n'
+    done = mover(late, OLD, NEW, env=path_with(dying))
+    lines = done.stdout.splitlines()
+    wrote = any(line.startswith("REWROTE: ") for line in lines)
+    if (done.code, done.stderr) != (130, INTERRUPTED + "\n" + STOPPED_MIDWAY + "\n") or not wrote:
+        problems.append(f"an interrupt after the first write: exit {done.code}: {done.stdout}{done.stderr}")
     return problems
 
 
