@@ -2629,6 +2629,20 @@ def test_document_unreadable(subject: Subject) -> None:
         " its permissions, or a link that leads nowhere"
     )
     it.unreadable(root / sibling, lambda: it.h.run_gate("", args=["--scan", str(root)]), line)
+    # a document behind a folder nobody may search: the same failure on every Python. Path.is_file raises
+    # there before 3.14 and returns False from 3.14 on, which would pass the document over without a word
+    shut = Path(it.s.valid.target).with_name("shut")
+    hidden = str(shut / "hidden.md")
+    _, root = it.s.gate_on(it.s.valid, files={hidden: it.s.valid.text})
+    # committed: git lists no untracked file in a folder it cannot search, on any Python
+    who = ["-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid"]
+    subprocess.run(["git", "add", "-A"], cwd=root, check=True, capture_output=True)
+    subprocess.run(["git", *who, "commit", "-qm", "shut"], cwd=root, check=True, capture_output=True)
+    line = (
+        f"BROKEN: {hidden} is listed by git but cannot be read — fix: check that the file can be read:"
+        " its permissions, or a link that leads nowhere"
+    )
+    it.unreadable(root / shut, lambda: it.h.run_gate("", args=["--scan", str(root)]), line)
 
 
 @item(157, "C4: a dials file that is not UTF-8 is C4, its line and column named, never a defect of the gate")

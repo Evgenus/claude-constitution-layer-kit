@@ -1118,7 +1118,8 @@ def test_governed_only_without_root() -> None:
 
 def mentions_over_odd_files() -> None:
     """A file that is not UTF-8 text is read with its odd bytes replaced, one nobody may read is passed over,
-    and a NUL at the byte the sniff stops before marks no binary file."""
+    and a NUL at the byte the sniff stops before marks no binary file. A file behind a folder nobody may
+    search is the shared C12.10."""
     consumer = H.fresh_consumer()
     root = consumer.root
     consumer.write("constitution.yaml", dials_text(own(mentions=[MENTION])))
@@ -1145,6 +1146,23 @@ def mentions_over_odd_files() -> None:
         "tools/latin.sh",
         "tools/ok.sh",
     ], listed
+    # a file behind a folder nobody may search is no file passed over: the same failure on every Python
+    # (Path.is_file raises there before 3.14 and returns False from 3.14 on)
+    locked.unlink()  # readable again, its name would be a finding of its own
+    shut = root / "tools/shut"
+    shut.mkdir()
+    (shut / "hidden.sh").write_text("# see note-s\n", encoding="utf-8")
+    consumer.commit()  # git lists no untracked file in a folder it cannot search, on any Python
+    shut.chmod(0)
+    try:
+        behind = H.run_gate("", args=["--scan", str(root)])
+    finally:
+        shut.chmod(0o755)
+    broken_typed(
+        behind,
+        "BROKEN: tools/shut/hidden.sh is listed by git but cannot be read — fix: check that the file can be"
+        " read: its permissions, or a link that leads nowhere",
+    )
 
 
 @item(43, "R8: a name outside Markdown no covered document carries; off by default")
