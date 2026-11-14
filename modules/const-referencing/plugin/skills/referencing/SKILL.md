@@ -90,8 +90,9 @@ it scans the whole tree and exits with the scan's verdict: 0 means no reference 
    A script that opens the old path needs the new one.
 2. If it exits 2, the scan's findings follow the count line; fix them as they say. They may be
    older than the move.
-3. If it refuses, nothing was changed: it asks everything that can refuse before it moves, and
-   its last line says so. If instead its last line says the act stopped midway, the file was
+3. If it refuses, nothing was changed. What can refuse without moving is asked first. A document
+   it cannot read or rewrite after the move makes it move the file back, and its last line
+   says so. If instead its last line says the act stopped midway, the file was
    moved and some links rewritten. Look at `git status`, repair what the message names, and run
    the scan of section 6.
 4. Its rewrites are not staged. Look at `git diff` before committing, and say in the commit
