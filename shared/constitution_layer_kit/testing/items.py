@@ -2417,10 +2417,15 @@ def test_copy_with_links_followed(subject: Subject) -> None:
     expect(result, 0, green, "stdout")
 
 
-@item(141, "not fail-open: an unexpected exception exits 1, BROKEN first, the traceback after")
+@item(
+    141,
+    "not fail-open: an unexpected exception exits 1, BROKEN first, the traceback after; an interrupt exits"
+    " 130 with its line and the closing line",
+)
 def test_unexpected_failure(subject: Subject) -> None:
     """Not fail-open: an exception nobody planned for exits 1, its BROKEN line first, the closing line
-    after it, then the traceback, and nothing before them."""
+    after it, then the traceback, and nothing before them. An interrupt (Ctrl-C), raised where the
+    exception was, is no defect: exit 130, its line typed by hand and the closing line, no traceback."""
     it = shared(subject, "unexpected_failure")
     shadow = it.h.scratch_dir()
     (shadow / "yaml.py").write_text(
@@ -2432,6 +2437,19 @@ def test_unexpected_failure(subject: Subject) -> None:
     ok = result.code == 1 and result.stderr.startswith(head + "Traceback (most recent call last):\n")
     said = f"wanted exit 1, stderr {head!r} then the traceback; got exit {result.code}: {result.stderr[:600]}"
     assert ok, said
+    stop = it.h.scratch_dir()
+    (stop / "yaml.py").write_text(
+        "class YAMLError(Exception): pass\n\n\ndef safe_load(text): raise KeyboardInterrupt\n",
+        encoding="utf-8",
+    )
+    stopped, _ = it.s.gate_on(it.s.valid, env={"PYTHONPATH": str(stop)})
+    line = (  # typed by hand
+        "BROKEN: interrupted before the run was done — fix: run it again, and let it finish; the line below"
+        " says what had been done by then"
+    )
+    wanted = f"{line}\n{it.s.closing}\n"
+    said = f"wanted exit 130, stderr {wanted!r}; got exit {stopped.code}: {stopped.stderr[:600]}"
+    assert (stopped.code, stopped.stderr) == (130, wanted), said
 
 
 @item(142, "an Edit event without its documented fields is a configuration failure")
@@ -2629,6 +2647,20 @@ def test_document_unreadable(subject: Subject) -> None:
         " its permissions, or a link that leads nowhere"
     )
     it.unreadable(root / sibling, lambda: it.h.run_gate("", args=["--scan", str(root)]), line)
+    # a document behind a folder nobody may search: the same failure on every Python. Path.is_file raises
+    # there before 3.14 and returns False from 3.14 on, which would pass the document over without a word
+    shut = Path(it.s.valid.target).with_name("shut")
+    hidden = str(shut / "hidden.md")
+    _, root = it.s.gate_on(it.s.valid, files={hidden: it.s.valid.text})
+    # committed: git lists no untracked file in a folder it cannot search, on any Python
+    who = ["-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid"]
+    subprocess.run(["git", "add", "-A"], cwd=root, check=True, capture_output=True)
+    subprocess.run(["git", *who, "commit", "-qm", "shut"], cwd=root, check=True, capture_output=True)
+    line = (
+        f"BROKEN: {hidden} is listed by git but cannot be read — fix: check that the file can be read:"
+        " its permissions, or a link that leads nowhere"
+    )
+    it.unreadable(root / shut, lambda: it.h.run_gate("", args=["--scan", str(root)]), line)
 
 
 @item(157, "C4: a dials file that is not UTF-8 is C4, its line and column named, never a defect of the gate")

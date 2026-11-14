@@ -3,8 +3,10 @@ for the text."""
 
 from __future__ import annotations
 
+import errno
 import os
 import shlex
+import stat
 import subprocess
 import tempfile
 from pathlib import Path
@@ -123,7 +125,27 @@ def list_markdown(root: Path) -> list[str]:
     if result.returncode != 0:
         raise ConfigurationFailure(messages.c12_ls_files(str(root), first_line(result.stderr)))
     paths = os.fsdecode(result.stdout).split("\0")  # bytes git cannot decode survive as they are
-    return sorted({p for p in paths if p and is_markdown(p) and (root / p).is_file()})
+    return sorted({p for p in paths if p and is_markdown(p) and listed_file(root, p)})
+
+
+# The errors that say a path is no file, as Path.is_file reads them on every Python: gone, a folder on the
+# way that is a file, a link that leads nowhere or round in a loop.
+_ABSENT = frozenset({errno.ENOENT, errno.ENOTDIR, errno.EBADF, errno.ELOOP})
+
+
+def listed_file(root: Path, rel: str) -> bool:
+    """Whether a path git lists is a file, through any link. A path that is gone, or a link that leads
+    nowhere, is none. A path the gate cannot reach — a folder above it nobody may search — is a
+    configuration failure, C12.10, on every Python: `Path.is_file` raises there before 3.14 and returns
+    False from 3.14 on, which would pass the file over without a word. So the answer is asked of
+    `os.stat`, which raises on every version."""
+    try:
+        mode = os.stat(root / rel).st_mode
+    except OSError as exc:
+        if exc.errno in _ABSENT:
+            return False
+        raise ConfigurationFailure(messages.c12_unreadable(rel)) from exc
+    return stat.S_ISREG(mode)
 
 
 def is_ignored(root: Path, rel: str) -> bool:

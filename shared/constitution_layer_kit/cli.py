@@ -28,7 +28,7 @@ from . import __version__ as __version__  # re-exported: the installed version `
 from . import identity, messages, preflight
 from .errors import ConfigurationFailure
 from .identity import Identity
-from .model import EXIT_BROKEN, Mode
+from .model import EXIT_BROKEN, EXIT_INTERRUPTED, Mode
 from .output import Output
 
 SCAN_FLAG = "--scan"
@@ -182,6 +182,10 @@ def guarded(
             output.err(messages.c12_unexpected(f"{type(exc).__name__}: {exc}").render())
             output.err(could_not_run())
             output.err(traceback.format_exc().rstrip())
+        except KeyboardInterrupt:  # an interrupt is no defect: its line, then the closing line, no traceback
+            output.err(messages.c12_interrupted().render())
+            output.err(could_not_run())
+            return EXIT_INTERRUPTED
         finally:
             output.flush()
         return EXIT_BROKEN
