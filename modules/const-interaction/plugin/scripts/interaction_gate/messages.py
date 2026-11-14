@@ -260,13 +260,13 @@ def c5_boundary_examples() -> Broken:
 
 _SHAPES = {
     ReaderDial.WRAPPERS: "command: [<words>] and, all optional, with_value: [<options>],"
-    " positionals: <count>, numbers: <count>, command_flags: [<options>]; or as command: [<words>] with"
-    " drop: true to remove a default",
+    " positionals: <count>, numbers: <count>, command_flags: [<options>], shell_text: true; or as command:"
+    " [<words>] with drop: true to remove a default",
     ReaderDial.SHELLS: "command: [<word>] and, all optional, with_value: [<options>],"
     " command_flags: [<options>]; or as command: [<word>] with drop: true to remove a default",
 }
 _FIELDS = {
-    ReaderDial.WRAPPERS: "command, with_value, positionals, numbers, command_flags or drop",
+    ReaderDial.WRAPPERS: "command, with_value, positionals, numbers, command_flags, shell_text or drop",
     ReaderDial.SHELLS: "command, with_value, command_flags or drop",
 }
 _KINDS = {ReaderDial.WRAPPERS: "wrapper", ReaderDial.SHELLS: "shell"}
@@ -432,6 +432,25 @@ def c5_reader_count(dial: ReaderDial, index: int, field: ReaderField) -> Broken:
         index,
         f"{field} must be a whole number of words, 0 or more, and true and false are no number",
         f"write {field}: 1, or another whole number, or leave the field out for 0",
+    )
+
+
+def c5_reader_shell_text_value(index: int) -> Broken:
+    return _reader(
+        ReaderDial.WRAPPERS,
+        index,
+        "shell_text must be true or false",
+        "write shell_text: true where a shell runs the string of the entry's command flag, or leave the field"
+        " out for false",
+    )
+
+
+def c5_reader_shell_text_alone(index: int) -> Broken:
+    return _reader(
+        ReaderDial.WRAPPERS,
+        index,
+        "shell_text is true and the entry has no command_flags, so it marks no string as shell text",
+        "give the entry its command flag, such as command_flags: [-c], or leave shell_text out",
     )
 
 

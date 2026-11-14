@@ -205,13 +205,15 @@ class Wrapper:
     whose value is the next word; `positionals` the plain words always skipped before the command
     (`timeout 5`); `numbers` how many more words are skipped, each only when it is a number;
     `command_flags` the options whose value is a command string, read again, the words after that
-    value appended to it (`env -S`)."""
+    value appended to it (`env -S`); `shell_text` says a shell runs that string (`flock -c`), so it is
+    read as shell text, alone, and the words after it are the wrapper's own."""
 
     command: tuple[str, ...]
     with_value: tuple[str, ...] = ()
     positionals: int = 0
     numbers: int = 0
     command_flags: tuple[str, ...] = ()
+    shell_text: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -250,6 +252,7 @@ class ReaderField(StrEnum):
     POSITIONALS = "positionals"
     NUMBERS = "numbers"
     COMMAND_FLAGS = "command_flags"
+    SHELL_TEXT = "shell_text"
     DROP = "drop"
 
 
@@ -351,12 +354,14 @@ DEFAULT_WRAPPERS: tuple[Wrapper, ...] = (
     Wrapper(("caffeinate",), with_value=_flags("-t -w")),
     # flock: page of 2026-05-24, `flock [options] file|directory command [arguments]` or `-c command`: -E
     # (--conflict-exit-code), -w (--wait, --timeout), --start and --length take a value; one positional
-    # word, the lock file; -c/--command is read after it too, as `env -S`'s string is.
+    # word, the lock file; -c/--command is read after it too. The page: -c "Pass a single command,
+    # without arguments, to the shell with -c", the shell of SHELL, else /bin/sh: so its string is shell text.
     Wrapper(
         ("flock",),
         with_value=_flags("-E -w --conflict-exit-code --wait --timeout --start --length"),
         positionals=1,
         command_flags=_flags("-c --command"),
+        shell_text=True,
     ),
     # chrt: page of 2026-08-03, `chrt [options] [priority] command [argument...]`: -T, -P, -D, -U, -X with
     # --sched-runtime, --sched-period, --sched-deadline, --clamp-min, --clamp-max take a value; the priority

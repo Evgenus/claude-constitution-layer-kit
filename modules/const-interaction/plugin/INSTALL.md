@@ -52,7 +52,7 @@ A line that starts `BROKEN: const-interaction needs the Python package constitut
          flags: [--force, -f]  # optional: any one matching; without it the words alone match
          teach: a forced push rewrites the branch on the remote for every other clone
          alternative: push with --force-with-lease, or a new branch and a pull request
-     wrappers: []              # the programs the reader strips; [] keeps the defaults; an entry adds one or, by its command, replaces one: {command: [uv, run], with_value: [--with]}; {command: [sudo], drop: true} removes one
+     wrappers: []              # the programs the reader strips; [] keeps the defaults; an entry adds one or, by its command, replaces one: {command: [uv, run], with_value: [--with]}; shell_text: true where a shell runs its command_flags string; {command: [sudo], drop: true} removes one
      shells: []                # the shells whose -c strings are read, as for wrappers: {command: [elvish], command_flags: [-c]}
      territories: ["*.md", "!docs/archive/**"]   # gitignore syntax; the list scan's documents; default ["*.md"]
      handles: ['[0-9]+\.', '[A-Z]\.', '[a-z]\.', '[a-z][0-9]+\.', '[A-Z]+[0-9]+[a-z]?\b', '[A-Z]-[a-z]\b', '\*\*[^*]+\*\*']

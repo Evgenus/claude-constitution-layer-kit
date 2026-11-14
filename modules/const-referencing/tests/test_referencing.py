@@ -13,13 +13,15 @@ from __future__ import annotations
 
 import json
 import os
+import posixpath
 import re
 import shlex
 import shutil
 import subprocess
 import sys
 import time
-from collections.abc import Sequence
+import urllib.parse
+from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -1559,6 +1561,9 @@ def test_id_repair_leaves_an_ambiguous_id_alone() -> None:
     done = mover(consumer, "--ids")
     kept = "See [note-twin](t.md)." in (consumer.root / SOURCE).read_text()
     assert kept and messages.v4_count(0, 0, 0) in done.stdout, done.stdout + done.stderr
+    # --ids moves nothing, so its first line is the count, typed by hand, never a MOVED line
+    counted = "0 file(s) rewritten, 0 link(s), 0 mention(s) listed; the whole tree is checked next"
+    assert done.stdout.splitlines()[:1] == [counted], done.stdout
     # the letters round a link's text are the text's own: `Xnote-oneX` is no id, though `note-one` is one
     letters = moving_consumer()
     unchanged = "See [Xnote-oneX](gone.md) and [Xnote-one](gone.md) and [note-oneX](gone.md).\n"
@@ -1928,7 +1933,11 @@ def porcelain(consumer: Consumer) -> str:
     return tree_state(consumer)
 
 
-@item(80, "the mover asks everything that can refuse before it moves: no lychee, no root policy")
+@item(
+    80,
+    "the mover asks before it moves what can refuse without moving; a document it cannot read or rewrite is"
+    " asked after the move, and the file is moved back",
+)
 def test_mover_asks_before_it_moves() -> None:
     """Whatever the closing scan would fail on is asked before the file moves: no lychee, and
     governed_only with no root policy, are refusals that find the tree as it was."""
@@ -1963,6 +1972,559 @@ def test_mover_asks_before_it_moves() -> None:
         " remove governed_only",
     )
     assert porcelain(rootless) == state and (rootless.root / OLD).exists(), "no root policy: the tree changed"
+    refused_for_a_document()
+
+
+UNWRITABLE = (  # typed by hand: V5 for a document the act would rewrite and cannot write
+    "BROKEN: {path} holds links the mover must rewrite, and it cannot be written (Permission denied) — fix:"
+    " make it writable — its permissions, a lock on the file, a file system mounted read-only — then run"
+    " the mover again"
+)
+UNREADABLE = (  # typed by hand: V5 for a document the act must read and cannot
+    "BROKEN: {path} is a document the mover must read, and it cannot be read (Permission denied), so nobody"
+    " can say which of its links need repair — fix: make it readable — its permissions — then run the mover"
+    " again"
+)
+
+
+def markdown_texts(consumer: Consumer) -> dict[str, str]:
+    """Every Markdown file's text below the root, a symbolic link left out: one may lead nowhere."""
+    md = consumer.root.rglob("*.md")
+    return {p.relative_to(consumer.root).as_posix(): p.read_text() for p in md if not p.is_symlink()}
+
+
+MOVED_BACK = "BROKEN: the move could not run — the file was moved back to {old}, and nothing was changed"
+
+
+def whole_state(consumer: Consumer) -> tuple[str, str, list[str], dict[str, bytes]]:
+    """What "changed nothing" holds: git status, the index's entries, every folder and every file's bytes,
+    the repository's own folder left out. A folder's time and a moved file's change time are not held."""
+    root = consumer.root
+    index = subprocess.run(["git", "ls-files", "-s"], cwd=root, capture_output=True, text=True, check=True)
+    folders, files = [], {}
+    for path in sorted(root.rglob("*")):
+        rel = path.relative_to(root).as_posix()
+        if rel == ".git" or rel.startswith(".git/"):
+            continue
+        if path.is_dir() and not path.is_symlink():
+            folders.append(rel)
+        elif path.is_symlink():
+            files[rel] = os.readlink(path).encode()
+        else:
+            files[rel] = path.read_bytes()
+    return porcelain(consumer), index.stdout, folders, files
+
+
+def under_mode(
+    consumer: Consumer,
+    rel: str,
+    mode: int,
+    *arguments: str,
+    env: dict[str, str] | None = None,
+    cwd: str = "",
+) -> tuple[Result, tuple[str, str, list[str], dict[str, bytes]], dict[str, str]]:
+    """The mover run while the file at `rel` has the mode; then the file's mode back, and the tree's whole
+    state and every Markdown file's text as the run left them."""
+    path = consumer.root / rel
+    path.chmod(mode)
+    try:
+        done = mover(consumer, *arguments, env=env, cwd=cwd)
+    finally:  # where the act moved the file anyway, its mode is set back where it went
+        for where in (path, consumer.root / arguments[-1]):
+            if where.exists():
+                where.chmod(0o644)
+    return done, whole_state(consumer), markdown_texts(consumer)
+
+
+def refused_for_a_document() -> None:
+    """A document the act must read and cannot, or must rewrite and cannot write, is a refusal before
+    anything is written, in each of the three acts. A move is made first and moved back: exit 1, the whole
+    stderr the refusal and the closing line that the file was moved back, nothing on stdout, and git's
+    status, the index, every folder and every file as they were. --moved and --ids move nothing and close
+    with the line that nothing was changed. A document the act would not rewrite may stay read-only. As
+    root a mode bit denies nothing, and these cases are not exercised."""
+    if os.geteuid() == 0:
+        return  # NOT EXERCISED: running as root, where a mode bit does not deny a read or a write
+    cases: list[tuple[str, Callable[[Consumer], None], str, int, tuple[str, ...], str]] = [
+        (
+            "a document linking to the moved one",
+            lambda c: None,
+            "docs/notes/two.md",
+            0o444,
+            (OLD, NEW),
+            UNWRITABLE,
+        ),
+        ("the moved document itself", lambda c: None, OLD, 0o444, (OLD, NEW), UNWRITABLE),
+        (
+            "a covered document nobody can read",
+            lambda c: None,
+            "docs/notes/two.md",
+            0o000,
+            (OLD, NEW),
+            UNREADABLE,
+        ),
+        (
+            "--moved after a move by hand",
+            hand_moved,
+            "docs/notes/two.md",
+            0o444,
+            ("--moved", OLD, NEW),
+            UNWRITABLE,
+        ),
+        (
+            "--ids after a move by hand",
+            hand_moved_for_ids,
+            "docs/notes/two.md",
+            0o444,
+            ("--ids",),
+            UNWRITABLE,
+        ),
+        (
+            "--ids, a covered document nobody can read",
+            lambda c: None,
+            "docs/notes/two.md",
+            0o000,
+            ("--ids",),
+            UNREADABLE,
+        ),
+        (  # where the disk ignores case the new name is the file itself; either way the move is undone
+            "a case-only rename, a document linking to it read-only",
+            lambda c: None,
+            "docs/notes/two.md",
+            0o444,
+            (OLD, "docs/notes/One.md"),
+            UNWRITABLE,
+        ),
+        (  # its own links are repaired wherever it goes, so it is read though no territory holds it there
+            "the moved document nobody can read, moved out of coverage",
+            notes_only,
+            OLD,
+            0o000,
+            (OLD, "other/first.md"),
+            UNREADABLE,
+        ),
+    ]
+    problems: list[str] = []
+    for label, prepare, rel, mode, arguments, line in cases:
+        consumer = moving_consumer()
+        prepare(consumer)
+        state = whole_state(consumer)
+        done, after, _ = under_mode(consumer, rel, mode, *arguments)
+        moved = not arguments[0].startswith("-")
+        closing = MOVED_BACK.format(old=arguments[0]) if moved else STOPPED_NOTHING
+        wanted = line.format(path=rel) + "\n" + closing + "\n"
+        if (done.code, done.stdout, done.stderr) != (1, "", wanted):
+            problems.append(f"{label}: exit {done.code}: {done.stdout}{done.stderr}")
+        elif after != state:
+            problems.append(f"{label}: the tree changed")
+    # a read-only document the move does not rewrite is no reason to refuse: the move is made, green
+    quiet = moving_consumer()
+    quiet.write("docs/notes/three.md", note("# Three\n\nNo links.\n", "note-three"))
+    quiet.commit()
+    done, _, texts = under_mode(quiet, "docs/notes/three.md", 0o444, OLD, NEW)
+    if done.code != 0 or not (quiet.root / NEW).exists():
+        problems.append(f"a read-only document the move does not rewrite: {done.stdout}{done.stderr}")
+    elif texts["docs/notes/three.md"] != note("# Three\n\nNo links.\n", "note-three"):
+        problems.append("a read-only document the move does not rewrite: its text changed")
+    problems.extend(green_where_coverage_changes())
+    problems.extend(move_back_failures())
+    assert not problems, "\n".join(problems)
+
+
+def green_where_coverage_changes() -> list[str]:
+    """The documents asked are those the act reads after the move, not before it. Under governed_only a
+    policy moved out of the root policy's territory governs nothing after the move: a document it governed,
+    read-only or unreadable, is not read and no refusal. A covered link to the moved file leads nowhere after
+    the move: the listing drops it, and the moved file read-only is no refusal through it."""
+    problems: list[str] = []
+    governed = [
+        (
+            "docs/notes/two.md",
+            0o444,
+            note("# Two\n\nGoverned by [p](../policies/notes-policy.md).\n", "note-two"),
+        ),
+        ("docs/notes/dark.md", 0o000, note("# Dark\n\nNo links.\n", "note-dark")),
+    ]
+    for rel, mode, text in governed:
+        consumer = H.fresh_consumer((Write(rel, text),))
+        consumer.write("constitution.yaml", dials_text(own(governed_only=True)))
+        consumer.commit()
+        policy = ("docs/policies/notes-policy.md", "docs/archive/notes-policy.md")
+        done, _, texts = under_mode(consumer, rel, mode, *policy)
+        last = done.stdout.splitlines()[-1] if done.stdout else ""
+        if done.code != 0 or not last.startswith("GREEN: const-referencing: ") or texts[rel] != text:
+            problems.append(
+                f"governed_only, {rel} mode {mode:o}: exit {done.code}: {done.stdout}{done.stderr}"
+            )
+    alias = H.fresh_consumer(
+        (
+            Write("docs/notes/one.md", note("[far](notes/one.md)\n", "note-one")),
+            Write("docs/notes/notes/one.md", note("Nested.\n", "nested")),
+            Write("docs/notes/two.md", note("[one](one.md)\n", "note-two")),
+        )
+    )
+    (alias.root / "docs/alias.md").symlink_to("notes/one.md")
+    alias.commit()
+    done, _, _ = under_mode(alias, "docs/notes/one.md", 0o444, "docs/notes/one.md", "docs/notes/uno.md")
+    last = done.stdout.splitlines()[-1] if done.stdout else ""
+    if done.code != 0 or not last.startswith("GREEN: const-referencing: "):
+        problems.append(f"a link to the moved file: exit {done.code}: {done.stdout}{done.stderr}")
+    problems.extend(green_as_the_tree_stands())
+    return problems
+
+
+def green_as_the_tree_stands() -> list[str]:
+    """--moved reads the tree as it stands, the move made by hand: a document moved out of coverage is read
+    where it went, and a policy moved out of the root territory governs nothing. A moved `.gitignore` changes
+    what git lists, and so does a file moved to the path core.excludesFile names: the documents asked are
+    those git lists after the move, so a file it hides may stay unreadable."""
+    problems: list[str] = []
+    out = moving_consumer()
+    notes_only(out)
+    (out.root / "other").mkdir()
+    out.git("mv", OLD, "other/one.md")
+    done = mover(out, "--moved", OLD, "other/one.md")
+    last = done.stdout.splitlines()[-1] if done.stdout else ""
+    if done.code != 0 or not last.startswith("GREEN: const-referencing: "):
+        problems.append(f"--moved out of coverage: exit {done.code}: {done.stdout}{done.stderr}")
+    governed = H.fresh_consumer(
+        (Write("docs/notes/two.md", note("# Two\n\nSee [p](../policies/notes-policy.md).\n", "note-two")),)
+    )
+    governed.write("constitution.yaml", dials_text(own(governed_only=True)))
+    governed.commit()
+    (governed.root / "docs/archive").mkdir()
+    governed.git("mv", "docs/policies/notes-policy.md", "docs/archive/notes-policy.md")
+    policy = ("--moved", "docs/policies/notes-policy.md", "docs/archive/notes-policy.md")
+    done, _, _ = under_mode(governed, "docs/notes/two.md", 0o444, *policy)
+    last = done.stdout.splitlines()[-1] if done.stdout else ""
+    if done.code != 0 or not last.startswith("GREEN: const-referencing: "):
+        problems.append(f"--moved, a policy out of the root: exit {done.code}: {done.stdout}{done.stderr}")
+    hidden = moving_consumer()
+    hidden.write("other/.gitignore", "u.md\n")
+    hidden.commit()
+    hidden.write("docs/u.md", note("# U\n\nSee [one](notes/one.md).\n", "note-u"))  # untracked
+    done, _, _ = under_mode(hidden, "docs/u.md", 0o000, "other/.gitignore", "docs/.gitignore")
+    last = done.stdout.splitlines()[-1] if done.stdout else ""
+    if done.code != 0 or not last.startswith("GREEN: const-referencing: "):
+        problems.append(f"a moved .gitignore that hides a file: exit {done.code}: {done.stdout}{done.stderr}")
+    # the same through the file core.excludesFile names: a file moved there hides an untracked one
+    excluded = moving_consumer()
+    excluded.write("other/list", "u.md\n")
+    excluded.commit()
+    excluded.git("config", "core.excludesFile", "rules/excl")
+    excluded.write("docs/u.md", note("# U\n\nSee [one](notes/one.md).\n", "note-u"))  # untracked
+    done, _, _ = under_mode(excluded, "docs/u.md", 0o000, "other/list", "rules/excl")
+    last = done.stdout.splitlines()[-1] if done.stdout else ""
+    if done.code != 0 or not last.startswith("GREEN: const-referencing: "):
+        problems.append(f"a file moved to core.excludesFile: exit {done.code}: {done.stdout}{done.stderr}")
+    # git's default ignore file, $HOME/.config/git/ignore, inside the repository: a file moved there hides one
+    home = moving_consumer()
+    home.write("staged.txt", "u.md\n")
+    home.write("empty-global", "")
+    home.commit()
+    home.write("docs/u.md", note("# U\n\nSee [one](notes/one.md).\n", "note-u"))  # untracked
+    quiet = {
+        "HOME": str(home.root),
+        "GIT_CONFIG_GLOBAL": str(home.root / "empty-global"),
+        "XDG_CONFIG_HOME": "",
+    }
+    done, _, _ = under_mode(home, "docs/u.md", 0o000, "staged.txt", ".config/git/ignore", env=quiet)
+    last = done.stdout.splitlines()[-1] if done.stdout else ""
+    if done.code != 0 or not last.startswith("GREEN: const-referencing: "):
+        problems.append(
+            f"a file moved to git's default ignore file: exit {done.code}: {done.stdout}{done.stderr}"
+        )
+    problems.extend(root_policy_moved())
+    return problems
+
+
+ROOT = "docs/policies/root-policy.md"
+
+
+def taught_route(
+    old: str,
+    new: str,
+    fix: str,
+    after: str = "",
+    given: tuple[str, ...] = (),
+    here: str = "",
+    run: bool = True,
+    shown: str = "",
+) -> list[str]:
+    """Under governed_only the root policy moved from `old` to `new`, paths from the repository's top, a
+    read-only document linking to it. The mover runs in the folder `here`, with the arguments `given` as a
+    user types them there (`old` and `new` when none). The refusal's whole stderr is `BROKEN: … — fix: ` with
+    `fix` typed by hand, then the moved-back line, `old` shown as `shown` where it differs, the whole state
+    unchanged. Then, with `run`, the route the
+    fix teaches: its commands run as printed by a POSIX shell in `here`, and root_policy set to `new`.
+    --moved then ends green, or, with `after`, exits 1 with `after` as its first line."""
+    link = "../policies/" + urllib.parse.quote(posixpath.basename(old))  # the root policy where it lies
+    consumer = H.fresh_consumer(
+        (Write("docs/notes/two.md", note(f"# Two\n\nUnder [root]({link}).\n", "note-two")),)
+    )
+    consumer.write("constitution.yaml", dials_text(own(governed_only=True)))
+    if old != ROOT:
+        consumer.git("mv", "--", ROOT, old)
+        dials = yaml.safe_load((consumer.root / "constitution.yaml").read_text())
+        consumer.write("constitution.yaml", yaml.safe_dump({**dials, "root_policy": old}, sort_keys=False))
+    consumer.commit()
+    state = whole_state(consumer)
+    arguments = given or (old, new)
+    done, now, _ = under_mode(consumer, "docs/notes/two.md", 0o444, *arguments, cwd=here)
+    headline = (
+        f"BROKEN: moving {shown or old} takes away the root policy constitution.yaml names, so the dials"
+        " would name a file that is gone — fix: "
+    )
+    wanted = headline + fix + "\n" + MOVED_BACK.format(old=shown or old) + "\n"
+    label = f"{old} to {new}"
+    if (done.code, done.stdout, done.stderr) != (1, "", wanted) or now != state:
+        return [f"{label}: exit {done.code}: {done.stdout}{done.stderr}"]
+    if not run:
+        return []
+    where = consumer.root / here
+    by_hand = fix.split("by hand with ", 1)[1].split(", set root_policy", 1)[0]
+    then = fix.split(", then run ", 1)[1].split("; outside", 1)[0]
+    moved = subprocess.run(  # noqa: S602 — the point is to run the line as a reader would paste it
+        by_hand, shell=True, cwd=where, capture_output=True, text=True, check=False
+    )
+    if moved.returncode != 0:
+        return [f"{label}: the move by hand as printed failed: {moved.stderr}"]
+    dials = yaml.safe_load((consumer.root / "constitution.yaml").read_text())
+    consumer.write("constitution.yaml", yaml.safe_dump({**dials, "root_policy": new}, sort_keys=False))
+    ran = subprocess.run(  # noqa: S602 — as above
+        then, shell=True, cwd=where, capture_output=True, text=True, env=H.environment(), check=False
+    )
+    last = ran.stdout.splitlines()[-1] if ran.stdout else ""
+    if after:
+        if ran.returncode != 1 or ran.stderr.splitlines()[:1] != [after]:
+            return [f"{label}: --moved as printed: exit {ran.returncode}: {ran.stderr}"]
+    elif ran.returncode != 0 or not last.startswith("GREEN: const-referencing: "):
+        return [f"{label}: --moved as printed: exit {ran.returncode}: {ran.stdout}{ran.stderr}"]
+    return []
+
+
+# the fix line of the refusal, typed by hand; {made} is the folder's mkdir where the move made one
+ROUTE = (
+    "move it by hand with {made}git mv -- {old} {new}, set root_policy to {top} in constitution.yaml, a path"
+    " from the repository's top, then run sh \"{script}\" --moved -- {old} {new}; outside the root policy's"
+    " own territory, --moved then meets C9, whose fix follows"
+)
+OUTSIDE = (  # the shared C9, typed by hand
+    "BROKEN: root policy '{path}' lies outside its own territory ['docs/policies/**'] — fix: every chain of"
+    " governance ends at the root; widen root-policy.territory to include it"
+)
+
+
+def root_policy_moved() -> list[str]:
+    """Under governed_only the root policy moved leaves the dials naming a file that is gone. The plan's
+    listing fails after the move, the file is moved back, and the refusal teaches the one route that works:
+    the move by hand, a folder made first where the new one is missing, root_policy set to the new path from
+    the repository's top, then --moved. Every path of a command is given from where the user stands, quoted
+    for the shell, after `--`. The route ends green inside the root policy's own territory; outside it,
+    --moved meets C9. A path holding a backslash is shown escaped, so its route fails as pasted: a stated
+    edge. Before root_policy is set, --moved keeps the shared C6."""
+    s = MOVER.resolve()
+    problems: list[str] = []
+    cases: list[tuple[str, str, str, dict[str, object]]] = [
+        (
+            ROOT,
+            "docs/policies/root.md",
+            ROUTE.format(
+                made="", old=ROOT, new="docs/policies/root.md", top="docs/policies/root.md", script=s
+            ),
+            {},
+        ),
+        (
+            ROOT,
+            "docs/policies/sub/root-policy.md",
+            ROUTE.format(
+                made="mkdir -p -- docs/policies/sub && ",
+                old=ROOT,
+                new="docs/policies/sub/root-policy.md",
+                top="docs/policies/sub/root-policy.md",
+                script=s,
+            ),
+            {},
+        ),
+        (
+            ROOT,
+            "docs/policies/a/b/root.md",
+            ROUTE.format(  # two folders, both new
+                made="mkdir -p -- docs/policies/a/b && ",
+                old=ROOT,
+                new="docs/policies/a/b/root.md",
+                top="docs/policies/a/b/root.md",
+                script=s,
+            ),
+            {},
+        ),
+        (
+            "docs/policies/root policy.md",
+            "docs/policies/root new.md",
+            ROUTE.format(
+                made="",
+                old="'docs/policies/root policy.md'",
+                new="'docs/policies/root new.md'",
+                top="docs/policies/root new.md",
+                script=s,
+            ),
+            {},
+        ),
+        (
+            ROOT,
+            "docs/archive/root-policy.md",
+            ROUTE.format(
+                made="mkdir -p -- docs/archive && ",
+                old=ROOT,
+                new="docs/archive/root-policy.md",
+                top="docs/archive/root-policy.md",
+                script=s,
+            ),
+            {"after": OUTSIDE.format(path="docs/archive/root-policy.md")},
+        ),
+        (
+            ROOT,
+            "-archive/root-policy.md",
+            ROUTE.format(  # a new path that starts with a dash
+                made="mkdir -p -- -archive && ",
+                old=ROOT,
+                new="-archive/root-policy.md",
+                top="-archive/root-policy.md",
+                script=s,
+            ),
+            {
+                "given": ("--", ROOT, "-archive/root-policy.md"),
+                "after": OUTSIDE.format(path="-archive/root-policy.md"),
+            },
+        ),
+        (
+            "docs/policies/-root.md",
+            "docs/policies/new.md",
+            ROUTE.format(  # an old path that starts with a dash
+                made="", old="-root.md", new="new.md", top="docs/policies/new.md", script=s
+            ),
+            {"given": ("--", "-root.md", "new.md"), "here": "docs/policies"},
+        ),
+        (
+            ROOT,
+            "docs/policies/a/root.md",
+            ROUTE.format(  # from a subfolder, with .. paths
+                made="mkdir -p -- ../policies/a && ",
+                old="../policies/root-policy.md",
+                new="../policies/a/root.md",
+                top="docs/policies/a/root.md",
+                script=s,
+            ),
+            {"given": ("../policies/root-policy.md", "../policies/a/root.md"), "here": "docs/notes"},
+        ),
+        (
+            "docs/policies/r\\p.md",
+            "docs/policies/q.md",
+            ROUTE.format(  # shown escaped: a stated edge
+                made="",
+                old="'docs/policies/r\\\\p.md'",
+                new="docs/policies/q.md",
+                top="docs/policies/q.md",
+                script=s,
+            ),
+            {"run": False, "shown": "docs/policies/r\\\\p.md"},
+        ),
+    ]
+    for old, new, fix, more in cases:
+        problems += taught_route(old, new, fix, **more)  # type: ignore[arg-type]
+    # --moved after the move by hand, before root_policy is set: the shared C6, whose own fix fits there
+    consumer = H.fresh_consumer()
+    consumer.write("constitution.yaml", dials_text(own(governed_only=True)))
+    consumer.commit()
+    consumer.git("mv", "--", ROOT, "docs/policies/root.md")
+    early = mover(consumer, "--moved", ROOT, "docs/policies/root.md")
+    shared_c6 = (  # typed by hand
+        "BROKEN: constitution.yaml names root_policy 'docs/policies/root-policy.md' but no such file exists"
+        " — fix: create it, or point root_policy at the policy for policies"
+    )
+    if early.code != 1 or early.stderr.splitlines()[:1] != [shared_c6]:
+        problems.append(f"--moved before root_policy is set: exit {early.code}: {early.stderr}")
+    return problems
+
+
+def fake_git(log: Path, on_move_back: str = "", interrupt: bool = False) -> dict[str, str]:
+    """A git first on PATH that hands every call to the real one. On the second `git mv` of a run, the move
+    back, it first runs `on_move_back`. With `interrupt`, the first `git ls-files` after the first `git mv`
+    sends an interrupt to the mover, as a user's Ctrl-C would. It logs each call's arguments to `log`."""
+    real = shutil.which("git")
+    assert real, "git"
+    folder = H.scratch_dir()
+    mark = folder / "moved"
+    stop = (
+        f"  ls-files) if [ -f {shlex.quote(str(mark))} ] && [ ! -f {shlex.quote(str(mark))}.int ]; then"
+        f" touch {shlex.quote(str(mark))}.int; kill -INT $PPID; sleep 1; fi;;\n"
+        if interrupt
+        else ""
+    )
+    body = (
+        f'printf "%s\\n" "$*" >> {shlex.quote(str(log))}\n'
+        'case "$1" in\n'
+        f"  mv) if [ -f {shlex.quote(str(mark))} ]; then {on_move_back or ':'}; fi;"
+        f" touch {shlex.quote(str(mark))};;\n"
+        f"{stop}"
+        "esac\n"
+        f'exec {shlex.quote(real)} "$@"\n'
+    )
+    fake_program(folder / "git", body)
+    return {"PATH": f"{folder}{os.pathsep}{os.environ['PATH']}"}
+
+
+def move_back_failures() -> list[str]:
+    """The move back itself: refused by git, the closing line says where the file is, then that the act
+    stopped midway; a folder the move made that cannot be removed is said, the file back in its place; an
+    interrupt between the move and the first write moves the file back too."""
+    problems: list[str] = []
+    refused = moving_consumer()
+    log = H.scratch_dir() / "git.log"
+    env = fake_git(log, on_move_back="echo 'fatal: planted' >&2; exit 128")
+    done, _, _ = under_mode(refused, "docs/notes/two.md", 0o444, OLD, NEW, env=env)
+    wanted = (  # typed by hand
+        UNWRITABLE.format(path="docs/notes/two.md")
+        + "\nBROKEN: the move could not be undone — git mv refused to move docs/moved/deep/first.md back to"
+        " docs/notes/one.md: fatal: planted; the file is at docs/moved/deep/first.md\n"
+        + STOPPED_MIDWAY
+        + "\n"
+    )
+    if (done.code, done.stdout, done.stderr) != (1, "", wanted) or not (refused.root / NEW).exists():
+        problems.append(f"a move back git refuses: exit {done.code}: {done.stdout}{done.stderr}")
+    left = moving_consumer()
+    blocker = left.root / "docs/moved/deep/blocker.txt"
+    env = fake_git(H.scratch_dir() / "git.log", on_move_back=f"touch {shlex.quote(str(blocker))}")
+    done, _, _ = under_mode(left, "docs/notes/two.md", 0o444, OLD, NEW, env=env)
+    wanted = (  # typed by hand
+        UNWRITABLE.format(path="docs/notes/two.md")
+        + "\nBROKEN: the move was undone, the file back at docs/notes/one.md, but the folder"
+        " docs/moved/deep it made could not be removed (Directory not empty)\n" + STOPPED_MIDWAY + "\n"
+    )
+    if (done.code, done.stdout, done.stderr) != (1, "", wanted) or not (left.root / OLD).exists():
+        problems.append(f"a folder left after the move back: exit {done.code}: {done.stdout}{done.stderr}")
+    stopped = moving_consumer()
+    state = whole_state(stopped)
+    done = mover(stopped, OLD, NEW, env=fake_git(H.scratch_dir() / "git.log", interrupt=True))
+    if done.code == 0 or "KeyboardInterrupt" not in done.stderr or whole_state(stopped) != state:
+        problems.append(f"an interrupt after the move: exit {done.code}: {done.stdout}{done.stderr}")
+    return problems
+
+
+def notes_only(consumer: Consumer) -> None:
+    consumer.write("constitution.yaml", dials_text(own(territories=["docs/notes/**"])))
+    consumer.commit()
+
+
+def hand_moved(consumer: Consumer) -> None:
+    (consumer.root / NEW).parent.mkdir(parents=True)
+    consumer.git("mv", OLD, NEW)
+
+
+def hand_moved_for_ids(consumer: Consumer) -> None:
+    """The move by hand of item 63, with the one link left that only the id can repair."""
+    hand_moved(consumer)
+    consumer.write("docs/notes/two.md", TWO.replace(", [r]", "").replace("[r]: one.md\n", ""))
 
 
 STOPPED_NOTHING = "BROKEN: the move could not run — nothing was changed"
@@ -1993,21 +2555,19 @@ def test_mover_says_when_it_stopped_midway() -> None:
         and (consumer.root / NEW).exists()
     )
     assert ok, done.stdout + done.stderr
-    # a defect inside the mover is said as one, and then the act is said to have stopped midway
-    readonly = moving_consumer()
-    locked = readonly.root / "docs/notes/two.md"
-    locked.chmod(0o444)
-    try:
-        defect = mover(readonly, OLD, NEW)
-    finally:
-        locked.chmod(0o644)
-    first, second = defect.stderr.splitlines()[:2]
-    assert defect.code == 1 and second == STOPPED_MIDWAY, defect.stderr
-    assert first.startswith("BROKEN: unexpected failure inside the checker: PermissionError: "), first
-    assert first.endswith(
-        " — fix: this is a defect of the gate, not of the repository; report it, with the traceback below, to"
-        " whoever maintains the plugin — until it is fixed do not move documents with it"
-    ), first
+    # --moved moves nothing itself: its first rewrite is what makes a later failure a stop midway
+    by_hand = moving_consumer()
+    hand_moved(by_hand)
+    late = subprocess.run(
+        [H.sh, str(MOVER), "--moved", OLD, NEW],
+        cwd=by_hand.root,
+        capture_output=True,
+        text=True,
+        env=merged,
+        check=False,
+    )
+    lines = late.stderr.splitlines()
+    assert late.returncode == 1 and STOPPED_MIDWAY in lines and STOPPED_NOTHING not in lines, late.stderr
 
 
 @item(82, "the mover keeps CRLF and a byte order mark, and leaves a file that is not UTF-8 alone")

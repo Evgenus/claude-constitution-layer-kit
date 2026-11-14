@@ -2,14 +2,14 @@
   "const-catalogs": {
     "attempts": [
       {
-        "at": "2026-11-13T02:30:48Z",
+        "at": "2026-11-14T12:14:11Z",
         "cases": 1,
         "passed": 1,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:46d0aabf795fa53e127de6884e2f9dbb5b1522fc559a7ef40bc8d93d46301f06",
+    "hash": "sha256:fd1b31b64d7360ac6879b1e51d506f77c4d2d69b90612fa75769261e3eb5f8f4",
     "model": "claude-opus-5-5"
   },
   "const-change-cost": {
@@ -54,14 +54,14 @@
   "const-interaction": {
     "attempts": [
       {
-        "at": "2026-11-13T15:23:20Z",
+        "at": "2026-11-14T12:17:36Z",
         "cases": 1,
         "passed": 1,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:6cee1df5eceeda3602d99415a36eaf4a3c45e7e3810757be9d5aa2dc8fb7a896",
+    "hash": "sha256:44f18ab477a935ddb1a4c52317d66d51e69d063592a36beb0c9f90da15407bf0",
     "model": "claude-opus-5-5"
   },
   "const-language": {
@@ -119,14 +119,14 @@
   "const-referencing": {
     "attempts": [
       {
-        "at": "2026-11-12T22:38:46Z",
+        "at": "2026-11-14T12:17:18Z",
         "cases": 2,
         "passed": 2,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:01035d921fceaab85f6291c2f0be55a06376c0094871e44858199417385275a7",
+    "hash": "sha256:68ed93fdaf5b4095abe61d209e7c6db2907817917dea721f1f40b9ff38646e88",
     "model": "claude-opus-5-5"
   },
   "const-styling": {
@@ -145,14 +145,14 @@
   "const-task-close": {
     "attempts": [
       {
-        "at": "2026-11-12T22:41:56Z",
+        "at": "2026-11-14T12:16:24Z",
         "cases": 2,
         "passed": 2,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:0672244b0bcbc8983cfa6758e9323c4e2df9fbc17e25e219166f2a0d47827d99",
+    "hash": "sha256:0ad2287767bc164971d18317ab93a4a694d82b6816ffcb73bd8e6044c2dd6f95",
     "model": "claude-opus-5-5"
   }
 }

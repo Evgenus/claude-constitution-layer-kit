@@ -54,7 +54,7 @@ A code change may leave a pair's documents true — comments reworded, a formatt
 helper the page never describes. In that case, say so where the check reads it, one line per pair:
 
 - **As a trailer** on a commit of the change. It stands in the message's **last paragraph, where every line is
-  `Key: value`** — one line without a colon hides the whole paragraph from git:
+  `Key: value`** — one line without a colon can hide the whole paragraph from git:
   `No-Doc-Impact: <pair name> — <why the documents are unaffected>`
 - **Or in the description:** the same line on its own in the pull request's description. It is read
   only where the description is given to the check with `--body <file>`; where it is not, the
