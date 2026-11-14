@@ -19,6 +19,7 @@ import os
 import re
 import shlex
 import shutil
+import signal
 import site
 import subprocess
 import sys
@@ -1558,6 +1559,7 @@ class SharedItems:
             "C12.9": messages.c12_invocation("bad " + "a\nb" + "c" * 100),
             "C12.10": messages.c12_unreadable(path),
             "C12.11": messages.c12_unexpected("ValueError: " + "v" * 100),
+            "C12.16": messages.c12_unreachable(path, "Permission\n" + "d" * 100),
             "C13": messages.c13_log_dir_not_ignored(path),
             "C16": messages.c16_shared_too_old(self.ns, "1.0.1", "1.0.0", path, VERSION_UNTIL),
             "C17": messages.c17_module_too_old(self.ns, "1.4.2", "2.0.0", path, VERSION_UNTIL),
@@ -1604,8 +1606,11 @@ class SharedItems:
             + "… [107 characters] — fix: "
             + messages.USAGE,
             "C12.10": f"BROKEN: {esc} is listed by git but cannot be read — fix: check that the file can be"
-            " read: its permissions, or a link that leads nowhere",
+            " read: its permissions, those of a folder above it, or a name too long for the system",
             "C12.11": "unexpected failure inside the checker: ValueError: " + "v" * 68 + "… [112 characters]",
+            "C12.16": f"BROKEN: {esc} cannot be reached (Permission\\n{'d' * 69}… [111 characters]), so"
+            " nobody can say what stands there — fix: make the folders above it searchable — their"
+            " permissions — then run it again",
             "C13": f"BROKEN: {self.file}: {self.ns}.log_dir '{esc}' is not ignored by git — fix: a log"
             " inside the working tree must be git-ignored, or every verdict dirties the tree; add the"
             " directory to .gitignore, or remove the key",
@@ -2419,13 +2424,15 @@ def test_copy_with_links_followed(subject: Subject) -> None:
 
 @item(
     141,
-    "not fail-open: an unexpected exception exits 1, BROKEN first, the traceback after; an interrupt exits"
-    " 130 with its line and the closing line",
+    "not fail-open: an unexpected exception exits 1, BROKEN first, the traceback after; an interrupt prints"
+    " its line and dies by the signal, so a shell's loop stops",
 )
 def test_unexpected_failure(subject: Subject) -> None:
     """Not fail-open: an exception nobody planned for exits 1, its BROKEN line first, the closing line
     after it, then the traceback, and nothing before them. An interrupt (Ctrl-C), raised where the
-    exception was, is no defect: exit 130, its line typed by hand and the closing line, no traceback."""
+    exception was, is no defect: its line alone, typed by hand, no closing line and no traceback, and the
+    process dies by the interrupt, as Python does for one nobody caught. So a shell's loop over the entry,
+    sent Ctrl-C as a terminal sends it to the whole group, stops at once."""
     it = shared(subject, "unexpected_failure")
     shadow = it.h.scratch_dir()
     (shadow / "yaml.py").write_text(
@@ -2443,13 +2450,60 @@ def test_unexpected_failure(subject: Subject) -> None:
         encoding="utf-8",
     )
     stopped, _ = it.s.gate_on(it.s.valid, env={"PYTHONPATH": str(stop)})
-    line = (  # typed by hand
-        "BROKEN: interrupted before the run was done — fix: run it again, and let it finish; the line below"
-        " says what had been done by then"
+    wanted = "BROKEN: interrupted before the run was done — fix: run it again, and let it finish\n"  # by hand
+    said = f"wanted death by SIGINT, stderr {wanted!r}; got exit {stopped.code}: {stopped.stderr[:600]}"
+    assert (stopped.code, stopped.stderr) == (-signal.SIGINT, wanted), said
+    # a signal that does not end the process, stood in for by an os.kill that sends nothing to the process
+    # itself: the exit is 130, as a shell reports an interrupt, never the 1 of a failure
+    held = it.h.scratch_dir()
+    (held / "yaml.py").write_text(
+        "import os, signal\n_kill = os.kill\n\n\ndef _held(pid, sig):\n"
+        "    if not (pid == os.getpid() and sig == signal.SIGINT):\n        _kill(pid, sig)\n\n\n"
+        "os.kill = _held\n\n\nclass YAMLError(Exception): pass\n\n\n"
+        "def safe_load(text): raise KeyboardInterrupt\n",
+        encoding="utf-8",
     )
-    wanted = f"{line}\n{it.s.closing}\n"
-    said = f"wanted exit 130, stderr {wanted!r}; got exit {stopped.code}: {stopped.stderr[:600]}"
-    assert (stopped.code, stopped.stderr) == (130, wanted), said
+    lived, _ = it.s.gate_on(it.s.valid, env={"PYTHONPATH": str(held)})
+    said = f"wanted exit 130, stderr {wanted!r}; got exit {lived.code}: {lived.stderr[:600]}"
+    assert (lived.code, lived.stderr) == (130, wanted), said
+    interrupted_loop(it)
+
+
+def interrupted_loop(it: SharedItems) -> None:
+    """A shell's loop of three runs of the entry, sent Ctrl-C as a terminal sends it, to the whole process
+    group, from inside the first run: the loop stops there, as it does when Python dies by an interrupt."""
+    _, root = it.s.gate_on(it.s.valid)
+    group = it.h.scratch_dir()
+    (group / "yaml.py").write_text(
+        "import os, signal\n\n\nclass YAMLError(Exception): pass\n\n\n"
+        "def safe_load(text): os.killpg(os.getpgid(0), signal.SIGINT)\n",
+        encoding="utf-8",
+    )
+    if it.s.scan_only:
+        stdin, args, where = "", it.scan_args(root), None
+    elif it.s.event_driven:
+        stdin, args, where = it.payload(root, it.s.valid), [], None
+    else:
+        stdin, args, where = "", list(it.s.act_args), root
+    given = group / "stdin"
+    given.write_text(stdin, encoding="utf-8")
+    run = " ".join(shlex.quote(a) for a in [it.h.sh, str(it.h.wrapper), *args])
+    loop = (
+        f'for i in 1 2 3; do {run} < {shlex.quote(str(given))} > /dev/null 2>&1; echo "after $i rc=$?"; done;'
+        " echo loop-done"
+    )
+    done = subprocess.run(
+        [it.h.sh, "-c", loop],
+        cwd=where,
+        env=it.h.environment({"PYTHONPATH": str(group)}),
+        capture_output=True,
+        text=True,
+        check=False,
+        start_new_session=True,
+        timeout=60,
+    )
+    said = f"wanted the loop stopped in its first run; got exit {done.returncode}: {done.stdout!r}"
+    assert "loop-done" not in done.stdout and "after 2" not in done.stdout, said
 
 
 @item(142, "an Edit event without its documented fields is a configuration failure")
@@ -2633,6 +2687,24 @@ def test_dials_unreadable(subject: Subject) -> None:
         " the file's permissions"
     )
     it.unreadable(dials, again, line)
+    # the file a link leads to, in a folder nobody may search: asked the same way on every Python, the
+    # same failure. Path.is_file raises there before 3.14 and returns False from 3.14 on, which would run
+    # the gate as if the project had no dials file
+    vault = root / "vault"
+    vault.mkdir()
+    real = vault / "dials.yaml"
+    dials.rename(real)
+    dials.symlink_to(real)
+    it.unreadable(vault, again, line)
+    # the other side: a link that leads nowhere is an absent file, as before
+    real.unlink()
+    linked = again()
+    dials.unlink()
+    absent = again()
+    said = f"BROKEN: {it.file} cannot be read"
+    assert linked == absent and said not in absent.stderr, (
+        f"a link that leads nowhere: {linked}; no file: {absent}"
+    )
 
 
 @item(156, "C12.10: a document git lists and the scan cannot read is a configuration failure")
@@ -2644,7 +2716,7 @@ def test_document_unreadable(subject: Subject) -> None:
     _, root = it.s.gate_on(it.s.valid, files={sibling: it.s.valid.text})
     line = (
         f"BROKEN: {sibling} is listed by git but cannot be read — fix: check that the file can be read:"
-        " its permissions, or a link that leads nowhere"
+        " its permissions, those of a folder above it, or a name too long for the system"
     )
     it.unreadable(root / sibling, lambda: it.h.run_gate("", args=["--scan", str(root)]), line)
     # a document behind a folder nobody may search: the same failure on every Python. Path.is_file raises
@@ -2658,9 +2730,48 @@ def test_document_unreadable(subject: Subject) -> None:
     subprocess.run(["git", *who, "commit", "-qm", "shut"], cwd=root, check=True, capture_output=True)
     line = (
         f"BROKEN: {hidden} is listed by git but cannot be read — fix: check that the file can be read:"
-        " its permissions, or a link that leads nowhere"
+        " its permissions, those of a folder above it, or a name too long for the system"
     )
     it.unreadable(root / shut, lambda: it.h.run_gate("", args=["--scan", str(root)]), line)
+    # a name too long for the system, standing only in git's index: in a folder that exists the system
+    # answers that the name is too long, C12.10 with that cause named; in a missing folder it answers that
+    # the folder is missing first, and the entry is left out as a deleted file is
+    long_name = "n" * 300 + ".md"
+    for folder, said in ((str(Path(it.s.valid.target).parent), True), ("docs/gone", False)):
+        _, root = it.s.gate_on(it.s.valid)
+        if said:
+            (root / folder).mkdir(parents=True, exist_ok=True)
+        entry = f"{folder}/{long_name}"
+        index_only(root, entry, it.s.valid.text)
+        result = it.h.run_gate("", args=["--scan", str(root)])
+        line = (
+            f"BROKEN: {entry} is listed by git but cannot be read — fix: check that the file can be read:"
+            " its permissions, those of a folder above it, or a name too long for the system"
+        )
+        if said:
+            it.broken_as_typed(result, line)
+        else:
+            assert "cannot be read" not in result.stderr, f"{entry}: {result.stderr}"
+
+
+def index_only(root: Path, rel: str, text: str) -> None:
+    """A committed entry of git's index with no file on disk: git keeps a name the system refuses."""
+    who = ["-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid"]
+    blob = subprocess.run(
+        ["git", "hash-object", "-w", "--stdin"],
+        cwd=root,
+        input=text,
+        text=True,
+        capture_output=True,
+        check=True,
+    ).stdout.strip()
+    subprocess.run(
+        ["git", "update-index", "--add", "--cacheinfo", f"100644,{blob},{rel}"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(["git", *who, "commit", "-qm", "index only"], cwd=root, check=True, capture_output=True)
 
 
 @item(157, "C4: a dials file that is not UTF-8 is C4, its line and column named, never a defect of the gate")
@@ -2710,7 +2821,7 @@ def test_policy_unreadable(subject: Subject) -> None:
 
     line = (
         f"BROKEN: {policy} is listed by git but cannot be read — fix: check that the file can be read:"
-        " its permissions, or a link that leads nowhere"
+        " its permissions, those of a folder above it, or a name too long for the system"
     )
     it.unreadable(root / policy, again, line)
     said = (runs[-1].stdout + runs[-1].stderr).splitlines()
@@ -4754,7 +4865,8 @@ def test_effect_shared_entry(subject: Subject) -> None:
     """`python3 -m constitution_layer_kit.effect` asks `claude plugin list --json`: of four plugins, one
     enabled for this project with an effect entry, one enabled for it with none, one disabled, one enabled
     for another project, the headline counts 1 report of 2 enabled and the entry's own report follows, run
-    with the same flags. A list that is no JSON is the U6 failure, exit 1, nothing run."""
+    with the same flags. A plugin enabled for it and installed behind a folder nobody may search is a note
+    after the headline, on every Python. A list that is no JSON is the U6 failure, exit 1, nothing run."""
     it = shared(subject, "effect_shared_entry")
     root = it.h.fresh_consumer().root
     other, bare = it.h.scratch_dir(), it.h.scratch_dir()
@@ -4783,6 +4895,29 @@ def test_effect_shared_entry(subject: Subject) -> None:
         and sum(line.startswith("EFFECT: ") for line in lines) == 2
     )
     assert ok, f"exit {result.code}; stdout {result.stdout!r}; stderr {result.stderr!r}"
+    # an enabled plugin installed behind a folder nobody may search: said in a note, never passed over
+    if os.geteuid() != 0:
+        vault = it.h.scratch_dir() / "shut"
+        (vault / "plugin").mkdir(parents=True)
+        hidden = [
+            *json.loads(listed),
+            {"id": "e@m", "enabled": True, "installPath": str(vault / "plugin"), "projectPath": str(root)},
+        ]
+        (folder / "list.json").write_text(json.dumps(hidden), encoding="utf-8")
+        vault.chmod(0)
+        try:
+            unreached = effect_run(it, root, "--since", "2026-11-03", env=env, command=shared_entry)
+        finally:
+            vault.chmod(0o755)
+        note = (  # typed by hand
+            f"note: the effect report of e@m cannot be reached at {vault}/plugin/scripts/effect-report.sh"
+            " (Permission denied); it was not run"
+        )
+        said = unreached.stdout.splitlines()
+        assert unreached.code == 0 and said[:2] == [
+            "EFFECT: 1 plugin(s) with an effect report, of 3 enabled for this project",
+            note,
+        ], f"exit {unreached.code}; stdout {unreached.stdout!r}"
     broken = fake_claude(it.h.scratch_dir(), "echo 'this is no list'\n")
     failed = effect_run(it, root, env=broken, command=shared_entry)
     wanted = (  # typed by hand

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import os
 import re
+import stat
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
@@ -38,6 +39,7 @@ from .model import (
     Namespace,
     Severity,
 )
+from .repository import stat_or_none
 
 SEVERITY_KEY = "severity"
 LOG_DIR_KEY = "log_dir"
@@ -78,7 +80,11 @@ def _read(root: Path) -> dict[object, object] | None:
     """The file the declared identity names, parsed: None when absent, else a mapping or a
     ConfigurationFailure."""
     path = root / identity.dials_file()
-    if not path.is_file():
+    try:  # asked of the system the same way on every Python: a link into a folder nobody may search is no
+        found = stat_or_none(path)  # absent file, but one nobody can read
+    except OSError as exc:
+        raise ConfigurationFailure(messages.c12_dials_unreadable(str(exc))) from exc
+    if found is None or not stat.S_ISREG(found.st_mode):
         return None
     try:
         text = path.read_text(encoding="utf-8")

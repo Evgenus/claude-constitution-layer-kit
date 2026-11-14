@@ -16,7 +16,9 @@ whether the installed release serves the module, else the one line to print befo
 from __future__ import annotations
 
 import argparse
+import os
 import re
+import signal
 import sys
 import traceback
 from collections.abc import Callable, Mapping, Sequence
@@ -163,7 +165,11 @@ def guarded(
     then imports what needs the declared libraries; a session-start printer does the same, in hook
     mode, with no arguments to parse and a closing line saying the gate's state is not said.
     `could_not_run` is the line that closes a
-    failure: a gate's says that nothing was examined, a generator's that nothing was changed. The
+    failure: a gate's says that nothing was examined, a generator's that nothing was changed. An interrupt
+    is no failure of that kind, and the guard makes no claim of its own about what was done by then: it
+    prints `C12.15` alone, then dies by the interrupt (`die_by_interrupt`). Only a closing callable that
+    also carries `interrupted`, a method returning a line made for an interrupt from the entry's own state,
+    has that line printed after `C12.15`. The
     gate and the mode are declared for the length of the run, in one scope of `identity.declared` that the
     guard opens around everything it does — the output, the body, the failure lines and the flush — and
     closes before it returns the exit code: a hook starts the run's one deadline, `gate.hook_seconds` from the
@@ -172,6 +178,7 @@ def guarded(
     # first: every text, the log, the git calls and the deadline ask who and how
     with identity.declared(gate, mode):
         output = Output(mode)
+        interrupted = False
         try:
             return body(output)
         except ConfigurationFailure as failure:
@@ -182,10 +189,23 @@ def guarded(
             output.err(messages.c12_unexpected(f"{type(exc).__name__}: {exc}").render())
             output.err(could_not_run())
             output.err(traceback.format_exc().rstrip())
-        except KeyboardInterrupt:  # an interrupt is no defect: its line, then the closing line, no traceback
+        except KeyboardInterrupt:  # no defect, and no claim of the guard's own about what was done
+            interrupted = True
             output.err(messages.c12_interrupted().render())
-            output.err(could_not_run())
-            return EXIT_INTERRUPTED
+            own = getattr(could_not_run, "interrupted", None)  # a line the entry made for an interrupt
+            if callable(own):
+                output.err(own())
         finally:
             output.flush()
+        if interrupted:
+            return die_by_interrupt()
         return EXIT_BROKEN
+
+
+def die_by_interrupt() -> int:
+    """End the process by the interrupt it was sent, as Python does for one nobody caught: the default action
+    restored, the signal sent to the process itself. A shell then sees a child killed by SIGINT, shows 130,
+    and stops a loop as it would on Ctrl-C. Where the signal does not end the process, the exit is 130."""
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    os.kill(os.getpid(), signal.SIGINT)
+    return EXIT_INTERRUPTED

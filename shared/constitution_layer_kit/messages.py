@@ -430,7 +430,17 @@ def c12_unreadable(rel: str) -> Broken:
     return Broken(
         SharedKey.C12,
         f"{escaped(rel)} is listed by git but cannot be read",
-        "check that the file can be read: its permissions, or a link that leads nowhere",
+        "check that the file can be read: its permissions, those of a folder above it, or a name too long for"
+        " the system",
+    )
+
+
+def c12_unreachable(path: str, reason: str) -> Broken:
+    """A path the run must ask about, behind a folder nobody may search: `reason` is the system's words."""
+    return Broken(
+        SharedKey.C12,
+        f"{escaped(path)} cannot be reached ({echoed(reason)}), so nobody can say what stands there",
+        "make the folders above it searchable — their permissions — then run it again",
     )
 
 
@@ -438,7 +448,7 @@ def c12_interrupted() -> Broken:
     return Broken(
         SharedKey.C12,
         "interrupted before the run was done",
-        "run it again, and let it finish; the line below says what had been done by then",
+        "run it again, and let it finish",
     )
 
 
@@ -689,6 +699,13 @@ def u6_headline(reports: int, enabled: int) -> str:
 
 def u6_report_failed(plugin: str, code: int) -> str:
     return f"note: the effect report of {escaped(plugin)} exited {code}; its lines above say why"
+
+
+def u6_unreachable(plugin: str, entry: str, reason: str) -> str:
+    return (
+        f"note: the effect report of {escaped(plugin)} cannot be reached at {escaped(entry)}"
+        f" ({echoed(reason)}); it was not run"
+    )
 
 
 def u6_no_list(detail: str) -> Broken:

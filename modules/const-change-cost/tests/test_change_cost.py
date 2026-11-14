@@ -824,6 +824,74 @@ def test_commits_not_counted(clone: Clone) -> None:
     ]
 
 
+UNREACHED = (  # C12.16, typed by hand
+    "BROKEN: {path} cannot be reached (Permission denied), so nobody can say what stands there — fix: make"
+    " the folders above it searchable — their permissions — then run it again"
+)
+
+
+def shut_while(folder: Path, mode: int, run: Callable[[], Result]) -> Result:
+    """`run` with `folder` at `mode`, its mode set back whatever happens."""
+    folder.chmod(mode)
+    try:
+        return run()
+    finally:
+        folder.chmod(0o755)
+
+
+@item(34, "a path the count cannot reach is the shared C12.16, never a count that runs short or a skip")
+def test_unreachable_paths(clone: Clone, tmp_path: Path) -> None:
+    """A folder nobody may search, on every Python. Path.is_file and Path.is_dir raise there before 3.14 and
+    return False from 3.14 on, where the start hook logged nothing and said nothing, a run by hand lost its
+    data folder, and the count left out a transcript. A folder os.walk cannot list was passed over on every
+    Python. Each is now C12.16 and its entry's closing line, exit 1, nothing logged or kept. As root a mode
+    bit denies nothing, and these cases are not exercised."""
+    if os.geteuid() == 0:
+        return  # NOT EXERCISED: running as root, where a mode bit does not deny a search
+    vault = tmp_path / "vault"
+    inside = vault / "in"
+    inside.mkdir(parents=True)
+    # the start hook, in a folder nobody may search
+    started = shut_while(vault, 0o000, lambda: start_hook(clone, payload(S1, inside)))
+    assert (started.code, started.stdout, started.stderr.splitlines()) == (
+        1,
+        "",
+        [UNREACHED.format(path=inside), START_CLOSING],
+    ), started.stderr
+    assert not (clone.folder / "starts.jsonl").exists(), "a start was logged"
+    # a run by hand, whose recorded data folder stands behind it
+    clone.start(S1, 0)
+    clone.append_record(S1, 14)
+    clone.commit("a" * 40, 13, S1)
+    logs.record_plugin_data(clone.folder, str(inside))
+    by_hand = shut_while(vault, 0o000, lambda: clone.count("--all", env={"CLAUDE_PLUGIN_DATA": ""}))
+    count_failed(by_hand, inside, clone)
+    # a resumed start whose transcript stands behind it: the first transcript alone would count short
+    elsewhere = inside / f"{S1}.jsonl"
+    elsewhere.write_text(user_record(S1, 20), encoding="utf-8")
+    clone.start(S1, 1, source="resume", path=elsewhere)
+    count_failed(shut_while(vault, 0o000, lambda: clone.count("--all")), elsewhere, clone)
+    elsewhere.unlink()
+    # a .jsonl in the session's folder, which can be listed and not searched
+    own = clone.projects / S1
+    (own / "extra.jsonl").write_text(user_record(S1, 21), encoding="utf-8")
+    listed = shut_while(own, 0o444, lambda: clone.count("--all"))
+    count_failed(listed, own / "extra.jsonl", clone)
+    (own / "extra.jsonl").unlink()
+    # the agents' folder, which os.walk cannot list
+    agents = own / "subagents"
+    count_failed(shut_while(agents, 0o000, lambda: clone.count("--all")), agents, clone)
+
+
+def count_failed(result: Result, path: Path, clone: Clone) -> None:
+    assert (result.code, result.stdout, result.stderr.splitlines()[:2]) == (
+        1,
+        "",
+        [UNREACHED.format(path=path), messages.j4_not_counted()],
+    ), result.stderr
+    assert clone.kept() == [], "a count was kept"
+
+
 # ------------------------------------------------------------------ T19, T20: where ccusage stands, the pin
 
 
@@ -1375,7 +1443,7 @@ class Entry:
     clause: str
     closing: str
     c2_clause: str  # the identity's clause, which closes the shared C2 alone for a generator
-    requires: str = "2.0.0"  # the release of the shared package the entry file states
+    requires: str = "2.6.0"  # the release of the shared package the entry file states
 
     def tail(self) -> str:
         return f" — {self.clause}" if self.clause else ""
@@ -1384,10 +1452,10 @@ class Entry:
 def entries(clone: Clone) -> list[Entry]:
     return [
         Entry(H, "count-costs.py", ("--all",), "", "", CLOSING, CLAUSE),
-        Entry(HS, "session-start.py", (), payload(S1, clone.root), "", START_CLOSING, START_CLAUSE, "2.1.0"),
+        Entry(HS, "session-start.py", (), payload(S1, clone.root), "", START_CLOSING, START_CLAUSE),
         Entry(HU, "setup-commit-log.py", (), "", "", SETUP_CLOSING, SETUP_C2_CLAUSE),
-        Entry(HR, "cost-report.py", (), "", "", REPORT_CLOSING, REPORT_C2_CLAUSE, "2.1.0"),
-        Entry(HE, "effect-report.py", (), "", "", EFFECT_CLOSING, EFFECT_C2_CLAUSE, "2.2.0"),
+        Entry(HR, "cost-report.py", (), "", "", REPORT_CLOSING, REPORT_C2_CLAUSE),
+        Entry(HE, "effect-report.py", (), "", "", EFFECT_CLOSING, EFFECT_C2_CLAUSE),
     ]
 
 

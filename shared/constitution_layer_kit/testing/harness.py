@@ -90,6 +90,37 @@ subprocess.run = _unclocked
 """
 
 
+# Loaded at the start of a gate's process through a `sitecustomize` the test puts first on PYTHONPATH: it
+# sends the process itself the interrupt (SIGINT) at the nth call of a Python function. The spec is
+# `name[@caller]:n[,…]`, `name` a function's own name, `caller` the name of the function that calls it.
+INTERRUPT_AT = """import os, signal, sys
+_wanted = {}
+for _item in os.environ.get("INTERRUPT_AT", "").split(","):
+    if _item:
+        _key, _, _n = _item.rpartition(":")
+        _wanted.setdefault(_key, set()).add(int(_n))
+_seen = {}
+def _profile(frame, event, arg):
+    if event != "call":
+        return
+    name = frame.f_code.co_name
+    caller = frame.f_back.f_code.co_name if frame.f_back is not None else ""
+    for key in (name, name + "@" + caller):
+        if key in _wanted:
+            _seen[key] = _seen.get(key, 0) + 1
+            if _seen[key] in _wanted[key]:
+                os.kill(os.getpid(), signal.SIGINT)
+if _wanted:
+    sys.setprofile(_profile)
+"""
+
+
+def interrupt_at(folder: Path, spec: str) -> dict[str, str]:
+    """The environment that interrupts a gate's process at the calls `spec` names (`INTERRUPT_AT`)."""
+    (folder / "sitecustomize.py").write_text(INTERRUPT_AT, encoding="utf-8")
+    return {"PYTHONPATH": str(folder), "INTERRUPT_AT": spec}
+
+
 def fake_program(path: Path, body: str) -> Path:
     """A fake program at `path`: a shell script that runs `body`, made executable and started once. The
     first start of a file just made executable is slow on a loaded machine (0.2 to 3.1 s measured on macOS
