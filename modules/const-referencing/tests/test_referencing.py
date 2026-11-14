@@ -1709,6 +1709,60 @@ def test_refusals_change_nothing() -> None:
         broken_first_line(result, line)
         assert STOPPED_NOTHING in result.stderr.splitlines(), result.stderr
     assert tree_state(more) == more_before, "a refusal changed the tree"
+    refused_unreachable()
+
+
+def refused_unreachable() -> None:
+    """A path the mover was given behind a folder nobody may search is a refusal of its own, typed whole,
+    on every Python: never read as absent, never a defect line. Path.exists and Path.is_file raise there
+    before 3.14 and return False from 3.14 on, where --moved went on as if the old file were gone. As root
+    a mode bit denies nothing, and these cases are not exercised."""
+    if os.geteuid() == 0:
+        return  # NOT EXERCISED: running as root, where a mode bit does not deny a search
+    unreachable = (  # typed by hand
+        "BROKEN: {path} cannot be reached (Permission denied), so nobody can say whether it is there — fix:"
+        " make the folders above it searchable — their permissions — then run the mover again"
+    )
+    shut = "docs/shut"
+
+    def by_hand(c: Consumer) -> None:  # moved by hand out of the shut folder, and a file there again
+        c.git("mv", f"{shut}/one.md", "docs/notes/three.md")
+        c.write(f"{shut}/one.md", ONE)
+
+    cases: list[tuple[str, Callable[[Consumer], None], tuple[str, ...], str]] = [
+        (
+            "--moved, the old path",
+            by_hand,
+            ("--moved", f"{shut}/one.md", "docs/notes/three.md"),
+            f"{shut}/one.md",
+        ),
+        # a file the move would move, or a folder it would move into, that holds no Markdown: a document there
+        # is the shared listing's C12.10 first, a stated failure too
+        (
+            "a move, the file to move",
+            lambda c: None,
+            (f"{shut}/keep.txt", "docs/keep.txt"),
+            f"{shut}/keep.txt",
+        ),
+        ("a move, the new path", lambda c: None, (OLD, f"{shut}/two.md"), f"{shut}/two.md"),
+    ]
+    for name, setup, arguments, path in cases:
+        kept = Write(f"{shut}/one.md", ONE) if setup is by_hand else Write(f"{shut}/keep.txt", "kept\n")
+        consumer = H.fresh_consumer((Write(OLD, ONE), Write("docs/notes/two.md", TWO), kept))
+        setup(consumer)
+        before = tree_state(consumer)
+        folder = consumer.root / shut
+        folder.chmod(0o000)
+        try:
+            done = mover(consumer, *arguments)
+        finally:
+            folder.chmod(0o755)
+        assert (done.code, done.stdout, done.stderr) == (
+            1,
+            "",
+            unreachable.format(path=path) + "\n" + STOPPED_NOTHING + "\n",
+        ), f"{name}: {done}"
+        assert tree_state(consumer) == before, f"{name}: a refusal changed the tree"
 
 
 @item(65, "with no dials file the mover refuses before it moves")

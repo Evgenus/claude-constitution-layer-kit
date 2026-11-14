@@ -105,6 +105,7 @@ The tests of [item 8 of §2](GATE.md#g2) stop with lines of their own, from `con
 | U6.1 | `note: the effect report of {plugin} exited {code}; its lines above say why` |
 | U6.2 | `BROKEN: the plugin list could not be read: {detail} — fix: install Claude Code with claude on PATH, then run claude plugin list --json in this project and read why it fails` |
 | U6.3 | closing line: `BROKEN: the effect reports could not run — no plugin read` |
+| U6.4 | `note: the effect report of {plugin} cannot be reached at {entry} ({reason}); it was not run`, after the headline, which counts only the reports it ran; `{reason}` is the system's own words |
 | U7 | `note: {module}: {key}: the plugin list could not be read ({detail}) — whether the plugin is enabled is not counted` |
 | U7.1 | `note: {module}: {key}: the plugin list names this plugin for no scope of this project — whether it is enabled is not counted` |
 | U7.2 | `note: {module}: {key}: the history of {dials file} could not be read in full ({detail}) — the changes it failed on are not counted` |

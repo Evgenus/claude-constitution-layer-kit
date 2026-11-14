@@ -528,6 +528,13 @@ def v5_parent_is_a_file(path: str) -> Broken:
     )
 
 
+def v5_unreachable(path: str, reason: str) -> Broken:
+    return v5_refused(
+        f"{escaped(path)} cannot be reached ({echoed(reason)}), so nobody can say whether it is there",
+        "make the folders above it searchable — their permissions — then run the mover again",
+    )
+
+
 def v5_unreadable(path: str, reason: str) -> Broken:
     return v5_refused(
         f"{escaped(path)} is a document the mover must read, and it cannot be read ({echoed(reason)}),"

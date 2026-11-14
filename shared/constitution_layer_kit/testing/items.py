@@ -2670,6 +2670,24 @@ def test_dials_unreadable(subject: Subject) -> None:
         " the file's permissions"
     )
     it.unreadable(dials, again, line)
+    # the file a link leads to, in a folder nobody may search: asked the same way on every Python, the
+    # same failure. Path.is_file raises there before 3.14 and returns False from 3.14 on, which would run
+    # the gate as if the project had no dials file
+    vault = root / "vault"
+    vault.mkdir()
+    real = vault / "dials.yaml"
+    dials.rename(real)
+    dials.symlink_to(real)
+    it.unreadable(vault, again, line)
+    # the other side: a link that leads nowhere is an absent file, as before
+    real.unlink()
+    linked = again()
+    dials.unlink()
+    absent = again()
+    said = f"BROKEN: {it.file} cannot be read"
+    assert linked == absent and said not in absent.stderr, (
+        f"a link that leads nowhere: {linked}; no file: {absent}"
+    )
 
 
 @item(156, "C12.10: a document git lists and the scan cannot read is a configuration failure")
@@ -4830,7 +4848,8 @@ def test_effect_shared_entry(subject: Subject) -> None:
     """`python3 -m constitution_layer_kit.effect` asks `claude plugin list --json`: of four plugins, one
     enabled for this project with an effect entry, one enabled for it with none, one disabled, one enabled
     for another project, the headline counts 1 report of 2 enabled and the entry's own report follows, run
-    with the same flags. A list that is no JSON is the U6 failure, exit 1, nothing run."""
+    with the same flags. A plugin enabled for it and installed behind a folder nobody may search is a note
+    after the headline, on every Python. A list that is no JSON is the U6 failure, exit 1, nothing run."""
     it = shared(subject, "effect_shared_entry")
     root = it.h.fresh_consumer().root
     other, bare = it.h.scratch_dir(), it.h.scratch_dir()
@@ -4859,6 +4878,29 @@ def test_effect_shared_entry(subject: Subject) -> None:
         and sum(line.startswith("EFFECT: ") for line in lines) == 2
     )
     assert ok, f"exit {result.code}; stdout {result.stdout!r}; stderr {result.stderr!r}"
+    # an enabled plugin installed behind a folder nobody may search: said in a note, never passed over
+    if os.geteuid() != 0:
+        vault = it.h.scratch_dir() / "shut"
+        (vault / "plugin").mkdir(parents=True)
+        hidden = [
+            *json.loads(listed),
+            {"id": "e@m", "enabled": True, "installPath": str(vault / "plugin"), "projectPath": str(root)},
+        ]
+        (folder / "list.json").write_text(json.dumps(hidden), encoding="utf-8")
+        vault.chmod(0)
+        try:
+            unreached = effect_run(it, root, "--since", "2026-11-03", env=env, command=shared_entry)
+        finally:
+            vault.chmod(0o755)
+        note = (  # typed by hand
+            f"note: the effect report of e@m cannot be reached at {vault}/plugin/scripts/effect-report.sh"
+            " (Permission denied); it was not run"
+        )
+        said = unreached.stdout.splitlines()
+        assert unreached.code == 0 and said[:2] == [
+            "EFFECT: 1 plugin(s) with an effect report, of 3 enabled for this project",
+            note,
+        ], f"exit {unreached.code}; stdout {unreached.stdout!r}"
     broken = fake_claude(it.h.scratch_dir(), "echo 'this is no list'\n")
     failed = effect_run(it, root, env=broken, command=shared_entry)
     wanted = (  # typed by hand

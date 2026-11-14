@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 import posixpath
+import stat
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,6 +24,7 @@ from constitution_layer_kit.repository import (
     list_markdown,
     read_text,
     repo_root,
+    stat_or_none,
 )
 from constitution_layer_kit.territory import Matcher
 
@@ -182,7 +184,7 @@ def _move(root: Path, old: str, new: str, closing: Closing) -> list[Path]:
     git's index and the disk agree, and said where they do not."""
     missing: list[Path] = []
     parent = (root / new).parent
-    while not parent.exists():
+    while _found(root, parent.relative_to(root).as_posix()) is None:
         missing.append(parent)
         parent = parent.parent
     made: list[Path] = []  # deepest first
@@ -321,7 +323,8 @@ def _refuse_what_cannot_move(root: Path, old: str, new: str, by_hand: bool) -> N
     if old == new:
         raise ConfigurationFailure(messages.v5_same(old))
     if by_hand:
-        if (root / old).exists() or not (root / new).is_file():
+        found_new = _found(root, new)
+        if _found(root, old) is not None or found_new is None or not stat.S_ISREG(found_new.st_mode):
             raise ConfigurationFailure(messages.v5_not_moved(old, new))
         return
     _refuse_unmovable_source(root, old)
@@ -330,27 +333,38 @@ def _refuse_what_cannot_move(root: Path, old: str, new: str, by_hand: bool) -> N
     _refuse_blocked_target(root, old, new)
 
 
+def _found(root: Path, rel: str) -> os.stat_result | None:
+    """What the system says of a path the mover was given (`stat_or_none`): None where it is absent. A
+    path nobody can reach — a folder above it nobody may search — is a refusal of its own, on every
+    Python, never read as absent."""
+    try:
+        return stat_or_none(root / rel)
+    except OSError as exc:
+        raise ConfigurationFailure(messages.v5_unreachable(rel, _reason(exc))) from exc
+
+
 def _refuse_unmovable_source(root: Path, old: str) -> None:
     """The file to move is a file git lists, not a link."""
     listed = git(["ls-files", "--error-unmatch", "--", old], cwd=root)
-    if listed.returncode != 0 or not (root / old).is_file():
+    found = _found(root, old) if listed.returncode == 0 else None
+    if found is None or not stat.S_ISREG(found.st_mode):
         raise ConfigurationFailure(messages.v5_not_listed(old))
-    if (root / old).is_symlink():
+    if os.path.islink(root / old):
         raise ConfigurationFailure(messages.v5_is_a_link(old))
 
 
 def _refuse_blocked_target(root: Path, old: str, new: str) -> None:
     """The new path is free — save the file itself under a name in another case — and its nearest
     existing ancestor is a directory."""
+    there = _found(root, new)
     # where the file system ignores case, a new name in another case "exists": it is the file itself
-    renamed_in_case = (
-        old.lower() == new.lower() and (root / new).exists() and (root / new).samefile(root / old)
-    )
-    if (root / new).exists() and not renamed_in_case:
+    renamed_in_case = old.lower() == new.lower() and there is not None and (root / new).samefile(root / old)
+    if there is not None and not renamed_in_case:
         raise ConfigurationFailure(messages.v5_target_exists(new))
     for ancestor in (root / new).parents:
-        if ancestor.exists():
-            if not ancestor.is_dir():
+        found = _found(root, ancestor.relative_to(root).as_posix()) if ancestor != root else os.stat(root)
+        if found is not None:
+            if not stat.S_ISDIR(found.st_mode):
                 raise ConfigurationFailure(
                     messages.v5_parent_is_a_file(ancestor.relative_to(root).as_posix())
                 )

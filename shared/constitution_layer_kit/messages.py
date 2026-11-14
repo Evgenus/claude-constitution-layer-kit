@@ -692,6 +692,13 @@ def u6_report_failed(plugin: str, code: int) -> str:
     return f"note: the effect report of {escaped(plugin)} exited {code}; its lines above say why"
 
 
+def u6_unreachable(plugin: str, entry: str, reason: str) -> str:
+    return (
+        f"note: the effect report of {escaped(plugin)} cannot be reached at {escaped(entry)}"
+        f" ({echoed(reason)}); it was not run"
+    )
+
+
 def u6_no_list(detail: str) -> Broken:
     return Broken(
         SharedKey.U6,
