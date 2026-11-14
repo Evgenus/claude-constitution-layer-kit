@@ -220,7 +220,7 @@ The exit codes of both modes: `0` green or nothing examined (the count line says
 <a id="t10"></a>
 ## 10. Acceptance
 
-Runner: `python3 -m pytest tests` from the module's folder, which the kit runs through `scripts/check-aspects.py --run --module const-catalogs`. Its items are T1–T39, T42–T85, S101–S106, S111–S128, S130–S148, S150–S157, S160–S197, S203–S204 and L1–L6.
+Runner: `python3 -m pytest tests` from the module's folder, which the kit runs through `scripts/check-aspects.py --run --module const-catalogs`. Its items are T1–T39, T42–T86, S101–S106, S111–S128, S130–S148, S150–S157, S160–S197, S203–S204 and L1–L6.
 
 The runner needs git, Python 3.12 and the declared libraries. It builds the shared three-policy consumer in a temporary git repository, fresh for every half of every case. It lists one catalog over a territory no policy claims, and drives the real entry point with real `PreToolUse` events. A red→green case fails when its red half does not exit 2. It fails when the red half does not teach the expected message (all three lines, compared with what the `messages` function returns). It fails when the red half prints any `RED` line but that finding's headline and the count line. It fails too when its green half does not print the whole green line, typed by hand. A configuration failure requires exit 1 and its `BROKEN` line first on stderr.
 

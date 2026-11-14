@@ -220,7 +220,7 @@ Exit codes of every entry: `0` done, nothing to do included, its closing or head
 
 Numbered items in `tests/test_change_cost.py`: the module's own from 1, the shared items of [kit-shared-items](../../shared/ITEMS.md#g5) from 101. Each fixture builds its own temporary git repository and drives the real entry points — wrapper, stdin, exit codes. It drives them with real `SessionStart` payloads, real commits through git's configured hooks, and transcripts built from the comparison's fixture. The run needs git 2.54 or newer, Python 3.12, the declared library, Node and npm. It needs the network once, to install the pinned ccusage from the module's lockfile into a scratch folder. Without npm the items that count fail with `npm is not on PATH, and the items that count need the pinned ccusage — install Node.js, which brings npm (https://nodejs.org/en/download), and run: npm ci --ignore-scripts`, and without the network with `npm ci --ignore-scripts failed in the scratch folder:` and npm's first 300 characters, never pass. Every message the code can print stands typed by hand in a fixture that runs it.
 
-Runner: `python3 -m pytest tests` from the module's folder, which the kit runs through `scripts/check-aspects.py --run --module const-change-cost`. The items are T1–T33 and S111–S119, S132, S135–S137, S140, S163, S165, S167–S177, S182, S184–S197 and S203–S204, 77 items green.
+Runner: `python3 -m pytest tests` from the module's folder, which the kit runs through `scripts/check-aspects.py --run --module const-change-cost`. The items are T1–T34 and S111–S119, S132, S135–S137, S140, S163, S165, S167–S177, S182, S184–S197 and S203–S204, 78 items green.
 
 | item | kind | rows | what it proves |
 |---|---|---|---|
