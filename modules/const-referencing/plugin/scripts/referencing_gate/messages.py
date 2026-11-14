@@ -10,6 +10,8 @@ holding any other document: no text here cites one.
 
 from __future__ import annotations
 
+import shlex
+
 from constitution_layer_kit import identity
 from constitution_layer_kit.messages import echoed, escaped
 from constitution_layer_kit.model import Broken, Finding, SharedKey
@@ -398,6 +400,26 @@ def v4_nothing_changed() -> str:
     return "BROKEN: the move could not run — nothing was changed"
 
 
+def v4_moved_back(old: str) -> str:
+    return (
+        f"BROKEN: the move could not run — the file was moved back to {escaped(old)}, and nothing was changed"
+    )
+
+
+def v4_move_back_failed(old: str, new: str, detail: str) -> str:
+    return (
+        f"BROKEN: the move could not be undone — git mv refused to move {escaped(new)} back to"
+        f" {escaped(old)}: {escaped(detail)}; the file is at {escaped(new)}"
+    )
+
+
+def v4_folder_left(old: str, folder: str, reason: str) -> str:
+    return (
+        f"BROKEN: the move was undone, the file back at {escaped(old)}, but the folder {escaped(folder)} it"
+        f" made could not be removed ({echoed(reason)})"
+    )
+
+
 def v4_stopped_midway() -> str:
     return (
         "BROKEN: the act stopped midway — what the lines above name was moved or rewritten, and the"
@@ -489,6 +511,42 @@ def v5_parent_is_a_file(path: str) -> Broken:
     return v5_refused(
         f"{escaped(path)} is a file, so nothing can lie inside it",
         "name a new path whose directories exist or can be made",
+    )
+
+
+def v5_unreadable(path: str, reason: str) -> Broken:
+    return v5_refused(
+        f"{escaped(path)} is a document the mover must read, and it cannot be read ({echoed(reason)}),"
+        " so nobody can say which of its links need repair",
+        "make it readable — its permissions — then run the mover again",
+    )
+
+
+def v5_unwritable(path: str, reason: str) -> Broken:
+    return v5_refused(
+        f"{escaped(path)} holds links the mover must rewrite, and it cannot be written ({echoed(reason)})",
+        "make it writable — its permissions, a lock on the file, a file system mounted read-only — then"
+        " run the mover again",
+    )
+
+
+def _shell(path: str) -> str:
+    """A path in a command to paste: quoted for a POSIX shell, then shown by the echo rule."""
+    return escaped(shlex.quote(path))
+
+
+def v5_takes_the_root_policy(old: str, new: str, here_old: str, here_new: str, here_folder: str) -> Broken:
+    """`old` and `new` from the repository's top; `here_old`, `here_new` and `here_folder` as the user types
+    them where they stand. `here_folder`: the new path's folder, which the move had to make and the move by
+    hand must make first; empty when it exists. Every command ends its options before the paths."""
+    made = f"mkdir -p -- {_shell(here_folder)} && " if here_folder else ""
+    return v5_refused(
+        f"moving {escaped(old)} takes away the root policy {_file()} names, so the dials would name a file"
+        " that is gone",
+        f"move it by hand with {made}git mv -- {_shell(here_old)} {_shell(here_new)}, set root_policy to"
+        f" {escaped(new)} in {_file()}, a path from the repository's top, then run"
+        f" {mover_command('--moved', '--', _shell(here_old), _shell(here_new))}; outside the root policy's"
+        " own territory, --moved then meets C9, whose fix follows",
     )
 
 

@@ -153,12 +153,16 @@ def trailers(root: Path, rng: Range, key: str) -> list[Declaration]:
     """Every value of the key among the range's commit messages, newest commit first, as git
     reads trailers: the message's last paragraph, every line `Key: value`."""
     where = [f"{rng.base}..{rng.tip}"] if rng.base is not None else ["-1", rng.tip]
-    done = git(  # log.showSignature=true would print a signature check before each formatted line
+    # log.showSignature=true would print a signature check before each formatted line, and a log output
+    # encoding other than UTF-8 would hand over bytes the reading below cannot split
+    done = git(
         [
             "-c",
             "log.showSignature=false",
+            "-c",
+            "i18n.logOutputEncoding=UTF-8",
             "log",
-            f"--format=%h%x00%(trailers:key={key},valueonly,unfold,separator=%x1f)%x01",
+            f"--format=%h%x00%(trailers:key={key},valueonly,unfold,separator=%x00)",
             *where,
         ],
         cwd=root,
@@ -167,14 +171,16 @@ def trailers(root: Path, rng: Range, key: str) -> list[Declaration]:
         raise ConfigurationFailure(
             messages.c12_range(rng.base_short, rng.tip_short, str(root), first_line(done.stderr))
         )
+    # One line per commit, its fields split by NUL: a message holds no NUL, and an unfolded trailer no
+    # line break, so neither can stand inside a value — any other byte can, a control byte included.
     found: list[Declaration] = []
-    for record in os.fsdecode(done.stdout).split("\x01"):
+    for record in os.fsdecode(done.stdout).split("\n"):
         if "\x00" not in record:
             continue
-        commit, values = record.strip("\n").split("\x00", 1)
-        if values.startswith(UNKNOWN_PLACEHOLDER):  # a trailer's own text may quote it, not begin so
+        commit, *values = record.split("\x00")
+        if values[0].startswith(UNKNOWN_PLACEHOLDER):  # a trailer's own text may quote it, not begin so
             raise ConfigurationFailure(messages.c12_old_git(_version_line(root)))
-        for value in values.split("\x1f"):
+        for value in values:
             if value.strip():
                 found.append(declaration(f"commit {commit.strip()}", value.strip()))
     return found

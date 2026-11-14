@@ -1059,7 +1059,9 @@ def test_trailer_among_others() -> None:
     for the trailer options, a fake git that gives the format an option no git knows, is the C12 naming
     git's version line; where `git version` fails, the failure says so in the version's place; a line over
     80 characters with backslashes is cut and escaped, each typed by hand; a reason that quotes the
-    placeholder is read as ever."""
+    placeholder is read as ever. A value holding a unit separator or a start-of-heading byte stays one
+    whole declaration, and the older commits' declarations are read after it; a log asked in UTF-16 by the
+    repository's configuration is read in UTF-8."""
     r = repo(
         with_map(
             {"name": "core", "code": ["src/**"], "docs": ["docs/core.md"]},
@@ -1087,6 +1089,34 @@ def test_trailer_among_others() -> None:
         pytest.fail(result.stdout + result.stderr)
     signed_note()
     old_git_is_a_failure_of_git()
+    control_bytes_in_a_value()
+
+
+def control_bytes_in_a_value() -> None:
+    """A trailer's value may hold any byte but NUL and, once unfolded, a line break. A unit separator
+    inside a value leaves it one declaration, never two with a red for the second half. A start-of-heading
+    byte inside a value cuts nothing off it, nor the declarations of the older commits."""
+    r = repo(
+        with_map(CORE, {"name": "cli", "code": ["cli/**"], "docs": ["docs/cli.md"]}),
+        files={"docs/cli.md": "# cli\n", "cli/m.py": "\n"},
+    )
+    branch(r.root)
+    older = "commit " + commit(r.root, "cli\n\n" + trailer("cli", "a flag only"), {"cli/m.py": "2\n"})
+    newer = "commit " + commit(
+        r.root, "core\n\n" + trailer("core", "see\x1fthe page, a\x01b"), {"src/a.py": "2\n"}
+    )
+    result = scan(r.root)
+    # the shared echo escapes a line break and a backslash; it shows any other control byte as it is
+    wanted = [
+        f"note: core: no impact declared in {newer}: see\x1fthe page, a\x01b",
+        f"note: cli: no impact declared in {older}: a flag only",
+        "GREEN: const-task-close: " + tail(2, 2, short(r.root, "main"), short(r.root)),
+    ]
+    assert (result.code, result.stdout.splitlines()) == (0, wanted), result.stdout + result.stderr
+    # a repository that asks git for its log in UTF-16 is read in UTF-8 all the same: the same lines
+    git(r.root, "config", "i18n.logOutputEncoding", "UTF-16")
+    wide = scan(r.root)
+    assert (wide.code, wide.stdout.splitlines()) == (0, wanted), wide.stdout + wide.stderr
 
 
 def signed_note() -> None:
