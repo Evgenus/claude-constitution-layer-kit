@@ -12,6 +12,7 @@ from pathlib import Path
 from constitution_layer_kit import pipeline
 from constitution_layer_kit.dials import load_dials
 from constitution_layer_kit.errors import ConfigurationFailure
+from constitution_layer_kit.model import SharedKey
 from constitution_layer_kit.output import Output
 from constitution_layer_kit.pipeline import ScanTarget
 from constitution_layer_kit.repository import (
@@ -118,8 +119,15 @@ def _plan(
     def shown(rel: str) -> str:
         return old if moved and rel == new else rel
 
-    with Matcher() as matcher:
-        covered = modes.covered_documents(matcher, dials, target, list_markdown(root)) or []
+    try:
+        with Matcher() as matcher:
+            covered = modes.covered_documents(matcher, dials, target, list_markdown(root)) or []
+    except ConfigurationFailure as failure:
+        # the root policy was found by the listing before the move: --moved and --ids meet C6 there, so a
+        # root policy missing here can only be the doing of the move just made
+        if failure.broken.key is SharedKey.C6:
+            raise ConfigurationFailure(messages.v5_takes_the_root_policy(old, new)) from failure
+        raise
     repaired = [*covered, *([new] if is_markdown(new) and new not in covered else [])]
     texts: dict[str, str] = {}
     left_alone: list[str] = []

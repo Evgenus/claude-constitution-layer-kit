@@ -528,6 +528,15 @@ def v5_unwritable(path: str, reason: str) -> Broken:
     )
 
 
+def v5_takes_the_root_policy(old: str, new: str) -> Broken:
+    return v5_refused(
+        f"moving {escaped(old)} takes away the root policy {_file()} names, so the dials would name a file"
+        " that is gone",
+        f"move it by hand with git mv -- {escaped(old)} {escaped(new)}, set root_policy to {escaped(new)} in"
+        f" {_file()}, then run {mover_command('--moved', escaped(old), escaped(new))}",
+    )
+
+
 def v5_no_root_policy() -> Broken:
     return v5_refused(
         f"{_ns()}.governed_only is set and {_file()} names no root_policy, so nobody can say which"
