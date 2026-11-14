@@ -2453,6 +2453,19 @@ def test_unexpected_failure(subject: Subject) -> None:
     wanted = "BROKEN: interrupted before the run was done — fix: run it again, and let it finish\n"  # by hand
     said = f"wanted death by SIGINT, stderr {wanted!r}; got exit {stopped.code}: {stopped.stderr[:600]}"
     assert (stopped.code, stopped.stderr) == (-signal.SIGINT, wanted), said
+    # a signal that does not end the process, stood in for by an os.kill that sends nothing to the process
+    # itself: the exit is 130, as a shell reports an interrupt, never the 1 of a failure
+    held = it.h.scratch_dir()
+    (held / "yaml.py").write_text(
+        "import os, signal\n_kill = os.kill\n\n\ndef _held(pid, sig):\n"
+        "    if not (pid == os.getpid() and sig == signal.SIGINT):\n        _kill(pid, sig)\n\n\n"
+        "os.kill = _held\n\n\nclass YAMLError(Exception): pass\n\n\n"
+        "def safe_load(text): raise KeyboardInterrupt\n",
+        encoding="utf-8",
+    )
+    lived, _ = it.s.gate_on(it.s.valid, env={"PYTHONPATH": str(held)})
+    said = f"wanted exit 130, stderr {wanted!r}; got exit {lived.code}: {lived.stderr[:600]}"
+    assert (lived.code, lived.stderr) == (130, wanted), said
     interrupted_loop(it)
 
 

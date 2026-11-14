@@ -23,7 +23,7 @@ status: active
 | S137 | `requirements.txt` equals the preflight table |
 | S138–S139 | the dials file again: the remaining `C5` failures, and a `root_policy` written with `./`, `//` or a step down and back up reads as the plain one |
 | S140 | the scripts copied as an install copies them, links followed, and run. The shared package comes from the `PYTHONPATH` the harness sets (item 8 of [§2](GATE.md#g2)), since the copy holds none |
-| S141 | not fail-open: an unexpected exception exits 1. Its stderr is `C12.11`, then the closing line, then the traceback, with nothing before them. An interrupt raised at the same place prints `C12.15` alone, with no traceback, and the process dies by the interrupt. A shell's loop over the entry, sent the interrupt to its whole group, then stops |
+| S141 | not fail-open: an unexpected exception exits 1. Its stderr is `C12.11`, then the closing line, then the traceback, with nothing before them. An interrupt raised at the same place prints `C12.15` alone, with no traceback, and the process dies by the interrupt. Where the signal does not end the process, the exit is 130. A shell's loop over the entry, sent the interrupt to its whole group, then stops |
 | S142–S144 | an `Edit` event without its fields; a stdout that cannot encode the dash; an envelope nested past the parser's depth |
 | S145–S146 | `--scan` outside any repository, `--scan=DIR` and a scan from a subdirectory |
 | S147–S150 | a byte-order mark before the envelope; a file-level negated pattern's skip; note `N1.1`; an `Edit` with an empty `old_string` on an existing file |
