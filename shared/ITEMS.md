@@ -23,13 +23,13 @@ status: active
 | S137 | `requirements.txt` equals the preflight table |
 | S138–S139 | the dials file again: the remaining `C5` failures, and a `root_policy` written with `./`, `//` or a step down and back up reads as the plain one |
 | S140 | the scripts copied as an install copies them, links followed, and run. The shared package comes from the `PYTHONPATH` the harness sets (item 8 of [§2](GATE.md#g2)), since the copy holds none |
-| S141 | not fail-open: an unexpected exception exits 1. Its stderr is `C12.11`, then the closing line, then the traceback, with nothing before them |
+| S141 | not fail-open: an unexpected exception exits 1. Its stderr is `C12.11`, then the closing line, then the traceback, with nothing before them. An interrupt raised at the same place exits 130, its stderr `C12.15` and then the closing line, with no traceback |
 | S142–S144 | an `Edit` event without its fields; a stdout that cannot encode the dash; an envelope nested past the parser's depth |
 | S145–S146 | `--scan` outside any repository, `--scan=DIR` and a scan from a subdirectory |
 | S147–S150 | a byte-order mark before the envelope; a file-level negated pattern's skip; note `N1.1`; an `Edit` with an empty `old_string` on an existing file |
 | S151 | a value of 12,000 characters echoed by a finding is cut at 80, stderr under 2,000 characters |
 | S152–S154 | git failing in one way: `C12.1`, `C12.2`, `C12.3`, each line typed by hand |
-| S155–S156 | a file the process may list and not read: `C12.7`, and `C12.10` in a scan; not exercised where the runner runs as root |
+| S155–S156 | a file the process may list and not read: `C12.7`, and `C12.10` in a scan. A committed document behind a folder nobody may search is `C12.10` too, on every interpreter. Neither is exercised where the runner runs as root |
 | S157 | a dials file holding a byte that is not UTF-8 is `C4`, never `C12.11` |
 | S158 | a file in the root policy's territory the process cannot read is `C12.10` in a hook run as in a scan, and never note `N1.1` in either. It is not exercised where the runner runs as root |
 | S159 | a green hook run with notes: exit 0, one JSON object and nothing else on stdout, `hookEventName` the event. The note typed by hand and the green line are in `additionalContext`, with no `RED` line. The passed write without notes still prints its green line plain |
