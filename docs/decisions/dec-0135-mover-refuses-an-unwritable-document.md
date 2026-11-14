@@ -45,7 +45,7 @@ The first design asked before the move. It predicted the tree as git would list 
   - **Pros:** the check reads exactly what the act reads, with the act's own code; no rule of git is copied.
   - **Cons:** a refusal moves the file twice; a move back can itself fail.
 
-The orchestrating session put the three options to the decider. The decider picked C on 2026-11-14 in the orchestrating session's chat. The first design was left because its copy of git's rules kept falling short of git. So C keeps the rule of section 1's A that a refusal changes nothing, and gives up its refusal before the move.
+The orchestrating session put the three options to the decider in its chat. It recommended C, because A and B both keep a copy of git's rules that the audit's rounds kept catching out. The decider picked C on 2026-11-14 in that chat. The first design was left because its copy of git's rules kept falling short of git. So C keeps the rule of section 1's A that a refusal changes nothing, and gives up its refusal before the move.
 
 <a id="r4"></a>**R4.** Everything that can refuse without moving is asked first. A move is then made with git. On the tree as git lists it after the move, the act lists and reads every document it reads. It works out every rewrite and every mention in memory, and makes the check of R1 and R2. Only then does it write.
 
