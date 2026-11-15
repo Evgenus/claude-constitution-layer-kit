@@ -214,20 +214,18 @@ def _move_back(root: Path, old: str, new: str, made: Sequence[Path], closing: Cl
     if back.returncode != 0:
         closing.stranded = messages.v4_move_back_failed(old, new, first_line(back.stderr))
         return
-    if _unmake(made):
-        closing.moved_back = old
+    closing.moved_back = old  # what git did; whether its folders are gone the closing line looks
+    _unmake(made)
 
 
-def _unmake(made: Sequence[Path]) -> bool:
-    """The folders a move made, removed deepest first; True when none stands. One that cannot be removed
-    stays, and so does every folder above it: the closing line, which looks at the tree, names them."""
-    gone = True
+def _unmake(made: Sequence[Path]) -> None:
+    """The folders a move made, removed deepest first. One that cannot be removed stays, and so does every
+    folder above it: the closing line, which looks at the tree, names them."""
     for directory in made:
         try:
             directory.rmdir()
         except OSError:
-            gone = False
-    return gone
+            continue  # the closing line names what stands
 
 
 def _repair(rel: str, text: str, old: str, new: str, ids: Ids | None) -> Rewritten:

@@ -2983,9 +2983,9 @@ def test_mover_says_when_it_stopped_midway() -> None:
         env=merged,
         check=False,
     )
-    ok = (
+    ok = (  # the closing lines, typed by hand: where the file stands, as observed, then the midway line
         done.returncode == 1
-        and STOPPED_MIDWAY in done.stderr.splitlines()
+        and done.stderr.splitlines()[-2:] == at_new_line().splitlines()
         and messages.v4_nothing_changed() not in done.stderr
         and (consumer.root / NEW).exists()
     )
@@ -3002,7 +3002,9 @@ def test_mover_says_when_it_stopped_midway() -> None:
         check=False,
     )
     lines = late.stderr.splitlines()
-    assert late.returncode == 1 and STOPPED_MIDWAY in lines and STOPPED_NOTHING not in lines, late.stderr
+    assert late.returncode == 1 and lines[-1:] == [STOPPED_MIDWAY] and STOPPED_NOTHING not in lines, (
+        late.stderr
+    )
 
 
 @item(82, "the mover keeps CRLF and a byte order mark, and leaves a file that is not UTF-8 alone")

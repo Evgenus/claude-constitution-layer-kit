@@ -21,10 +21,10 @@ class Closing:
     of the folders the move would make now stand. Whether a document was rewritten is the one thing it
     cannot observe; `rewrote` says it, set before the first write opens, and `writing` names the document
     whose open emptied it until its text is written. A failure adds what the act knows of its own move back
-    where the tree agrees with it: one made, its folders removed, says the file was moved back; one git
-    refused gives git's words. After the first write a failure's line is the midway line."""
+    where the tree agrees with it: one git made, its folders gone, says the file was moved back; one git
+    refused gives git's words."""
 
-    moved_back: str = ""  # the path a move was undone to, once git moved it back and its folders are gone
+    moved_back: str = ""  # the path git moved the file back to, when it did
     stranded: str = ""  # the line giving git's words, when git refused the move back
     root: Path | None = None  # the repository, once the act knows it
     move: tuple[str, str] | None = None  # (old, new) of an act that moves, set before the move begins
@@ -33,10 +33,7 @@ class Closing:
     writing: str = ""  # the document being rewritten, from before its open until its text is written
 
     def __call__(self) -> str:
-        """The line that closes a failure."""
-        if self.rewrote:
-            lines = [messages.v4_cut_short(self.writing)] if self.writing else []
-            return "\n".join([*lines, messages.v4_stopped_midway()])
+        """The line that closes a failure, made as an interrupt's is."""
         return self._observed(failure=True)
 
     def interrupted(self) -> str:
