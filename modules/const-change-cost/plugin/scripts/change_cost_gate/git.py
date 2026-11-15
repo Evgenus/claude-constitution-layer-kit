@@ -6,13 +6,12 @@ from __future__ import annotations
 
 import os
 import re
-import stat
 from collections.abc import Sequence
 from pathlib import Path
 
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.errors import ConfigurationFailure
-from constitution_layer_kit.repository import git, reached
+from constitution_layer_kit.repository import git, stand_in
 
 from . import messages
 from .model import GIT_MINIMUM, HOOK_COMMIT, HOOK_MERGE, NOTES_REF
@@ -24,11 +23,10 @@ _VERSION = re.compile(r"git version (\d+)\.(\d+)")
 
 def common_or_none(directory: Path) -> Path | None:
     """Git's common directory, the same from the main checkout and from every linked worktree; None outside
-    a git repository, where the folder is gone, or where it is no folder. A folder behind one nobody may
-    search is the shared C12.16, and a git that fails for any other reason the shared configuration failure,
-    never None: a skip would hide a broken setup."""
-    found = reached(directory, str(directory))
-    if found is None or not stat.S_ISDIR(found.st_mode):
+    a git repository, where the folder is gone, or where it is no folder. A folder nobody may search, or one
+    behind it, is the shared C12.16, and a git that fails for any other reason the shared configuration
+    failure, never None: a skip would hide a broken setup."""
+    if not stand_in(directory, str(directory)):
         return None
     done = git(["rev-parse", "--git-common-dir"], directory)
     if done.returncode != 0:

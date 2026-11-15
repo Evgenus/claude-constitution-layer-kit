@@ -426,21 +426,35 @@ def c12_invocation(detail: str, usage: str = USAGE) -> Broken:
     return Broken(SharedKey.C12, f"misinvocation: {echoed(detail)}", usage)
 
 
-def c12_unreadable(rel: str) -> Broken:
+def reason_fix(then: str = "then run it again") -> str:
+    """The fix of a line that carries the system's reason in brackets: it points at that reason and names no
+    cause of its own, so it is true for every reason the system can give there."""
+    return f"repair what the brackets name — the system's own reason — {then}"
+
+
+def c12_unreadable(rel: str, reason: str = "") -> Broken:
+    """A file git lists that cannot be read. With the system's `reason`, the line carries it in brackets.
+    Without one, as an older caller gives it, the fix asks for the reason by a command."""
+    if reason:
+        return Broken(
+            SharedKey.C12,
+            f"{escaped(rel)} is listed by git but cannot be read ({echoed(reason)})",
+            reason_fix(),
+        )
     return Broken(
         SharedKey.C12,
         f"{escaped(rel)} is listed by git but cannot be read",
-        "check that the file can be read: its permissions, those of a folder above it, or a name too long for"
-        " the system",
+        f"run cat -- {escaped(shlex.quote(rel))} to see the system's own reason, then repair what it names"
+        " and run it again",
     )
 
 
 def c12_unreachable(path: str, reason: str) -> Broken:
-    """A path the run must ask about, behind a folder nobody may search: `reason` is the system's words."""
+    """A path the run must ask about that the system would not reach: `reason` is the system's words."""
     return Broken(
         SharedKey.C12,
         f"{escaped(path)} cannot be reached ({echoed(reason)}), so nobody can say what stands there",
-        "make the folders above it searchable — their permissions — then run it again",
+        reason_fix(),
     )
 
 
@@ -524,7 +538,11 @@ def c12_scan_path(path: str) -> Broken:
 
 
 def c12_dials_unreadable(detail: str) -> Broken:
-    return Broken(SharedKey.C12, f"{_file()} cannot be read ({detail})", "check the file's permissions")
+    return Broken(
+        SharedKey.C12,
+        f"{_file()} cannot be read ({detail})",
+        reason_fix(),
+    )
 
 
 def detail_not_json(error: str) -> str:
