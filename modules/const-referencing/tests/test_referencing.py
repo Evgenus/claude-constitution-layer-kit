@@ -1165,7 +1165,8 @@ def mentions_over_odd_files() -> None:
     broken_typed(
         behind,
         "BROKEN: tools/shut/hidden.sh is listed by git but cannot be read (Permission denied) — fix: repair"
-        " what the brackets name — the system's own reason, which may lie in a folder above the path — then"
+        " what the brackets name — the system's own reason, which may lie in a folder above the path, or"
+        " above the target of a link on it — then"
         " run it again",
     )
     # a committed link is never read, wherever it leads: one to a file behind such a folder is no failure
@@ -1724,8 +1725,8 @@ def refused_unreachable() -> None:
         return  # NOT EXERCISED: running as root, where a mode bit does not deny a search
     unreachable = (  # typed by hand
         "BROKEN: {path} cannot be reached (Permission denied), so nobody can say whether it is there — fix:"
-        " repair what the brackets name — the system's own reason, which may lie in a folder above the path"
-        " — then run the mover again"
+        " repair what the brackets name — the system's own reason, which may lie in a folder above the path,"
+        " or above the target of a link on it — then run the mover again"
     )
     shut = "docs/shut"
 
@@ -1772,8 +1773,8 @@ def refused_unreachable() -> None:
     long_name = "x" * 300
     too_long = (  # typed by hand
         "BROKEN: {path} cannot be reached (File name too long), so nobody can say whether it is there — fix:"
-        " repair what the brackets name — the system's own reason, which may lie in a folder above the path"
-        " — then run the mover again"
+        " repair what the brackets name — the system's own reason, which may lie in a folder above the path,"
+        " or above the target of a link on it — then run the mover again"
     )
     for new in (f"docs/{long_name}.md", f"docs/{long_name}/b.md"):
         consumer = moving_consumer()
@@ -2717,6 +2718,28 @@ def failed_folders() -> list[str]:
         problems.append(
             f"a failure that leaves the index and the disk apart: exit {done.code}: {done.stderr}"
         )
+    # a refused git mv into a folder that can be searched and not listed (mode 100): the look asks the exact
+    # name where the listing is refused, finds no such file, and says nothing was changed, as is true
+    if os.geteuid() != 0:
+        locked = moving_consumer()
+        (locked.root / "docs/lock").mkdir()
+        state = whole_state(locked)
+        (locked.root / "docs/lock").chmod(0o100)
+        try:
+            done = mover(locked, OLD, "docs/lock/one.md")
+        finally:
+            (locked.root / "docs/lock").chmod(0o755)
+        lines = done.stderr.splitlines()
+        ok = (
+            done.code == 1
+            and len(lines) == 2
+            and lines[0].startswith("BROKEN: git mv refused: ")
+            and lines[1] == STOPPED_NOTHING
+        )
+        if not ok or whole_state(locked) != state:
+            problems.append(
+                f"a refused git mv into a folder that cannot be listed: exit {done.code}: {done.stderr}"
+            )
     # a failure that is not the system's, a refusal in the plan: the lines of round 4 stand
     refused = moving_consumer()
     done, after, _ = under_mode(refused, "docs/notes/two.md", 0o444, OLD, NEW)

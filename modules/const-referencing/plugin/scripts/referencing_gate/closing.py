@@ -148,16 +148,32 @@ def _indexed(root: Path, rel: str) -> bool | None:
     return True if code == 0 else False if code == 1 else None
 
 
+_GONE = (errno.ENOENT, errno.ENOTDIR, errno.ELOOP, errno.ENAMETOOLONG)  # no file can stand there
+
+
 def _on_disk(path: Path) -> bool:
     """Whether the disk holds the path by its exact name: a folder's listing, so that a disk that ignores
-    case cannot answer for a name in another case."""
+    case cannot answer for a name in another case. Where the listing is refused, as in a folder that can be
+    searched and not listed, the name itself is asked (`os.lstat`), which needs only the search right: no
+    such file is "not there" on any disk, since no name in any case answers. A name that answers there
+    cannot be told by its case, and nobody can say."""
     try:
         return path.name in os.listdir(path.parent)
     except OSError as exc:
         # its folder is gone, a link on the way loops, or no file can stand at a name too long
-        if exc.errno in (errno.ENOENT, errno.ENOTDIR, errno.ELOOP, errno.ENAMETOOLONG):
+        if exc.errno in _GONE:
             return False
-        raise  # any other answer: nobody can say, and the line says so
+        if exc.errno not in (errno.EACCES, errno.EPERM):
+            raise  # any other answer: nobody can say, and the line says so
+    try:
+        os.lstat(path)
+    except OSError as exc:
+        if exc.errno in _GONE:
+            return False
+        raise
+    raise PermissionError(
+        errno.EACCES, "the folder cannot be listed, so the name's case cannot be told", str(path)
+    )
 
 
 def _stands(folder: Path) -> bool:
