@@ -2600,7 +2600,13 @@ def walk_beside_git(it: SharedItems, outer: Path, inner: Path, unreached: Callab
     _, main = it.s.gate_on(it.s.valid, files={it.s.valid.target: it.s.valid.text})
     who = ["-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid"]
     subprocess.run(["git", "add", "-A"], cwd=main, check=True, capture_output=True)
-    subprocess.run(["git", *who, "commit", "-qm", "main"], cwd=main, check=True, capture_output=True)
+    # a commit for the worktree to start from; the subject's own may already hold every file
+    subprocess.run(
+        ["git", *who, "commit", "-q", "--allow-empty", "-m", "main"],
+        cwd=main,
+        check=True,
+        capture_output=True,
+    )
     tree = it.h.scratch_dir() / "tree"
     subprocess.run(["git", "worktree", "add", "-q", str(tree)], cwd=main, check=True, capture_output=True)
     assert (tree / ".git").is_file(), "a worktree's .git is a file"
@@ -2624,10 +2630,10 @@ def walk_beside_git(it: SharedItems, outer: Path, inner: Path, unreached: Callab
     # a worktree's gitfile that cannot be read: the stated failure naming it
     (tree / ".git").chmod(0o000)
     try:
-        refused = it.h.run_gate("", args=it.scan_args(tree))
+        blocked = it.h.run_gate("", args=it.scan_args(tree))
     finally:
         (tree / ".git").chmod(0o644)
-    it.broken_as_typed(refused, unreached(Path(os.path.realpath(tree)) / ".git"))
+    it.broken_as_typed(blocked, unreached(Path(os.path.realpath(tree)) / ".git"))
     # a .git that cannot be read, with a repository above it and with none
     alone = it.h.scratch_dir() / "alone"
     shutil.copytree(main, alone, symlinks=True)  # a repository of its own, outside any other
