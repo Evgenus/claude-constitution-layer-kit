@@ -431,8 +431,8 @@ def v4_cut_short(rel: str) -> str:
 def v4_folders_stand(old: str, folders: Sequence[str]) -> str:
     return (
         f"BROKEN: the move could not run — the file stands at {escaped(old)}, as before, but the folder(s)"
-        f" the move made stand, empty: {', '.join(escaped(folder) for folder in folders)}; remove them with"
-        " rmdir"
+        f" the move made stand: {', '.join(escaped(folder) for folder in folders)}; look inside, and remove"
+        " them with rmdir"
     )
 
 
@@ -440,13 +440,6 @@ def v4_either(old: str, new: str) -> str:
     return (
         f"BROKEN: an interrupt cut the move short, and the file may stand at {escaped(old)} or at"
         f" {escaped(new)}: look at git status and the disk, and put it back with git mv"
-    )
-
-
-def v4_folder_left(old: str, folder: str, reason: str) -> str:
-    return (
-        f"BROKEN: the move was undone, the file back at {escaped(old)}, but the folder {escaped(folder)} it"
-        f" made could not be removed ({echoed(reason)})"
     )
 
 

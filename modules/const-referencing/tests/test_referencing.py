@@ -2625,13 +2625,76 @@ def move_back_failures() -> list[str]:
     done, _, _ = under_mode(left, "docs/notes/two.md", 0o444, OLD, NEW, env=env)
     wanted = (  # typed by hand
         UNWRITABLE.format(path="docs/notes/two.md")
-        + "\nBROKEN: the move was undone, the file back at docs/notes/one.md, but the folder"
-        " docs/moved/deep it made could not be removed (Directory not empty)\n" + STOPPED_MIDWAY + "\n"
+        + "\n"
+        + folders_line("docs/moved/deep", "docs/moved")
+        + "\n"
     )
     if (done.code, done.stdout, done.stderr) != (1, "", wanted) or not (left.root / OLD).exists():
         problems.append(f"a folder left after the move back: exit {done.code}: {done.stdout}{done.stderr}")
+    problems.extend(failed_folders())
     problems.extend(interrupts())
     problems.extend(interrupt_anywhere())
+    return problems
+
+
+def failed_folders() -> list[str]:
+    """A folder the move must make that the system refuses: the defect line, since the gate does not model
+    the system's limits, then the closing line made from what the tree shows. The folders the move made so
+    far are removed, as for a refused git mv, so the line says nothing was changed and the tree is as it
+    was. A removal that fails leaves the line naming the folders that stand. As root a mode bit denies
+    nothing, and the read-only case is not exercised."""
+    problems: list[str] = []
+    long_name = "x" * 300
+    cases: list[tuple[str, str, str, str]] = [  # label, new path, a folder whose rmdir fails, closing
+        ("a name too long below a folder the move makes", f"new/{long_name}/b.md", "", STOPPED_NOTHING),
+        ("a name too long after two folders made", f"a/b/{long_name}/c.md", "", STOPPED_NOTHING),
+        ("the folders made, and their removal fails", f"a/b/{long_name}/c.md", "b", folders_line("a/b", "a")),
+    ]
+    if os.geteuid() != 0:
+        cases.append(("a folder below a read-only one", "ro/sub/b.md", "", STOPPED_NOTHING))
+    for label, new, stuck, closing in cases:
+        consumer = moving_consumer()
+        if new.startswith("ro/"):
+            consumer.write("ro/.keep", "")
+            consumer.commit()
+        state = whole_state(consumer)
+        env: dict[str, str] = {}
+        if stuck:  # a stand-in for a folder that cannot be removed: its rmdir refuses
+            shadow = H.scratch_dir()
+            (shadow / "sitecustomize.py").write_text(
+                "import errno, pathlib\n_rmdir = pathlib.Path.rmdir\n\n\ndef _stuck(self):\n"
+                f"    if self.name == {stuck!r}:\n"
+                "        raise OSError(errno.EBUSY, 'Resource busy', str(self))\n    _rmdir(self)\n\n\n"
+                "pathlib.Path.rmdir = _stuck\n",
+                encoding="utf-8",
+            )
+            env = {"PYTHONPATH": str(shadow)}
+        if new.startswith("ro/"):
+            (consumer.root / "ro").chmod(0o555)
+        try:
+            done = mover(consumer, OLD, new, env=env)
+        finally:
+            if new.startswith("ro/"):
+                (consumer.root / "ro").chmod(0o755)
+        lines = done.stderr.splitlines()
+        first = lines[0] if lines else ""
+        said = (
+            done.code == 1
+            and first.startswith("BROKEN: unexpected failure inside the checker: ")
+            and len(lines) > 1
+            and lines[1 : 1 + len(closing.splitlines())] == closing.splitlines()
+            and STOPPED_MIDWAY not in lines
+        )
+        unchanged = whole_state(consumer) == state
+        if not said or (closing == STOPPED_NOTHING) != unchanged:
+            tree = "as it was" if unchanged else "changed"
+            problems.append(f"{label}: exit {done.code}, tree {tree}: {done.stderr[:600]}")
+    # a failure that is not the system's, a refusal in the plan: the lines of round 4 stand
+    refused = moving_consumer()
+    done, after, _ = under_mode(refused, "docs/notes/two.md", 0o444, OLD, NEW)
+    wanted = UNWRITABLE.format(path="docs/notes/two.md") + "\n" + MOVED_BACK.format(old=OLD) + "\n"
+    if (done.code, done.stdout, done.stderr) != (1, "", wanted):
+        problems.append(f"a refusal in the plan: exit {done.code}: {done.stderr}")
     return problems
 
 
@@ -2651,7 +2714,7 @@ def at_new_line(new: str = NEW) -> str:  # typed by hand
 def folders_line(*made: str) -> str:  # typed by hand
     return (
         f"BROKEN: the move could not run — the file stands at {OLD}, as before, but the folder(s) the"
-        f" move made stand, empty: {', '.join(made)}; remove them with rmdir"
+        f" move made stand: {', '.join(made)}; look inside, and remove them with rmdir"
     )
 
 
@@ -2713,26 +2776,26 @@ def interrupts() -> list[str]:
         },
         {
             "label": "after a move back, before the folders it made are removed",
-            "python": "rmdir@_remove_made:1",
+            "python": "rmdir@_unmake:1",
             "closing": folders_line(deep, moved),
             "locked": locked,
         },
         {
             "label": "after a move back, between the two folders it removes",
-            "python": "rmdir@_remove_made:2",
+            "python": "rmdir@_unmake:2",
             "closing": folders_line(moved),
             "locked": locked,
         },
         {
             "label": "in the plan, and again while the move back removes the folders",
             "git": {"interrupt": True},
-            "python": "rmdir@_remove_made:1",
+            "python": "rmdir@_unmake:1",
             "closing": folders_line(deep, moved),
         },
         {
             "label": "while the move removes its folders after git refused",
             "git": {"on_move": "echo 'fatal: planted' >&2; exit 128"},
-            "python": "rmdir@_move:1",
+            "python": "rmdir@_unmake:1",
             "closing": folders_line(deep, moved),
         },
         {
@@ -2858,16 +2921,16 @@ def observed_line(consumer: Consumer, new: str = NEW) -> str:
 
 
 def interrupt_anywhere() -> list[str]:
-    """An interrupt at a statement picked at random among those `_move`, `_move_back` and `_remove_made`
+    """An interrupt at a statement picked at random among those `_move`, `_move_back` and `_unmake`
     run: wherever it lands, the line says what the tree shows. The two last run in the move back after a
     refusal in the plan. The seed is in each problem, so that a red run can be run again."""
     problems: list[str] = []
     seed = random.randrange(1 << 30)
     draw = random.Random(seed)
-    # each function's statements as one move runs them, a few over: 22 in `_move` to NEW, 3 in `_move_back`,
-    # 9 in `_remove_made` (counted on 2026-11-15); a draw past the last lands nowhere and is passed over
-    spans = {"_move": 24, "_move_back": 4, "_remove_made": 10}
-    for name in ("_move", "_move", "_move_back", "_move_back", "_remove_made", "_remove_made"):
+    # each function's statements as one move runs them, a few over: 22 in `_move` to NEW, 4 in `_move_back`,
+    # 9 in `_unmake` (counted on 2026-11-15); a draw past the last lands nowhere and is passed over
+    spans = {"_move": 24, "_move_back": 5, "_unmake": 10}
+    for name in ("_move", "_move", "_move_back", "_move_back", "_unmake", "_unmake"):
         k = draw.randint(1, spans[name])
         consumer = moving_consumer()
         env = interrupt_at(H.scratch_dir(), f"line:{name}:{k}")
