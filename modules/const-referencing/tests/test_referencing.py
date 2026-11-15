@@ -3013,10 +3013,10 @@ def interrupts_late() -> list[str]:
         looked = moving_consumer()
         shut = looked.root / "docs/half"
         (shut / "made").mkdir(parents=True)
-        closing = Closing(root=looked.root, move=(OLD, NEW), planned=(shut / "made",))
+        observer = Closing(root=looked.root, move=(OLD, NEW), planned=(shut / "made",))
         shut.chmod(0o444)  # readable: its names are listed; not searchable: no name in it can be asked
         try:
-            said = closing.interrupted()
+            said = observer.interrupted()
         finally:
             shut.chmod(0o755)
         if said != either_line():
