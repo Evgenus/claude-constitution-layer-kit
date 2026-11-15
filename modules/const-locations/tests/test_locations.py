@@ -1700,6 +1700,26 @@ def test_unexpected_failure_clauses() -> None:
         if (result.code, result.stdout, head_lines, traceback) != (1, "", lines, True):
             wrong.append(f"{name}: {result}")
     assert not wrong, "\n".join(wrong)
+    # the generator's own code asks for the working folder, where the system may not give it: the guard says
+    # the stated failure that names the working folder, not the defect line; where the system still says
+    # where the process stands, the run is never the defect line either
+    if os.geteuid() != 0:
+        stood = prepared()
+        (stood.root / "docs").mkdir(exist_ok=True)
+        done, refused = H.run_below_shut(stood.root / "docs", stood.root, NOTE_ARGS)
+        working = (  # typed by hand
+            "BROKEN: the working folder cannot be reached (Permission denied), so nobody can say what stands"
+            " there — fix: repair what the brackets name — the system's own reason, which may lie in a folder"
+            " above the path, or above the target of a link on it — then run it again"
+        )
+        if refused:
+            assert (done.code, done.stdout, done.stderr) == (
+                1,
+                "",
+                working + "\n" + messages.l4_nothing_written() + "\n",
+            ), done
+        else:
+            assert "unexpected failure inside the checker" not in done.stderr, done.stderr
 
 
 # ---------------------------------------------------------------- the effect report (items 28 on)

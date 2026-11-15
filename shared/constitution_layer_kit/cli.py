@@ -32,6 +32,7 @@ from .errors import ConfigurationFailure
 from .identity import Identity
 from .model import EXIT_BROKEN, EXIT_INTERRUPTED, Mode
 from .output import Output
+from .repository import working_folder
 
 SCAN_FLAG = "--scan"
 
@@ -201,10 +202,18 @@ def guarded(
             output.err(failure.broken.render())
             closing()
         except Exception as exc:  # not fail-open: an unexpected failure exits 1, never 0
-            # the BROKEN line first: in hook mode only the first stderr line reaches the user
-            output.err(messages.c12_unexpected(f"{type(exc).__name__}: {exc}").render())
-            closing()
-            output.err(traceback.format_exc().rstrip())
+            # a working folder the system will not give is the stated failure, wherever an entry's own code
+            # met it first: the cause, not a defect of the gate
+            try:
+                working_folder()
+            except ConfigurationFailure as failure:
+                output.err(failure.broken.render())
+                closing()
+            else:
+                # the BROKEN line first: in hook mode only the first stderr line reaches the user
+                output.err(messages.c12_unexpected(f"{type(exc).__name__}: {exc}").render())
+                closing()
+                output.err(traceback.format_exc().rstrip())
         except KeyboardInterrupt:
             on_interrupt()
         finally:

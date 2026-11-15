@@ -861,6 +861,20 @@ def test_unreachable_paths(clone: Clone, tmp_path: Path) -> None:
         [UNREACHED.format(path=inside), START_CLOSING],
     ), started.stderr
     assert not (clone.folder / "starts.jsonl").exists(), "a start was logged"
+    # a repository whose .git nobody can read, inside another: never the outer clone's log
+    outer = tmp_path / "outer"
+    inner_repo = outer / "inner"
+    inner_repo.mkdir(parents=True)
+    git_in(outer, "init", "-q")
+    (outer / ".gitignore").write_text("inner/\n", encoding="utf-8")
+    git_in(inner_repo, "init", "-q")
+    started = shut_while(inner_repo / ".git", 0o000, lambda: start_hook(clone, payload(S1, inner_repo)))
+    assert (started.code, started.stdout, started.stderr.splitlines()) == (
+        1,
+        "",
+        [UNREACHED.format(path=inner_repo / ".git"), START_CLOSING],
+    ), started.stderr
+    assert not (outer / ".git" / "const-change-cost").exists(), "a start was logged in the outer clone"
     # a folder that can be read and not searched: it stands, and git cannot run in it
     half = tmp_path / "half"
     half.mkdir()

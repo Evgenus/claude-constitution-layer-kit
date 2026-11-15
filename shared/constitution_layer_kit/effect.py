@@ -37,7 +37,7 @@ from .history import HookRun, LogRecord, Session, ToolCall, read_log, read_trans
 from .identity import Identity
 from .model import EXIT_BROKEN, Mode
 from .output import Output
-from .repository import repo_root, stat_or_none
+from .repository import repo_root, stat_or_none, working_folder
 
 ENTRY = ("scripts", "effect-report.sh")  # a plugin's entry, by its parts below the plugin's root
 FLAGS = ("--reader", "--transcripts", "--since")
@@ -278,9 +278,10 @@ def gather(output: Output, flags: Flags) -> History:
     from .dials import load_dials  # noqa: PLC0415
     from .pipeline import route_log  # noqa: PLC0415
 
-    root = repo_root(Path(os.getcwd()).resolve())
+    here = working_folder()
+    root = repo_root(here.resolve())
     if root is None:
-        raise ConfigurationFailure(messages.c12_no_repo(os.getcwd()))
+        raise ConfigurationFailure(messages.c12_no_repo(str(here)))
     dials = load_dials(root)
     log_dir: Path | None = None
     if dials is not None:
@@ -362,7 +363,7 @@ def main_all(argv: Sequence[str]) -> int:
         return 0
     try:
         parse(argv, USAGE)  # refuse what no entry takes, as an entry would
-        plugins = enabled_plugins(Path(os.getcwd()).resolve())
+        plugins = enabled_plugins(working_folder().resolve())
     except ConfigurationFailure as failure:
         print(failure.broken.render(), file=sys.stderr)
         print(messages.u6_could_not_run(), file=sys.stderr)
