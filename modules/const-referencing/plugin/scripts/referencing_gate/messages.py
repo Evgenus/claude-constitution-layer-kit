@@ -414,19 +414,29 @@ def v4_move_back_failed(old: str, new: str, detail: str) -> str:
     )
 
 
-def v4_at_new(old: str, new: str) -> str:
-    return (
+def v4_at_new(old: str, new: str, here_old: str, here_new: str, undo: Sequence[str] | None) -> str:
+    """The file stands at `new`. `here_old`, `here_new` and the folders of `undo` as the user types them
+    where they stand. The finish, --moved, is taught always; the undo, git mv back and rmdir of the folders
+    the move made, only where `undo` is given: where no rewrite may have begun."""
+    finish = mover_command("--moved", "--", _shell(here_old), _shell(here_new))
+    line = (
         f"BROKEN: the act stopped after git moved {escaped(old)} to {escaped(new)}: the file stands at"
-        f" {escaped(new)}"
+        f" {escaped(new)}; to finish the move, run {finish}"
     )
+    if undo is not None:
+        rmdir = f" && rmdir -- {' '.join(_shell(folder) for folder in undo)}" if undo else ""
+        line += f"; to undo it, run git mv -- {_shell(here_new)} {_shell(here_old)}{rmdir}"
+    return line
 
 
 def v4_cut_short(rel: str, held: bool | None) -> str:
-    """`held`: whether git's index holds the document, as the line observed; None where it could not say."""
+    """`held`: whether git's index holds the document, as the line observed; None where it could not say. The
+    line says what may be: the open may not have come, or the text may be whole."""
     head = (
-        f"BROKEN: {escaped(rel)} was being rewritten when the interrupt came, and may be cut short or empty:"
+        f"BROKEN: {escaped(rel)} may have been opened for its rewrite when the act stopped, so it may be cut"
+        " short or empty:"
     )
-    restore = f"git restore -- {escaped(shlex.quote(rel))}"
+    restore = f"git restore -- {_shell(rel)}"
     if held:
         return f"{head} {restore} brings back the text git's index holds"
     if held is None:
@@ -456,8 +466,8 @@ def v4_either(old: str, new: str, interrupted: bool = True) -> str:
 
 def v4_stopped_midway() -> str:
     return (
-        "BROKEN: the act stopped midway — what the lines above name was moved or rewritten, and the"
-        " check of the whole tree has not run: look at git status, repair the cause, then run the scan"
+        "BROKEN: the act stopped midway — documents may have been rewritten, and the check of the whole tree"
+        " may not have run: look at git status, repair the cause, then run the scan"
     )
 
 

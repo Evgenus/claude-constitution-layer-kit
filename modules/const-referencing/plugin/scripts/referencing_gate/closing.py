@@ -9,7 +9,7 @@ import stat
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from constitution_layer_kit.repository import git
+from constitution_layer_kit.repository import git, stat_or_none
 
 from . import messages
 
@@ -34,6 +34,7 @@ class Closing:
     rewrote: bool = False  # set before the first rewrite opens: no look at the tree can tell it
     writing: str = ""  # the document being rewritten, from before its open until its text is written
     unmade: dict[Path, str] = field(default_factory=dict)  # a folder the move made that stayed: the reason
+    scanned: bool = False  # set once the closing scan has printed its verdict, which then stands
 
     def __call__(self) -> str:
         """The line that closes a failure, made as an interrupt's is."""
@@ -48,6 +49,8 @@ class Closing:
         return self._observed(failure=False)
 
     def _observed(self, failure: bool) -> str:
+        if self.scanned:  # the whole tree was checked, and its verdict stands above: nothing to add
+            return ""
         place, midway = self._place(failure)
         lines = [place] if place else []
         if self.writing:  # opened, so perhaps emptied, and its text perhaps not written
@@ -72,7 +75,15 @@ class Closing:
         if at is None:
             return messages.v4_either(old, new, interrupted=not failure), True
         if at == new:
-            return (self.stranded if failure and self.stranded else messages.v4_at_new(old, new)), True
+            if failure and self.stranded:
+                return self.stranded, True
+            # the undo is taught only where no rewrite may have begun: git mv back would leave those wrong
+            undo = (
+                None if self.rewrote else [from_here(self.root, rel) for rel in self._standing_rel(standing)]
+            )
+            return messages.v4_at_new(
+                old, new, from_here(self.root, old), from_here(self.root, new), undo
+            ), True
         if standing:
             shown = [
                 (folder.relative_to(self.root).as_posix(), self.unmade.get(folder, "")) for folder in standing
@@ -81,6 +92,10 @@ class Closing:
         if failure and self.moved_back == old:
             return messages.v4_moved_back(old), False
         return "", False
+
+    def _standing_rel(self, standing: list[Path]) -> list[str]:
+        assert self.root is not None
+        return [folder.relative_to(self.root).as_posix() for folder in standing]
 
     def _held(self, rel: str) -> bool | None:
         """Whether git's index holds the document being written, so that git restore can bring its text back:
@@ -91,6 +106,11 @@ class Closing:
             return _indexed(self.root, rel)
         except (KeyboardInterrupt, Exception):
             return None
+
+
+def from_here(root: Path, rel: str) -> str:
+    """A path from the repository's top as the user types it where they stand: from the working folder."""
+    return os.path.relpath(os.path.realpath(root / rel), os.path.realpath(Path.cwd()))
 
 
 def where(root: Path, old: str, new: str) -> str | None:
@@ -120,13 +140,17 @@ def _on_disk(path: Path) -> bool:
     try:
         return path.name in os.listdir(path.parent)
     except OSError as exc:
-        # its folder is gone, or no file can stand at a name the system refuses for its length
-        if exc.errno in (errno.ENOENT, errno.ENOTDIR, errno.ENAMETOOLONG):
+        # its folder is gone, a link on the way loops, or no file can stand at a name too long
+        if exc.errno in (errno.ENOENT, errno.ENOTDIR, errno.ELOOP, errno.ENAMETOOLONG):
             return False
         raise  # any other answer: nobody can say, and the line says so
 
 
 def _stands(folder: Path) -> bool:
     """A folder the move would make stands, by its exact name, asked of the system the same way on every
-    Python: os.stat, whose error the line reads as nobody can say."""
-    return _on_disk(folder) and stat.S_ISDIR(os.stat(folder).st_mode)
+    Python (`stat_or_none`): what is absent by its rule is no folder, and any other error the line reads as
+    nobody can say."""
+    if not _on_disk(folder):
+        return False
+    found = stat_or_none(folder)
+    return found is not None and stat.S_ISDIR(found.st_mode)

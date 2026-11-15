@@ -429,7 +429,10 @@ def c12_invocation(detail: str, usage: str = USAGE) -> Broken:
 def reason_fix(then: str = "then run it again") -> str:
     """The fix of a line that carries the system's reason in brackets: it points at that reason and names no
     cause of its own, so it is true for every reason the system can give there."""
-    return f"repair what the brackets name — the system's own reason — {then}"
+    return (
+        "repair what the brackets name — the system's own reason, which may lie in a folder above the path —"
+        f" {then}"
+    )
 
 
 def c12_unreadable(rel: str, reason: str = "") -> Broken:
@@ -444,8 +447,7 @@ def c12_unreadable(rel: str, reason: str = "") -> Broken:
     return Broken(
         SharedKey.C12,
         f"{escaped(rel)} is listed by git but cannot be read",
-        f"run cat -- {escaped(shlex.quote(rel))} at the top of the repository it lies in to see the system's"
-        " own reason, then repair what it names and run it again",
+        "read the file to see the system's own reason, then repair what it names and run it again",
     )
 
 
@@ -540,7 +542,7 @@ def c12_scan_path(path: str) -> Broken:
 def c12_dials_unreadable(detail: str) -> Broken:
     return Broken(
         SharedKey.C12,
-        f"{_file()} cannot be read ({detail})",
+        f"{_file()} cannot be read ({echoed(detail)})",
         reason_fix(),
     )
 
