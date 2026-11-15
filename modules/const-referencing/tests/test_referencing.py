@@ -2696,6 +2696,22 @@ def failed_folders() -> list[str]:
         if not said or (closing == STOPPED_NOTHING) != unchanged:
             tree = "as it was" if unchanged else "changed"
             problems.append(f"{label}: exit {done.code}, tree {tree}: {done.stderr[:600]}")
+    # a failure that leaves git's index and the disk apart: a git that moves the file on the disk and then
+    # refuses. The line says the file may stand at either path, and names no interrupt, since none came
+    apart = moving_consumer()
+    env = fake_git(
+        H.scratch_dir() / "git.log", on_move=f"mv -- {OLD} {NEW}; echo 'fatal: planted' >&2; exit 128"
+    )
+    done = mover(apart, OLD, NEW, env=env)
+    wanted = (  # typed by hand
+        "BROKEN: git mv refused: fatal: planted — fix: repair what git names, then run the move again\n"
+        f"BROKEN: the move stopped short, and the file may stand at {OLD} or at {NEW}: look at git status and"
+        " the disk, and put it back with git mv\n" + STOPPED_MIDWAY + "\n"
+    )
+    if (done.code, done.stdout, done.stderr) != (1, "", wanted):
+        problems.append(
+            f"a failure that leaves the index and the disk apart: exit {done.code}: {done.stderr}"
+        )
     # a failure that is not the system's, a refusal in the plan: the lines of round 4 stand
     refused = moving_consumer()
     done, after, _ = under_mode(refused, "docs/notes/two.md", 0o444, OLD, NEW)

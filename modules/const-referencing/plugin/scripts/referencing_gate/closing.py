@@ -70,7 +70,7 @@ class Closing:
         except (KeyboardInterrupt, Exception):
             at, standing = None, []
         if at is None:
-            return messages.v4_either(old, new), True
+            return messages.v4_either(old, new, interrupted=not failure), True
         if at == new:
             return (self.stranded if failure and self.stranded else messages.v4_at_new(old, new)), True
         if standing:

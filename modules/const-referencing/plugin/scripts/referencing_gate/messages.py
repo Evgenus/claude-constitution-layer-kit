@@ -445,10 +445,12 @@ def v4_folders_stand(old: str, folders: Sequence[tuple[str, str]]) -> str:
     )
 
 
-def v4_either(old: str, new: str) -> str:
+def v4_either(old: str, new: str, interrupted: bool = True) -> str:
+    """`interrupted`: an interrupt cut the move short; else a failure, which names none."""
+    cut = "an interrupt cut the move short" if interrupted else "the move stopped short"
     return (
-        f"BROKEN: an interrupt cut the move short, and the file may stand at {escaped(old)} or at"
-        f" {escaped(new)}: look at git status and the disk, and put it back with git mv"
+        f"BROKEN: {cut}, and the file may stand at {escaped(old)} or at {escaped(new)}: look at git status"
+        " and the disk, and put it back with git mv"
     )
 
 
