@@ -30,7 +30,7 @@ from constitution_layer_kit.territory import Matcher
 
 from . import dials as own_dials
 from . import lychee, messages, modes, repair
-from .closing import Closing
+from .closing import Closing, from_here
 from .mentions import other_files
 from .model import Ids, ReferencingDials
 from .repair import Rewritten
@@ -92,7 +92,6 @@ def act(output: Output, request: Request, closing: Closing) -> int:
         output.out(messages.v2_left_alone(rel))
     links = 0
     for rel, done in plan.rewrites:
-        closing.changed = True
         closing.rewrote = True  # before the file opens: the one thing an interrupt's line cannot observe
         closing.writing = rel  # from before the open, which empties it, until its text is written
         with (root / rel).open("w", encoding="utf-8", newline="") as handle:  # line endings as they were
@@ -103,7 +102,7 @@ def act(output: Output, request: Request, closing: Closing) -> int:
     for rel, line, text in plan.mentions:
         output.out(messages.v3_mention(rel, line, text))
     output.out(messages.v4_count(len(plan.rewrites), links, len(plan.mentions)))
-    return modes.scan_mode(output, root)
+    return modes.scan_mode(output, root, verdict=lambda: setattr(closing, "scanned", True))
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,8 +141,8 @@ def _plan(
         # the root policy was found by the listing before the move: --moved and --ids meet C6 there, so a
         # root policy missing here can only be the doing of the move just made
         if failure.broken.key is SharedKey.C6:
-            folder = _from_here(root, posixpath.dirname(new)) if made else ""  # git mv makes no folder
-            route = (old, new, _from_here(root, old), _from_here(root, new), folder)
+            folder = from_here(root, posixpath.dirname(new)) if made else ""  # git mv makes no folder
+            route = (old, new, from_here(root, old), from_here(root, new), folder)
             raise ConfigurationFailure(messages.v5_takes_the_root_policy(*route)) from failure
         raise
     repaired = [*covered, *([new] if is_markdown(new) and new not in covered else [])]
@@ -173,62 +172,56 @@ def _plan(
     return Plan(rewrites, left_alone, mentions)
 
 
-def _from_here(root: Path, rel: str) -> str:
-    """A path from the repository's top as the user types it where they stand: from the working folder."""
-    return os.path.relpath(os.path.realpath(root / rel), os.path.realpath(Path.cwd()))
-
-
 def _reason(exc: OSError) -> str:
     return exc.strerror or type(exc).__name__
 
 
 def _move(root: Path, old: str, new: str, closing: Closing) -> list[Path]:
-    """git mv, into a directory made for it where none exists — and unmade again when git refuses. The
-    folders it made are returned, deepest first, for the move back. From the first folder made, a failure
-    counts as changed. An interrupt is not settled here: its line looks at the tree (`Closing.interrupted`),
-    and the folders the move would make are named to it before the first is made."""
+    """git mv, into a directory made for it where none exists. The folders it made are returned, deepest
+    first, for the move back. A folder the system refuses, or a refused git mv, removes the folders made so
+    far, so that the tree is as it was. Nothing here keeps an account of what it changed: the closing line
+    looks at the tree, and the folders the move would make are named to it before the first is made."""
     missing: list[Path] = []
     parent = (root / new).parent
     while _found(root, parent.relative_to(root).as_posix()) is None:
         missing.append(parent)
         parent = parent.parent
     closing.planned = tuple(missing)  # deepest first, before the first folder
-    closing.changed = True  # before the first folder: from here on, "nothing was changed" needs an undo
     made: list[Path] = []  # deepest first
-    for directory in reversed(missing):
-        directory.mkdir()
-        made.insert(0, directory)
+    try:
+        for directory in reversed(missing):
+            directory.mkdir()
+            made.insert(0, directory)
+    except OSError:
+        _unmake(made, closing)
+        raise
     moved = git(["mv", "--", old, new], cwd=root)
     if moved.returncode != 0:
-        for directory in made:
-            directory.rmdir()
-        closing.changed = False
+        _unmake(made, closing)
         raise ConfigurationFailure(messages.v5_git_mv(first_line(moved.stderr)))
     return made
 
 
 def _move_back(root: Path, old: str, new: str, made: Sequence[Path], closing: Closing) -> None:
-    """The move undone: the file moved back with git, and the folders the move made removed again. When
-    that fails, the closing line says where the file is. An interrupt here is not settled: its line looks
-    at the tree."""
+    """The move undone: the file moved back with git, and the folders the move made removed again. When git
+    refuses, the closing line gives its words; where a folder stays, the closing line names it."""
     back = git(["mv", "--", new, old], cwd=root)
     if back.returncode != 0:
         closing.stranded = messages.v4_move_back_failed(old, new, first_line(back.stderr))
         return
-    _remove_made(root, old, made, closing)
+    closing.moved_back = old  # what git did; whether its folders are gone the closing line looks
+    _unmake(made, closing)
 
 
-def _remove_made(root: Path, old: str, made: Sequence[Path], closing: Closing) -> None:
-    """The folders a move made, removed deepest first, the file at `old` again: nothing was changed."""
+def _unmake(made: Sequence[Path], closing: Closing) -> None:
+    """The folders a move made, removed deepest first. One that cannot be removed stays, and so does every
+    folder above it: the closing line, which looks at the tree, names them, with the system's reason where
+    it gave one."""
     for directory in made:
         try:
             directory.rmdir()
         except OSError as exc:
-            where = directory.relative_to(root).as_posix()
-            closing.stranded = messages.v4_folder_left(old, where, _reason(exc))
-            return
-    closing.changed = False
-    closing.moved_back = old
+            closing.unmade[directory] = _reason(exc)
 
 
 def _repair(rel: str, text: str, old: str, new: str, ids: Ids | None) -> Rewritten:

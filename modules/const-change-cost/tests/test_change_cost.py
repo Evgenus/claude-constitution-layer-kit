@@ -826,7 +826,8 @@ def test_commits_not_counted(clone: Clone) -> None:
 
 UNREACHED = (  # C12.16, typed by hand
     "BROKEN: {path} cannot be reached (Permission denied), so nobody can say what stands there — fix:"
-    " repair what the brackets name — the system's own reason — then run it again"
+    " repair what the brackets name — the system's own reason, which may lie in a folder above the path —"
+    " then run it again"
 )
 
 
@@ -857,6 +858,16 @@ def test_unreachable_paths(clone: Clone, tmp_path: Path) -> None:
         1,
         "",
         [UNREACHED.format(path=inside), START_CLOSING],
+    ), started.stderr
+    assert not (clone.folder / "starts.jsonl").exists(), "a start was logged"
+    # a folder that can be read and not searched: it stands, and git cannot run in it
+    half = tmp_path / "half"
+    half.mkdir()
+    started = shut_while(half, 0o600, lambda: start_hook(clone, payload(S1, half)))
+    assert (started.code, started.stdout, started.stderr.splitlines()) == (
+        1,
+        "",
+        [UNREACHED.format(path=half), START_CLOSING],
     ), started.stderr
     assert not (clone.folder / "starts.jsonl").exists(), "a start was logged"
     # a run by hand, whose recorded data folder stands behind it

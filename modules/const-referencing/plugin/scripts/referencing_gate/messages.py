@@ -414,46 +414,60 @@ def v4_move_back_failed(old: str, new: str, detail: str) -> str:
     )
 
 
-def v4_at_new(old: str, new: str) -> str:
-    return (
+def v4_at_new(old: str, new: str, here_old: str, here_new: str, undo: Sequence[str] | None) -> str:
+    """The file stands at `new`. `here_old`, `here_new` and the folders of `undo` as the user types them
+    where they stand. The finish, --moved, is taught always; the undo, git mv back and rmdir of the folders
+    the move made, only where `undo` is given: where no rewrite may have begun."""
+    finish = mover_command("--moved", "--", _shell(here_old), _shell(here_new))
+    line = (
         f"BROKEN: the act stopped after git moved {escaped(old)} to {escaped(new)}: the file stands at"
-        f" {escaped(new)}"
+        f" {escaped(new)}; to finish the move, run {finish}"
     )
+    if undo is not None:
+        rmdir = f" && rmdir -- {' '.join(_shell(folder) for folder in undo)}" if undo else ""
+        line += f"; to undo it, run git mv -- {_shell(here_new)} {_shell(here_old)}{rmdir}"
+    return line
 
 
-def v4_cut_short(rel: str) -> str:
-    return (
-        f"BROKEN: {escaped(rel)} was being rewritten when the interrupt came, and may be cut short or empty:"
-        f" git restore -- {escaped(shlex.quote(rel))} brings back the text git's index holds"
+def v4_cut_short(rel: str, held: bool | None) -> str:
+    """`held`: whether git's index holds the document, as the line observed; None where it could not say. The
+    line says what may be: the open may not have come, or the text may be whole."""
+    head = (
+        f"BROKEN: {escaped(rel)} may have been opened for its rewrite when the act stopped, so it may be cut"
+        " short or empty:"
     )
+    restore = f"git restore -- {_shell(rel)}"
+    if held:
+        return f"{head} {restore} brings back the text git's index holds"
+    if held is None:
+        return f"{head} where git's index holds it, {restore} brings that text back; else it may be lost"
+    return f"{head} git keeps no copy of it, so its text may be lost"
 
 
-def v4_folders_stand(old: str, folders: Sequence[str]) -> str:
+def v4_folders_stand(old: str, folders: Sequence[tuple[str, str]]) -> str:
+    """`folders`: each folder that stands, deepest first, with the system's reason where removal failed."""
+    shown = ", ".join(
+        f"{escaped(name)} ({echoed(reason)})" if reason else escaped(name) for name, reason in folders
+    )
     return (
         f"BROKEN: the move could not run — the file stands at {escaped(old)}, as before, but the folder(s)"
-        f" the move made stand, empty: {', '.join(escaped(folder) for folder in folders)}; remove them with"
-        " rmdir"
+        f" the move made stand: {shown}; look inside, and remove them with rmdir"
     )
 
 
-def v4_either(old: str, new: str) -> str:
+def v4_either(old: str, new: str, interrupted: bool = True) -> str:
+    """`interrupted`: an interrupt cut the move short; else a failure, which names none."""
+    cut = "an interrupt cut the move short" if interrupted else "the move stopped short"
     return (
-        f"BROKEN: an interrupt cut the move short, and the file may stand at {escaped(old)} or at"
-        f" {escaped(new)}: look at git status and the disk, and put it back with git mv"
-    )
-
-
-def v4_folder_left(old: str, folder: str, reason: str) -> str:
-    return (
-        f"BROKEN: the move was undone, the file back at {escaped(old)}, but the folder {escaped(folder)} it"
-        f" made could not be removed ({echoed(reason)})"
+        f"BROKEN: {cut}, and the file may stand at {escaped(old)} or at {escaped(new)}: look at git status"
+        " and the disk, and put it back with git mv"
     )
 
 
 def v4_stopped_midway() -> str:
     return (
-        "BROKEN: the act stopped midway — what the lines above name was moved or rewritten, and the"
-        " check of the whole tree has not run: look at git status, repair the cause, then run the scan"
+        "BROKEN: the act stopped midway — documents may have been rewritten, and the check of the whole tree"
+        " may not have run: look at git status, repair the cause, then run the scan"
     )
 
 
