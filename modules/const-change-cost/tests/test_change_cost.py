@@ -859,6 +859,16 @@ def test_unreachable_paths(clone: Clone, tmp_path: Path) -> None:
         [UNREACHED.format(path=inside), START_CLOSING],
     ), started.stderr
     assert not (clone.folder / "starts.jsonl").exists(), "a start was logged"
+    # a folder that can be read and not searched: it stands, and git cannot run in it
+    half = tmp_path / "half"
+    half.mkdir()
+    started = shut_while(half, 0o600, lambda: start_hook(clone, payload(S1, half)))
+    assert (started.code, started.stdout, started.stderr.splitlines()) == (
+        1,
+        "",
+        [UNREACHED.format(path=half), START_CLOSING],
+    ), started.stderr
+    assert not (clone.folder / "starts.jsonl").exists(), "a start was logged"
     # a run by hand, whose recorded data folder stands behind it
     clone.start(S1, 0)
     clone.append_record(S1, 14)

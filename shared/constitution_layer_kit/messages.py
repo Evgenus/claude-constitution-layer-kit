@@ -444,8 +444,8 @@ def c12_unreadable(rel: str, reason: str = "") -> Broken:
     return Broken(
         SharedKey.C12,
         f"{escaped(rel)} is listed by git but cannot be read",
-        f"run cat -- {escaped(shlex.quote(rel))} to see the system's own reason, then repair what it names"
-        " and run it again",
+        f"run cat -- {escaped(shlex.quote(rel))} at the top of the repository it lies in to see the system's"
+        " own reason, then repair what it names and run it again",
     )
 
 

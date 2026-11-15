@@ -1606,8 +1606,9 @@ class SharedItems:
             + "c" * 73
             + "… [107 characters] — fix: "
             + messages.USAGE,
-            "C12.10": f"BROKEN: {esc} is listed by git but cannot be read — fix: run cat -- '{esc}' to see"
-            " the system's own reason, then repair what it names and run it again",
+            "C12.10": f"BROKEN: {esc} is listed by git but cannot be read — fix: run cat -- '{esc}' at the"
+            " top of the repository it lies in to see the system's own reason, then repair what it names and"
+            " run it again",
             "C12.10 with the system's reason": f"BROKEN: {esc} is listed by git but cannot be read"
             f" (Permission\\n{'d' * 69}… [111 characters]) — fix: repair what the brackets name — the"
             " system's own reason — then run it again",
@@ -2755,8 +2756,9 @@ def test_document_unreadable(subject: Subject) -> None:
     sibling = str(Path(it.s.valid.target).with_name("unreadable.md"))
     _, root = it.s.gate_on(it.s.valid, files={sibling: it.s.valid.text})
     line = (
-        f"BROKEN: {sibling} is listed by git but cannot be read — fix: run cat -- {sibling} to see the"
-        " system's own reason, then repair what it names and run it again"
+        f"BROKEN: {sibling} is listed by git but cannot be read — fix: run cat -- {sibling} at the top of"
+        " the repository it lies in to see the system's own reason, then repair what it names"
+        " and run it again"
     )
     it.unreadable(root / sibling, lambda: it.h.run_gate("", args=["--scan", str(root)]), line)
     # a document behind a folder nobody may search: the same failure on every Python. Path.is_file raises
@@ -2860,8 +2862,9 @@ def test_policy_unreadable(subject: Subject) -> None:
         return runs[-1]
 
     line = (
-        f"BROKEN: {policy} is listed by git but cannot be read — fix: run cat -- {policy} to see the"
-        " system's own reason, then repair what it names and run it again"
+        f"BROKEN: {policy} is listed by git but cannot be read — fix: run cat -- {policy} at the top of"
+        " the repository it lies in to see the system's own reason, then repair what it names"
+        " and run it again"
     )
     it.unreadable(root / policy, again, line)
     said = (runs[-1].stdout + runs[-1].stderr).splitlines()

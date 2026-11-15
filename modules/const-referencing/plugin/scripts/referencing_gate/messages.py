@@ -421,18 +421,27 @@ def v4_at_new(old: str, new: str) -> str:
     )
 
 
-def v4_cut_short(rel: str) -> str:
-    return (
+def v4_cut_short(rel: str, held: bool | None) -> str:
+    """`held`: whether git's index holds the document, as the line observed; None where it could not say."""
+    head = (
         f"BROKEN: {escaped(rel)} was being rewritten when the interrupt came, and may be cut short or empty:"
-        f" git restore -- {escaped(shlex.quote(rel))} brings back the text git's index holds"
     )
+    restore = f"git restore -- {escaped(shlex.quote(rel))}"
+    if held:
+        return f"{head} {restore} brings back the text git's index holds"
+    if held is None:
+        return f"{head} where git's index holds it, {restore} brings that text back; else it may be lost"
+    return f"{head} git keeps no copy of it, so its text may be lost"
 
 
-def v4_folders_stand(old: str, folders: Sequence[str]) -> str:
+def v4_folders_stand(old: str, folders: Sequence[tuple[str, str]]) -> str:
+    """`folders`: each folder that stands, deepest first, with the system's reason where removal failed."""
+    shown = ", ".join(
+        f"{escaped(name)} ({echoed(reason)})" if reason else escaped(name) for name, reason in folders
+    )
     return (
         f"BROKEN: the move could not run — the file stands at {escaped(old)}, as before, but the folder(s)"
-        f" the move made stand: {', '.join(escaped(folder) for folder in folders)}; look inside, and remove"
-        " them with rmdir"
+        f" the move made stand: {shown}; look inside, and remove them with rmdir"
     )
 
 

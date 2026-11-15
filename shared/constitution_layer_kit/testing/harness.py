@@ -91,8 +91,11 @@ subprocess.run = _unclocked
 
 
 # Loaded at the start of a gate's process through a `sitecustomize` the test puts first on PYTHONPATH: it
-# sends the process itself the interrupt (SIGINT) at the nth call of a Python function. The spec is
-# `name[@caller]:n[,…]`, `name` a function's own name, `caller` the name of the function that calls it.
+# sends the process itself the interrupt (SIGINT) at a moment the spec names, a comma-separated list of
+# three forms. `name[@caller]:n` is the nth call of a Python function, `name` its own name and `caller` the
+# name of the function that calls it. `return:name[@caller]:n` is the nth time it returns, so that the
+# interrupt lands in its caller right after the call. `line:name:n` is the nth statement run in it,
+# counted over all its calls (sys.settrace).
 INTERRUPT_AT = """import os, signal, sys
 _wanted = {}
 for _item in os.environ.get("INTERRUPT_AT", "").split(","):

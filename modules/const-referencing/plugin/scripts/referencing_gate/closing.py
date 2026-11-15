@@ -3,7 +3,9 @@ from the acts because the entry needs it before the preflight, and the acts are 
 
 from __future__ import annotations
 
+import errno
 import os
+import stat
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -31,6 +33,7 @@ class Closing:
     planned: tuple[Path, ...] = field(default_factory=tuple)  # the folders it would make, deepest first
     rewrote: bool = False  # set before the first rewrite opens: no look at the tree can tell it
     writing: str = ""  # the document being rewritten, from before its open until its text is written
+    unmade: dict[Path, str] = field(default_factory=dict)  # a folder the move made that stayed: the reason
 
     def __call__(self) -> str:
         """The line that closes a failure, made as an interrupt's is."""
@@ -48,7 +51,7 @@ class Closing:
         place, midway = self._place(failure)
         lines = [place] if place else []
         if self.writing:  # opened, so perhaps emptied, and its text perhaps not written
-            lines.append(messages.v4_cut_short(self.writing))
+            lines.append(messages.v4_cut_short(self.writing, self._held(self.writing)))
         if midway or self.rewrote:
             lines.append(messages.v4_stopped_midway())
         return "\n".join(lines) if lines else messages.v4_nothing_changed()
@@ -63,18 +66,31 @@ class Closing:
         try:
             at = where(self.root, old, new)
             standing = [folder for folder in self.planned if _stands(folder)]
-        except KeyboardInterrupt:  # a second interrupt while it looks: it cannot say
+        # a second interrupt, or a look the system refuses or git cannot answer: nobody can say
+        except (KeyboardInterrupt, Exception):
             at, standing = None, []
         if at is None:
             return messages.v4_either(old, new), True
         if at == new:
             return (self.stranded if failure and self.stranded else messages.v4_at_new(old, new)), True
         if standing:
-            shown = [folder.relative_to(self.root).as_posix() for folder in standing]
+            shown = [
+                (folder.relative_to(self.root).as_posix(), self.unmade.get(folder, "")) for folder in standing
+            ]
             return messages.v4_folders_stand(old, shown), False
         if failure and self.moved_back == old:
             return messages.v4_moved_back(old), False
         return "", False
+
+    def _held(self, rel: str) -> bool | None:
+        """Whether git's index holds the document being written, so that git restore can bring its text back:
+        None where it cannot say."""
+        if self.root is None:
+            return None
+        try:
+            return _indexed(self.root, rel)
+        except (KeyboardInterrupt, Exception):
+            return None
 
 
 def where(root: Path, old: str, new: str) -> str | None:
@@ -82,6 +98,8 @@ def where(root: Path, old: str, new: str) -> str | None:
     None where they do not agree."""
     index = (_indexed(root, old), _indexed(root, new))
     disk = (_on_disk(root / old), _on_disk(root / new))
+    if None in index:  # git gave no answer of either kind: nobody can say
+        return None
     if index == disk == (True, False):
         return old
     if index == disk == (False, True):
@@ -89,9 +107,11 @@ def where(root: Path, old: str, new: str) -> str | None:
     return None
 
 
-def _indexed(root: Path, rel: str) -> bool:
-    """Whether git's index holds the path, by its exact name: where git itself says a file is."""
-    return git(["ls-files", "--error-unmatch", "--", rel], cwd=root).returncode == 0
+def _indexed(root: Path, rel: str) -> bool | None:
+    """Whether git's index holds the path, by its exact name: where git itself says a file is. git exits 0
+    where it holds it and 1 where it does not; any other answer is None, nobody can say."""
+    code = git(["ls-files", "--error-unmatch", "--", rel], cwd=root).returncode
+    return True if code == 0 else False if code == 1 else None
 
 
 def _on_disk(path: Path) -> bool:
@@ -99,10 +119,14 @@ def _on_disk(path: Path) -> bool:
     case cannot answer for a name in another case."""
     try:
         return path.name in os.listdir(path.parent)
-    except OSError:
-        return False
+    except OSError as exc:
+        # its folder is gone, or no file can stand at a name the system refuses for its length
+        if exc.errno in (errno.ENOENT, errno.ENOTDIR, errno.ENAMETOOLONG):
+            return False
+        raise  # any other answer: nobody can say, and the line says so
 
 
 def _stands(folder: Path) -> bool:
-    """A folder the move would make stands, by its exact name."""
-    return _on_disk(folder) and folder.is_dir()
+    """A folder the move would make stands, by its exact name, asked of the system the same way on every
+    Python: os.stat, whose error the line reads as nobody can say."""
+    return _on_disk(folder) and stat.S_ISDIR(os.stat(folder).st_mode)

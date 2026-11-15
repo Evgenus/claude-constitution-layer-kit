@@ -58,6 +58,7 @@ from constitution_layer_kit.testing.items import (
     tr_line,
 )
 from referencing_gate import anchors, links, lint, lychee, masking, mentions, messages, start
+from referencing_gate.closing import Closing
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 
@@ -1079,8 +1080,9 @@ def test_governed_only_policy_unreadable() -> None:
     finally:
         (root / policy).chmod(mode)
     line = (
-        f"BROKEN: {policy} is listed by git but cannot be read — fix: run cat -- {policy} to see the system's"
-        " own reason, then repair what it names and run it again"
+        f"BROKEN: {policy} is listed by git but cannot be read — fix: run cat -- {policy} at the top of the"
+        " repository it lies in to see the system's own reason, then repair what it names and run"
+        " it again"
     )
     broken_first_line(result, line)
     first = f"exit 1, first stderr line: {line}"
@@ -2626,7 +2628,7 @@ def move_back_failures() -> list[str]:
     wanted = (  # typed by hand
         UNWRITABLE.format(path="docs/notes/two.md")
         + "\n"
-        + folders_line("docs/moved/deep", "docs/moved")
+        + folders_line("docs/moved/deep (Directory not empty)", "docs/moved (Directory not empty)")
         + "\n"
     )
     if (done.code, done.stdout, done.stderr) != (1, "", wanted) or not (left.root / OLD).exists():
@@ -2648,7 +2650,12 @@ def failed_folders() -> list[str]:
     cases: list[tuple[str, str, str, str]] = [  # label, new path, a folder whose rmdir fails, closing
         ("a name too long below a folder the move makes", f"new/{long_name}/b.md", "", STOPPED_NOTHING),
         ("a name too long after two folders made", f"a/b/{long_name}/c.md", "", STOPPED_NOTHING),
-        ("the folders made, and their removal fails", f"a/b/{long_name}/c.md", "b", folders_line("a/b", "a")),
+        (
+            "the folders made, and their removal fails",
+            f"a/b/{long_name}/c.md",
+            "b",
+            folders_line("a/b (Resource busy)", "a (Directory not empty)"),
+        ),
     ]
     if os.geteuid() != 0:
         cases.append(("a folder below a read-only one", "ro/sub/b.md", "", STOPPED_NOTHING))
@@ -2856,31 +2863,61 @@ def interrupts() -> list[str]:
         problems.append(f"an interrupt after the first write: exit {done.code}: {done.stdout}{done.stderr}")
     # a document opened for its rewrite, and so emptied, before its text is written: the line names it, though
     # no REWROTE line does, and says that git's index holds its text
-    cut = moving_consumer()
-    done = mover(cut, OLD, NEW, env=interrupt_at(H.scratch_dir(), "return:open@act:2"))
-    rewrote = [
-        line.removeprefix("REWROTE: ").rsplit(": ", 1)[0]
-        for line in done.stdout.splitlines()
-        if line.startswith("REWROTE: ")
-    ]
-    second = next(rel for rel in (NEW, "docs/notes/two.md") if rel not in rewrote)
-    cut_short = (  # typed by hand
-        f"BROKEN: {second} was being rewritten when the interrupt came, and may be cut short or empty: git"
-        f" restore -- {second} brings back the text git's index holds"
-    )
-    wanted = (
-        INTERRUPTED
-        + "\n"
-        + at_new_line().replace("\n" + STOPPED_MIDWAY, "")
-        + "\n"
-        + cut_short
-        + "\n"
-        + STOPPED_MIDWAY
-        + "\n"
-    )
-    emptied = (cut.root / second).read_bytes() == b""
-    if (done.code, done.stderr) != (KILLED, wanted) or not emptied or len(rewrote) != 1:
-        problems.append(f"an interrupt as a rewrite opens: exit {done.code}: {done.stdout}{done.stderr}")
+    # a document opened for its rewrite, and so emptied, before its text is written: the line names it, though
+    # no REWROTE line does. Where git's index holds it, git restore brings its text back; an untracked one,
+    # which the mover rewrites too, has no copy in git, and the line says its text may be lost
+    seen: set[bool] = set()
+    for k in (1, 2, 3):
+        cut = moving_consumer()
+        cut.write(
+            "docs/notes/loose.md", note("# Loose\n\nSee [one](one.md).\n", "note-loose")
+        )  # never committed
+        done = mover(cut, OLD, NEW, env=interrupt_at(H.scratch_dir(), f"return:open@act:{k}"))
+        out = done.stdout.splitlines()
+        rewrote = [
+            line.removeprefix("REWROTE: ").rsplit(": ", 1)[0] for line in out if line.startswith("REWROTE: ")
+        ]
+        emptied = [
+            rel
+            for rel in (NEW, "docs/notes/two.md", "docs/notes/loose.md")
+            if (cut.root / rel).read_bytes() == b""
+        ]
+        if len(emptied) != 1 or emptied[0] in rewrote or len(rewrote) != k - 1:
+            problems.append(
+                f"an interrupt as rewrite {k} opens: emptied {emptied}, rewrote {rewrote}: {done.stderr}"
+            )
+            continue
+        rel = emptied[0]
+        tracked = rel != "docs/notes/loose.md"
+        seen.add(tracked)
+        head = f"BROKEN: {rel} was being rewritten when the interrupt came, and may be cut short or empty:"
+        cut_short = (  # typed by hand
+            f"{head} git restore -- {rel} brings back the text git's index holds"
+            if tracked
+            else f"{head} git keeps no copy of it, so its text may be lost"
+        )
+        place = f"BROKEN: the act stopped after git moved {OLD} to {NEW}: the file stands at {NEW}"
+        wanted = INTERRUPTED + "\n" + place + "\n" + cut_short + "\n" + STOPPED_MIDWAY + "\n"
+        if (done.code, done.stderr) != (KILLED, wanted):
+            problems.append(
+                f"an interrupt as rewrite {k} opens: exit {done.code}: {done.stdout}{done.stderr}"
+            )
+    if seen != {True, False}:
+        problems.append(f"the rewrites cut short were not one tracked and one untracked: {seen}")
+    # the closing's own look at a folder of the move: one whose parent can be listed and not searched cannot
+    # be asked whether it is a folder, on any Python, and the line says nobody can say where the file stands
+    if os.geteuid() != 0:
+        looked = moving_consumer()
+        shut = looked.root / "docs/half"
+        (shut / "made").mkdir(parents=True)
+        closing = Closing(root=looked.root, move=(OLD, NEW), planned=(shut / "made",))
+        shut.chmod(0o444)  # readable: its names are listed; not searchable: no name in it can be asked
+        try:
+            said = closing.interrupted()
+        finally:
+            shut.chmod(0o755)
+        if said != either_line():
+            problems.append(f"a folder of the move that cannot be asked: {said}")
     # --moved moves nothing: only the flag set before the first write tells a rewrite, the one thing the
     # line cannot observe; before the first write nothing was changed
     for label, env, closing in (
@@ -3898,8 +3935,9 @@ def the_budget_is_one() -> None:
             (both.root / shut).chmod(0o644)
         readable = H.run_gate("", args=["--scan", str(both.root)], env=path_with(None))
         unreadable_typed = (  # typed by hand: a scan's first line for a file git lists and nobody reads
-            f"BROKEN: {shut} is listed by git but cannot be read — fix: run cat -- {shut} to see the system's"
-            " own reason, then repair what it names and run it again"
+            f"BROKEN: {shut} is listed by git but cannot be read — fix: run cat -- {shut} at the top of the"
+            " repository it lies in to see the system's own reason, then repair what it names and run"
+            " it again"
         )
         broken_typed(hooked, X1_TYPED)
         broken_typed(scanned, unreadable_typed)

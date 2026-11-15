@@ -198,11 +198,11 @@ def _move(root: Path, old: str, new: str, closing: Closing) -> list[Path]:
             directory.mkdir()
             made.insert(0, directory)
     except OSError:
-        _unmake(made)
+        _unmake(made, closing)
         raise
     moved = git(["mv", "--", old, new], cwd=root)
     if moved.returncode != 0:
-        _unmake(made)
+        _unmake(made, closing)
         raise ConfigurationFailure(messages.v5_git_mv(first_line(moved.stderr)))
     return made
 
@@ -215,17 +215,18 @@ def _move_back(root: Path, old: str, new: str, made: Sequence[Path], closing: Cl
         closing.stranded = messages.v4_move_back_failed(old, new, first_line(back.stderr))
         return
     closing.moved_back = old  # what git did; whether its folders are gone the closing line looks
-    _unmake(made)
+    _unmake(made, closing)
 
 
-def _unmake(made: Sequence[Path]) -> None:
+def _unmake(made: Sequence[Path], closing: Closing) -> None:
     """The folders a move made, removed deepest first. One that cannot be removed stays, and so does every
-    folder above it: the closing line, which looks at the tree, names them."""
+    folder above it: the closing line, which looks at the tree, names them, with the system's reason where
+    it gave one."""
     for directory in made:
         try:
             directory.rmdir()
-        except OSError:
-            continue  # the closing line names what stands
+        except OSError as exc:
+            closing.unmade[directory] = _reason(exc)
 
 
 def _repair(rel: str, text: str, old: str, new: str, ids: Ids | None) -> Rewritten:
