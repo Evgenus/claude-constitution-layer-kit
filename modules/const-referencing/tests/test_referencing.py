@@ -2724,6 +2724,18 @@ def interrupts() -> list[str]:
             "locked": locked,
         },
         {
+            "label": "in the plan, and again while the move back removes the folders",
+            "git": {"interrupt": True},
+            "python": "rmdir@_remove_made:1",
+            "closing": folders_line(deep, moved),
+        },
+        {
+            "label": "while the move removes its folders after git refused",
+            "git": {"on_move": "echo 'fatal: planted' >&2; exit 128"},
+            "python": "rmdir@_move:1",
+            "closing": folders_line(deep, moved),
+        },
+        {
             "label": "before git moves the file back",
             "git": {"cut_back": "before"},
             "closing": at_new_line(),
@@ -2779,6 +2791,33 @@ def interrupts() -> list[str]:
     wrote = any(line.startswith("REWROTE: ") for line in lines)
     if (done.code, done.stderr) != (KILLED, INTERRUPTED + "\n" + at_new_line() + "\n") or not wrote:
         problems.append(f"an interrupt after the first write: exit {done.code}: {done.stdout}{done.stderr}")
+    # a document opened for its rewrite, and so emptied, before its text is written: the line names it, though
+    # no REWROTE line does, and says that git's index holds its text
+    cut = moving_consumer()
+    done = mover(cut, OLD, NEW, env=interrupt_at(H.scratch_dir(), "return:open@act:2"))
+    rewrote = [
+        line.removeprefix("REWROTE: ").rsplit(": ", 1)[0]
+        for line in done.stdout.splitlines()
+        if line.startswith("REWROTE: ")
+    ]
+    second = next(rel for rel in (NEW, "docs/notes/two.md") if rel not in rewrote)
+    cut_short = (  # typed by hand
+        f"BROKEN: {second} was being rewritten when the interrupt came, and may be cut short or empty: git"
+        f" restore -- {second} brings back the text git's index holds"
+    )
+    wanted = (
+        INTERRUPTED
+        + "\n"
+        + at_new_line().replace("\n" + STOPPED_MIDWAY, "")
+        + "\n"
+        + cut_short
+        + "\n"
+        + STOPPED_MIDWAY
+        + "\n"
+    )
+    emptied = (cut.root / second).read_bytes() == b""
+    if (done.code, done.stderr) != (KILLED, wanted) or not emptied or len(rewrote) != 1:
+        problems.append(f"an interrupt as a rewrite opens: exit {done.code}: {done.stdout}{done.stderr}")
     # --moved moves nothing: only the flag set before the first write tells a rewrite, the one thing the
     # line cannot observe; before the first write nothing was changed
     for label, env, closing in (

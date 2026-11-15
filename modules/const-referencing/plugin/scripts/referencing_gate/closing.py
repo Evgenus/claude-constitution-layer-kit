@@ -33,6 +33,7 @@ class Closing:
     move: tuple[str, str] | None = None  # (old, new) of an act that moves, set before the move begins
     planned: tuple[Path, ...] = field(default_factory=tuple)  # the folders it would make, deepest first
     rewrote: bool = False  # set before the first rewrite opens: no look at the tree can tell it
+    writing: str = ""  # the document being rewritten, from before its open until its text is written
 
     def __call__(self) -> str:
         if self.stranded:
@@ -44,26 +45,38 @@ class Closing:
         return messages.v4_nothing_changed()
 
     def interrupted(self) -> str:
-        """The line the shared guard prints after an interrupt, made from what the tree shows now. A second
+        """The line the shared guard prints after an interrupt, made from what the tree shows now: where the
+        file stands, the folders the move made that stand, the document being written, if one was, and the
+        midway line wherever the file moved, its place is unknown, or a document was rewritten. A second
         interrupt while it looks leaves it unable to say, and the line says the file may stand at either
         path."""
+        place, midway = self._place()
+        lines = [place] if place else []
+        if self.writing:  # opened, so perhaps emptied, and its text perhaps not written
+            lines.append(messages.v4_cut_short(self.writing))
+        if midway or self.rewrote:
+            lines.append(messages.v4_stopped_midway())
+        return "\n".join(lines) if lines else messages.v4_nothing_changed()
+
+    def _place(self) -> tuple[str, bool]:
+        """The line of where the file stands, as observed now, and whether the midway line follows it. An act
+        that moves nothing, and a file at its old path with no folder of the move standing, give no line."""
         if self.move is None or self.root is None:
-            return messages.v4_stopped_midway() if self.rewrote else messages.v4_nothing_changed()
+            return "", False
         old, new = self.move
         try:
             at = where(self.root, old, new)
             standing = [folder for folder in self.planned if _stands(folder)]
-        except KeyboardInterrupt:
+        except KeyboardInterrupt:  # a second interrupt while it looks: it cannot say
             at, standing = None, []
         if at is None:
-            return messages.v4_either(old, new) + "\n" + messages.v4_stopped_midway()
+            return messages.v4_either(old, new), True
         if at == new:
-            return messages.v4_at_new(old, new) + "\n" + messages.v4_stopped_midway()
+            return messages.v4_at_new(old, new), True
         if standing:
             shown = [folder.relative_to(self.root).as_posix() for folder in standing]
-            line = messages.v4_folders_stand(old, shown)
-            return line + "\n" + messages.v4_stopped_midway() if self.rewrote else line
-        return messages.v4_stopped_midway() if self.rewrote else messages.v4_nothing_changed()
+            return messages.v4_folders_stand(old, shown), False
+        return "", False
 
 
 def where(root: Path, old: str, new: str) -> str | None:

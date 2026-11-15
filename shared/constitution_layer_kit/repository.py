@@ -88,16 +88,29 @@ def git(
         raise ConfigurationFailure(failure) from exc
 
 
-def _can_stand_in(folder: Path) -> bool:
-    """A folder git can run in: one that stands and may be searched. os.path answers False behind a folder
-    nobody may search, on every Python, so the walk goes up past it; the gate then names the path itself."""
-    return os.path.isdir(folder) and os.access(folder, os.X_OK)
+def stand_in(folder: Path, shown: str) -> bool:
+    """Whether `folder` is a folder a process can stand in: one that stands and may be searched. A path that
+    is absent, or no folder, is not. A folder that stands and may not be searched, or one behind such a
+    folder, is the shared C12.16 naming `shown`, on every Python. `folder/.` is asked, whose lookup needs the
+    search right, so the system itself says which."""
+    try:
+        os.stat(os.path.join(folder, "."))
+    except OSError as exc:
+        if exc.errno in _ABSENT:
+            return False
+        raise ConfigurationFailure(
+            messages.c12_unreachable(shown, exc.strerror or type(exc).__name__)
+        ) from exc
+    return True
 
 
 def repo_root(path: Path) -> Path | None:
-    """The real path of the repository containing `path` (which need not exist), or None."""
-    probe = path if _can_stand_in(path) else path.parent
-    while not _can_stand_in(probe):
+    """The real path of the repository containing `path` (which need not exist), or None. The walk goes up
+    only past what is absent or no folder. A folder it cannot search, the path itself or one on the way
+    up, is the shared C12.16 naming the path asked about, on every Python: the walk never passes it to stand
+    in a repository above, whose verdict is not this tree's."""
+    probe = path
+    while not stand_in(probe, str(probe)):
         if probe.parent == probe:
             return None
         probe = probe.parent

@@ -94,8 +94,10 @@ def act(output: Output, request: Request, closing: Closing) -> int:
     for rel, done in plan.rewrites:
         closing.changed = True
         closing.rewrote = True  # before the file opens: the one thing an interrupt's line cannot observe
+        closing.writing = rel  # from before the open, which empties it, until its text is written
         with (root / rel).open("w", encoding="utf-8", newline="") as handle:  # line endings as they were
             handle.write(done.text)
+        closing.writing = ""
         output.out(messages.v2_rewrote(rel, done.links))
         links += done.links
     for rel, line, text in plan.mentions:

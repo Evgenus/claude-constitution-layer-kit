@@ -421,6 +421,13 @@ def v4_at_new(old: str, new: str) -> str:
     )
 
 
+def v4_cut_short(rel: str) -> str:
+    return (
+        f"BROKEN: {escaped(rel)} was being rewritten when the interrupt came, and may be cut short or empty:"
+        f" git restore -- {escaped(shlex.quote(rel))} brings back the text git's index holds"
+    )
+
+
 def v4_folders_stand(old: str, folders: Sequence[str]) -> str:
     return (
         f"BROKEN: the move could not run — the file stands at {escaped(old)}, as before, but the folder(s)"

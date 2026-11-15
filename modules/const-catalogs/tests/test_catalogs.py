@@ -718,9 +718,10 @@ def test_edit_that_creates_is_new() -> None:
 @acceptance_item(86, "a written file behind a folder nobody may search is the shared C12.16, on every Python")
 def test_written_file_unreachable() -> None:
     """Whether the written file exists decides whether its number is judged. Behind a folder nobody may
-    search, Path.exists raised before 3.14, the defect line, and returned False from 3.14 on, where the file
-    was judged as a new item. Now the shared C12.16 says nobody can tell, on every Python. As root a mode bit
-    denies nothing, and the case is not exercised."""
+    search, the shared walk up to the repository stops at the written path: the shared C12.16 names it, by
+    the path the event gives, on every Python, and no verdict is given. A name too long for the system is the
+    same line with that reason; on 3.14, main judged it as a new item and blocked it with K1, though no such
+    file can be written. As root a mode bit denies nothing, and the case is not exercised."""
     if os.geteuid() == 0:
         return  # NOT EXERCISED: running as root, where a mode bit does not deny a search
     rel = "docs/items/shut/itm-0002-second.md"
@@ -736,16 +737,16 @@ def test_written_file_unreachable() -> None:
         shut.chmod(0o755)
     broken_typed(
         result,
-        f"BROKEN: {rel} cannot be reached (Permission denied), so nobody can say what stands there — fix:"
-        " repair what the brackets name — the system's own reason — then run it again",
+        f"BROKEN: {consumer.root / rel} cannot be reached (Permission denied), so nobody can say what stands"
+        " there — fix: repair what the brackets name — the system's own reason — then run it again",
     )
     # a name too long for the system: the fix points at the reason, and names no folder's permissions
     long_rel = "docs/items/itm-0002-" + "x" * 300 + ".md"
     result = H.run_gate(event_json(consumer.root, Write(long_rel, item("itm-0002-second"))))
     broken_typed(
         result,
-        f"BROKEN: {long_rel} cannot be reached (File name too long), so nobody can say what stands there —"
-        " fix: repair what the brackets name — the system's own reason — then run it again",
+        f"BROKEN: {consumer.root / long_rel} cannot be reached (File name too long), so nobody can say what"
+        " stands there — fix: repair what the brackets name — the system's own reason — then run it again",
     )
 
 

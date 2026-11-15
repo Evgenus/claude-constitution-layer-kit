@@ -2547,6 +2547,42 @@ def test_scan_outside_repository(subject: Subject) -> None:
         "", args=["--scan", str(directory)], env={"GIT_CEILING_DIRECTORIES": str(directory.parent)}
     )
     it.broken(result, messages.c12_no_repo(str(directory)))
+    # a folder the walk up to a repository cannot search is the stated failure naming it, on every Python:
+    # never the verdict of a repository above it, and never "not inside a repository" for a folder that
+    # stands. The repository is a folder of another one that ignores it, as a clone inside a clone
+    if os.geteuid() == 0:
+        return  # NOT EXERCISED: running as root, where a mode bit does not deny a search
+    _, root = it.s.gate_on(it.s.valid, files={it.s.valid.target: it.s.valid.text})
+    outer = it.h.scratch_dir()
+    subprocess.run(["git", "init", "-q", str(outer)], check=True, capture_output=True)
+    (outer / ".gitignore").write_text("inner/\n", encoding="utf-8")
+    inner = outer / "inner"
+    shutil.move(str(root), str(inner))
+
+    def unreached(path: object) -> str:  # typed by hand
+        return (
+            f"BROKEN: {path} cannot be reached (Permission denied), so nobody can say what stands there —"
+            " fix: repair what the brackets name — the system's own reason — then run it again"
+        )
+
+    def shut(mode: int, run: Callable[[], Result]) -> Result:
+        inner.chmod(mode)
+        try:
+            return run()
+        finally:
+            inner.chmod(0o755)
+
+    shown = os.path.realpath(inner)
+    for mode in (0o000, 0o600):  # no right at all; the top folder readable and not searchable
+        scanned = shut(mode, lambda: it.h.run_gate("", args=it.scan_args(inner), cwd=outer))
+        it.broken_as_typed(scanned, unreached(shown))
+    below = inner / Path(it.s.valid.target).parent  # a folder inside it, asked by its path as given
+    it.broken_as_typed(
+        shut(0o000, lambda: it.h.run_gate("", args=it.scan_args(below), cwd=outer)), unreached(below)
+    )
+    if it.s.event_driven and not it.s.scan_only and not it.no_file:  # a write into it, by the path it names
+        hooked = shut(0o000, lambda: it.h.run_gate(it.payload(inner, it.s.valid)))
+        it.broken_as_typed(hooked, unreached(inner / it.s.valid.target))
 
 
 @item(146, "--scan=DIR and a scan from a subdirectory examine the same repository")
