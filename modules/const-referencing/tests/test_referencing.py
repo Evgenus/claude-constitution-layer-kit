@@ -2733,17 +2733,25 @@ def either_line(new: str = NEW) -> str:  # typed by hand
     )
 
 
-def at_new_line(new: str = NEW, undo: bool = True) -> str:  # typed by hand
-    """The line where the file stands at the new path: the finish, always, and the undo only where no
-    rewrite may have begun, with the folders the move made, deepest first."""
+def at_new_line(new: str = NEW, teach: bool = True) -> str:  # typed by hand
+    """The line where the file stands at the new path. Where no rewrite can have begun, it teaches the
+    finish and the undo, with the folders the move made, deepest first; where one may have begun, neither,
+    since --moved would rewrite the moved document's own links once more."""
+    place = f"BROKEN: the act stopped after git moved {OLD} to {new}: the file stands at {new}"
+    if not teach:
+        return place + "\n" + STOPPED_MIDWAY
     folders = ("docs/moved/deep", "docs/moved") if new == NEW else ()
     rmdir = f" && rmdir -- {' '.join(folders)}" if folders else ""
-    back = f"; to undo it, run git mv -- {new} {OLD}{rmdir}"
     return (
-        f"BROKEN: the act stopped after git moved {OLD} to {new}: the file stands at {new}; to finish the"
-        " move,"
-        f' run sh "{MOVER.resolve()}" --moved -- {OLD} {new}' + (back if undo else "") + "\n" + STOPPED_MIDWAY
+        f'{place}; to finish the move, run sh "{MOVER.resolve()}" --moved -- {OLD} {new}; to undo it, run'
+        f" git mv -- {new} {OLD}{rmdir}\n" + STOPPED_MIDWAY
     )
+
+
+VERDICT_MAY = (  # typed by hand: the one sentence once the scan has begun to print its verdict
+    "BROKEN: the act was done, and the check of the whole tree was printing its verdict, which may stand"
+    " above or may be missing: run the scan to see it"
+)
 
 
 def folders_line(*made: str) -> str:  # typed by hand
@@ -2921,7 +2929,10 @@ def interrupts_late() -> list[str]:
     done = mover(late, OLD, NEW, env=path_with(dying))
     lines = done.stdout.splitlines()
     wrote = any(line.startswith("REWROTE: ") for line in lines)
-    if (done.code, done.stderr) != (KILLED, INTERRUPTED + "\n" + at_new_line(undo=False) + "\n") or not wrote:
+    if (done.code, done.stderr) != (
+        KILLED,
+        INTERRUPTED + "\n" + at_new_line(teach=False) + "\n",
+    ) or not wrote:
         problems.append(f"an interrupt after the first write: exit {done.code}: {done.stdout}{done.stderr}")
     # a document opened for its rewrite, and so emptied, before its text is written: the line names it, though
     # no REWROTE line does, and says that git's index holds its text
@@ -2961,7 +2972,7 @@ def interrupts_late() -> list[str]:
             if tracked
             else f"{head} git keeps no copy of it, so its text may be lost"
         )
-        place = at_new_line(undo=False).splitlines()[0]
+        place = at_new_line(teach=False).splitlines()[0]
         wanted = INTERRUPTED + "\n" + place + "\n" + cut_short + "\n" + STOPPED_MIDWAY + "\n"
         if (done.code, done.stderr) != (KILLED, wanted):
             problems.append(
@@ -2972,16 +2983,17 @@ def interrupts_late() -> list[str]:
     # after the closing scan has printed its verdict, the line adds nothing below it: the check ran. As the
     # verdict prints, before that is known, the line says what may be, with the finish and no undo
     for label, args, setup, spec, closing in (
-        ("after the scan's verdict", (OLD, NEW), None, "return:scan_mode:1", ""),
-        ("--ids, after the scan's verdict", ("--ids",), hand_moved_for_ids, "return:scan_mode:1", ""),
-        ("as the scan's verdict prints", (OLD, NEW), None, "return:report_scan:1", at_new_line(undo=False)),
+        ("after the scan's verdict", (OLD, NEW), None, "return:scan_mode:1", VERDICT_MAY),
         (
-            "--ids, as its verdict prints",
+            "--ids, after the scan's verdict",
             ("--ids",),
             hand_moved_for_ids,
-            "return:report_scan:1",
-            STOPPED_MIDWAY,
+            "return:scan_mode:1",
+            VERDICT_MAY,
         ),
+        ("as the scan's verdict prints", (OLD, NEW), None, "return:report_scan:1", VERDICT_MAY),
+        ("--ids, as its verdict prints", ("--ids",), hand_moved_for_ids, "return:report_scan:1", VERDICT_MAY),
+        ("before the scan's verdict prints", (OLD, NEW), None, "report_scan@scan_mode:1", VERDICT_MAY),
     ):
         late = moving_consumer()
         if setup is not None:
@@ -2989,7 +3001,8 @@ def interrupts_late() -> list[str]:
         done = mover(late, *args, env=interrupt_at(H.scratch_dir(), spec))
         verdict = done.stdout.splitlines()[-1] if done.stdout else ""
         wanted = INTERRUPTED + "\n" + (closing + "\n" if closing else "")
-        if (done.code, done.stderr) != (KILLED, wanted) or not verdict.startswith(("GREEN: ", "RED: ")):
+        printed = verdict.startswith(("GREEN: ", "RED: "))
+        if (done.code, done.stderr) != (KILLED, wanted) or printed == spec.startswith("report_scan@"):
             problems.append(f"an interrupt {label}: exit {done.code}: {done.stdout}{done.stderr}")
     # --ids interrupted as its first rewrite is about to open: nothing was opened, and the line says only what
     # may be, the tree unchanged
@@ -2999,14 +3012,14 @@ def interrupts_late() -> list[str]:
     done = mover(early, "--ids", env=interrupt_at(H.scratch_dir(), "open@act:1"))
     maybe = (  # typed by hand
         "BROKEN: docs/notes/two.md may have been opened for its rewrite when the act stopped, so it may be"
-        " cut"
-        " short or empty: git restore -- docs/notes/two.md brings back the text git's index holds"
+        " cut short or empty: git restore -- docs/notes/two.md brings back the text git's index holds"
     )
     wanted = INTERRUPTED + "\n" + maybe + "\n" + STOPPED_MIDWAY + "\n"
     if (done.code, done.stderr) != (KILLED, wanted) or whole_state(early) != state:
         problems.append(
             f"an interrupt as --ids's first rewrite opens: exit {done.code}: {done.stdout}{done.stderr}"
         )
+    problems.extend(lines_from_elsewhere())
     # the closing's own look at a folder of the move: one whose parent can be listed and not searched cannot
     # be asked whether it is a folder, on any Python, and the line says nobody can say where the file stands
     if os.geteuid() != 0:
@@ -3032,6 +3045,57 @@ def interrupts_late() -> list[str]:
         done = mover(by_hand, "--moved", OLD, NEW, env=env)
         if (done.code, done.stderr) != (KILLED, INTERRUPTED + "\n" + closing + "\n"):
             problems.append(f"an interrupt {label}: exit {done.code}: {done.stdout}{done.stderr}")
+    return problems
+
+
+def lines_from_elsewhere() -> list[str]:
+    """The line's commands from a subfolder, a second interrupt while the line is made, and an interrupt
+    while a failure's closing looks."""
+    problems: list[str] = []
+    # from a subfolder: every command the line prints gives its paths from where the mover ran, as the user
+    # typed them, quoted, options ended; the prose names them from the repository's top
+    here = moving_consumer()
+    env = interrupt_at(H.scratch_dir(), "return:_move:1")
+    done = mover(here, "notes/one.md", "moved/deep/first.md", cwd="docs", env=env)
+    wanted_lines = [
+        INTERRUPTED,
+        f"BROKEN: the act stopped after git moved {OLD} to {NEW}: the file stands at {NEW}; to finish the"
+        " move,"
+        f' run sh "{MOVER.resolve()}" --moved -- notes/one.md moved/deep/first.md; to undo it, run git mv --'
+        " moved/deep/first.md notes/one.md && rmdir -- moved/deep moved",
+        STOPPED_MIDWAY,
+    ]
+    if (done.code, done.stderr.splitlines()) != (KILLED, wanted_lines):
+        problems.append(f"an interrupt from docs/ as the move returns: exit {done.code}: {done.stderr}")
+    cut = moving_consumer()
+    env = interrupt_at(H.scratch_dir(), "open@act:1")
+    done = mover(cut, "notes/one.md", "moved/deep/first.md", cwd="docs", env=env)
+    restores = [line for line in done.stderr.splitlines() if " may have been opened for its rewrite " in line]
+    restore_ok = len(restores) == 1 and any(
+        restores[0].startswith(f"BROKEN: {top} may have been opened")
+        and restores[0].endswith(f"git restore -- {from_docs} brings back the text git's index holds")
+        for top, from_docs in ((NEW, "moved/deep/first.md"), ("docs/notes/two.md", "notes/two.md"))
+    )
+    if done.code != KILLED or not restore_ok:
+        problems.append(f"an interrupt from docs/ as a rewrite opens: exit {done.code}: {done.stderr}")
+    # a second interrupt while the line is made, outside its look: the line says nobody can say
+    second = moving_consumer()
+    env = {
+        **fake_git(H.scratch_dir() / "git.log", cut_move="after"),
+        **interrupt_at(H.scratch_dir(), "from_here:1"),
+    }
+    done = mover(second, OLD, NEW, env=env)
+    if (done.code, done.stderr) != (KILLED, INTERRUPTED + "\n" + either_line() + "\n"):
+        problems.append(f"a second interrupt while the line is made: exit {done.code}: {done.stderr}")
+    # an interrupt while a failure's closing looks: the failure's line, then the interrupt as the guard
+    # handles it, the process dying by the signal; the tree as it was
+    failing = moving_consumer()
+    state = whole_state(failing)
+    env = interrupt_at(H.scratch_dir(), "_indexed:1")
+    done, after, _ = under_mode(failing, "docs/notes/two.md", 0o444, OLD, NEW, env=env)
+    wanted = UNWRITABLE.format(path="docs/notes/two.md") + "\n" + INTERRUPTED + "\n" + STOPPED_NOTHING + "\n"
+    if (done.code, done.stderr) != (KILLED, wanted) or after != state:
+        problems.append(f"an interrupt while a failure's line looks: exit {done.code}: {done.stderr}")
     return problems
 
 
@@ -3100,7 +3164,7 @@ def test_mover_says_when_it_stopped_midway() -> None:
     )
     ok = (  # the closing lines, typed by hand: where the file stands, as observed, then the midway line
         done.returncode == 1
-        and done.stderr.splitlines()[-2:] == at_new_line(undo=False).splitlines()
+        and done.stderr.splitlines()[-2:] == at_new_line(teach=False).splitlines()
         and messages.v4_nothing_changed() not in done.stderr
         and (consumer.root / NEW).exists()
     )

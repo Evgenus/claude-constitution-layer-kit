@@ -37,24 +37,40 @@ class Closing:
     scanned: bool = False  # set once the closing scan has printed its verdict, which then stands
 
     def __call__(self) -> str:
-        """The line that closes a failure, made as an interrupt's is."""
-        return self._observed(failure=True)
+        """The line that closes a failure, made as an interrupt's is. An interrupt while it is made goes on to
+        the shared guard, which then closes the run as for any interrupt; an error says nobody can say."""
+        try:
+            return self._observed(failure=True)
+        except Exception:
+            return self._unknown(failure=True)
 
     def interrupted(self) -> str:
         """The line the shared guard prints after an interrupt, made from what the tree shows now: where the
         file stands, the folders the move made that stand, the document being written, if one was, and the
         midway line wherever the file moved, its place is unknown, or a document was rewritten. A second
-        interrupt while it looks leaves it unable to say, and the line says the file may stand at either
-        path."""
-        return self._observed(failure=False)
+        interrupt anywhere in the making of the line leaves it unable to say, and the line says the file may
+        stand at either path."""
+        try:
+            return self._observed(failure=False)
+        except (KeyboardInterrupt, Exception):
+            return self._unknown(failure=False)
+
+    def _unknown(self, failure: bool) -> str:
+        """The line where its making was cut short: nothing looked at, so nothing claimed but what may be."""
+        if self.move is None:
+            return messages.v4_stopped_midway()
+        return messages.v4_either(*self.move, interrupted=not failure) + "\n" + messages.v4_stopped_midway()
 
     def _observed(self, failure: bool) -> str:
-        if self.scanned:  # the whole tree was checked, and its verdict stands above: nothing to add
-            return ""
+        if self.scanned:  # the scan has begun to print its verdict, which may stand above
+            return messages.v4_verdict_may()
         place, midway = self._place(failure)
         lines = [place] if place else []
-        if self.writing:  # opened, so perhaps emptied, and its text perhaps not written
-            lines.append(messages.v4_cut_short(self.writing, self._held(self.writing)))
+        if (
+            self.writing and self.root is not None
+        ):  # perhaps opened, so emptied, and its text perhaps not written
+            here = from_here(self.root, self.writing)
+            lines.append(messages.v4_cut_short(self.writing, self._held(self.writing), here))
         if midway or self.rewrote:
             lines.append(messages.v4_stopped_midway())
         return "\n".join(lines) if lines else messages.v4_nothing_changed()
@@ -69,21 +85,19 @@ class Closing:
         try:
             at = where(self.root, old, new)
             standing = [folder for folder in self.planned if _stands(folder)]
-        # a second interrupt, or a look the system refuses or git cannot answer: nobody can say
-        except (KeyboardInterrupt, Exception):
+        except Exception:  # a look the system refuses, or git cannot answer: nobody can say
             at, standing = None, []
         if at is None:
             return messages.v4_either(old, new, interrupted=not failure), True
         if at == new:
             if failure and self.stranded:
                 return self.stranded, True
-            # the undo is taught only where no rewrite may have begun: git mv back would leave those wrong
-            undo = (
-                None if self.rewrote else [from_here(self.root, rel) for rel in self._standing_rel(standing)]
-            )
-            return messages.v4_at_new(
-                old, new, from_here(self.root, old), from_here(self.root, new), undo
-            ), True
+            # a rewrite may have begun: --moved would rewrite the moved document's own links once more
+            if self.rewrote:
+                return messages.v4_at_new(old, new, None), True
+            folders = [from_here(self.root, rel) for rel in self._standing_rel(standing)]
+            here = (from_here(self.root, old), from_here(self.root, new), folders)
+            return messages.v4_at_new(old, new, here), True
         if standing:
             shown = [
                 (folder.relative_to(self.root).as_posix(), self.unmade.get(folder, "")) for folder in standing
@@ -104,7 +118,7 @@ class Closing:
             return None
         try:
             return _indexed(self.root, rel)
-        except (KeyboardInterrupt, Exception):
+        except Exception:
             return None
 
 

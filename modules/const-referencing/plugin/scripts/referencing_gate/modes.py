@@ -101,7 +101,7 @@ def _after_write(output: Output, target: WriteTarget, dials: ReferencingDials) -
 
 
 def scan_mode(output: Output, start: Path, verdict: Callable[[], None] | None = None) -> int:
-    """The scan of the tree; `verdict`, when given, is called at once after the verdict is printed."""
+    """The scan of the tree; `verdict`, when given, is called just before the verdict is printed."""
     target = pipeline.locate_scan(output, start)
     if isinstance(target, Skip):
         return pipeline.skip(output, target.reason)
@@ -125,10 +125,9 @@ def scan_mode(output: Output, start: Path, verdict: Callable[[], None] | None = 
         findings += [finding for _, finding in in_order]
         links += count
     tail = messages.f9_scan_tail(len(covered), links, len(paths), len(dials.lanes), len(dials.mentions), read)
-    code = pipeline.report_scan(output, [*findings, *named], (), tail)
     if verdict is not None:
         verdict()
-    return code
+    return pipeline.report_scan(output, [*findings, *named], (), tail)
 
 
 def _examine(
