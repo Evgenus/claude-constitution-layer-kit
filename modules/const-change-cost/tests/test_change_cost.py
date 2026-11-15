@@ -825,8 +825,8 @@ def test_commits_not_counted(clone: Clone) -> None:
 
 
 UNREACHED = (  # C12.16, typed by hand
-    "BROKEN: {path} cannot be reached (Permission denied), so nobody can say what stands there — fix: make"
-    " the folders above it searchable — their permissions — then run it again"
+    "BROKEN: {path} cannot be reached (Permission denied), so nobody can say what stands there — fix:"
+    " repair what the brackets name — the system's own reason — then run it again"
 )
 
 

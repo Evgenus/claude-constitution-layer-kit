@@ -3,28 +3,39 @@ from the acts because the entry needs it before the preflight, and the acts are 
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import os
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from constitution_layer_kit.repository import git
 
 from . import messages
 
 
 @dataclass(slots=True)
 class Closing:
-    """The line that closes a failure, and the one that closes an interrupt: both read the act's own
-    state. Before the act has changed anything it can say so; once a folder is made, a file moved or a
+    """The line that closes a failure, and the one that closes an interrupt.
+
+    A failure is raised by the act itself, between two of its statements, so its line reads the act's own
+    state: before the act has changed anything it can say so; once a folder is made, a file moved or a
     document rewritten it must not. A move undone says so and names the file; a move back that failed says
-    where the file is, before the line that the act stopped midway. Where an interrupt cut a move or a move
-    back and git's index and the disk did not agree — or a second interrupt came first — the line says the
-    file may stand at either path and names both."""
+    where the file is, before the line that the act stopped midway.
+
+    An interrupt can land between any two statements, so its line reads no flag set along the way. It is
+    made from what it observes when it is asked for (`interrupted`): where git's index and the disk hold the
+    file, by the exact name, and which of the folders the move would make now stand. Whether a document was
+    rewritten is the one thing it cannot observe; `rewrote` says it, set before the first write opens."""
 
     changed: bool = False
     moved_back: str = ""  # the path a move was undone to, when it was
     stranded: str = ""  # the line saying where the file is, when the move back failed
-    uncertain: tuple[str, str] | None = None  # (old, new) while a move or a move back is not settled
+    root: Path | None = None  # the repository, once the act knows it
+    move: tuple[str, str] | None = None  # (old, new) of an act that moves, set before the move begins
+    planned: tuple[Path, ...] = field(default_factory=tuple)  # the folders it would make, deepest first
+    rewrote: bool = False  # set before the first rewrite opens: no look at the tree can tell it
+    writing: str = ""  # the document being rewritten, from before its open until its text is written
 
     def __call__(self) -> str:
-        if self.uncertain is not None:
-            return messages.v4_either(*self.uncertain) + "\n" + messages.v4_stopped_midway()
         if self.stranded:
             return self.stranded + "\n" + messages.v4_stopped_midway()
         if self.changed:
@@ -34,5 +45,66 @@ class Closing:
         return messages.v4_nothing_changed()
 
     def interrupted(self) -> str:
-        """The line the shared guard prints after an interrupt: the same reading of the act's state."""
-        return self()
+        """The line the shared guard prints after an interrupt, made from what the tree shows now: where the
+        file stands, the folders the move made that stand, the document being written, if one was, and the
+        midway line wherever the file moved, its place is unknown, or a document was rewritten. A second
+        interrupt while it looks leaves it unable to say, and the line says the file may stand at either
+        path."""
+        place, midway = self._place()
+        lines = [place] if place else []
+        if self.writing:  # opened, so perhaps emptied, and its text perhaps not written
+            lines.append(messages.v4_cut_short(self.writing))
+        if midway or self.rewrote:
+            lines.append(messages.v4_stopped_midway())
+        return "\n".join(lines) if lines else messages.v4_nothing_changed()
+
+    def _place(self) -> tuple[str, bool]:
+        """The line of where the file stands, as observed now, and whether the midway line follows it. An act
+        that moves nothing, and a file at its old path with no folder of the move standing, give no line."""
+        if self.move is None or self.root is None:
+            return "", False
+        old, new = self.move
+        try:
+            at = where(self.root, old, new)
+            standing = [folder for folder in self.planned if _stands(folder)]
+        except KeyboardInterrupt:  # a second interrupt while it looks: it cannot say
+            at, standing = None, []
+        if at is None:
+            return messages.v4_either(old, new), True
+        if at == new:
+            return messages.v4_at_new(old, new), True
+        if standing:
+            shown = [folder.relative_to(self.root).as_posix() for folder in standing]
+            return messages.v4_folders_stand(old, shown), False
+        return "", False
+
+
+def where(root: Path, old: str, new: str) -> str | None:
+    """`old` or `new` where git's index and the disk both hold the file there and not at the other path;
+    None where they do not agree."""
+    index = (_indexed(root, old), _indexed(root, new))
+    disk = (_on_disk(root / old), _on_disk(root / new))
+    if index == disk == (True, False):
+        return old
+    if index == disk == (False, True):
+        return new
+    return None
+
+
+def _indexed(root: Path, rel: str) -> bool:
+    """Whether git's index holds the path, by its exact name: where git itself says a file is."""
+    return git(["ls-files", "--error-unmatch", "--", rel], cwd=root).returncode == 0
+
+
+def _on_disk(path: Path) -> bool:
+    """Whether the disk holds the path by its exact name: a folder's listing, so that a disk that ignores
+    case cannot answer for a name in another case."""
+    try:
+        return path.name in os.listdir(path.parent)
+    except OSError:
+        return False
+
+
+def _stands(folder: Path) -> bool:
+    """A folder the move would make stands, by its exact name."""
+    return _on_disk(folder) and folder.is_dir()

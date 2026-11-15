@@ -18,7 +18,7 @@ from .errors import ConfigurationFailure
 from .events import document_after_write, read_event
 from .model import EXIT_GREEN, EXIT_RED, POST_WRITE, PRE_WRITE, STOP, Dials, Finding, Mode, Severity, SkipKind
 from .output import Output, log_name
-from .repository import is_ignored, is_markdown, read_text, repo_root
+from .repository import is_ignored, is_markdown, reached, read_text, repo_root
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,7 +110,7 @@ def locate_event(output: Output, stdin: TextIO) -> EventTarget | Skip:
 
 
 def locate_scan(output: Output, start: Path) -> ScanTarget | Skip:
-    if not start.exists():
+    if reached(start, str(start)) is None:  # a path behind a folder nobody may search is C12.16, not C12.6
         raise ConfigurationFailure(messages.c12_scan_path(str(start)))
     root = repo_root(start.resolve())
     if root is None:

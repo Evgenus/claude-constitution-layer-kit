@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import os
 import posixpath
+import random
 import re
 import shlex
 import shutil
@@ -1078,8 +1079,8 @@ def test_governed_only_policy_unreadable() -> None:
     finally:
         (root / policy).chmod(mode)
     line = (
-        f"BROKEN: {policy} is listed by git but cannot be read — fix: check that the file can be read: its"
-        " permissions, those of a folder above it, or a name too long for the system"
+        f"BROKEN: {policy} is listed by git but cannot be read — fix: run cat -- {policy} to see the system's"
+        " own reason, then repair what it names and run it again"
     )
     broken_first_line(result, line)
     first = f"exit 1, first stderr line: {line}"
@@ -1162,8 +1163,8 @@ def mentions_over_odd_files() -> None:
         shut.chmod(0o755)
     broken_typed(
         behind,
-        "BROKEN: tools/shut/hidden.sh is listed by git but cannot be read — fix: check that the file can be"
-        " read: its permissions, those of a folder above it, or a name too long for the system",
+        "BROKEN: tools/shut/hidden.sh is listed by git but cannot be read (Permission denied) — fix: repair"
+        " what the brackets name — the system's own reason — then run it again",
     )
     # a committed link is never read, wherever it leads: one to a file behind such a folder is no failure
     (shut / "hidden.sh").unlink()
@@ -1721,7 +1722,7 @@ def refused_unreachable() -> None:
         return  # NOT EXERCISED: running as root, where a mode bit does not deny a search
     unreachable = (  # typed by hand
         "BROKEN: {path} cannot be reached (Permission denied), so nobody can say whether it is there — fix:"
-        " make the folders above it searchable — their permissions — then run the mover again"
+        " repair what the brackets name — the system's own reason — then run the mover again"
     )
     shut = "docs/shut"
 
@@ -1763,6 +1764,23 @@ def refused_unreachable() -> None:
             unreachable.format(path=path) + "\n" + STOPPED_NOTHING + "\n",
         ), f"{name}: {done}"
         assert tree_state(consumer) == before, f"{name}: a refusal changed the tree"
+    # a name too long for the system: no permission is at fault, and the fix points at the reason, naming no
+    # cause; as the new file's name in a folder that exists, and as a folder the move would make
+    long_name = "x" * 300
+    too_long = (  # typed by hand
+        "BROKEN: {path} cannot be reached (File name too long), so nobody can say whether it is there — fix:"
+        " repair what the brackets name — the system's own reason — then run the mover again"
+    )
+    for new in (f"docs/{long_name}.md", f"docs/{long_name}/b.md"):
+        consumer = moving_consumer()
+        before = tree_state(consumer)
+        done = mover(consumer, OLD, new)
+        assert (done.code, done.stdout, done.stderr) == (
+            1,
+            "",
+            too_long.format(path=new) + "\n" + STOPPED_NOTHING + "\n",
+        ), f"{new[:20]}…: {done}"
+        assert tree_state(consumer) == before, "a refusal changed the tree"
 
 
 @item(65, "with no dials file the mover refuses before it moves")
@@ -2613,101 +2631,137 @@ def move_back_failures() -> list[str]:
     if (done.code, done.stdout, done.stderr) != (1, "", wanted) or not (left.root / OLD).exists():
         problems.append(f"a folder left after the move back: exit {done.code}: {done.stdout}{done.stderr}")
     problems.extend(interrupts())
+    problems.extend(interrupt_anywhere())
     return problems
+
+
+def either_line(new: str = NEW) -> str:  # typed by hand
+    return (
+        f"BROKEN: an interrupt cut the move short, and the file may stand at {OLD} or at {new}: look at"
+        " git status and the disk, and put it back with git mv\n" + STOPPED_MIDWAY
+    )
+
+
+def at_new_line(new: str = NEW) -> str:  # typed by hand
+    return (
+        f"BROKEN: the act stopped after git moved {OLD} to {new}: the file stands at {new}\n" + STOPPED_MIDWAY
+    )
+
+
+def folders_line(*made: str) -> str:  # typed by hand
+    return (
+        f"BROKEN: the move could not run — the file stands at {OLD}, as before, but the folder(s) the"
+        f" move made stand, empty: {', '.join(made)}; remove them with rmdir"
+    )
 
 
 def interrupts() -> list[str]:
     """An interrupt (Ctrl-C) at each moment of a move: the mover dies by the signal, as Python does for an
-    interrupt nobody caught, and prints the shared interrupt line, then its own line of what was done by
-    then, with no traceback. In the plan, the file is moved back (and where git refuses that, the line says
-    where the file is). While the move makes its folders or git moves the file, and while git moves it back,
-    the mover settles only where git's index and the disk agree: the folders removed, or the file moved back.
-    Where they disagree, or a second interrupt lands while it asks, the line says the file may stand at
-    either path and names both. After the first write, the act stopped midway."""
+    interrupt nobody caught, and prints the shared interrupt line, then a line made from what it observes
+    when the line is asked for, with no traceback. It asks git's index and the disk, by the exact name,
+    where the file stands, and which folders the move would make now stand. The file at the old path with
+    no such folder is "nothing was changed"; with folders standing, the line names them. At the new path,
+    the act stopped after git moved the file. Where the two disagree, or a second interrupt comes while it
+    asks, the file may stand at either path. Whether a document was rewritten is the one thing it cannot
+    observe, so one flag set before the first write opens says it. Only the move back under the plan's
+    failure is made; an interrupt settles nothing else. Each window a flag once left between two statements
+    is a case."""
     problems: list[str] = []
-    back = MOVED_BACK.format(old=OLD)
     case_new = "docs/notes/One.md"
+    deep, moved = "docs/moved/deep", "docs/moved"
 
-    def either(new: str = NEW) -> str:  # typed by hand
-        return (
-            f"BROKEN: an interrupt cut the move short, and the file may stand at {OLD} or at {new}: look at"
-            " git status and the disk, and put it back with git mv\n" + STOPPED_MIDWAY
-        )
-
-    where = (  # typed by hand
-        "BROKEN: the move could not be undone — an interrupt stopped git mv from moving"
-        " docs/moved/deep/first.md back to docs/notes/one.md; the file is at docs/moved/deep/first.md"
-    )
-    refused = (  # typed by hand
-        "BROKEN: the move could not be undone — git mv refused to move docs/moved/deep/first.md back to"
-        " docs/notes/one.md: fatal: planted; the file is at docs/moved/deep/first.md"
-    )
     locked = "docs/notes/two.md"  # read-only: a refusal in the plan, so that the move back runs
     cases: list[dict[str, object]] = [
-        {"label": "in the plan", "git": {"interrupt": True}, "closing": back, "unchanged": True},
+        {"label": "in the plan", "git": {"interrupt": True}, "closing": STOPPED_NOTHING, "unchanged": True},
         {
             "label": "in the plan, the move back refused",
             "git": {"interrupt": True, "on_move_back": "echo 'fatal: planted' >&2; exit 128"},
-            "closing": refused + "\n" + STOPPED_MIDWAY,
+            "closing": at_new_line(),
         },
+        {"label": "between the move's folders", "python": "mkdir@_move:2", "closing": folders_line(moved)},
         {
-            "label": "between the move's folders",
-            "python": "mkdir@_move:2",
-            "closing": STOPPED_NOTHING,
-            "unchanged": True,
+            "label": "between a folder made and its entry in the list of folders made",
+            "python": "return:mkdir@_move:1",
+            "closing": folders_line(moved),
         },
         {
             "label": "before git moves the file",
             "git": {"cut_move": "before"},
-            "closing": STOPPED_NOTHING,
-            "unchanged": True,
+            "closing": folders_line(deep, moved),
+        },
+        {"label": "after git moved the file", "git": {"cut_move": "after"}, "closing": at_new_line()},
+        {
+            "label": "as git's move returns, before its exit is read",
+            "python": "return:git@_move:1",
+            "closing": at_new_line(),
         },
         {
-            "label": "after git moved the file",
-            "git": {"cut_move": "after"},
-            "closing": back,
-            "unchanged": True,
+            "label": "as the move returns, before the plan begins",
+            "python": "return:_move:1",
+            "closing": at_new_line(),
         },
         {
             "label": "after git moved the file, and again while the mover asks git's index",
             "git": {"cut_move": "after", "interrupt": True},
-            "closing": either(),
+            "closing": either_line(),
         },
         {
             "label": "after git moved the file back",
             "git": {"cut_back": "after"},
-            "closing": back,
-            "unchanged": True,
+            "closing": folders_line(deep, moved),
             "locked": locked,
+        },
+        {
+            "label": "after a move back, before the folders it made are removed",
+            "python": "rmdir@_remove_made:1",
+            "closing": folders_line(deep, moved),
+            "locked": locked,
+        },
+        {
+            "label": "after a move back, between the two folders it removes",
+            "python": "rmdir@_remove_made:2",
+            "closing": folders_line(moved),
+            "locked": locked,
+        },
+        {
+            "label": "in the plan, and again while the move back removes the folders",
+            "git": {"interrupt": True},
+            "python": "rmdir@_remove_made:1",
+            "closing": folders_line(deep, moved),
+        },
+        {
+            "label": "while the move removes its folders after git refused",
+            "git": {"on_move": "echo 'fatal: planted' >&2; exit 128"},
+            "python": "rmdir@_move:1",
+            "closing": folders_line(deep, moved),
         },
         {
             "label": "before git moves the file back",
             "git": {"cut_back": "before"},
-            "closing": where + "\n" + STOPPED_MIDWAY,
+            "closing": at_new_line(),
             "locked": locked,
         },
         {
             "label": "between the disk's move and git's index",
             "git": {"cut_move": "before", "on_move": f"mv -- {OLD} {NEW}"},
-            "closing": either(),
+            "closing": either_line(),
         },
         {
             "label": "between the disk's move back and git's index",
             "git": {"cut_back": "before", "on_move_back": f"mv -- {NEW} {OLD}"},
-            "closing": either(),
+            "closing": either_line(),
             "locked": locked,
         },
         {  # where the disk ignores case, only the exact name tells the two paths apart
             "label": "a case-only rename, after git renamed it",
             "git": {"cut_move": "after"},
-            "closing": MOVED_BACK.format(old=OLD),
-            "unchanged": True,
+            "closing": at_new_line(case_new),
             "new": case_new,
         },
         {
             "label": "a case-only rename, the disk renamed and git's index not",
             "git": {"cut_move": "before", "on_move": f"mv -- {OLD} {case_new}"},
-            "closing": either(case_new),
+            "closing": either_line(case_new),
             "new": case_new,
         },
     ]
@@ -2735,8 +2789,97 @@ def interrupts() -> list[str]:
     done = mover(late, OLD, NEW, env=path_with(dying))
     lines = done.stdout.splitlines()
     wrote = any(line.startswith("REWROTE: ") for line in lines)
-    if (done.code, done.stderr) != (KILLED, INTERRUPTED + "\n" + STOPPED_MIDWAY + "\n") or not wrote:
+    if (done.code, done.stderr) != (KILLED, INTERRUPTED + "\n" + at_new_line() + "\n") or not wrote:
         problems.append(f"an interrupt after the first write: exit {done.code}: {done.stdout}{done.stderr}")
+    # a document opened for its rewrite, and so emptied, before its text is written: the line names it, though
+    # no REWROTE line does, and says that git's index holds its text
+    cut = moving_consumer()
+    done = mover(cut, OLD, NEW, env=interrupt_at(H.scratch_dir(), "return:open@act:2"))
+    rewrote = [
+        line.removeprefix("REWROTE: ").rsplit(": ", 1)[0]
+        for line in done.stdout.splitlines()
+        if line.startswith("REWROTE: ")
+    ]
+    second = next(rel for rel in (NEW, "docs/notes/two.md") if rel not in rewrote)
+    cut_short = (  # typed by hand
+        f"BROKEN: {second} was being rewritten when the interrupt came, and may be cut short or empty: git"
+        f" restore -- {second} brings back the text git's index holds"
+    )
+    wanted = (
+        INTERRUPTED
+        + "\n"
+        + at_new_line().replace("\n" + STOPPED_MIDWAY, "")
+        + "\n"
+        + cut_short
+        + "\n"
+        + STOPPED_MIDWAY
+        + "\n"
+    )
+    emptied = (cut.root / second).read_bytes() == b""
+    if (done.code, done.stderr) != (KILLED, wanted) or not emptied or len(rewrote) != 1:
+        problems.append(f"an interrupt as a rewrite opens: exit {done.code}: {done.stdout}{done.stderr}")
+    # --moved moves nothing: only the flag set before the first write tells a rewrite, the one thing the
+    # line cannot observe; before the first write nothing was changed
+    for label, env, closing in (
+        ("--moved, after the first write", path_with(dying), STOPPED_MIDWAY),
+        ("--moved, in the plan", interrupt_at(H.scratch_dir(), "_plan:1"), STOPPED_NOTHING),
+    ):
+        by_hand = moving_consumer()
+        hand_moved(by_hand)
+        done = mover(by_hand, "--moved", OLD, NEW, env=env)
+        if (done.code, done.stderr) != (KILLED, INTERRUPTED + "\n" + closing + "\n"):
+            problems.append(f"an interrupt {label}: exit {done.code}: {done.stdout}{done.stderr}")
+    return problems
+
+
+def observed_line(consumer: Consumer, new: str = NEW) -> str:
+    """The line an interrupt must leave, worked out here from the tree as the run left it: git's index and
+    the disk by the exact name, and the folders the move to NEW would make. No document is rewritten before
+    the plan has passed, so the rewrite flag plays no part."""
+
+    listed = subprocess.run(
+        ["git", "ls-files", "-z"], cwd=consumer.root, capture_output=True, text=True, check=True
+    ).stdout.split("\0")
+
+    def indexed(rel: str) -> bool:
+        return rel in listed
+
+    def on_disk(rel: str) -> bool:
+        path = consumer.root / rel
+        return path.parent.is_dir() and path.name in os.listdir(path.parent)
+
+    index, disk = (indexed(OLD), indexed(new)), (on_disk(OLD), on_disk(new))
+    if index == disk == (False, True):
+        return at_new_line(new)
+    if index != disk or index != (True, False):
+        return either_line(new)
+    standing = [rel for rel in ("docs/moved/deep", "docs/moved") if (consumer.root / rel).is_dir()]
+    return folders_line(*standing) if standing else STOPPED_NOTHING
+
+
+def interrupt_anywhere() -> list[str]:
+    """An interrupt at a statement picked at random among those `_move`, `_move_back` and `_remove_made`
+    run: wherever it lands, the line says what the tree shows. The two last run in the move back after a
+    refusal in the plan. The seed is in each problem, so that a red run can be run again."""
+    problems: list[str] = []
+    seed = random.randrange(1 << 30)
+    draw = random.Random(seed)
+    # each function's statements as one move runs them, a few over: 22 in `_move` to NEW, 3 in `_move_back`,
+    # 9 in `_remove_made` (counted on 2026-11-15); a draw past the last lands nowhere and is passed over
+    spans = {"_move": 24, "_move_back": 4, "_remove_made": 10}
+    for name in ("_move", "_move", "_move_back", "_move_back", "_remove_made", "_remove_made"):
+        k = draw.randint(1, spans[name])
+        consumer = moving_consumer()
+        env = interrupt_at(H.scratch_dir(), f"line:{name}:{k}")
+        if name == "_move":
+            done = mover(consumer, OLD, NEW, env=env)
+        else:
+            done, _, _ = under_mode(consumer, "docs/notes/two.md", 0o444, OLD, NEW, env=env)
+        if done.code != KILLED:
+            continue  # the function ran fewer than k statements: no interrupt landed
+        wanted = INTERRUPTED + "\n" + observed_line(consumer) + "\n"
+        if done.stderr != wanted:
+            problems.append(f"seed {seed}, line:{name}:{k}: exit {done.code}: {done.stderr}")
     return problems
 
 
@@ -3690,8 +3833,8 @@ def the_budget_is_one() -> None:
             (both.root / shut).chmod(0o644)
         readable = H.run_gate("", args=["--scan", str(both.root)], env=path_with(None))
         unreadable_typed = (  # typed by hand: a scan's first line for a file git lists and nobody reads
-            f"BROKEN: {shut} is listed by git but cannot be read — fix: check that the file can be read: its"
-            " permissions, those of a folder above it, or a name too long for the system"
+            f"BROKEN: {shut} is listed by git but cannot be read — fix: run cat -- {shut} to see the system's"
+            " own reason, then repair what it names and run it again"
         )
         broken_typed(hooked, X1_TYPED)
         broken_typed(scanned, unreadable_typed)

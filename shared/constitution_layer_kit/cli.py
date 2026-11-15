@@ -204,8 +204,10 @@ def guarded(
 
 def die_by_interrupt() -> int:
     """End the process by the interrupt it was sent, as Python does for one nobody caught: the default action
-    restored, the signal sent to the process itself. A shell then sees a child killed by SIGINT, shows 130,
-    and stops a loop as it would on Ctrl-C. Where the signal does not end the process, the exit is 130."""
+    restored, the signal sent to the process itself. A shell then sees a child killed by SIGINT and shows 130.
+    A shell's loop stops only where the shell got the interrupt too, as a terminal's Ctrl-C sends it to the
+    whole group; a signal sent to the entry alone ends the entry, and the loop goes on, as for any child.
+    Where the signal does not end the process, the exit is 130."""
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     os.kill(os.getpid(), signal.SIGINT)
     return EXIT_INTERRUPTED

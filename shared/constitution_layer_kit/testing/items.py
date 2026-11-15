@@ -1558,6 +1558,7 @@ class SharedItems:
             "C12.8": messages.c12_no_repo(path),
             "C12.9": messages.c12_invocation("bad " + "a\nb" + "c" * 100),
             "C12.10": messages.c12_unreadable(path),
+            "C12.10 with the system's reason": messages.c12_unreadable(path, "Permission\n" + "d" * 100),
             "C12.11": messages.c12_unexpected("ValueError: " + "v" * 100),
             "C12.16": messages.c12_unreachable(path, "Permission\n" + "d" * 100),
             "C13": messages.c13_log_dir_not_ignored(path),
@@ -1605,12 +1606,15 @@ class SharedItems:
             + "c" * 73
             + "… [107 characters] — fix: "
             + messages.USAGE,
-            "C12.10": f"BROKEN: {esc} is listed by git but cannot be read — fix: check that the file can be"
-            " read: its permissions, those of a folder above it, or a name too long for the system",
+            "C12.10": f"BROKEN: {esc} is listed by git but cannot be read — fix: run cat -- '{esc}' to see"
+            " the system's own reason, then repair what it names and run it again",
+            "C12.10 with the system's reason": f"BROKEN: {esc} is listed by git but cannot be read"
+            f" (Permission\\n{'d' * 69}… [111 characters]) — fix: repair what the brackets name — the"
+            " system's own reason — then run it again",
             "C12.11": "unexpected failure inside the checker: ValueError: " + "v" * 68 + "… [112 characters]",
             "C12.16": f"BROKEN: {esc} cannot be reached (Permission\\n{'d' * 69}… [111 characters]), so"
-            " nobody can say what stands there — fix: make the folders above it searchable — their"
-            " permissions — then run it again",
+            " nobody can say what stands there — fix: repair what the brackets name — the system's own"
+            " reason — then run it again",
             "C13": f"BROKEN: {self.file}: {self.ns}.log_dir '{esc}' is not ignored by git — fix: a log"
             " inside the working tree must be git-ignored, or every verdict dirties the tree; add the"
             " directory to .gitignore, or remove the key",
@@ -2543,6 +2547,42 @@ def test_scan_outside_repository(subject: Subject) -> None:
         "", args=["--scan", str(directory)], env={"GIT_CEILING_DIRECTORIES": str(directory.parent)}
     )
     it.broken(result, messages.c12_no_repo(str(directory)))
+    # a folder the walk up to a repository cannot search is the stated failure naming it, on every Python:
+    # never the verdict of a repository above it, and never "not inside a repository" for a folder that
+    # stands. The repository is a folder of another one that ignores it, as a clone inside a clone
+    if os.geteuid() == 0:
+        return  # NOT EXERCISED: running as root, where a mode bit does not deny a search
+    _, root = it.s.gate_on(it.s.valid, files={it.s.valid.target: it.s.valid.text})
+    outer = it.h.scratch_dir()
+    subprocess.run(["git", "init", "-q", str(outer)], check=True, capture_output=True)
+    (outer / ".gitignore").write_text("inner/\n", encoding="utf-8")
+    inner = outer / "inner"
+    shutil.move(str(root), str(inner))
+
+    def unreached(path: object) -> str:  # typed by hand
+        return (
+            f"BROKEN: {path} cannot be reached (Permission denied), so nobody can say what stands there —"
+            " fix: repair what the brackets name — the system's own reason — then run it again"
+        )
+
+    def shut(mode: int, run: Callable[[], Result]) -> Result:
+        inner.chmod(mode)
+        try:
+            return run()
+        finally:
+            inner.chmod(0o755)
+
+    shown = os.path.realpath(inner)
+    for mode in (0o000, 0o600):  # no right at all; the top folder readable and not searchable
+        scanned = shut(mode, lambda: it.h.run_gate("", args=it.scan_args(inner), cwd=outer))
+        it.broken_as_typed(scanned, unreached(shown))
+    below = inner / Path(it.s.valid.target).parent  # a folder inside it, asked by its path as given
+    it.broken_as_typed(
+        shut(0o000, lambda: it.h.run_gate("", args=it.scan_args(below), cwd=outer)), unreached(below)
+    )
+    if it.s.event_driven and not it.s.scan_only and not it.no_file:  # a write into it, by the path it names
+        hooked = shut(0o000, lambda: it.h.run_gate(it.payload(inner, it.s.valid)))
+        it.broken_as_typed(hooked, unreached(inner / it.s.valid.target))
 
 
 @item(146, "--scan=DIR and a scan from a subdirectory examine the same repository")
@@ -2683,8 +2723,8 @@ def test_dials_unreadable(subject: Subject) -> None:
         return it.h.run_gate("", args=list(it.s.act_args), cwd=root)  # refused before the home is looked at
 
     line = (
-        f"BROKEN: {it.file} cannot be read ([Errno 13] Permission denied: '{dials}') — fix: check"
-        " the file's permissions"
+        f"BROKEN: {it.file} cannot be read ([Errno 13] Permission denied: '{dials}') — fix: repair"
+        " what the brackets name — the system's own reason — then run it again"
     )
     it.unreadable(dials, again, line)
     # the file a link leads to, in a folder nobody may search: asked the same way on every Python, the
@@ -2715,8 +2755,8 @@ def test_document_unreadable(subject: Subject) -> None:
     sibling = str(Path(it.s.valid.target).with_name("unreadable.md"))
     _, root = it.s.gate_on(it.s.valid, files={sibling: it.s.valid.text})
     line = (
-        f"BROKEN: {sibling} is listed by git but cannot be read — fix: check that the file can be read:"
-        " its permissions, those of a folder above it, or a name too long for the system"
+        f"BROKEN: {sibling} is listed by git but cannot be read — fix: run cat -- {sibling} to see the"
+        " system's own reason, then repair what it names and run it again"
     )
     it.unreadable(root / sibling, lambda: it.h.run_gate("", args=["--scan", str(root)]), line)
     # a document behind a folder nobody may search: the same failure on every Python. Path.is_file raises
@@ -2729,8 +2769,8 @@ def test_document_unreadable(subject: Subject) -> None:
     subprocess.run(["git", "add", "-A"], cwd=root, check=True, capture_output=True)
     subprocess.run(["git", *who, "commit", "-qm", "shut"], cwd=root, check=True, capture_output=True)
     line = (
-        f"BROKEN: {hidden} is listed by git but cannot be read — fix: check that the file can be read:"
-        " its permissions, those of a folder above it, or a name too long for the system"
+        f"BROKEN: {hidden} is listed by git but cannot be read (Permission denied) — fix: repair what the"
+        " brackets name — the system's own reason — then run it again"
     )
     it.unreadable(root / shut, lambda: it.h.run_gate("", args=["--scan", str(root)]), line)
     # a name too long for the system, standing only in git's index: in a folder that exists the system
@@ -2745,8 +2785,8 @@ def test_document_unreadable(subject: Subject) -> None:
         index_only(root, entry, it.s.valid.text)
         result = it.h.run_gate("", args=["--scan", str(root)])
         line = (
-            f"BROKEN: {entry} is listed by git but cannot be read — fix: check that the file can be read:"
-            " its permissions, those of a folder above it, or a name too long for the system"
+            f"BROKEN: {entry} is listed by git but cannot be read (File name too long) — fix: repair what"
+            " the brackets name — the system's own reason — then run it again"
         )
         if said:
             it.broken_as_typed(result, line)
@@ -2820,8 +2860,8 @@ def test_policy_unreadable(subject: Subject) -> None:
         return runs[-1]
 
     line = (
-        f"BROKEN: {policy} is listed by git but cannot be read — fix: check that the file can be read:"
-        " its permissions, those of a folder above it, or a name too long for the system"
+        f"BROKEN: {policy} is listed by git but cannot be read — fix: run cat -- {policy} to see the"
+        " system's own reason, then repair what it names and run it again"
     )
     it.unreadable(root / policy, again, line)
     said = (runs[-1].stdout + runs[-1].stderr).splitlines()
@@ -3700,7 +3740,8 @@ def test_dials_file_name_is_the_declared_one(subject: Subject) -> None:
         " [<where policies live, including the root itself>]} — nothing is governed until then",
         "C12.3": "BROKEN: git check-ignore failed: boom — fix: territory patterns must be gitignore syntax;"
         " check team.yaml",
-        "C12.7": "BROKEN: team.yaml cannot be read (denied) — fix: check the file's permissions",
+        "C12.7": "BROKEN: team.yaml cannot be read (denied) — fix: repair what the brackets name — the"
+        " system's own reason — then run it again",
         "C13": f"BROKEN: team.yaml: {ns}.log_dir 'logs' is not ignored by git — fix: a log inside the"
         " working tree must be git-ignored, or every verdict dirties the tree; add the directory to"
         " .gitignore, or remove the key",

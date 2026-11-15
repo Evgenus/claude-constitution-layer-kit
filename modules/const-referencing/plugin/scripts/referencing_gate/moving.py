@@ -71,12 +71,14 @@ def act(output: Output, request: Request, closing: Closing) -> int:
         raise ConfigurationFailure(messages.v5_no_root_policy())
     old = new = ""
     made: list[Path] | None = None  # the folders the move made; None while nothing moved
+    closing.root = root
     if not request.ids:
         if request.new.endswith(("/", os.sep)):
             raise ConfigurationFailure(messages.v5_names_a_directory(request.new))
         old, new = _within(root, request.old), _within(root, request.new)
         _refuse_what_cannot_move(root, old, new, request.by_hand)
         if not request.by_hand:
+            closing.move = (old, new)  # from here an interrupt's line looks where the file stands
             made = _move(root, old, new, closing)
     try:
         plan = _plan(root, dials, target, old, new, request.ids, made)
@@ -91,8 +93,11 @@ def act(output: Output, request: Request, closing: Closing) -> int:
     links = 0
     for rel, done in plan.rewrites:
         closing.changed = True
+        closing.rewrote = True  # before the file opens: the one thing an interrupt's line cannot observe
+        closing.writing = rel  # from before the open, which empties it, until its text is written
         with (root / rel).open("w", encoding="utf-8", newline="") as handle:  # line endings as they were
             handle.write(done.text)
+        closing.writing = ""
         output.out(messages.v2_rewrote(rel, done.links))
         links += done.links
     for rel, line, text in plan.mentions:
@@ -179,24 +184,21 @@ def _reason(exc: OSError) -> str:
 
 def _move(root: Path, old: str, new: str, closing: Closing) -> list[Path]:
     """git mv, into a directory made for it where none exists — and unmade again when git refuses. The
-    folders it made are returned, deepest first, for the move back. From the first folder made, the act
-    counts as changed. An interrupt while it makes the folders or while git moves the file is settled where
-    git's index and the disk agree, and said where they do not."""
+    folders it made are returned, deepest first, for the move back. From the first folder made, a failure
+    counts as changed. An interrupt is not settled here: its line looks at the tree (`Closing.interrupted`),
+    and the folders the move would make are named to it before the first is made."""
     missing: list[Path] = []
     parent = (root / new).parent
     while _found(root, parent.relative_to(root).as_posix()) is None:
         missing.append(parent)
         parent = parent.parent
-    made: list[Path] = []  # deepest first
+    closing.planned = tuple(missing)  # deepest first, before the first folder
     closing.changed = True  # before the first folder: from here on, "nothing was changed" needs an undo
-    try:
-        for directory in reversed(missing):
-            directory.mkdir()
-            made.insert(0, directory)
-        moved = git(["mv", "--", old, new], cwd=root)
-    except BaseException:
-        _settle(root, old, new, made, closing)
-        raise
+    made: list[Path] = []  # deepest first
+    for directory in reversed(missing):
+        directory.mkdir()
+        made.insert(0, directory)
+    moved = git(["mv", "--", old, new], cwd=root)
     if moved.returncode != 0:
         for directory in made:
             directory.rmdir()
@@ -207,65 +209,17 @@ def _move(root: Path, old: str, new: str, closing: Closing) -> list[Path]:
 
 def _move_back(root: Path, old: str, new: str, made: Sequence[Path], closing: Closing) -> None:
     """The move undone: the file moved back with git, and the folders the move made removed again. When
-    that fails, the closing line says where the file is. An interrupt while git moves it back is settled
-    where git's index and the disk agree, and said where they do not."""
-    try:
-        back = git(["mv", "--", new, old], cwd=root)
-    except BaseException:
-        _settle(root, old, new, made, closing, again=False)
-        raise
-    closing.uncertain = None
+    that fails, the closing line says where the file is. An interrupt here is not settled: its line looks
+    at the tree."""
+    back = git(["mv", "--", new, old], cwd=root)
     if back.returncode != 0:
         closing.stranded = messages.v4_move_back_failed(old, new, first_line(back.stderr))
         return
     _remove_made(root, old, made, closing)
 
 
-def _settle(
-    root: Path, old: str, new: str, made: Sequence[Path], closing: Closing, again: bool = True
-) -> None:
-    """After an interrupt, where the file is, asked of git's index and of the disk by its exact name. Both
-    at `old`: the folders the move made are removed. Both at `new`: with `again`, the move is undone; else
-    the line says the file is at `new`. Anything else, or a second interrupt while this asks, leaves the
-    line that the file may stand at either path."""
-    closing.uncertain = (old, new)
-    at = _where(root, old, new)
-    if at == old:
-        _remove_made(root, old, made, closing, moved=not again)  # in the move back, it is back
-    elif at == new and again:
-        closing.uncertain = None
-        _move_back(root, old, new, made, closing)
-    elif at == new:
-        closing.uncertain = None
-        closing.stranded = messages.v4_move_back_cut(old, new)
-
-
-def _where(root: Path, old: str, new: str) -> str | None:
-    """`old` or `new` where git's index and the disk both hold the file there and not at the other path;
-    None where they do not agree."""
-    index = (_indexed(root, old), _indexed(root, new))
-    disk = (_on_disk(root, old), _on_disk(root, new))
-    if index == disk == (True, False):
-        return old
-    if index == disk == (False, True):
-        return new
-    return None
-
-
-def _on_disk(root: Path, rel: str) -> bool:
-    """Whether the disk holds the path by its exact name: a folder's listing, so that a disk that ignores
-    case cannot answer for a name in another case."""
-    path = root / rel
-    try:
-        return path.name in os.listdir(path.parent)
-    except OSError:
-        return False
-
-
-def _remove_made(root: Path, old: str, made: Sequence[Path], closing: Closing, moved: bool = True) -> None:
-    """The folders a move made, removed deepest first, the file at `old` again — or still, where git never
-    `moved` it: nothing was changed."""
-    closing.uncertain = None
+def _remove_made(root: Path, old: str, made: Sequence[Path], closing: Closing) -> None:
+    """The folders a move made, removed deepest first, the file at `old` again: nothing was changed."""
     for directory in made:
         try:
             directory.rmdir()
@@ -274,12 +228,7 @@ def _remove_made(root: Path, old: str, made: Sequence[Path], closing: Closing, m
             closing.stranded = messages.v4_folder_left(old, where, _reason(exc))
             return
     closing.changed = False
-    closing.moved_back = old if moved else ""
-
-
-def _indexed(root: Path, rel: str) -> bool:
-    """Whether git's index holds the path: where git itself says a file is after a move."""
-    return git(["ls-files", "--error-unmatch", "--", rel], cwd=root).returncode == 0
+    closing.moved_back = old
 
 
 def _repair(rel: str, text: str, old: str, new: str, ids: Ids | None) -> Rewritten:
