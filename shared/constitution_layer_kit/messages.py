@@ -430,8 +430,8 @@ def reason_fix(then: str = "then run it again") -> str:
     """The fix of a line that carries the system's reason in brackets: it points at that reason and names no
     cause of its own, so it is true for every reason the system can give there."""
     return (
-        "repair what the brackets name — the system's own reason, which may lie in a folder above the path —"
-        f" {then}"
+        "repair what the brackets name — the system's own reason, which may lie in a folder above the path,"
+        f" or above the target of a link on it — {then}"
     )
 
 

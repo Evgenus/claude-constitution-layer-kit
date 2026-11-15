@@ -739,7 +739,7 @@ def test_written_file_unreachable() -> None:
         result,
         f"BROKEN: {consumer.root / rel} cannot be reached (Permission denied), so nobody can say what stands"
         " there — fix: repair what the brackets name — the system's own reason, which may lie in a folder"
-        " above the path — then run it again",
+        " above the path, or above the target of a link on it — then run it again",
     )
     # a name too long for the system: the fix points at the reason, and names no folder's permissions
     long_rel = "docs/items/itm-0002-" + "x" * 300 + ".md"
@@ -748,7 +748,7 @@ def test_written_file_unreachable() -> None:
         result,
         f"BROKEN: {consumer.root / long_rel} cannot be reached (File name too long), so nobody can say what"
         " stands there — fix: repair what the brackets name — the system's own reason, which may lie in a"
-        " folder above the path — then run it again",
+        " folder above the path, or above the target of a link on it — then run it again",
     )
 
 

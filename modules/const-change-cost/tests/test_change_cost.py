@@ -826,7 +826,8 @@ def test_commits_not_counted(clone: Clone) -> None:
 
 UNREACHED = (  # C12.16, typed by hand
     "BROKEN: {path} cannot be reached (Permission denied), so nobody can say what stands there — fix:"
-    " repair what the brackets name — the system's own reason, which may lie in a folder above the path —"
+    " repair what the brackets name — the system's own reason, which may lie in a folder above the path, or"
+    " above the target of a link on it —"
     " then run it again"
 )
 
@@ -892,6 +893,15 @@ def test_unreachable_paths(clone: Clone, tmp_path: Path) -> None:
     # the agents' folder, which os.walk cannot list
     agents = own / "subagents"
     count_failed(shut_while(agents, 0o000, lambda: clone.count("--all")), agents, clone)
+    # a link is left out, as ccusage's own walk leaves it out, and is asked as a link first: one that leads
+    # behind a folder nobody may search is passed over, never C12.16, and the count goes on
+    hidden = tmp_path / "hidden"
+    (hidden / "in").mkdir(parents=True)
+    (hidden / "in" / "far.jsonl").write_text(user_record(S1, 22), encoding="utf-8")
+    os.symlink(hidden / "in" / "far.jsonl", agents / "far.jsonl")
+    linked = shut_while(hidden, 0o000, lambda: clone.count("--all"))
+    assert linked.code == 0 and "cannot be reached" not in linked.stderr, linked.stderr
+    assert closing(linked) == counted_line(1, 0, 0, 0), linked.stdout
 
 
 def count_failed(result: Result, path: Path, clone: Clone) -> None:

@@ -1610,11 +1610,13 @@ class SharedItems:
             " system's own reason, then repair what it names and run it again",
             "C12.10 with the system's reason": f"BROKEN: {esc} is listed by git but cannot be read"
             f" (Permission\\n{'d' * 69}… [111 characters]) — fix: repair what the brackets name — the"
-            " system's own reason, which may lie in a folder above the path — then run it again",
+            " system's own reason, which may lie in a folder above the path, or above the target of a link"
+            " on it — then run it again",
             "C12.11": "unexpected failure inside the checker: ValueError: " + "v" * 68 + "… [112 characters]",
             "C12.16": f"BROKEN: {esc} cannot be reached (Permission\\n{'d' * 69}… [111 characters]), so"
             " nobody can say what stands there — fix: repair what the brackets name — the system's own"
-            " reason, which may lie in a folder above the path — then run it again",
+            " reason, which may lie in a folder above the path, or above the target of a link on it — then"
+            " run it again",
             "C13": f"BROKEN: {self.file}: {self.ns}.log_dir '{esc}' is not ignored by git — fix: a log"
             " inside the working tree must be git-ignored, or every verdict dirties the tree; add the"
             " directory to .gitignore, or remove the key",
@@ -2563,7 +2565,7 @@ def test_scan_outside_repository(subject: Subject) -> None:
         return (
             f"BROKEN: {path} cannot be reached (Permission denied), so nobody can say what stands there —"
             " fix: repair what the brackets name — the system's own reason, which may lie in a folder above"
-            " the path — then run it again"
+            " the path, or above the target of a link on it — then run it again"
         )
 
     def shut(mode: int, run: Callable[[], Result]) -> Result:
@@ -2725,7 +2727,8 @@ def test_dials_unreadable(subject: Subject) -> None:
 
     line = (
         f"BROKEN: {it.file} cannot be read (Permission denied) — fix: repair"
-        " what the brackets name — the system's own reason, which may lie in a folder above the path — then"
+        " what the brackets name — the system's own reason, which may lie in a folder above the path, or"
+        " above the target of a link on it — then"
         " run it again"
     )
     it.unreadable(dials, again, line)
@@ -2772,7 +2775,8 @@ def test_document_unreadable(subject: Subject) -> None:
     subprocess.run(["git", *who, "commit", "-qm", "shut"], cwd=root, check=True, capture_output=True)
     line = (
         f"BROKEN: {hidden} is listed by git but cannot be read (Permission denied) — fix: repair what the"
-        " brackets name — the system's own reason, which may lie in a folder above the path — then run it"
+        " brackets name — the system's own reason, which may lie in a folder above the path, or above the"
+        " target of a link on it — then run it"
         " again"
     )
     it.unreadable(root / shut, lambda: it.h.run_gate("", args=["--scan", str(root)]), line)
@@ -2789,7 +2793,8 @@ def test_document_unreadable(subject: Subject) -> None:
         result = it.h.run_gate("", args=["--scan", str(root)])
         line = (
             f"BROKEN: {entry} is listed by git but cannot be read (File name too long) — fix: repair what"
-            " the brackets name — the system's own reason, which may lie in a folder above the path — then"
+            " the brackets name — the system's own reason, which may lie in a folder above the path, or"
+            " above the target of a link on it — then"
             " run it again"
         )
         if said:
@@ -3745,7 +3750,8 @@ def test_dials_file_name_is_the_declared_one(subject: Subject) -> None:
         "C12.3": "BROKEN: git check-ignore failed: boom — fix: territory patterns must be gitignore syntax;"
         " check team.yaml",
         "C12.7": "BROKEN: team.yaml cannot be read (Permission denied) — fix: repair what the brackets name —"
-        " the system's own reason, which may lie in a folder above the path — then run it again",
+        " the system's own reason, which may lie in a folder above the path, or above the target of a link"
+        " on it — then run it again",
         "C13": f"BROKEN: team.yaml: {ns}.log_dir 'logs' is not ignored by git — fix: a log inside the"
         " working tree must be git-ignored, or every verdict dirties the tree; add the directory to"
         " .gitignore, or remove the key",

@@ -179,23 +179,34 @@ def guarded(
     with identity.declared(gate, mode):
         output = Output(mode)
         interrupted = False
-        try:
-            return body(output)
-        except ConfigurationFailure as failure:
-            output.err(failure.broken.render())
-            output.err(could_not_run())
-        except Exception as exc:  # not fail-open: an unexpected failure exits 1, never 0
-            # the BROKEN line first: in hook mode only the first stderr line reaches the user
-            output.err(messages.c12_unexpected(f"{type(exc).__name__}: {exc}").render())
-            output.err(could_not_run())
-            output.err(traceback.format_exc().rstrip())
-        except KeyboardInterrupt:  # no defect, and no claim of the guard's own about what was done
+
+        def on_interrupt() -> None:  # no defect, and no claim of the guard's own about what was done
+            nonlocal interrupted
             interrupted = True
             output.err(messages.c12_interrupted().render())
             own = getattr(could_not_run, "interrupted", None)  # a line the entry made for an interrupt
             said = own() if callable(own) else ""
             if said:  # an entry may observe that nothing is left to say
                 output.err(said)
+
+        def closing() -> None:  # the failure's closing line; an interrupt while it is made is an interrupt
+            try:
+                output.err(could_not_run())
+            except KeyboardInterrupt:
+                on_interrupt()
+
+        try:
+            return body(output)
+        except ConfigurationFailure as failure:
+            output.err(failure.broken.render())
+            closing()
+        except Exception as exc:  # not fail-open: an unexpected failure exits 1, never 0
+            # the BROKEN line first: in hook mode only the first stderr line reaches the user
+            output.err(messages.c12_unexpected(f"{type(exc).__name__}: {exc}").render())
+            closing()
+            output.err(traceback.format_exc().rstrip())
+        except KeyboardInterrupt:
+            on_interrupt()
         finally:
             output.flush()
         if interrupted:
