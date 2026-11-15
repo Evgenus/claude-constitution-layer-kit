@@ -11,9 +11,10 @@ holding any other document: no text here cites one.
 from __future__ import annotations
 
 import shlex
+from collections.abc import Sequence
 
 from constitution_layer_kit import identity
-from constitution_layer_kit.messages import echoed, escaped, unreached_fix
+from constitution_layer_kit.messages import echoed, escaped, reason_fix
 from constitution_layer_kit.model import Broken, Finding, SharedKey
 
 from .model import ActKey, Key, ToolKey
@@ -413,10 +414,18 @@ def v4_move_back_failed(old: str, new: str, detail: str) -> str:
     )
 
 
-def v4_move_back_cut(old: str, new: str) -> str:
+def v4_at_new(old: str, new: str) -> str:
     return (
-        f"BROKEN: the move could not be undone — an interrupt stopped git mv from moving {escaped(new)} back"
-        f" to {escaped(old)}; the file is at {escaped(new)}"
+        f"BROKEN: the act stopped after git moved {escaped(old)} to {escaped(new)}: the file stands at"
+        f" {escaped(new)}"
+    )
+
+
+def v4_folders_stand(old: str, folders: Sequence[str]) -> str:
+    return (
+        f"BROKEN: the move could not run — the file stands at {escaped(old)}, as before, but the folder(s)"
+        f" the move made stand, empty: {', '.join(escaped(folder) for folder in folders)}; remove them with"
+        " rmdir"
     )
 
 
@@ -528,11 +537,10 @@ def v5_parent_is_a_file(path: str) -> Broken:
     )
 
 
-def v5_unreachable(path: str, reason: str, code: int | None) -> Broken:
-    """`code`, the error's number, picks the fix, as for the shared C12.16."""
+def v5_unreachable(path: str, reason: str) -> Broken:
     return v5_refused(
         f"{escaped(path)} cannot be reached ({echoed(reason)}), so nobody can say whether it is there",
-        unreached_fix(code, "then run the mover again"),
+        reason_fix("then run the mover again"),
     )
 
 

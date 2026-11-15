@@ -161,7 +161,7 @@ def reached(path: Path, shown: str) -> os.stat_result | None:
         return stat_or_none(path)
     except OSError as exc:
         raise ConfigurationFailure(
-            messages.c12_unreachable(shown, exc.strerror or type(exc).__name__, exc.errno)
+            messages.c12_unreachable(shown, exc.strerror or type(exc).__name__)
         ) from exc
 
 
@@ -172,7 +172,7 @@ def listed_file(root: Path, rel: str) -> bool:
     try:
         found = stat_or_none(root / rel)
     except OSError as exc:
-        raise ConfigurationFailure(messages.c12_unreadable(rel)) from exc
+        raise ConfigurationFailure(messages.c12_unreadable(rel, exc.strerror or type(exc).__name__)) from exc
     return found is not None and stat.S_ISREG(found.st_mode)
 
 

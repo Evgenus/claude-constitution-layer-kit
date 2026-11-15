@@ -123,7 +123,7 @@ def _unlisted(exc: OSError) -> None:
     found = reached(Path(folder), folder)
     if found is not None and stat.S_ISDIR(found.st_mode):
         raise ConfigurationFailure(
-            shared.c12_unreachable(folder, exc.strerror or type(exc).__name__, exc.errno)
+            shared.c12_unreachable(folder, exc.strerror or type(exc).__name__)
         ) from exc
 
 

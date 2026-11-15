@@ -11,7 +11,6 @@ holding any other document: no text here cites one.
 
 from __future__ import annotations
 
-import errno
 import shlex
 from collections.abc import Sequence
 
@@ -427,35 +426,35 @@ def c12_invocation(detail: str, usage: str = USAGE) -> Broken:
     return Broken(SharedKey.C12, f"misinvocation: {echoed(detail)}", usage)
 
 
-def c12_unreadable(rel: str) -> Broken:
+def reason_fix(then: str = "then run it again") -> str:
+    """The fix of a line that carries the system's reason in brackets: it points at that reason and names no
+    cause of its own, so it is true for every reason the system can give there."""
+    return f"repair what the brackets name — the system's own reason — {then}"
+
+
+def c12_unreadable(rel: str, reason: str = "") -> Broken:
+    """A file git lists that cannot be read. With the system's `reason`, the line carries it in brackets.
+    Without one, as an older caller gives it, the fix asks for the reason by a command."""
+    if reason:
+        return Broken(
+            SharedKey.C12,
+            f"{escaped(rel)} is listed by git but cannot be read ({echoed(reason)})",
+            reason_fix(),
+        )
     return Broken(
         SharedKey.C12,
         f"{escaped(rel)} is listed by git but cannot be read",
-        "check that the file can be read: its permissions, those of a folder above it, or a name too long for"
-        " the system",
+        f"run cat -- {escaped(shlex.quote(rel))} to see the system's own reason, then repair what it names"
+        " and run it again",
     )
 
 
-def unreached_fix(code: int | None, then: str = "then run it again") -> str:
-    """The fix for a path the system would not reach, picked by the error's own number: a denied search
-    asks for permissions, a name too long for a shorter one, and any other error for what the system names.
-    No fix names a cause the error did not give."""
-    if code in (errno.EACCES, errno.EPERM):
-        return f"make the folders above it searchable — their permissions — {then}"
-    if code == errno.ENAMETOOLONG:
-        return (
-            f"shorten the path — a name in it, or the whole of it, is longer than the system allows — {then}"
-        )
-    return f"repair what the system names in the brackets, {then}"
-
-
-def c12_unreachable(path: str, reason: str, code: int | None) -> Broken:
-    """A path the run must ask about that the system would not reach: `reason` is the system's words, `code`
-    the error's number, which picks the fix."""
+def c12_unreachable(path: str, reason: str) -> Broken:
+    """A path the run must ask about that the system would not reach: `reason` is the system's words."""
     return Broken(
         SharedKey.C12,
         f"{escaped(path)} cannot be reached ({echoed(reason)}), so nobody can say what stands there",
-        unreached_fix(code),
+        reason_fix(),
     )
 
 
@@ -542,7 +541,7 @@ def c12_dials_unreadable(detail: str) -> Broken:
     return Broken(
         SharedKey.C12,
         f"{_file()} cannot be read ({detail})",
-        "check the permissions of the file, of the folders above it, and of the file a link leads to",
+        reason_fix(),
     )
 
 

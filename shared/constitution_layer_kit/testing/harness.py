@@ -111,15 +111,31 @@ def _profile(frame, event, arg):
             _seen[key] = _seen.get(key, 0) + 1
             if _seen[key] in _wanted[key]:
                 os.kill(os.getpid(), signal.SIGINT)
-if _wanted:
+def _trace(frame, event, arg):
+    key = "line:" + frame.f_code.co_name
+    if key not in _wanted:
+        return None
+
+    def _line(frame, event, arg):
+        if event == "line":
+            _seen[key] = _seen.get(key, 0) + 1
+            if _seen[key] in _wanted[key]:
+                os.kill(os.getpid(), signal.SIGINT)
+        return _line
+
+    return _line
+if any(not key.startswith("line:") for key in _wanted):
     sys.setprofile(_profile)
+if any(key.startswith("line:") for key in _wanted):
+    sys.settrace(_trace)
 """
 
 
 def interrupt_at(folder: Path, spec: str) -> dict[str, str]:
     """The environment that interrupts a gate's process at the calls `spec` names (`INTERRUPT_AT`): each item
     `name[@caller]:n`, the n-th call of that function; `return:name[@caller]:n`, the n-th time it returns,
-    so that the interrupt lands in its caller, right after the call."""
+    so that the interrupt lands in its caller, right after the call; `line:name:n`, the n-th statement run
+    in that function, counted over all its calls."""
     (folder / "sitecustomize.py").write_text(INTERRUPT_AT, encoding="utf-8")
     return {"PYTHONPATH": str(folder), "INTERRUPT_AT": spec}
 
