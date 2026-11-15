@@ -3,11 +3,13 @@ from the acts because the entry needs it before the preflight, and the acts are 
 
 from __future__ import annotations
 
+import errno
 import os
+import stat
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from constitution_layer_kit.repository import git
+from constitution_layer_kit.repository import git, stat_or_none
 
 from . import messages
 
@@ -16,33 +18,27 @@ from . import messages
 class Closing:
     """The line that closes a failure, and the one that closes an interrupt.
 
-    A failure is raised by the act itself, between two of its statements, so its line reads the act's own
-    state: before the act has changed anything it can say so; once a folder is made, a file moved or a
-    document rewritten it must not. A move undone says so and names the file; a move back that failed says
-    where the file is, before the line that the act stopped midway.
+    Both are made from what the tree shows when the line is asked for, so no failure path keeps its own
+    account of what it changed: where git's index and the disk hold the file, by the exact name, and which
+    of the folders the move would make now stand. Whether a document was rewritten is the one thing it
+    cannot observe; `rewrote` says it, set before the first write opens, and `writing` names the document
+    whose open emptied it until its text is written. A failure adds what the act knows of its own move back
+    where the tree agrees with it: one git made, its folders gone, says the file was moved back; one git
+    refused gives git's words."""
 
-    An interrupt can land between any two statements, so its line reads no flag set along the way. It is
-    made from what it observes when it is asked for (`interrupted`): where git's index and the disk hold the
-    file, by the exact name, and which of the folders the move would make now stand. Whether a document was
-    rewritten is the one thing it cannot observe; `rewrote` says it, set before the first write opens."""
-
-    changed: bool = False
-    moved_back: str = ""  # the path a move was undone to, when it was
-    stranded: str = ""  # the line saying where the file is, when the move back failed
+    moved_back: str = ""  # the path git moved the file back to, when it did
+    stranded: str = ""  # the line giving git's words, when git refused the move back
     root: Path | None = None  # the repository, once the act knows it
     move: tuple[str, str] | None = None  # (old, new) of an act that moves, set before the move begins
     planned: tuple[Path, ...] = field(default_factory=tuple)  # the folders it would make, deepest first
     rewrote: bool = False  # set before the first rewrite opens: no look at the tree can tell it
     writing: str = ""  # the document being rewritten, from before its open until its text is written
+    unmade: dict[Path, str] = field(default_factory=dict)  # a folder the move made that stayed: the reason
+    scanned: bool = False  # set once the closing scan has printed its verdict, which then stands
 
     def __call__(self) -> str:
-        if self.stranded:
-            return self.stranded + "\n" + messages.v4_stopped_midway()
-        if self.changed:
-            return messages.v4_stopped_midway()
-        if self.moved_back:
-            return messages.v4_moved_back(self.moved_back)
-        return messages.v4_nothing_changed()
+        """The line that closes a failure, made as an interrupt's is."""
+        return self._observed(failure=True)
 
     def interrupted(self) -> str:
         """The line the shared guard prints after an interrupt, made from what the tree shows now: where the
@@ -50,33 +46,71 @@ class Closing:
         midway line wherever the file moved, its place is unknown, or a document was rewritten. A second
         interrupt while it looks leaves it unable to say, and the line says the file may stand at either
         path."""
-        place, midway = self._place()
+        return self._observed(failure=False)
+
+    def _observed(self, failure: bool) -> str:
+        if self.scanned:  # the whole tree was checked, and its verdict stands above: nothing to add
+            return ""
+        place, midway = self._place(failure)
         lines = [place] if place else []
         if self.writing:  # opened, so perhaps emptied, and its text perhaps not written
-            lines.append(messages.v4_cut_short(self.writing))
+            lines.append(messages.v4_cut_short(self.writing, self._held(self.writing)))
         if midway or self.rewrote:
             lines.append(messages.v4_stopped_midway())
         return "\n".join(lines) if lines else messages.v4_nothing_changed()
 
-    def _place(self) -> tuple[str, bool]:
+    def _place(self, failure: bool) -> tuple[str, bool]:
         """The line of where the file stands, as observed now, and whether the midway line follows it. An act
-        that moves nothing, and a file at its old path with no folder of the move standing, give no line."""
+        that moves nothing, and a file at its old path with no folder of the move standing, give no line,
+        save for a failure whose move back was made."""
         if self.move is None or self.root is None:
             return "", False
         old, new = self.move
         try:
             at = where(self.root, old, new)
             standing = [folder for folder in self.planned if _stands(folder)]
-        except KeyboardInterrupt:  # a second interrupt while it looks: it cannot say
+        # a second interrupt, or a look the system refuses or git cannot answer: nobody can say
+        except (KeyboardInterrupt, Exception):
             at, standing = None, []
         if at is None:
-            return messages.v4_either(old, new), True
+            return messages.v4_either(old, new, interrupted=not failure), True
         if at == new:
-            return messages.v4_at_new(old, new), True
+            if failure and self.stranded:
+                return self.stranded, True
+            # the undo is taught only where no rewrite may have begun: git mv back would leave those wrong
+            undo = (
+                None if self.rewrote else [from_here(self.root, rel) for rel in self._standing_rel(standing)]
+            )
+            return messages.v4_at_new(
+                old, new, from_here(self.root, old), from_here(self.root, new), undo
+            ), True
         if standing:
-            shown = [folder.relative_to(self.root).as_posix() for folder in standing]
+            shown = [
+                (folder.relative_to(self.root).as_posix(), self.unmade.get(folder, "")) for folder in standing
+            ]
             return messages.v4_folders_stand(old, shown), False
+        if failure and self.moved_back == old:
+            return messages.v4_moved_back(old), False
         return "", False
+
+    def _standing_rel(self, standing: list[Path]) -> list[str]:
+        assert self.root is not None
+        return [folder.relative_to(self.root).as_posix() for folder in standing]
+
+    def _held(self, rel: str) -> bool | None:
+        """Whether git's index holds the document being written, so that git restore can bring its text back:
+        None where it cannot say."""
+        if self.root is None:
+            return None
+        try:
+            return _indexed(self.root, rel)
+        except (KeyboardInterrupt, Exception):
+            return None
+
+
+def from_here(root: Path, rel: str) -> str:
+    """A path from the repository's top as the user types it where they stand: from the working folder."""
+    return os.path.relpath(os.path.realpath(root / rel), os.path.realpath(Path.cwd()))
 
 
 def where(root: Path, old: str, new: str) -> str | None:
@@ -84,6 +118,8 @@ def where(root: Path, old: str, new: str) -> str | None:
     None where they do not agree."""
     index = (_indexed(root, old), _indexed(root, new))
     disk = (_on_disk(root / old), _on_disk(root / new))
+    if None in index:  # git gave no answer of either kind: nobody can say
+        return None
     if index == disk == (True, False):
         return old
     if index == disk == (False, True):
@@ -91,9 +127,11 @@ def where(root: Path, old: str, new: str) -> str | None:
     return None
 
 
-def _indexed(root: Path, rel: str) -> bool:
-    """Whether git's index holds the path, by its exact name: where git itself says a file is."""
-    return git(["ls-files", "--error-unmatch", "--", rel], cwd=root).returncode == 0
+def _indexed(root: Path, rel: str) -> bool | None:
+    """Whether git's index holds the path, by its exact name: where git itself says a file is. git exits 0
+    where it holds it and 1 where it does not; any other answer is None, nobody can say."""
+    code = git(["ls-files", "--error-unmatch", "--", rel], cwd=root).returncode
+    return True if code == 0 else False if code == 1 else None
 
 
 def _on_disk(path: Path) -> bool:
@@ -101,10 +139,18 @@ def _on_disk(path: Path) -> bool:
     case cannot answer for a name in another case."""
     try:
         return path.name in os.listdir(path.parent)
-    except OSError:
-        return False
+    except OSError as exc:
+        # its folder is gone, a link on the way loops, or no file can stand at a name too long
+        if exc.errno in (errno.ENOENT, errno.ENOTDIR, errno.ELOOP, errno.ENAMETOOLONG):
+            return False
+        raise  # any other answer: nobody can say, and the line says so
 
 
 def _stands(folder: Path) -> bool:
-    """A folder the move would make stands, by its exact name."""
-    return _on_disk(folder) and folder.is_dir()
+    """A folder the move would make stands, by its exact name, asked of the system the same way on every
+    Python (`stat_or_none`): what is absent by its rule is no folder, and any other error the line reads as
+    nobody can say."""
+    if not _on_disk(folder):
+        return False
+    found = stat_or_none(folder)
+    return found is not None and stat.S_ISDIR(found.st_mode)

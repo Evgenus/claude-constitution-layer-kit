@@ -986,8 +986,8 @@ def test_unreadable_twin_is_broken() -> None:
     finally:
         path.chmod(mode)
     first = (
-        "BROKEN: docs/notes/twin.md is listed by git but cannot be read — fix: run cat -- docs/notes/twin.md"
-        " to see the system's own reason, then repair what it names and run it again"
+        "BROKEN: docs/notes/twin.md is listed by git but cannot be read — fix: read the file to see the"
+        " system's own reason, then repair what it names and run it again"
     )
     count = "BROKEN: the check could not run — 0 documents examined"
     broken_first_line(governed, first)

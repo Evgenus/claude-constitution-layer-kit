@@ -4,7 +4,7 @@ that the module's own territories hold."""
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import TextIO
 
@@ -100,7 +100,8 @@ def _after_write(output: Output, target: WriteTarget, dials: ReferencingDials) -
     return pipeline.report_hook(output, shown, (), rel, target.dials.severity, POST_WRITE, count)
 
 
-def scan_mode(output: Output, start: Path) -> int:
+def scan_mode(output: Output, start: Path, verdict: Callable[[], None] | None = None) -> int:
+    """The scan of the tree; `verdict`, when given, is called at once after the verdict is printed."""
     target = pipeline.locate_scan(output, start)
     if isinstance(target, Skip):
         return pipeline.skip(output, target.reason)
@@ -124,7 +125,10 @@ def scan_mode(output: Output, start: Path) -> int:
         findings += [finding for _, finding in in_order]
         links += count
     tail = messages.f9_scan_tail(len(covered), links, len(paths), len(dials.lanes), len(dials.mentions), read)
-    return pipeline.report_scan(output, [*findings, *named], (), tail)
+    code = pipeline.report_scan(output, [*findings, *named], (), tail)
+    if verdict is not None:
+        verdict()
+    return code
 
 
 def _examine(

@@ -83,7 +83,7 @@ def _read(root: Path) -> dict[object, object] | None:
     try:  # asked of the system the same way on every Python: a link into a folder nobody may search is no
         found = stat_or_none(path)  # absent file, but one nobody can read
     except OSError as exc:
-        raise ConfigurationFailure(messages.c12_dials_unreadable(str(exc))) from exc
+        raise ConfigurationFailure(messages.c12_dials_unreadable(exc.strerror or type(exc).__name__)) from exc
     if found is None or not stat.S_ISREG(found.st_mode):
         return None
     try:
@@ -91,7 +91,7 @@ def _read(root: Path) -> dict[object, object] | None:
     except UnicodeDecodeError as exc:  # a byte that is not UTF-8: the file's content, not the gate
         raise ConfigurationFailure(messages.c4_dials_invalid_yaml(messages.detail_not_utf8(exc))) from exc
     except OSError as exc:
-        raise ConfigurationFailure(messages.c12_dials_unreadable(str(exc))) from exc
+        raise ConfigurationFailure(messages.c12_dials_unreadable(exc.strerror or type(exc).__name__)) from exc
     try:
         loaded: object = yaml.safe_load(text)
     except yaml.YAMLError as exc:

@@ -193,8 +193,9 @@ def guarded(
             interrupted = True
             output.err(messages.c12_interrupted().render())
             own = getattr(could_not_run, "interrupted", None)  # a line the entry made for an interrupt
-            if callable(own):
-                output.err(own())
+            said = own() if callable(own) else ""
+            if said:  # an entry may observe that nothing is left to say
+                output.err(said)
         finally:
             output.flush()
         if interrupted:
