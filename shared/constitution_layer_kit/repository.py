@@ -161,7 +161,7 @@ def reached(path: Path, shown: str) -> os.stat_result | None:
         return stat_or_none(path)
     except OSError as exc:
         raise ConfigurationFailure(
-            messages.c12_unreachable(shown, exc.strerror or type(exc).__name__)
+            messages.c12_unreachable(shown, exc.strerror or type(exc).__name__, exc.errno)
         ) from exc
 
 

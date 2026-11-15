@@ -739,6 +739,15 @@ def test_written_file_unreachable() -> None:
         f"BROKEN: {rel} cannot be reached (Permission denied), so nobody can say what stands there — fix:"
         " make the folders above it searchable — their permissions — then run it again",
     )
+    # a name too long for the system: the fix names the length, never a folder's permissions
+    long_rel = "docs/items/itm-0002-" + "x" * 300 + ".md"
+    result = H.run_gate(event_json(consumer.root, Write(long_rel, item("itm-0002-second"))))
+    broken_typed(
+        result,
+        f"BROKEN: {long_rel} cannot be reached (File name too long), so nobody can say what stands there —"
+        " fix: shorten the path — a name in it, or the whole of it, is longer than the system allows — then"
+        " run it again",
+    )
 
 
 @acceptance_item(46, "a free number below the highest passes: the gate asks for free, not for next")

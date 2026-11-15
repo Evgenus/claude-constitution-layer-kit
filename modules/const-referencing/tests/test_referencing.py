@@ -1763,6 +1763,24 @@ def refused_unreachable() -> None:
             unreachable.format(path=path) + "\n" + STOPPED_NOTHING + "\n",
         ), f"{name}: {done}"
         assert tree_state(consumer) == before, f"{name}: a refusal changed the tree"
+    # a name too long for the system: no permission is at fault, so the fix names the length, never a folder's
+    # permissions; as the new file's name in a folder that exists, and as a folder the move would make
+    long_name = "x" * 300
+    too_long = (  # typed by hand
+        "BROKEN: {path} cannot be reached (File name too long), so nobody can say whether it is there — fix:"
+        " shorten the path — a name in it, or the whole of it, is longer than the system allows — then run"
+        " the mover again"
+    )
+    for new in (f"docs/{long_name}.md", f"docs/{long_name}/b.md"):
+        consumer = moving_consumer()
+        before = tree_state(consumer)
+        done = mover(consumer, OLD, new)
+        assert (done.code, done.stdout, done.stderr) == (
+            1,
+            "",
+            too_long.format(path=new) + "\n" + STOPPED_NOTHING + "\n",
+        ), f"{new[:20]}…: {done}"
+        assert tree_state(consumer) == before, "a refusal changed the tree"
 
 
 @item(65, "with no dials file the mover refuses before it moves")
@@ -2654,6 +2672,12 @@ def interrupts() -> list[str]:
             "label": "between the move's folders",
             "python": "mkdir@_move:2",
             "closing": STOPPED_NOTHING,
+            "unchanged": True,
+        },
+        {
+            "label": "as the move returns, before the plan begins",
+            "python": "return:_move:1",
+            "closing": back,
             "unchanged": True,
         },
         {

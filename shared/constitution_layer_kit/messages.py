@@ -11,6 +11,7 @@ holding any other document: no text here cites one.
 
 from __future__ import annotations
 
+import errno
 import shlex
 from collections.abc import Sequence
 
@@ -435,12 +436,26 @@ def c12_unreadable(rel: str) -> Broken:
     )
 
 
-def c12_unreachable(path: str, reason: str) -> Broken:
-    """A path the run must ask about, behind a folder nobody may search: `reason` is the system's words."""
+def unreached_fix(code: int | None, then: str = "then run it again") -> str:
+    """The fix for a path the system would not reach, picked by the error's own number: a denied search
+    asks for permissions, a name too long for a shorter one, and any other error for what the system names.
+    No fix names a cause the error did not give."""
+    if code in (errno.EACCES, errno.EPERM):
+        return f"make the folders above it searchable — their permissions — {then}"
+    if code == errno.ENAMETOOLONG:
+        return (
+            f"shorten the path — a name in it, or the whole of it, is longer than the system allows — {then}"
+        )
+    return f"repair what the system names in the brackets, {then}"
+
+
+def c12_unreachable(path: str, reason: str, code: int | None) -> Broken:
+    """A path the run must ask about that the system would not reach: `reason` is the system's words, `code`
+    the error's number, which picks the fix."""
     return Broken(
         SharedKey.C12,
         f"{escaped(path)} cannot be reached ({echoed(reason)}), so nobody can say what stands there",
-        "make the folders above it searchable — their permissions — then run it again",
+        unreached_fix(code),
     )
 
 
@@ -524,7 +539,11 @@ def c12_scan_path(path: str) -> Broken:
 
 
 def c12_dials_unreadable(detail: str) -> Broken:
-    return Broken(SharedKey.C12, f"{_file()} cannot be read ({detail})", "check the file's permissions")
+    return Broken(
+        SharedKey.C12,
+        f"{_file()} cannot be read ({detail})",
+        "check the permissions of the file, of the folders above it, and of the file a link leads to",
+    )
 
 
 def detail_not_json(error: str) -> str:

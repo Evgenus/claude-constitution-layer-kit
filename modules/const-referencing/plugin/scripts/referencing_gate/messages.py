@@ -13,7 +13,7 @@ from __future__ import annotations
 import shlex
 
 from constitution_layer_kit import identity
-from constitution_layer_kit.messages import echoed, escaped
+from constitution_layer_kit.messages import echoed, escaped, unreached_fix
 from constitution_layer_kit.model import Broken, Finding, SharedKey
 
 from .model import ActKey, Key, ToolKey
@@ -528,10 +528,11 @@ def v5_parent_is_a_file(path: str) -> Broken:
     )
 
 
-def v5_unreachable(path: str, reason: str) -> Broken:
+def v5_unreachable(path: str, reason: str, code: int | None) -> Broken:
+    """`code`, the error's number, picks the fix, as for the shared C12.16."""
     return v5_refused(
         f"{escaped(path)} cannot be reached ({echoed(reason)}), so nobody can say whether it is there",
-        "make the folders above it searchable — their permissions — then run the mover again",
+        unreached_fix(code, "then run the mover again"),
     )
 
 

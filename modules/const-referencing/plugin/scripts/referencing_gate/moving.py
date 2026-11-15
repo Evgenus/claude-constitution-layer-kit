@@ -70,19 +70,23 @@ def act(output: Output, request: Request, closing: Closing) -> int:
     if before is None:
         raise ConfigurationFailure(messages.v5_no_root_policy())
     old = new = ""
-    made: list[Path] | None = None  # the folders the move made; None while nothing moved
+    moving = False
+    made: list[Path] = []  # the folders the move made, deepest first, filled as it makes them
     if not request.ids:
         if request.new.endswith(("/", os.sep)):
             raise ConfigurationFailure(messages.v5_names_a_directory(request.new))
         old, new = _within(root, request.old), _within(root, request.new)
         _refuse_what_cannot_move(root, old, new, request.by_hand)
-        if not request.by_hand:
-            made = _move(root, old, new, closing)
+        moving = not request.by_hand
+    # the move inside the try: from the first folder it makes to the plan's end, a failure or an interrupt
+    # is settled in this one place, where git's index and the disk agree, so no moment is left between
     try:
-        plan = _plan(root, dials, target, old, new, request.ids, made)
-    except BaseException:  # an interrupt too: the move is undone before anything leaves
-        if made is not None:
-            _move_back(root, old, new, made, closing)
+        if moving:
+            _move(root, old, new, closing, made)
+        plan = _plan(root, dials, target, old, new, request.ids, made if moving else None)
+    except BaseException:
+        if closing.changed:
+            _settle(root, old, new, made, closing)
         raise
     if not request.ids:
         output.out(messages.v1_moved(old, new))
@@ -177,32 +181,26 @@ def _reason(exc: OSError) -> str:
     return exc.strerror or type(exc).__name__
 
 
-def _move(root: Path, old: str, new: str, closing: Closing) -> list[Path]:
-    """git mv, into a directory made for it where none exists — and unmade again when git refuses. The
-    folders it made are returned, deepest first, for the move back. From the first folder made, the act
-    counts as changed. An interrupt while it makes the folders or while git moves the file is settled where
+def _move(root: Path, old: str, new: str, closing: Closing, made: list[Path]) -> None:
+    """git mv, into a directory made for it where none exists — and unmade again when git refuses. Each
+    folder it makes is put in `made`, deepest first, for the move back. From the first folder made, the act
+    counts as changed. A failure or an interrupt from there on is settled by the caller (`act`), where
     git's index and the disk agree, and said where they do not."""
     missing: list[Path] = []
     parent = (root / new).parent
     while _found(root, parent.relative_to(root).as_posix()) is None:
         missing.append(parent)
         parent = parent.parent
-    made: list[Path] = []  # deepest first
     closing.changed = True  # before the first folder: from here on, "nothing was changed" needs an undo
-    try:
-        for directory in reversed(missing):
-            directory.mkdir()
-            made.insert(0, directory)
-        moved = git(["mv", "--", old, new], cwd=root)
-    except BaseException:
-        _settle(root, old, new, made, closing)
-        raise
+    for directory in reversed(missing):
+        directory.mkdir()
+        made.insert(0, directory)
+    moved = git(["mv", "--", old, new], cwd=root)
     if moved.returncode != 0:
         for directory in made:
             directory.rmdir()
         closing.changed = False
         raise ConfigurationFailure(messages.v5_git_mv(first_line(moved.stderr)))
-    return made
 
 
 def _move_back(root: Path, old: str, new: str, made: Sequence[Path], closing: Closing) -> None:
@@ -340,7 +338,7 @@ def _found(root: Path, rel: str) -> os.stat_result | None:
     try:
         return stat_or_none(root / rel)
     except OSError as exc:
-        raise ConfigurationFailure(messages.v5_unreachable(rel, _reason(exc))) from exc
+        raise ConfigurationFailure(messages.v5_unreachable(rel, _reason(exc), exc.errno)) from exc
 
 
 def _refuse_unmovable_source(root: Path, old: str) -> None:
