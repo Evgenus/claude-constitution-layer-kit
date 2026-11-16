@@ -102,7 +102,7 @@ class Closing:
                 return messages.v4_at_new(old, new, None), True
             folders = [from_here(self.root, rel) for rel in self._standing_rel(standing)]
             here = (from_here(self.root, old), from_here(self.root, new), folders)
-            return messages.v4_at_new(old, new, here), True
+            return messages.v4_at_new(old, new, here, gone=_gone(self.root / old)), True
         if standing:
             shown = [
                 (folder.relative_to(self.root).as_posix(), self.unmade.get(folder, "")) for folder in standing
@@ -147,9 +147,10 @@ def where(root: Path, old: str, new: str) -> str | None:
 
 
 def _indexed(root: Path, rel: str) -> bool | None:
-    """Whether git's index holds the path, by its exact name: where git itself says a file is. git exits 0
+    """Whether git's index holds the path, by its exact name: where git itself says a file is. The path is
+    read literally, never as a pattern, so `?`, `*`, `[` and a leading `:` name only themselves. git exits 0
     where it holds it and 1 where it does not; any other answer is None, nobody can say."""
-    code = git(["ls-files", "--error-unmatch", "--", rel], cwd=root).returncode
+    code = git(["--literal-pathspecs", "ls-files", "--error-unmatch", "--", rel], cwd=root).returncode
     return True if code == 0 else False if code == 1 else None
 
 
@@ -179,6 +180,16 @@ def _on_disk(path: Path) -> bool:
     raise PermissionError(
         errno.EACCES, "the folder cannot be listed, so the name's case cannot be told", str(path)
     )
+
+
+def _gone(path: Path) -> bool:
+    """The system says no file stands at the path (`os.lstat`), as --moved needs of the old path. A name that
+    answers, in any case, and any other answer are not that."""
+    try:
+        os.lstat(path)
+    except OSError as exc:
+        return exc.errno in _GONE
+    return False
 
 
 def _stands(folder: Path) -> bool:
