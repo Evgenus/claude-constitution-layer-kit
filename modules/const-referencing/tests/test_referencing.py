@@ -2958,8 +2958,6 @@ def interrupts_late() -> list[str]:
     ) or not wrote:
         problems.append(f"an interrupt after the first write: exit {done.code}: {done.stdout}{done.stderr}")
     # a document opened for its rewrite, and so emptied, before its text is written: the line names it, though
-    # no REWROTE line does, and says that git's index holds its text
-    # a document opened for its rewrite, and so emptied, before its text is written: the line names it, though
     # no REWROTE line does. Where git's index holds it, git restore brings its text back; an untracked one,
     # which the mover rewrites too, has no copy in git, and the line says its text may be lost
     seen: set[bool] = set()
