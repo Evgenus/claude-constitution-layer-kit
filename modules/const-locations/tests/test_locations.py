@@ -20,6 +20,7 @@ import re
 import resource
 import shlex
 import shutil
+import signal
 import string
 import subprocess
 from collections.abc import Sequence
@@ -31,7 +32,7 @@ from constitution_layer_kit import messages as shared
 from constitution_layer_kit.model import Broken, Finding, MetaType
 from constitution_layer_kit.testing.acceptance import broken_first_line, expect, failure_of, item
 from constitution_layer_kit.testing.consumer import ROOT_POLICY, Consumer, document, envelope
-from constitution_layer_kit.testing.harness import Edit, Harness, Result, Write
+from constitution_layer_kit.testing.harness import Edit, Harness, Result, Write, interrupt_at
 from constitution_layer_kit.testing.items import EntryFile, Subject, fake_claude, tr_line
 from locations_gate import filling, messages, start
 from locations_gate.dials import KEYS
@@ -1166,7 +1167,9 @@ def test_every_golden_line_compared() -> None:
 def test_closing_is_the_generators() -> None:
     """A failure closes with the generator's line, never a gate's count; the entry files' variants
     of C1, C14 and C15 drop the clause about unchecked writes; and the shared C2, printed when a
-    library is missing, closes with the generator's own clause, since no write passes here."""
+    library is missing, closes with the generator's own clause, since no write passes here. An interrupt
+    after the write prints the shared interrupt line alone, never the closing line that nothing was
+    written, and the process dies by the interrupt."""
     result = run(prepared(), "--kind", "nobody", "--stem", "a", "--title", "T")
     own_line = (
         messages.l4_nothing_written() in result.stderr and shared.c11_broken_count() not in result.stderr
@@ -1185,6 +1188,14 @@ def test_closing_is_the_generators() -> None:
     )
     assert own_line and "pass unchecked" not in sources and library_clause, (
         "closing line the generator's; entry files without the gate's clause; C2 closed by the generator's"
+    )
+    # an interrupt after the write is no failure the closing line could speak for: the shared line alone,
+    # never "nothing was written", and the process dies by the interrupt
+    stopped = prepared()
+    cut = run(stopped, *NOTE_ARGS, env=interrupt_at(H.scratch_dir(), "l3_created:1"))
+    alone = "BROKEN: interrupted before the run was done — fix: run it again, and let it finish\n"  # by hand
+    assert (cut.code, cut.stderr) == (-signal.SIGINT, alone) and (stopped.root / NOTE).exists(), (
+        f"an interrupt after the write: exit {cut.code}: {cut.stderr}"
     )
 
 
@@ -1689,6 +1700,23 @@ def test_unexpected_failure_clauses() -> None:
         if (result.code, result.stdout, head_lines, traceback) != (1, "", lines, True):
             wrong.append(f"{name}: {result}")
     assert not wrong, "\n".join(wrong)
+    # the generator's own code asks for the working folder, where the system may not give it: the guard says
+    # the stated failure that names the working folder, not the defect line; where the system still says
+    # where the process stands, the run is never the defect line either
+    if os.geteuid() != 0:
+        stood = prepared()
+        (stood.root / "docs").mkdir(exist_ok=True)
+        done, refused = H.run_below_shut(stood.root / "docs", stood.root, NOTE_ARGS)
+        working = (  # typed by hand
+            "BROKEN: the working folder cannot be reached (Permission denied), so nobody can say what stands"
+            " there — fix: repair what the brackets name — the system's own reason, which may lie in a folder"
+            " above the path, or above the target of a link on it — then run it again"
+        )
+        if refused:  # the stated line, the closing line, then the traceback, which always stands
+            head = working + "\n" + messages.l4_nothing_written() + "\nTraceback (most recent call last):\n"
+            assert (done.code, done.stdout) == (1, "") and done.stderr.startswith(head), done
+        else:
+            assert "unexpected failure inside the checker" not in done.stderr, done.stderr
 
 
 # ---------------------------------------------------------------- the effect report (items 28 on)

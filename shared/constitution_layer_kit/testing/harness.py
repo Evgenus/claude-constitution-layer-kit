@@ -27,6 +27,7 @@ import shlex
 import shutil
 import signal
 import subprocess
+import sys
 import tempfile
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
@@ -88,6 +89,59 @@ def _unclocked(command, *args, **kwargs):
 
 subprocess.run = _unclocked
 """
+
+
+# Loaded at the start of a gate's process through a `sitecustomize` the test puts first on PYTHONPATH: it
+# sends the process itself the interrupt (SIGINT) at a moment the spec names, a comma-separated list of
+# three forms. `name[@caller]:n` is the nth call of a Python function, `name` its own name and `caller` the
+# name of the function that calls it. `return:name[@caller]:n` is the nth time it returns, so that the
+# interrupt lands in its caller right after the call. `line:name:n` is the nth statement run in it,
+# counted over all its calls (sys.settrace).
+INTERRUPT_AT = """import os, signal, sys
+_wanted = {}
+for _item in os.environ.get("INTERRUPT_AT", "").split(","):
+    if _item:
+        _key, _, _n = _item.rpartition(":")
+        _wanted.setdefault(_key, set()).add(int(_n))
+_seen = {}
+def _profile(frame, event, arg):
+    if event not in ("call", "return"):
+        return
+    name = frame.f_code.co_name
+    caller = frame.f_back.f_code.co_name if frame.f_back is not None else ""
+    lead = "" if event == "call" else "return:"
+    for key in (lead + name, lead + name + "@" + caller):
+        if key in _wanted:
+            _seen[key] = _seen.get(key, 0) + 1
+            if _seen[key] in _wanted[key]:
+                os.kill(os.getpid(), signal.SIGINT)
+def _trace(frame, event, arg):
+    key = "line:" + frame.f_code.co_name
+    if key not in _wanted:
+        return None
+
+    def _line(frame, event, arg):
+        if event == "line":
+            _seen[key] = _seen.get(key, 0) + 1
+            if _seen[key] in _wanted[key]:
+                os.kill(os.getpid(), signal.SIGINT)
+        return _line
+
+    return _line
+if any(not key.startswith("line:") for key in _wanted):
+    sys.setprofile(_profile)
+if any(key.startswith("line:") for key in _wanted):
+    sys.settrace(_trace)
+"""
+
+
+def interrupt_at(folder: Path, spec: str) -> dict[str, str]:
+    """The environment that interrupts a gate's process at the calls `spec` names (`INTERRUPT_AT`): each item
+    `name[@caller]:n`, the n-th call of that function; `return:name[@caller]:n`, the n-th time it returns,
+    so that the interrupt lands in its caller, right after the call; `line:name:n`, the n-th statement run
+    in that function, counted over all its calls."""
+    (folder / "sitecustomize.py").write_text(INTERRUPT_AT, encoding="utf-8")
+    return {"PYTHONPATH": str(folder), "INTERRUPT_AT": spec}
 
 
 def fake_program(path: Path, body: str) -> Path:
@@ -231,6 +285,15 @@ def ask_reason(result: Result) -> str | None:
     return reason if isinstance(reason, str) else None
 
 
+def own(done: Result) -> Result:
+    """The run with the shell's own lines before the entry's left out: a shell started in a working folder
+    the system refuses says so first ("shell-init: … getcwd: …" in bash, "… getcwd() failed …" in dash).
+    Only leading lines that name `getcwd` are left out, so a stray line of the entry's own stays seen."""
+    lines = done.stderr.splitlines(keepends=True)
+    first = next((n for n, line in enumerate(lines) if "getcwd" not in line), len(lines))
+    return Result(done.code, done.stdout, "".join(lines[first:]))
+
+
 class Harness:
     """One module's entry point under test."""
 
@@ -303,6 +366,52 @@ class Harness:
             argv, input=stdin, text=True, capture_output=True, env=merged, check=False, cwd=cwd
         )
         return Result(done.returncode, done.stdout, done.stderr)
+
+    def run_below_shut(
+        self,
+        where: Path,
+        shut: Path,
+        args: Sequence[str],
+        env: Mapping[str, str] | None = None,
+        stdin: str = "",
+    ) -> tuple[Result, bool]:
+        """The entry run from `where` once `shut`, a folder above it, may not be searched: the process stands
+        there first, then the folder is shut, then the entry starts, and the folder is opened again after.
+        The second value says whether the system then refused to say where the process stands (os.getcwd),
+        as macOS does and Linux does not. The shell's own lines before the entry's are left out (`own`)."""
+        stand = 'd=$1; s=$2; shift 2; cd "$d" && chmod 000 "$s" && "$@"; c=$?; chmod 755 "$s"; exit $c'
+        asking = [sys.executable, "-c", "import os; os.getcwd()"]
+        try:
+            asked = subprocess.run(
+                ["sh", "-c", stand, "sh", str(where), str(shut), *asking], capture_output=True, check=False
+            )
+            done = self.run_gate(
+                stdin,
+                args=args,
+                env=env,
+                command=["sh", "-c", stand, "sh", str(where), str(shut), self.sh, str(self.wrapper)],
+            )
+        finally:
+            shut.chmod(0o755)
+        return own(done), asked.returncode != 0
+
+    def run_in_gone(
+        self, where: Path, args: Sequence[str], env: Mapping[str, str] | None = None, stdin: str = ""
+    ) -> Result:
+        """The entry run from `where`, an empty folder removed once the process stands in it: a working
+        folder that is gone, which the system refuses on every OS it runs on. The folder is removed by a
+        Python launcher, never by the shell. The shell's own lines before the entry's are left out."""
+        launch = "; ".join(
+            (
+                "import os, sys",
+                "os.chdir(sys.argv[1])",
+                "os.rmdir(sys.argv[1])",
+                "os.execv(sys.argv[2], sys.argv[2:])",
+            )
+        )
+        command = [sys.executable, "-c", launch, str(where), self.sh, str(self.wrapper)]
+        done = self.run_gate(stdin, args=args, env=env, command=command)
+        return own(done)
 
     @contextmanager
     def bounded(self, seconds: float) -> Iterator[None]:

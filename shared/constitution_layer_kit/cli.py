@@ -16,7 +16,9 @@ whether the installed release serves the module, else the one line to print befo
 from __future__ import annotations
 
 import argparse
+import os
 import re
+import signal
 import sys
 import traceback
 from collections.abc import Callable, Mapping, Sequence
@@ -28,8 +30,9 @@ from . import __version__ as __version__  # re-exported: the installed version `
 from . import identity, messages, preflight
 from .errors import ConfigurationFailure
 from .identity import Identity
-from .model import EXIT_BROKEN, Mode
+from .model import EXIT_BROKEN, EXIT_INTERRUPTED, Broken, Mode
 from .output import Output
+from .repository import working_folder
 
 SCAN_FLAG = "--scan"
 
@@ -163,7 +166,18 @@ def guarded(
     then imports what needs the declared libraries; a session-start printer does the same, in hook
     mode, with no arguments to parse and a closing line saying the gate's state is not said.
     `could_not_run` is the line that closes a
-    failure: a gate's says that nothing was examined, a generator's that nothing was changed. The
+    failure: a gate's says that nothing was examined, a generator's that nothing was changed. An exception
+    nobody planned for is `C12.11` naming it, then the closing line, then its traceback. The traceback is
+    printed wherever such an exception reached the guard: after the closing line, or after `C12.15` where an
+    interrupt cut the closing line short. The first line is instead the stated `C12.16` for the working
+    folder where the exception is an OSError that names no file while the system refuses the working folder
+    now with the same error number. The guard takes that for the system's refusal of the working folder. It
+    cannot know it, so another such OSError met there reads the same, and the traceback shows its place. An
+    interrupt raised while a failure's closing line is made is handled as an interrupt. An interrupt
+    is no failure of that kind, and the guard makes no claim of its own about what was done by then: it
+    prints `C12.15` alone, then dies by the interrupt (`die_by_interrupt`). Only a closing callable that
+    also carries `interrupted`, a method returning a line made for an interrupt from the entry's own state,
+    has that line printed after `C12.15`. The
     gate and the mode are declared for the length of the run, in one scope of `identity.declared` that the
     guard opens around everything it does — the output, the body, the failure lines and the flush — and
     closes before it returns the exit code: a hook starts the run's one deadline, `gate.hook_seconds` from the
@@ -172,16 +186,72 @@ def guarded(
     # first: every text, the log, the git calls and the deadline ask who and how
     with identity.declared(gate, mode):
         output = Output(mode)
+        interrupted = False
+
+        def on_interrupt() -> None:  # no defect, and no claim of the guard's own about what was done
+            nonlocal interrupted
+            interrupted = True
+            output.err(messages.c12_interrupted().render())
+            own = getattr(could_not_run, "interrupted", None)  # a line the entry made for an interrupt
+            said = own() if callable(own) else ""
+            if said:  # an entry may observe that nothing is left to say
+                output.err(said)
+
+        def closing() -> None:  # the failure's closing line; an interrupt while it is made is an interrupt
+            try:
+                output.err(could_not_run())
+            except KeyboardInterrupt:
+                on_interrupt()
+
         try:
             return body(output)
         except ConfigurationFailure as failure:
             output.err(failure.broken.render())
-            output.err(could_not_run())
+            closing()
         except Exception as exc:  # not fail-open: an unexpected failure exits 1, never 0
-            # the BROKEN line first: in hook mode only the first stderr line reaches the user
-            output.err(messages.c12_unexpected(f"{type(exc).__name__}: {exc}").render())
-            output.err(could_not_run())
-            output.err(traceback.format_exc().rstrip())
+            # the BROKEN line first: in hook mode only the first stderr line reaches the user. Where the
+            # exception reads as the system's refusal of the working folder, met first by an entry's own code,
+            # that line is the stated C12.16 for it; in every other case it is C12.11, naming the exception.
+            # The traceback is printed either way, so nothing of the exception is lost
+            refused = _working_folder_refused(exc)
+            first = (
+                refused if refused is not None else messages.c12_unexpected(f"{type(exc).__name__}: {exc}")
+            )
+            output.err(first.render())
+            closing()
+            output.err("".join(traceback.format_exception(exc)).rstrip())
+        except KeyboardInterrupt:
+            on_interrupt()
         finally:
             output.flush()
+        if interrupted:
+            return die_by_interrupt()
         return EXIT_BROKEN
+
+
+def _working_folder_refused(exc: Exception) -> Broken | None:
+    """The stated failure for the working folder, where `exc` reads as the system's refusal of it: an OSError
+    that names no file, as os.getcwd raises it (also through Path.cwd, abspath, realpath, resolve and
+    relpath), and the system refuses the working folder now with the same error number. Else None. It asks
+    the exception and the system, never the traceback's frames; another OSError of that kind and number, met
+    while the working folder is refused, reads the same."""
+    if not isinstance(exc, OSError) or exc.filename is not None or exc.filename2 is not None:
+        return None
+    try:
+        working_folder()
+    except ConfigurationFailure as failure:
+        cause = failure.__cause__
+        if isinstance(cause, OSError) and cause.errno == exc.errno:
+            return failure.broken
+    return None
+
+
+def die_by_interrupt() -> int:
+    """End the process by the interrupt it was sent, as Python does for one nobody caught: the default action
+    restored, the signal sent to the process itself. A shell then sees a child killed by SIGINT and shows 130.
+    A shell's loop stops only where the shell got the interrupt too, as a terminal's Ctrl-C sends it to the
+    whole group; a signal sent to the entry alone ends the entry, and the loop goes on, as for any child.
+    Where the signal does not end the process, the exit is 130."""
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    os.kill(os.getpid(), signal.SIGINT)
+    return EXIT_INTERRUPTED

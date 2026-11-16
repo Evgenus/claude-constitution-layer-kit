@@ -21,6 +21,7 @@ import datetime
 import json
 import os
 import re
+import stat
 import subprocess
 import sys
 from collections import Counter
@@ -36,7 +37,7 @@ from .history import HookRun, LogRecord, Session, ToolCall, read_log, read_trans
 from .identity import Identity
 from .model import EXIT_BROKEN, Mode
 from .output import Output
-from .repository import repo_root
+from .repository import repo_root, stat_or_none, working_folder
 
 ENTRY = ("scripts", "effect-report.sh")  # a plugin's entry, by its parts below the plugin's root
 FLAGS = ("--reader", "--transcripts", "--since")
@@ -277,9 +278,10 @@ def gather(output: Output, flags: Flags) -> History:
     from .dials import load_dials  # noqa: PLC0415
     from .pipeline import route_log  # noqa: PLC0415
 
-    root = repo_root(Path(os.getcwd()).resolve())
+    here = working_folder()
+    root = repo_root(here.resolve())
     if root is None:
-        raise ConfigurationFailure(messages.c12_no_repo(os.getcwd()))
+        raise ConfigurationFailure(messages.c12_no_repo(str(here)))
     dials = load_dials(root)
     log_dir: Path | None = None
     if dials is not None:
@@ -361,13 +363,25 @@ def main_all(argv: Sequence[str]) -> int:
         return 0
     try:
         parse(argv, USAGE)  # refuse what no entry takes, as an entry would
-        plugins = enabled_plugins(Path(os.getcwd()).resolve())
+        plugins = enabled_plugins(working_folder().resolve())
     except ConfigurationFailure as failure:
         print(failure.broken.render(), file=sys.stderr)
         print(messages.u6_could_not_run(), file=sys.stderr)
         return EXIT_BROKEN
-    reports = [(name, path.joinpath(*ENTRY)) for name, path in plugins if path.joinpath(*ENTRY).is_file()]
+    reports: list[tuple[str, Path]] = []
+    unreached: list[tuple[str, Path, str]] = []
+    for name, path in plugins:
+        entry = path.joinpath(*ENTRY)
+        try:  # asked the same way on every Python: an entry nobody can reach is said, never passed over
+            found = stat_or_none(entry)
+        except OSError as exc:
+            unreached.append((name, entry, exc.strerror or type(exc).__name__))
+            continue
+        if found is not None and stat.S_ISREG(found.st_mode):
+            reports.append((name, entry))
     print(messages.u6_headline(len(reports), len(plugins)), flush=True)
+    for name, entry, why in unreached:
+        print(messages.u6_unreachable(name, str(entry), why), flush=True)
     for name, entry in reports:
         try:
             code = subprocess.run(["sh", str(entry), *argv], timeout=REPORT_SECONDS, check=False).returncode

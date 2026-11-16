@@ -11,7 +11,7 @@ from pathlib import Path
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.errors import ConfigurationFailure
 from constitution_layer_kit.model import Finding
-from constitution_layer_kit.repository import first_line, git, is_markdown
+from constitution_layer_kit.repository import first_line, git, is_markdown, listed_file
 from constitution_layer_kit.territory import Matcher
 
 from . import messages
@@ -27,7 +27,10 @@ def other_files(root: Path) -> list[str]:
         raise ConfigurationFailure(shared.c12_ls_files(str(root), first_line(result.stderr)))
     paths = sorted({p for p in os.fsdecode(result.stdout).split("\0") if p and not is_markdown(p)})
     return [
-        p for p in paths if (root / p).is_file() and not (root / p).is_symlink() and not _binary(root / p)
+        p
+        for p in paths
+        # a link first, never followed: os.path.islink answers on every interpreter, and is not read
+        if not os.path.islink(root / p) and listed_file(root, p) and not _binary(root / p)
     ]
 
 

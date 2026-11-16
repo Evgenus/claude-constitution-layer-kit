@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 import posixpath
+import stat
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,12 +24,13 @@ from constitution_layer_kit.repository import (
     list_markdown,
     read_text,
     repo_root,
+    stat_or_none,
 )
 from constitution_layer_kit.territory import Matcher
 
 from . import dials as own_dials
 from . import lychee, messages, modes, repair
-from .closing import Closing
+from .closing import Closing, _indexed, from_here
 from .mentions import other_files
 from .model import Ids, ReferencingDials
 from .repair import Rewritten
@@ -69,12 +71,14 @@ def act(output: Output, request: Request, closing: Closing) -> int:
         raise ConfigurationFailure(messages.v5_no_root_policy())
     old = new = ""
     made: list[Path] | None = None  # the folders the move made; None while nothing moved
+    closing.root = root
     if not request.ids:
         if request.new.endswith(("/", os.sep)):
             raise ConfigurationFailure(messages.v5_names_a_directory(request.new))
         old, new = _within(root, request.old), _within(root, request.new)
         _refuse_what_cannot_move(root, old, new, request.by_hand)
         if not request.by_hand:
+            closing.move = (old, new)  # from here an interrupt's line looks where the file stands
             made = _move(root, old, new, closing)
     try:
         plan = _plan(root, dials, target, old, new, request.ids, made)
@@ -88,15 +92,17 @@ def act(output: Output, request: Request, closing: Closing) -> int:
         output.out(messages.v2_left_alone(rel))
     links = 0
     for rel, done in plan.rewrites:
-        closing.changed = True
+        closing.rewrote = True  # before the file opens: the one thing an interrupt's line cannot observe
+        closing.writing = rel  # from before the open, which empties it, until its text is written
         with (root / rel).open("w", encoding="utf-8", newline="") as handle:  # line endings as they were
             handle.write(done.text)
+        closing.writing = ""
         output.out(messages.v2_rewrote(rel, done.links))
         links += done.links
     for rel, line, text in plan.mentions:
         output.out(messages.v3_mention(rel, line, text))
     output.out(messages.v4_count(len(plan.rewrites), links, len(plan.mentions)))
-    return modes.scan_mode(output, root)
+    return modes.scan_mode(output, root, verdict=lambda: setattr(closing, "scanned", True))
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,8 +141,8 @@ def _plan(
         # the root policy was found by the listing before the move: --moved and --ids meet C6 there, so a
         # root policy missing here can only be the doing of the move just made
         if failure.broken.key is SharedKey.C6:
-            folder = _from_here(root, posixpath.dirname(new)) if made else ""  # git mv makes no folder
-            route = (old, new, _from_here(root, old), _from_here(root, new), folder)
+            folder = from_here(root, posixpath.dirname(new)) if made else ""  # git mv makes no folder
+            route = (old, new, from_here(root, old), from_here(root, new), folder)
             raise ConfigurationFailure(messages.v5_takes_the_root_policy(*route)) from failure
         raise
     repaired = [*covered, *([new] if is_markdown(new) and new not in covered else [])]
@@ -166,50 +172,56 @@ def _plan(
     return Plan(rewrites, left_alone, mentions)
 
 
-def _from_here(root: Path, rel: str) -> str:
-    """A path from the repository's top as the user types it where they stand: from the working folder."""
-    return os.path.relpath(os.path.realpath(root / rel), os.path.realpath(Path.cwd()))
-
-
 def _reason(exc: OSError) -> str:
     return exc.strerror or type(exc).__name__
 
 
 def _move(root: Path, old: str, new: str, closing: Closing) -> list[Path]:
-    """git mv, into a directory made for it where none exists — and unmade again when git refuses. The
-    folders it made are returned, deepest first, for the move back."""
-    made: list[Path] = []
+    """git mv, into a directory made for it where none exists. The folders it made are returned, deepest
+    first, for the move back. A folder the system refuses, or a refused git mv, removes the folders made so
+    far, so that the tree is as it was. Nothing here keeps an account of what it changed: the closing line
+    looks at the tree, and the folders the move would make are named to it before the first is made."""
+    missing: list[Path] = []
     parent = (root / new).parent
-    while not parent.exists():
-        made.append(parent)
+    while _found(root, parent.relative_to(root).as_posix()) is None:
+        missing.append(parent)
         parent = parent.parent
-    for directory in reversed(made):
-        directory.mkdir()
+    closing.planned = tuple(missing)  # deepest first, before the first folder
+    made: list[Path] = []  # deepest first
+    try:
+        for directory in reversed(missing):
+            directory.mkdir()
+            made.insert(0, directory)
+    except OSError:
+        _unmake(made, closing)
+        raise
     moved = git(["mv", "--", old, new], cwd=root)
     if moved.returncode != 0:
-        for directory in made:
-            directory.rmdir()
+        _unmake(made, closing)
         raise ConfigurationFailure(messages.v5_git_mv(first_line(moved.stderr)))
-    closing.changed = True
     return made
 
 
 def _move_back(root: Path, old: str, new: str, made: Sequence[Path], closing: Closing) -> None:
-    """The move undone: the file moved back with git, and the folders the move made removed again. When
-    that fails, the closing line says where the file is."""
+    """The move undone: the file moved back with git, and the folders the move made removed again. When git
+    refuses, the closing line gives its words; where a folder stays, the closing line names it."""
     back = git(["mv", "--", new, old], cwd=root)
     if back.returncode != 0:
         closing.stranded = messages.v4_move_back_failed(old, new, first_line(back.stderr))
         return
+    closing.moved_back = old  # what git did; whether its folders are gone the closing line looks
+    _unmake(made, closing)
+
+
+def _unmake(made: Sequence[Path], closing: Closing) -> None:
+    """The folders a move made, removed deepest first. One that cannot be removed stays, and so does every
+    folder above it: the closing line, which looks at the tree, names them, with the system's reason where
+    it gave one."""
     for directory in made:
         try:
             directory.rmdir()
         except OSError as exc:
-            where = directory.relative_to(root).as_posix()
-            closing.stranded = messages.v4_folder_left(old, where, _reason(exc))
-            return
-    closing.changed = False
-    closing.moved_back = old
+            closing.unmade[directory] = _reason(exc)
 
 
 def _repair(rel: str, text: str, old: str, new: str, ids: Ids | None) -> Rewritten:
@@ -253,7 +265,8 @@ def _refuse_what_cannot_move(root: Path, old: str, new: str, by_hand: bool) -> N
     if old == new:
         raise ConfigurationFailure(messages.v5_same(old))
     if by_hand:
-        if (root / old).exists() or not (root / new).is_file():
+        found_new = _found(root, new)
+        if _found(root, old) is not None or found_new is None or not stat.S_ISREG(found_new.st_mode):
             raise ConfigurationFailure(messages.v5_not_moved(old, new))
         return
     _refuse_unmovable_source(root, old)
@@ -262,27 +275,37 @@ def _refuse_what_cannot_move(root: Path, old: str, new: str, by_hand: bool) -> N
     _refuse_blocked_target(root, old, new)
 
 
+def _found(root: Path, rel: str) -> os.stat_result | None:
+    """What the system says of a path the mover was given (`stat_or_none`): None where it is absent. A
+    path nobody can reach — a folder above it nobody may search — is a refusal of its own, on every
+    Python, never read as absent."""
+    try:
+        return stat_or_none(root / rel)
+    except OSError as exc:
+        raise ConfigurationFailure(messages.v5_unreachable(rel, _reason(exc))) from exc
+
+
 def _refuse_unmovable_source(root: Path, old: str) -> None:
     """The file to move is a file git lists, not a link."""
-    listed = git(["ls-files", "--error-unmatch", "--", old], cwd=root)
-    if listed.returncode != 0 or not (root / old).is_file():
+    found = _found(root, old) if _indexed(root, old) else None  # by the exact name, as the closing asks
+    if found is None or not stat.S_ISREG(found.st_mode):
         raise ConfigurationFailure(messages.v5_not_listed(old))
-    if (root / old).is_symlink():
+    if os.path.islink(root / old):
         raise ConfigurationFailure(messages.v5_is_a_link(old))
 
 
 def _refuse_blocked_target(root: Path, old: str, new: str) -> None:
     """The new path is free — save the file itself under a name in another case — and its nearest
     existing ancestor is a directory."""
+    there = _found(root, new)
     # where the file system ignores case, a new name in another case "exists": it is the file itself
-    renamed_in_case = (
-        old.lower() == new.lower() and (root / new).exists() and (root / new).samefile(root / old)
-    )
-    if (root / new).exists() and not renamed_in_case:
+    renamed_in_case = old.lower() == new.lower() and there is not None and (root / new).samefile(root / old)
+    if there is not None and not renamed_in_case:
         raise ConfigurationFailure(messages.v5_target_exists(new))
     for ancestor in (root / new).parents:
-        if ancestor.exists():
-            if not ancestor.is_dir():
+        found = _found(root, ancestor.relative_to(root).as_posix()) if ancestor != root else os.stat(root)
+        if found is not None:
+            if not stat.S_ISDIR(found.st_mode):
                 raise ConfigurationFailure(
                     messages.v5_parent_is_a_file(ancestor.relative_to(root).as_posix())
                 )

@@ -715,6 +715,43 @@ def test_edit_that_creates_is_new() -> None:
     expect(result, 2, K4.render(), "stderr")
 
 
+@acceptance_item(86, "a written file behind a folder nobody may search is the shared C12.16, on every Python")
+def test_written_file_unreachable() -> None:
+    """Whether the written file exists decides whether its number is judged. Behind a folder nobody may
+    search, the shared walk up to the repository stops at the written path: the shared C12.16 names it, by
+    the path the event gives, on every Python, and no verdict is given. A name too long for the system is the
+    same line with that reason; on 3.14, main judged it as a new item and blocked it with K1, though no such
+    file can be written. As root a mode bit denies nothing, and the case is not exercised."""
+    if os.geteuid() == 0:
+        return  # NOT EXERCISED: running as root, where a mode bit does not deny a search
+    rel = "docs/items/shut/itm-0002-second.md"
+    consumer = H.fresh_consumer()
+    consumer.write("constitution.yaml", dials_text())
+    consumer.write(ITEM_A, item())
+    shut = consumer.root / "docs/items/shut"
+    shut.mkdir()
+    shut.chmod(0o000)
+    try:
+        result = H.run_gate(event_json(consumer.root, Write(rel, item("itm-0002-second"))))
+    finally:
+        shut.chmod(0o755)
+    broken_typed(
+        result,
+        f"BROKEN: {consumer.root / rel} cannot be reached (Permission denied), so nobody can say what stands"
+        " there — fix: repair what the brackets name — the system's own reason, which may lie in a folder"
+        " above the path, or above the target of a link on it — then run it again",
+    )
+    # a name too long for the system: the fix points at the reason, and names no folder's permissions
+    long_rel = "docs/items/itm-0002-" + "x" * 300 + ".md"
+    result = H.run_gate(event_json(consumer.root, Write(long_rel, item("itm-0002-second"))))
+    broken_typed(
+        result,
+        f"BROKEN: {consumer.root / long_rel} cannot be reached (File name too long), so nobody can say what"
+        " stands there — fix: repair what the brackets name — the system's own reason, which may lie in a"
+        " folder above the path, or above the target of a link on it — then run it again",
+    )
+
+
 @acceptance_item(46, "a free number below the highest passes: the gate asks for free, not for next")
 def test_free_number_below_the_highest() -> None:
     """The gate asks for a free number, not for the next one: allocation is advice, a gap is legitimate."""

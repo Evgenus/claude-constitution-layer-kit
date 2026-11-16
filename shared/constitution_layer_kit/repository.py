@@ -3,8 +3,10 @@ for the text."""
 
 from __future__ import annotations
 
+import errno
 import os
 import shlex
+import stat
 import subprocess
 import tempfile
 from pathlib import Path
@@ -86,10 +88,100 @@ def git(
         raise ConfigurationFailure(failure) from exc
 
 
+def stand_in(folder: Path, shown: str) -> bool:
+    """Whether `folder` is a folder a process can stand in: one that stands and may be searched. A path that
+    is absent, or no folder, is not. A folder that stands and may not be searched, or one behind such a
+    folder, is the shared C12.16 naming `shown`, on every Python. `folder/.` is asked, whose lookup needs the
+    search right, so the system itself says which."""
+    try:
+        os.stat(os.path.join(folder, "."))
+    except OSError as exc:
+        if exc.errno in _ABSENT:
+            return False
+        raise ConfigurationFailure(
+            messages.c12_unreachable(shown, exc.strerror or type(exc).__name__)
+        ) from exc
+    return True
+
+
+def working_folder() -> Path:
+    """The process's working folder, asked of the system. The shared code's own asks go through it; an ask
+    made elsewhere, in a module's own code, is covered by the shared guard, which says this same failure
+    where the exception it meets is the system's refusal of the working folder. Where the system will not
+    say where the process stands, as macOS does when a folder above it may not be searched, and as every OS
+    does when the folder is gone, the shared C12.16 names the working folder: there is no path to name,
+    since that path is what the system withheld."""
+    try:
+        return Path(os.getcwd())
+    except OSError as exc:
+        raise ConfigurationFailure(
+            messages.c12_unreachable("the working folder", exc.strerror or type(exc).__name__)
+        ) from exc
+
+
+def ask_passed_over(start: Path, found: Path, is_git_dir: bool = False) -> None:
+    """After git's own search from `start` ended at `found`, asks of each folder git passed over on the way
+    whether the `.git` it judged no repository there can be read. Git's answer is asked first and stands;
+    this only looks at what git passed over. The folders are those from `start` up to `found`, `found` not
+    included, by physical paths. For each that holds a `.git` entry (`os.lstat` answers): a folder whose
+    `HEAD` cannot be asked for a reason other than absence, or a regular file that does not open for reading,
+    is the shared C12.16 naming that `.git`, since another repository's verdict would stand in for this one.
+    Anything else, a FIFO, a socket or a device, or a `.git` that can be read, is git's to judge, and its
+    answer stands: nothing that `os.stat` does not call a regular file is ever opened.
+
+    It asks only where the evidence says git searched up from `start` and ended at `found`: `found` is
+    `start` or a folder above it, and `found` holds a `.git`, or `found` is itself the git directory git named
+    (`is_git_dir`). Where the kit cannot tell that git's search alone decided `found`, it asks nothing, and
+    git's answer stands as on main: that is wherever the environment names the repository or its work tree,
+    GIT_DIR or GIT_WORK_TREE, each by its presence alone. It reads no other environment variable and no
+    device number."""
+    if "GIT_DIR" in os.environ or "GIT_WORK_TREE" in os.environ:
+        return  # the environment, not git's search alone, decided the repository or its top
+    begin = Path(os.path.realpath(start))
+    top = Path(os.path.realpath(found))
+    if begin != top and top not in begin.parents:
+        return
+    if not is_git_dir:
+        try:
+            os.lstat(top / ".git")
+        except OSError:
+            return  # no sign that git found the repository by searching up to it
+    folder = begin
+    while folder != top:
+        _ask_entry(folder / ".git")
+        folder = folder.parent
+
+
+def _ask_entry(entry: Path) -> None:
+    """One `.git` git passed over: C12.16 naming it where we cannot read what git passed over."""
+    try:
+        os.lstat(entry)
+    except OSError:
+        return  # no .git here
+    try:
+        found = os.stat(entry)
+        if stat.S_ISDIR(found.st_mode):
+            os.stat(entry / "HEAD")
+        elif stat.S_ISREG(found.st_mode):
+            with open(entry, "rb") as handle:
+                handle.read(1)
+    except OSError as exc:
+        if exc.errno in _ABSENT:  # a link that leads nowhere, a .git folder with no HEAD: git's to judge
+            return
+        raise ConfigurationFailure(
+            messages.c12_unreachable(str(entry), exc.strerror or type(exc).__name__)
+        ) from exc
+
+
 def repo_root(path: Path) -> Path | None:
-    """The real path of the repository containing `path` (which need not exist), or None."""
-    probe = path if path.is_dir() else path.parent
-    while not probe.is_dir():
+    """The real path of the repository containing `path` (which need not exist), or None. The walk goes up
+    only past what is absent or no folder. A folder it cannot search, the path itself or one on the way
+    up, is the shared C12.16 naming the path asked about, on every Python: the walk never passes it to stand
+    in a repository above, whose verdict is not this tree's. Git's own search then answers, as on main; where
+    it went on past a `.git` it judged no repository, `ask_passed_over` asks whether that `.git` can be
+    read."""
+    probe = path
+    while not stand_in(probe, str(probe)):
         if probe.parent == probe:
             return None
         probe = probe.parent
@@ -101,7 +193,9 @@ def repo_root(path: Path) -> Path | None:
         raise ConfigurationFailure(
             messages.c12_git_failed(detail.splitlines()[0] if detail else "no message")
         )
-    return Path(os.path.realpath(result.stdout.decode("utf-8", "replace").strip()))
+    top = Path(os.path.realpath(result.stdout.decode("utf-8", "replace").strip()))
+    ask_passed_over(probe, top)  # a .git git passed over and we cannot read: another repository's verdict
+    return top
 
 
 def first_line(stderr: bytes) -> str:
@@ -123,7 +217,49 @@ def list_markdown(root: Path) -> list[str]:
     if result.returncode != 0:
         raise ConfigurationFailure(messages.c12_ls_files(str(root), first_line(result.stderr)))
     paths = os.fsdecode(result.stdout).split("\0")  # bytes git cannot decode survive as they are
-    return sorted({p for p in paths if p and is_markdown(p) and (root / p).is_file()})
+    return sorted({p for p in paths if p and is_markdown(p) and listed_file(root, p)})
+
+
+# The errors that say a path is absent, as Path.is_file reads them on every Python: gone, a folder on the
+# way that is a file, a link that leads nowhere or round in a loop.
+_ABSENT = frozenset({errno.ENOENT, errno.ENOTDIR, errno.EBADF, errno.ELOOP})
+
+
+def stat_or_none(path: Path) -> os.stat_result | None:
+    """What the system says of a path, through any link: None where it is absent — gone, behind a file, a
+    link that leads nowhere or loops. Any other error is raised, on every Python: `Path.is_file`,
+    `exists` and `is_dir` raise there before 3.14 and return False from 3.14 on, which would read a path
+    nobody can reach as absent and pass it over without a word. So the answer is asked of `os.stat`,
+    which raises on every version."""
+    try:
+        return os.stat(path)
+    except OSError as exc:
+        if exc.errno in _ABSENT:
+            return None
+        raise
+
+
+def reached(path: Path, shown: str) -> os.stat_result | None:
+    """What the system says of `path` (`stat_or_none`): None where it is absent. Any other error is the
+    shared C12.16, naming the path as `shown`, on every Python: a path behind a folder nobody may search is
+    never read as absent."""
+    try:
+        return stat_or_none(path)
+    except OSError as exc:
+        raise ConfigurationFailure(
+            messages.c12_unreachable(shown, exc.strerror or type(exc).__name__)
+        ) from exc
+
+
+def listed_file(root: Path, rel: str) -> bool:
+    """Whether a path git lists is a file, through any link (`stat_or_none`). A path the gate cannot reach
+    — a folder above it nobody may search, a name too long for the system — is a configuration failure,
+    C12.10."""
+    try:
+        found = stat_or_none(root / rel)
+    except OSError as exc:
+        raise ConfigurationFailure(messages.c12_unreadable(rel, exc.strerror or type(exc).__name__)) from exc
+    return found is not None and stat.S_ISREG(found.st_mode)
 
 
 def is_ignored(root: Path, rel: str) -> bool:

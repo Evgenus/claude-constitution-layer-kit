@@ -824,6 +824,127 @@ def test_commits_not_counted(clone: Clone) -> None:
     ]
 
 
+UNREACHED = (  # C12.16, typed by hand
+    "BROKEN: {path} cannot be reached (Permission denied), so nobody can say what stands there — fix:"
+    " repair what the brackets name — the system's own reason, which may lie in a folder above the path, or"
+    " above the target of a link on it —"
+    " then run it again"
+)
+
+
+def shut_while(folder: Path, mode: int, run: Callable[[], Result]) -> Result:
+    """`run` with `folder` at `mode`, its mode set back whatever happens."""
+    folder.chmod(mode)
+    try:
+        return run()
+    finally:
+        folder.chmod(0o755)
+
+
+@item(34, "a path the count cannot reach is the shared C12.16, never a count that runs short or a skip")
+def test_unreachable_paths(clone: Clone, tmp_path: Path) -> None:
+    """A folder nobody may search, on every Python. Path.is_file and Path.is_dir raise there before 3.14 and
+    return False from 3.14 on, where the start hook logged nothing and said nothing, a run by hand lost its
+    data folder, and the count left out a transcript. A folder os.walk cannot list was passed over on every
+    Python. The cases, each C12.16 and its entry's closing line, exit 1, nothing logged or kept:
+    - the start hook in a folder nobody may search;
+    - the start hook in a repository whose .git nobody may read, inside another clone, never logged there;
+    - the same start with the hook's cwd given through a link to that repository;
+    - the start hook in a folder that can be read and not searched;
+    - a run by hand whose recorded data folder stands behind such a folder;
+    - a resumed start's transcript behind it;
+    - a .jsonl in the session's folder that can be listed and not searched;
+    - the agents' folder that os.walk cannot list.
+    The one case that is no failure: a .jsonl link in the agents' folder that leads behind such a folder is
+    left out as a link, and the count goes on and counts the commit. As root a mode bit denies nothing, and
+    these cases are not exercised."""
+    if os.geteuid() == 0:
+        return  # NOT EXERCISED: running as root, where a mode bit does not deny a search
+    vault = tmp_path / "vault"
+    inside = vault / "in"
+    inside.mkdir(parents=True)
+    # the start hook, in a folder nobody may search
+    started = shut_while(vault, 0o000, lambda: start_hook(clone, payload(S1, inside)))
+    assert (started.code, started.stdout, started.stderr.splitlines()) == (
+        1,
+        "",
+        [UNREACHED.format(path=inside), START_CLOSING],
+    ), started.stderr
+    assert not (clone.folder / "starts.jsonl").exists(), "a start was logged"
+    # a repository whose .git nobody can read, inside another: never the outer clone's log
+    outer = tmp_path / "outer"
+    inner_repo = outer / "inner"
+    inner_repo.mkdir(parents=True)
+    git_in(outer, "init", "-q")
+    (outer / ".gitignore").write_text("inner/\n", encoding="utf-8")
+    git_in(inner_repo, "init", "-q")
+    started = shut_while(inner_repo / ".git", 0o000, lambda: start_hook(clone, payload(S1, inner_repo)))
+    assert (started.code, started.stdout, started.stderr.splitlines()) == (
+        1,
+        "",
+        [UNREACHED.format(path=inner_repo / ".git"), START_CLOSING],
+    ), started.stderr
+    assert not (outer / ".git" / "const-change-cost").exists(), "a start was logged in the outer clone"
+    # the hook's cwd through a link into a folder below that shut repository: git's search is from the real
+    # folder, so what git passed over is asked from there too
+    os.symlink(inner_repo, outer / "into")
+    started = shut_while(inner_repo / ".git", 0o000, lambda: start_hook(clone, payload(S1, outer / "into")))
+    assert (started.code, started.stderr.splitlines()) == (
+        1,
+        [UNREACHED.format(path=Path(os.path.realpath(inner_repo)) / ".git"), START_CLOSING],
+    ), started.stderr
+    # a folder that can be read and not searched: it stands, and git cannot run in it
+    half = tmp_path / "half"
+    half.mkdir()
+    started = shut_while(half, 0o600, lambda: start_hook(clone, payload(S1, half)))
+    assert (started.code, started.stdout, started.stderr.splitlines()) == (
+        1,
+        "",
+        [UNREACHED.format(path=half), START_CLOSING],
+    ), started.stderr
+    assert not (clone.folder / "starts.jsonl").exists(), "a start was logged"
+    # a run by hand, whose recorded data folder stands behind it
+    clone.start(S1, 0)
+    clone.append_record(S1, 14)
+    clone.commit("a" * 40, 13, S1)
+    logs.record_plugin_data(clone.folder, str(inside))
+    by_hand = shut_while(vault, 0o000, lambda: clone.count("--all", env={"CLAUDE_PLUGIN_DATA": ""}))
+    count_failed(by_hand, inside, clone)
+    # a resumed start whose transcript stands behind it: the first transcript alone would count short
+    elsewhere = inside / f"{S1}.jsonl"
+    elsewhere.write_text(user_record(S1, 20), encoding="utf-8")
+    clone.start(S1, 1, source="resume", path=elsewhere)
+    count_failed(shut_while(vault, 0o000, lambda: clone.count("--all")), elsewhere, clone)
+    elsewhere.unlink()
+    # a .jsonl in the session's folder, which can be listed and not searched
+    own = clone.projects / S1
+    (own / "extra.jsonl").write_text(user_record(S1, 21), encoding="utf-8")
+    listed = shut_while(own, 0o444, lambda: clone.count("--all"))
+    count_failed(listed, own / "extra.jsonl", clone)
+    (own / "extra.jsonl").unlink()
+    # the agents' folder, which os.walk cannot list
+    agents = own / "subagents"
+    count_failed(shut_while(agents, 0o000, lambda: clone.count("--all")), agents, clone)
+    # a link is left out, as ccusage's own walk leaves it out, and is asked as a link first: one that leads
+    # behind a folder nobody may search is passed over, never C12.16, and the count goes on
+    hidden = tmp_path / "hidden"
+    (hidden / "in").mkdir(parents=True)
+    (hidden / "in" / "far.jsonl").write_text(user_record(S1, 22), encoding="utf-8")
+    os.symlink(hidden / "in" / "far.jsonl", agents / "far.jsonl")
+    linked = shut_while(hidden, 0o000, lambda: clone.count("--all"))
+    assert linked.code == 0 and "cannot be reached" not in linked.stderr, linked.stderr
+    assert closing(linked) == counted_line(1, 0, 0, 0), linked.stdout
+
+
+def count_failed(result: Result, path: Path, clone: Clone) -> None:
+    assert (result.code, result.stdout, result.stderr.splitlines()[:2]) == (
+        1,
+        "",
+        [UNREACHED.format(path=path), messages.j4_not_counted()],
+    ), result.stderr
+    assert clone.kept() == [], "a count was kept"
+
+
 # ------------------------------------------------------------------ T19, T20: where ccusage stands, the pin
 
 
@@ -1375,7 +1496,7 @@ class Entry:
     clause: str
     closing: str
     c2_clause: str  # the identity's clause, which closes the shared C2 alone for a generator
-    requires: str = "2.0.0"  # the release of the shared package the entry file states
+    requires: str = "2.6.0"  # the release of the shared package the entry file states
 
     def tail(self) -> str:
         return f" — {self.clause}" if self.clause else ""
@@ -1384,10 +1505,10 @@ class Entry:
 def entries(clone: Clone) -> list[Entry]:
     return [
         Entry(H, "count-costs.py", ("--all",), "", "", CLOSING, CLAUSE),
-        Entry(HS, "session-start.py", (), payload(S1, clone.root), "", START_CLOSING, START_CLAUSE, "2.1.0"),
+        Entry(HS, "session-start.py", (), payload(S1, clone.root), "", START_CLOSING, START_CLAUSE),
         Entry(HU, "setup-commit-log.py", (), "", "", SETUP_CLOSING, SETUP_C2_CLAUSE),
-        Entry(HR, "cost-report.py", (), "", "", REPORT_CLOSING, REPORT_C2_CLAUSE, "2.1.0"),
-        Entry(HE, "effect-report.py", (), "", "", EFFECT_CLOSING, EFFECT_C2_CLAUSE, "2.2.0"),
+        Entry(HR, "cost-report.py", (), "", "", REPORT_CLOSING, REPORT_C2_CLAUSE),
+        Entry(HE, "effect-report.py", (), "", "", EFFECT_CLOSING, EFFECT_C2_CLAUSE),
     ]
 
 

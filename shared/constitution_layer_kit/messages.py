@@ -426,11 +426,46 @@ def c12_invocation(detail: str, usage: str = USAGE) -> Broken:
     return Broken(SharedKey.C12, f"misinvocation: {echoed(detail)}", usage)
 
 
-def c12_unreadable(rel: str) -> Broken:
+def reason_fix(then: str = "then run it again") -> str:
+    """The fix of a line that carries the system's reason in brackets: it points at that reason, and says only
+    where the reason may lie, in a folder above the path or above a link's target. So it is true for every
+    reason the system can give there."""
+    return (
+        "repair what the brackets name — the system's own reason, which may lie in a folder above the path,"
+        f" or above the target of a link on it — {then}"
+    )
+
+
+def c12_unreadable(rel: str, reason: str = "") -> Broken:
+    """A file git lists that cannot be read. With the system's `reason`, the line carries it in brackets.
+    Without one, as an older caller gives it, the fix asks the reader to read the file for the reason."""
+    if reason:
+        return Broken(
+            SharedKey.C12,
+            f"{escaped(rel)} is listed by git but cannot be read ({echoed(reason)})",
+            reason_fix(),
+        )
     return Broken(
         SharedKey.C12,
         f"{escaped(rel)} is listed by git but cannot be read",
-        "check that the file can be read: its permissions, or a link that leads nowhere",
+        "read the file to see the system's own reason, then repair what it names and run it again",
+    )
+
+
+def c12_unreachable(path: str, reason: str) -> Broken:
+    """A path the run must ask about that the system would not reach: `reason` is the system's words."""
+    return Broken(
+        SharedKey.C12,
+        f"{escaped(path)} cannot be reached ({echoed(reason)}), so nobody can say what stands there",
+        reason_fix(),
+    )
+
+
+def c12_interrupted() -> Broken:
+    return Broken(
+        SharedKey.C12,
+        "interrupted before the run was done",
+        "run it again, and let it finish",
     )
 
 
@@ -506,7 +541,11 @@ def c12_scan_path(path: str) -> Broken:
 
 
 def c12_dials_unreadable(detail: str) -> Broken:
-    return Broken(SharedKey.C12, f"{_file()} cannot be read ({detail})", "check the file's permissions")
+    return Broken(
+        SharedKey.C12,
+        f"{_file()} cannot be read ({echoed(detail)})",
+        reason_fix(),
+    )
 
 
 def detail_not_json(error: str) -> str:
@@ -681,6 +720,13 @@ def u6_headline(reports: int, enabled: int) -> str:
 
 def u6_report_failed(plugin: str, code: int) -> str:
     return f"note: the effect report of {escaped(plugin)} exited {code}; its lines above say why"
+
+
+def u6_unreachable(plugin: str, entry: str, reason: str) -> str:
+    return (
+        f"note: the effect report of {escaped(plugin)} cannot be reached at {escaped(entry)}"
+        f" ({echoed(reason)}); it was not run"
+    )
 
 
 def u6_no_list(detail: str) -> Broken:

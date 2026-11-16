@@ -11,7 +11,7 @@ from pathlib import Path
 
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.errors import ConfigurationFailure
-from constitution_layer_kit.repository import git
+from constitution_layer_kit.repository import ask_passed_over, git, stand_in
 
 from . import messages
 from .model import GIT_MINIMUM, HOOK_COMMIT, HOOK_MERGE, NOTES_REF
@@ -23,9 +23,11 @@ _VERSION = re.compile(r"git version (\d+)\.(\d+)")
 
 def common_or_none(directory: Path) -> Path | None:
     """Git's common directory, the same from the main checkout and from every linked worktree; None outside
-    a git repository. A git that fails for any other reason is the shared configuration failure, never None:
-    a skip would hide a broken setup."""
-    if not directory.is_dir():
+    a git repository, where the folder is gone, or where it is no folder. A folder nobody may search, or one
+    behind it, is the shared C12.16, and a git that fails for any other reason the shared configuration
+    failure, never None: a skip would hide a broken setup. Git's answer stands, save where its search went on
+    past a `.git` we cannot read (`_ask_what_git_passed`)."""
+    if not stand_in(directory, str(directory)):
         return None
     done = git(["rev-parse", "--git-common-dir"], directory)
     if done.returncode != 0:
@@ -33,7 +35,23 @@ def common_or_none(directory: Path) -> Path | None:
         if "not a git repository" in detail:
             return None
         raise ConfigurationFailure(shared.c12_git_failed(detail.splitlines()[0] if detail else "no message"))
+    _ask_what_git_passed(directory)  # a .git git passed over and we cannot read: never a clone above's log
     return Path(os.path.realpath(directory / done.stdout.decode("utf-8", "replace").strip()))
+
+
+def _ask_what_git_passed(directory: Path) -> None:
+    """Where git's search from `directory` ended: its top level, where it gives one; else the git directory
+    itself, a bare repository or a start inside `.git`. The shared `ask_passed_over` then asks what git
+    passed over on the way; where git gives neither, nothing is asked."""
+    top = git(["rev-parse", "--show-toplevel"], directory)
+    text = top.stdout.decode("utf-8", "replace").strip()
+    if top.returncode == 0 and text:
+        ask_passed_over(directory, Path(text))
+        return
+    git_dir = git(["rev-parse", "--absolute-git-dir"], directory)
+    text = git_dir.stdout.decode("utf-8", "replace").strip()
+    if git_dir.returncode == 0 and text:
+        ask_passed_over(directory, Path(text), is_git_dir=True)
 
 
 def common_directory(directory: Path) -> Path:

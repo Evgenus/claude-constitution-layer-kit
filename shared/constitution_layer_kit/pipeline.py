@@ -18,7 +18,7 @@ from .errors import ConfigurationFailure
 from .events import document_after_write, read_event
 from .model import EXIT_GREEN, EXIT_RED, POST_WRITE, PRE_WRITE, STOP, Dials, Finding, Mode, Severity, SkipKind
 from .output import Output, log_name
-from .repository import is_ignored, is_markdown, read_text, repo_root
+from .repository import is_ignored, is_markdown, reached, read_text, repo_root, working_folder
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,7 +70,7 @@ def locate_write(output: Output, stdin: TextIO) -> WriteTarget | Skip:
         return Skip(messages.g1_skip_other_tool(event.tool_name), SkipKind.NO_FILE, event.tool_name)
     path = Path(os.path.expanduser(event.file_path))
     if not path.is_absolute():
-        path = Path(event.cwd or os.getcwd()) / path
+        path = (Path(event.cwd) if event.cwd else working_folder()) / path
     path = Path(os.path.realpath(path))
     if not is_markdown(path.name):
         return Skip(messages.g1_skip_not_markdown(str(path)), SkipKind.NOT_MARKDOWN, str(path))
@@ -98,7 +98,7 @@ def locate_event(output: Output, stdin: TextIO) -> EventTarget | Skip:
     tool event's fields are still validated; a cwd outside any repository is a visible skip."""
     event = read_event(stdin)
     output.stamp(event)
-    cwd = Path(os.path.realpath(event.cwd or os.getcwd()))
+    cwd = Path(os.path.realpath(Path(event.cwd) if event.cwd else working_folder()))
     root = repo_root(cwd)
     if root is None:
         return Skip(messages.g1_skip_no_repo(str(cwd)), SkipKind.NO_REPO, str(cwd))
@@ -110,9 +110,9 @@ def locate_event(output: Output, stdin: TextIO) -> EventTarget | Skip:
 
 
 def locate_scan(output: Output, start: Path) -> ScanTarget | Skip:
-    if not start.exists():
+    if reached(start, str(start)) is None:  # a path behind a folder nobody may search is C12.16, not C12.6
         raise ConfigurationFailure(messages.c12_scan_path(str(start)))
-    root = repo_root(start.resolve())
+    root = repo_root(Path(os.path.realpath(start if start.is_absolute() else working_folder() / start)))
     if root is None:
         raise ConfigurationFailure(messages.c12_no_repo(str(start)))
     dials = load_dials(root)

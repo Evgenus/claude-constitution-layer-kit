@@ -11,9 +11,10 @@ holding any other document: no text here cites one.
 from __future__ import annotations
 
 import shlex
+from collections.abc import Sequence
 
 from constitution_layer_kit import identity
-from constitution_layer_kit.messages import echoed, escaped
+from constitution_layer_kit.messages import echoed, escaped, reason_fix
 from constitution_layer_kit.model import Broken, Finding, SharedKey
 
 from .model import ActKey, Key, ToolKey
@@ -413,17 +414,106 @@ def v4_move_back_failed(old: str, new: str, detail: str) -> str:
     )
 
 
-def v4_folder_left(old: str, folder: str, reason: str) -> str:
+def v4_at_new(
+    old: str, new: str, here: tuple[str, str, Sequence[str]] | None, gone: bool | None = True
+) -> str:
+    """The file stands at `new`. `here`: the old path, the new path and the folders the move made that
+    stand, as the user types them where they stand. Where it is given, no rewrite can have begun, and the
+    line teaches the finish, --moved, and the undo, git mv back and rmdir of the folders; where it is None, a
+    rewrite may have begun, and the line teaches neither, since --moved would rewrite the moved document's
+    own links once more. `gone`: the system said, when the line was made, that no file stands at the old
+    path, which --moved needs; where a name answered there (False), no finish is taught; where the system
+    refused the question (None), neither the finish nor the undo is, since git could not put the file back
+    there either. A command whose paths do not all print as themselves is not printed (`_unprintable`)."""
+    line = (
+        f"BROKEN: the act stopped after git moved {escaped(old)} to {escaped(new)}: the file stands at"
+        f" {escaped(new)}"
+    )
+    if here is None:
+        return line
+    here_old, here_new, folders = here
+    shown = _unprintable(here_old, here_new, *folders)  # a folder of the move is a folder of the new path
+    if shown:
+        return f"{line}; {_no_command(shown, 'to finish or undo the move')}"
+    if gone is None:
+        return (
+            f"{line}; the system will not say whether {escaped(old)} is gone, so no command is given to"
+            " finish or undo the move"
+        )
+    if gone:
+        finish = (
+            f"to finish the move, run {mover_command('--moved', '--', _shell(here_old), _shell(here_new))}"
+        )
+    else:
+        finish = (
+            f"the system does not say that {escaped(old)} is gone, and --moved needs it gone, so no command"
+            " is given to finish the move"
+        )
+    rmdir = f" && rmdir -- {' '.join(_shell(folder) for folder in folders)}" if folders else ""
+    return f"{line}; {finish}; to undo it, run git mv -- {_shell(here_new)} {_shell(here_old)}{rmdir}"
+
+
+def v4_cut_short(rel: str, held: bool | None, here: str | None) -> str:
+    """`rel`: the document as listed. `held`: whether git's index holds the file the rewrite went into, as
+    the line observed; None where it could not say. `here`: that file's path as the user types it where they
+    stand, for the command; None where the line asked nothing of the system, and then no command is taught.
+    The file is the document itself, or the file it leads to where the document is a link. The line says
+    what may be: the open may not have come, or the text may be whole. The command reads its path literally,
+    as git's pathspecs otherwise would not, and is not printed where the path does not print as itself
+    (`_unprintable`)."""
+    head = (
+        f"BROKEN: {escaped(rel)} may have been opened for its rewrite when the act stopped, so it may be cut"
+        " short or empty:"
+    )
+    if here is None:
+        return f"{head} where git's index holds it, git restore brings that text back; else it may be lost"
+    if held is False:
+        return f"{head} git keeps no copy of it, so its text may be lost"
+    if _unprintable(here):
+        untaught = _no_command(_unprintable(here), "to bring its text back")
+        if held:
+            return f"{head} git's index holds its text, which git restore can bring back; {untaught}"
+        return (
+            f"{head} where git's index holds it, git restore brings that text back; else it may be lost;"
+            f" {untaught}"
+        )
+    restore = f"git --literal-pathspecs restore -- {_shell(here)}"
+    if held:
+        return f"{head} {restore} brings back the text git's index holds"
+    return f"{head} where git's index holds it, {restore} brings that text back; else it may be lost"
+
+
+def v4_verdict_may() -> str:
     return (
-        f"BROKEN: the move was undone, the file back at {escaped(old)}, but the folder {escaped(folder)} it"
-        f" made could not be removed ({echoed(reason)})"
+        "BROKEN: the act was done, and the check of the whole tree was printing its verdict, which may stand"
+        " above or may be missing: run the scan to see it"
+    )
+
+
+def v4_folders_stand(old: str, folders: Sequence[tuple[str, str]]) -> str:
+    """`folders`: each folder that stands, deepest first, with the system's reason where removal failed."""
+    shown = ", ".join(
+        f"{escaped(name)} ({echoed(reason)})" if reason else escaped(name) for name, reason in folders
+    )
+    return (
+        f"BROKEN: the move could not run — the file stands at {escaped(old)}, as before, but the folder(s)"
+        f" the move made stand: {shown}; look inside, and remove them with rmdir"
+    )
+
+
+def v4_either(old: str, new: str, interrupted: bool = True) -> str:
+    """`interrupted`: an interrupt cut the move short; else a failure, which names none."""
+    cut = "an interrupt cut the move short" if interrupted else "the move stopped short"
+    return (
+        f"BROKEN: {cut}, and the file may stand at {escaped(old)} or at {escaped(new)}: git status shows"
+        " where git holds it, and the scan shows which links need repair"
     )
 
 
 def v4_stopped_midway() -> str:
     return (
-        "BROKEN: the act stopped midway — what the lines above name was moved or rewritten, and the"
-        " check of the whole tree has not run: look at git status, repair the cause, then run the scan"
+        "BROKEN: the act stopped midway — documents may have been rewritten, and the check of the whole tree"
+        " may not have run: look at git status, repair the cause, then run the scan"
     )
 
 
@@ -514,6 +604,13 @@ def v5_parent_is_a_file(path: str) -> Broken:
     )
 
 
+def v5_unreachable(path: str, reason: str) -> Broken:
+    return v5_refused(
+        f"{escaped(path)} cannot be reached ({echoed(reason)}), so nobody can say whether it is there",
+        reason_fix("then run the mover again"),
+    )
+
+
 def v5_unreadable(path: str, reason: str) -> Broken:
     return v5_refused(
         f"{escaped(path)} is a document the mover must read, and it cannot be read ({echoed(reason)}),"
@@ -531,22 +628,46 @@ def v5_unwritable(path: str, reason: str) -> Broken:
 
 
 def _shell(path: str) -> str:
-    """A path in a command to paste: quoted for a POSIX shell, then shown by the echo rule."""
-    return escaped(shlex.quote(path))
+    """A path in a command to paste, quoted for a POSIX shell. Only a path that prints as itself is given
+    here (`_unprintable`), so the echo rule changes nothing in it."""
+    return shlex.quote(path)
+
+
+def _unprintable(*paths: str) -> list[str]:
+    """The paths the echo rule would change — a backslash, a line break — as they are echoed: a command
+    holding one would name another path when pasted, so no command is printed for it."""
+    return [escaped(path) for path in paths if escaped(path) != path]
+
+
+def _no_command(shown: Sequence[str], what: str) -> str:
+    names = shown[0] if len(shown) == 1 else f"{', '.join(shown[:-1])} and {shown[-1]}"
+    return f"{names} cannot be given to a shell as printed, so no command is given {what}"
 
 
 def v5_takes_the_root_policy(old: str, new: str, here_old: str, here_new: str, here_folder: str) -> Broken:
     """`old` and `new` from the repository's top; `here_old`, `here_new` and `here_folder` as the user types
     them where they stand. `here_folder`: the new path's folder, which the move had to make and the move by
-    hand must make first; empty when it exists. Every command ends its options before the paths."""
+    hand must make first; empty when it exists. Every command ends its options before the paths. Where a
+    path does not print as itself, the route is said in words, with no command."""
+    headline = (
+        f"moving {escaped(old)} takes away the root policy {_file()} names, so the dials would name a file"
+        " that is gone"
+    )
+    policy = f"set root_policy to {escaped(new)} in {_file()}, a path from the repository's top"
+    c9 = "outside the root policy's own territory, --moved then meets C9, whose fix follows"
+    shown = _unprintable(here_old, here_new, *([here_folder] if here_folder else []))
+    if shown:
+        made = ", its folder made first" if here_folder else ""
+        return v5_refused(
+            headline,
+            f"move it by hand with git mv{made}, {policy}, then run the mover with --moved on the two paths;"
+            f" {_no_command(shown, 'for the move')}; {c9}",
+        )
     made = f"mkdir -p -- {_shell(here_folder)} && " if here_folder else ""
     return v5_refused(
-        f"moving {escaped(old)} takes away the root policy {_file()} names, so the dials would name a file"
-        " that is gone",
-        f"move it by hand with {made}git mv -- {_shell(here_old)} {_shell(here_new)}, set root_policy to"
-        f" {escaped(new)} in {_file()}, a path from the repository's top, then run"
-        f" {mover_command('--moved', '--', _shell(here_old), _shell(here_new))}; outside the root policy's"
-        " own territory, --moved then meets C9, whose fix follows",
+        headline,
+        f"move it by hand with {made}git mv -- {_shell(here_old)} {_shell(here_new)}, {policy}, then run"
+        f" {mover_command('--moved', '--', _shell(here_old), _shell(here_new))}; {c9}",
     )
 
 

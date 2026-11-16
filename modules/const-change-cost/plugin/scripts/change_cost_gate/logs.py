@@ -10,10 +10,13 @@ from __future__ import annotations
 import fcntl
 import json
 import os
+import stat
 import time
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
+
+from constitution_layer_kit.repository import reached
 
 from . import messages
 from .model import (
@@ -224,12 +227,16 @@ def record_plugin_data(folder: Path, data: str) -> None:
 
 
 def recorded_plugin_data(folder: Path) -> Path | None:
-    """The data folder a hook recorded, when none is recorded or the folder is gone, None."""
+    """The data folder a hook recorded; None when none is recorded or the folder is gone. A recorded folder
+    behind one nobody may search is the shared C12.16, never None: the count would then name no folder."""
     try:
         text = (folder / PLUGIN_DATA).read_text(encoding="utf-8").strip()
     except OSError:
         return None
-    return Path(text) if text and Path(text).is_dir() else None
+    if not text:
+        return None
+    found = reached(Path(text), text)
+    return Path(text) if found is not None and stat.S_ISDIR(found.st_mode) else None
 
 
 @contextmanager
