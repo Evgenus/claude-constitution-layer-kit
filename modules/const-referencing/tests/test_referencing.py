@@ -2805,7 +2805,12 @@ def interrupts() -> list[str]:
         {
             "label": "in the plan, the move back refused",
             "git": {"interrupt": True, "on_move_back": "echo 'fatal: planted' >&2; exit 128"},
-            "closing": at_new_line(),
+            # git's own words, and no undo: the undo is the command git has just refused
+            "closing": (
+                "BROKEN: the move could not be undone — git mv refused to move docs/moved/deep/first.md back"
+                " to docs/notes/one.md: fatal: planted; the file is at docs/moved/deep/first.md\n"
+                + STOPPED_MIDWAY
+            ),
         },
         {"label": "between the move's folders", "python": "mkdir@_move:2", "closing": folders_line(moved)},
         {
@@ -3001,8 +3006,9 @@ def interrupts_late() -> list[str]:
             )
     if seen != {True, False}:
         problems.append(f"the rewrites cut short were not one tracked and one untracked: {seen}")
-    # after the closing scan has printed its verdict, the line adds nothing below it: the check ran. As the
-    # verdict prints, before that is known, the line says what may be, with the finish and no undo
+    problems.extend(second_interrupt_writing())
+    # once the closing scan is about to print its verdict, before it prints, as it prints and after, the
+    # line is the one sentence that says the verdict may stand above or may be missing
     for label, args, setup, spec, closing in (
         ("after the scan's verdict", (OLD, NEW), None, "return:scan_mode:1", VERDICT_MAY),
         (
@@ -3069,6 +3075,35 @@ def interrupts_late() -> list[str]:
     return problems
 
 
+def second_interrupt_writing() -> list[str]:
+    """A second interrupt while the line is made, a document open: the line names the document."""
+    problems: list[str] = []
+    # a second interrupt while the line is made, a document open: the line cannot look, so it says nobody can
+    # say where the file stands, and still names the document that may be cut short or empty, with no
+    # command, since a command's path would need the working folder
+    # the second by statement (sys.settrace): the profile hook that landed the first is turned off by the
+    # interrupt it raised, as CPython turns off a profile function that raises
+    for second in ("line:_held:3", "line:from_here:1"):
+        twice = moving_consumer()
+        done = mover(twice, OLD, NEW, env=interrupt_at(H.scratch_dir(), f"return:open@act:2,{second}"))
+        emptied = [rel for rel in (NEW, "docs/notes/two.md") if (twice.root / rel).read_bytes() == b""]
+        if len(emptied) != 1:
+            problems.append(f"a second interrupt at {second}: emptied {emptied}: {done.stderr}")
+            continue
+        cut_unknown = (  # typed by hand
+            f"BROKEN: {emptied[0]} may have been opened for its rewrite when the act stopped, so it may be"
+            " cut"
+            " short or empty: where git's index holds it, git restore brings that text back; else it may be"
+            " lost"
+        )
+        wanted = "\n".join([INTERRUPTED, either_line().splitlines()[0], cut_unknown, STOPPED_MIDWAY]) + "\n"
+        if (done.code, done.stderr) != (KILLED, wanted):
+            problems.append(
+                f"a second interrupt at {second}, a document open: exit {done.code}: {done.stderr}"
+            )
+    return problems
+
+
 def lines_from_elsewhere() -> list[str]:
     """The line's commands from a subfolder, a second interrupt while the line is made, and an interrupt
     while a failure's closing looks."""
@@ -3111,11 +3146,9 @@ def lines_from_elsewhere() -> list[str]:
             " there — fix: repair what the brackets name — the system's own reason, which may lie in a folder"
             " above the path, or above the target of a link on it — then run it again"
         )
-        if refused and (done.code, done.stdout, done.stderr) != (
-            1,
-            "",
-            working + "\n" + STOPPED_NOTHING + "\n",
-        ):
+        # the stated line, the closing line, then the traceback, which always stands
+        head = working + "\n" + STOPPED_NOTHING + "\nTraceback (most recent call last):\n"
+        if refused and ((done.code, done.stdout) != (1, "") or not done.stderr.startswith(head)):
             problems.append(f"the mover where the working folder cannot be reached: {done}")
         if not refused and "unexpected failure inside the checker" in done.stderr:
             problems.append(f"the mover below a shut folder: {done}")

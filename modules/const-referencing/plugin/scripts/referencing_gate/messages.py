@@ -433,14 +433,17 @@ def v4_at_new(old: str, new: str, here: tuple[str, str, Sequence[str]] | None) -
     return f"{line}; to finish the move, run {finish}; to undo it, run {undo}"
 
 
-def v4_cut_short(rel: str, held: bool | None, here: str) -> str:
+def v4_cut_short(rel: str, held: bool | None, here: str | None) -> str:
     """`held`: whether git's index holds the document, as the line observed; None where it could not say.
-    `here`: its path as the user types it where they stand, for the command. The line says what may be: the
-    open may not have come, or the text may be whole."""
+    `here`: its path as the user types it where they stand, for the command; None where the line asked
+    nothing of the system, and then no command is taught. The line says what may be: the open may not have
+    come, or the text may be whole."""
     head = (
         f"BROKEN: {escaped(rel)} may have been opened for its rewrite when the act stopped, so it may be cut"
         " short or empty:"
     )
+    if here is None:
+        return f"{head} where git's index holds it, git restore brings that text back; else it may be lost"
     restore = f"git restore -- {_shell(here)}"
     if held:
         return f"{head} {restore} brings back the text git's index holds"
