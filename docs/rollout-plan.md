@@ -27,12 +27,12 @@ status: active
 | [s6](#s6) | Decision record #1 | B | ✅ | 1 | 0 | 0 | 100% |
 | [s7](#s7) | Commit each step with honest messages | B | ✅ | 1 | 0 | 0 | 100% |
 | [s8](#s8) | [`const-locations`](requirements.md#const-locations) and [`const-task-close`](requirements.md#const-task-close) | C | ✅ | 2 | 0 | 0 | 100% |
-| [s9](#s9) | The other remaining modules, and the kit work logged beside them | C | 🔄 | 55 | 1 | 2 | 98% |
+| [s9](#s9) | The other remaining modules, and the kit work logged beside them | C | 🔄 | 55 | 1 | 3 | 98% |
 | [s10](#s10) | Publish: the remote, the marketplace and CI, then `0.1.0` | D | 🔄 | 11 | 2 | 0 | 84% |
 | [s10a](#s10a) | The first release of the shared package | D | ✅ | 1 | 0 | 0 | 100% |
 | [s10b](#s10b) | The release 2.0.0 of the shared package | D | ✅ | 1 | 0 | 0 | 100% |
 | [s11](#s11) | Switch the project from path load to marketplace install | D | ⏳ | 0 | 1 | 0 | 0% |
-| all | the whole plan | all | 🔄 | 89 | 4 | 6 | 95% |
+| all | the whole plan | all | 🔄 | 89 | 4 | 7 | 95% |
 
 <a id="phase-a"></a>
 ## Phase A — Kit as consumer zero: the document-shaped accumulating modules (~1 week)
@@ -143,6 +143,7 @@ status: active
    - <a id="s9-42"></a>**9.42** ✅ Logged 2026-11-13: the mover of [`const-referencing`](requirements.md#const-referencing) met a document it could not write only after the move. Done 2026-11-14, record [dec-0135-mover-refuses-an-unwritable-document](decisions/dec-0135-mover-refuses-an-unwritable-document.md), the yes given. The mover checks a move on the tree git lists after it, and a refusal moves the file back.
    - <a id="s9-43"></a>**9.43** ✅ Logged 2026-11-13 by the sessions of items 9.40 and 9.41. Done 2026-11-14, record [dec-0136-flock-string-read-as-shell-text](decisions/dec-0136-flock-string-read-as-shell-text.md), the yes given: the string of `flock -c` is read as shell text. Done 2026-11-14, a routine change apiece: the skill of [`const-catalogs`](requirements.md#const-catalogs) names its tie-break, and [`const-task-close`](requirements.md#const-task-close) reads a trailer's value whole. Checked that day, with no change needed: [rule 3 of plc-0004-decision-records](policies/plc-0004-decision-records.md#r3), and four mutants of [`const-language`](requirements.md#const-language).
    - <a id="s9-44"></a>**9.44** ✅ Logged 2026-11-14 by the carry audit of items 9.42 and 9.43: two gaps of [kit-shared-gate-code](../shared/GATE.md). Done 2026-11-16, record [dec-0137-reached-files-and-interrupts-said](decisions/dec-0137-reached-files-and-interrupts-said.md), the yes given. An interrupt prints a closing line, and a file the gate cannot reach is said on every interpreter. Two older gaps closed with them, by the decider's pick of 2026-11-16.
+   - <a id="s9-45"></a>**9.45** 💤 Logged 2026-11-16 by the carry audit of item 9.44: nineteen candidates, none worse than before that item. Each waits for a consumer who meets it, by the decider's pick of that day. The pull request of item 9.44, "Work: shared-gaps", lists them.
 
    A project that cannot run hooks carries a copy of the rules text of [`const-interaction`](requirements.md#const-interaction) in its `CLAUDE.md`, labeled manual and version-drifting. That is the fallback that module's install note names.
 
