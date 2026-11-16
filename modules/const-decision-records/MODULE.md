@@ -7,7 +7,7 @@ status: active
 
 # MODULE.md — `const-decision-records`
 
-*Draft at manifest version `0.0.2`, no open slots. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
+*Published at manifest version `0.1.0`. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
 
 <a id="t1"></a>
 ## 1. Purpose

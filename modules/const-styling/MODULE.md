@@ -7,7 +7,7 @@ status: active
 
 # MODULE.md — `const-styling`
 
-*Draft at manifest version `0.0.2`, no open slots. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
+*Published at manifest version `0.1.0`. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
 
 <a id="t1"></a>
 ## 1. Purpose
@@ -235,7 +235,7 @@ Runner: `python3 -m pytest tests` from the module's folder. The kit makes that r
 | T15 | fixture, assertion | [A9.2](../../docs/requirements.md#a9-2) | golden lines: the twelve headlines typed whole against one document carrying every signature once, in line order. The count line is typed too. A document with none is green |
 | T16 | fixture, assertion | [A9.2](../../docs/requirements.md#a9-2) | an item of 12,000 characters echoed by Y8 is cut and the cut is said; the verdict stays a message |
 | T17 | fixture, assertion | [A9.1](../../docs/requirements.md#a9-1), [A9.2](../../docs/requirements.md#a9-2) | the shipped guide passes the scan it describes; the skill's description is of the size [§6](#t6) states; the cases are the docstring of `test_t17` |
-| T18 | fixture, assertion | none | the manifest names the plugin at a draft version. The install note's calibration example is accepted as it stands and names the twelve keys. A kit document's name in an installed component is held by `scripts/check-portability.py` in the kit, not by this item |
+| T18 | fixture, assertion | none | the manifest names the plugin at a published version. The install note's calibration example is accepted as it stands and names the twelve keys. A kit document's name in an installed component is held by `scripts/check-portability.py` in the kit, not by this item |
 | T19 | fixture, assertion | [A9.2](../../docs/requirements.md#a9-2) | golden lines: the why and the fix of every finding typed whole against the document of T15. This is so because a fixture built from the message functions cannot see a changed word |
 | T20 | fixture, assertion | [A9.2](../../docs/requirements.md#a9-2) | the install-failure lines close with this gate's own clause, never the write gates'; the cases are the docstring of `test_t20` |
 | T21–T32 | fixture, red→green | [A9.2](../../docs/requirements.md#a9-2) | one case per signature, in the order of [§7](#t7). A document carrying the signature once is red with the finding whole: what failed, why, the fix. The count line is typed by hand, and no other `RED` line stands on either stream. The `F10` line after them is held by the shared item S166. The same document following the default is green with the whole green line |

@@ -7,7 +7,7 @@ status: active
 
 # MODULE.md — `const-change-cost`
 
-*Draft at manifest version `0.0.1`, no open slots. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
+*Published at manifest version `0.1.0`. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
 
 <a id="t1"></a>
 ## 1. Purpose
@@ -78,7 +78,7 @@ None. Every artifact of the module is advisory ([§9](#t9)), and an advisory-onl
 | shared code | none in the plugin: the installed Python package `constitution-layer-kit` | The entry files import the package pip installed for `python3`. A package they cannot import is C15, a release below `REQUIRES` C16, a later major C17, each naming the plugin's `INSTALL.md` ([kit-shared-gate-code](../../shared/GATE.md)). Only the effect report reads the dials file ([§7](#t7)); the module resolves no policy and builds no index. Its git calls that read the repository go through the shared `git` function. The commands of the git hooks stand outside the shared code, since git runs them with no plugin path (platform fact 13). |
 | dependencies | `plugin/requirements.txt` | PyYAML, which the shared preflight declares; the module's own code reads JSON alone. |
 | configuration | `plugin/ccusage/package.json`, `plugin/ccusage/package-lock.json`, `plugin/ccusage.json` | The pin: `package.json` names ccusage at exactly `20.0.48`, and `package-lock.json`, lockfile version 3, pins the launcher and the six platform packages with their integrity hashes and `https` addresses. Both stand in the subfolder `ccusage/`, not at the plugin root. So the platform's install of a copied plugin finds no `package.json` and installs nothing (platform fact 15; R8 of [dec-0117-change-cost-module-rulings](../../docs/decisions/dec-0117-change-cost-module-rulings.md#r8)). The count installs them into the data folder. The folder `ccusage/` is the tool's folder of [the template's configuration row](../../module-template/slot-guidance.md#s13). `ccusage.json` holds `{}`, the file `--config` names, so no ccusage configuration of the project changes a count (platform fact 10). Step down to a third-party tool: the platform's running total stands only at a run's end and carries a fork's parent (the comparison's a12). A parser of the module's own would follow an undocumented format alone (the comparison's a13). |
-| manifest | `plugin/.claude-plugin/plugin.json` | Name, version `0.0.1`, description, author and license `Apache-2.0`. |
+| manifest | `plugin/.claude-plugin/plugin.json` | Name, version `0.1.0`, description, author and license `Apache-2.0`. |
 | tests | `tests/`: `test_change_cost.py`, `conftest.py`, `test_shared_items.py`, `fixture/` with the comparison's known-count transcripts, `constitution_layer_kit` linked from `shared/constitution_layer_kit`, `change_cost_gate` from `../plugin/scripts/` | The fixtures of [§10](#t10). |
 | install note | `plugin/INSTALL.md` | Requirements — git 2.54 or newer, Node and npm, Python 3.12 —; the shared package's command at the tag of the highest `REQUIRES`, `2.6.0`. The one step per clone, `sh "<plugin root>/scripts/setup-commit-log.sh"`, run by a person, with `--check` and `--remove`. Where the two logs and the file of counts live and that they are never committed; the hooks; the commands; the list price. `CLAUDE.md line: none`. |
 
