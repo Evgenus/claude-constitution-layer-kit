@@ -30,7 +30,7 @@ from constitution_layer_kit.territory import Matcher
 
 from . import dials as own_dials
 from . import lychee, messages, modes, repair
-from .closing import Closing, from_here
+from .closing import Closing, _indexed, from_here
 from .mentions import other_files
 from .model import Ids, ReferencingDials
 from .repair import Rewritten
@@ -287,8 +287,7 @@ def _found(root: Path, rel: str) -> os.stat_result | None:
 
 def _refuse_unmovable_source(root: Path, old: str) -> None:
     """The file to move is a file git lists, not a link."""
-    listed = git(["ls-files", "--error-unmatch", "--", old], cwd=root)
-    found = _found(root, old) if listed.returncode == 0 else None
+    found = _found(root, old) if _indexed(root, old) else None  # by the exact name, as the closing asks
     if found is None or not stat.S_ISREG(found.st_mode):
         raise ConfigurationFailure(messages.v5_not_listed(old))
     if os.path.islink(root / old):
