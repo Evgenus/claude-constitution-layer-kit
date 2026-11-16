@@ -414,34 +414,46 @@ def v4_move_back_failed(old: str, new: str, detail: str) -> str:
     )
 
 
-def v4_at_new(old: str, new: str, here_old: str, here_new: str, undo: Sequence[str] | None) -> str:
-    """The file stands at `new`. `here_old`, `here_new` and the folders of `undo` as the user types them
-    where they stand. The finish, --moved, is taught always; the undo, git mv back and rmdir of the folders
-    the move made, only where `undo` is given: where no rewrite may have begun."""
-    finish = mover_command("--moved", "--", _shell(here_old), _shell(here_new))
+def v4_at_new(old: str, new: str, here: tuple[str, str, Sequence[str]] | None) -> str:
+    """The file stands at `new`. `here`: the old path, the new path and the folders the move made that
+    stand, as the user types them where they stand. Where it is given, no rewrite can have begun, and the
+    line teaches the finish, --moved, and the undo, git mv back and rmdir of the folders; where it is None, a
+    rewrite may have begun, and the line teaches neither, since --moved would rewrite the moved document's
+    own links once more."""
     line = (
         f"BROKEN: the act stopped after git moved {escaped(old)} to {escaped(new)}: the file stands at"
-        f" {escaped(new)}; to finish the move, run {finish}"
+        f" {escaped(new)}"
     )
-    if undo is not None:
-        rmdir = f" && rmdir -- {' '.join(_shell(folder) for folder in undo)}" if undo else ""
-        line += f"; to undo it, run git mv -- {_shell(here_new)} {_shell(here_old)}{rmdir}"
-    return line
+    if here is None:
+        return line
+    here_old, here_new, folders = here
+    finish = mover_command("--moved", "--", _shell(here_old), _shell(here_new))
+    rmdir = f" && rmdir -- {' '.join(_shell(folder) for folder in folders)}" if folders else ""
+    undo = f"git mv -- {_shell(here_new)} {_shell(here_old)}{rmdir}"
+    return f"{line}; to finish the move, run {finish}; to undo it, run {undo}"
 
 
-def v4_cut_short(rel: str, held: bool | None) -> str:
-    """`held`: whether git's index holds the document, as the line observed; None where it could not say. The
-    line says what may be: the open may not have come, or the text may be whole."""
+def v4_cut_short(rel: str, held: bool | None, here: str) -> str:
+    """`held`: whether git's index holds the document, as the line observed; None where it could not say.
+    `here`: its path as the user types it where they stand, for the command. The line says what may be: the
+    open may not have come, or the text may be whole."""
     head = (
         f"BROKEN: {escaped(rel)} may have been opened for its rewrite when the act stopped, so it may be cut"
         " short or empty:"
     )
-    restore = f"git restore -- {_shell(rel)}"
+    restore = f"git restore -- {_shell(here)}"
     if held:
         return f"{head} {restore} brings back the text git's index holds"
     if held is None:
         return f"{head} where git's index holds it, {restore} brings that text back; else it may be lost"
     return f"{head} git keeps no copy of it, so its text may be lost"
+
+
+def v4_verdict_may() -> str:
+    return (
+        "BROKEN: the act was done, and the check of the whole tree was printing its verdict, which may stand"
+        " above or may be missing: run the scan to see it"
+    )
 
 
 def v4_folders_stand(old: str, folders: Sequence[tuple[str, str]]) -> str:

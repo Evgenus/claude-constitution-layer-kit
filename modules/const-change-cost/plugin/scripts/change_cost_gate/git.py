@@ -11,7 +11,7 @@ from pathlib import Path
 
 from constitution_layer_kit import messages as shared
 from constitution_layer_kit.errors import ConfigurationFailure
-from constitution_layer_kit.repository import git, stand_in
+from constitution_layer_kit.repository import ask_git_entry, git, stand_in
 
 from . import messages
 from .model import GIT_MINIMUM, HOOK_COMMIT, HOOK_MERGE, NOTES_REF
@@ -28,6 +28,7 @@ def common_or_none(directory: Path) -> Path | None:
     failure, never None: a skip would hide a broken setup."""
     if not stand_in(directory, str(directory)):
         return None
+    ask_git_entry(directory)  # a .git nobody can read is said: git's discovery would log into a clone above
     done = git(["rev-parse", "--git-common-dir"], directory)
     if done.returncode != 0:
         detail = done.stderr.decode("utf-8", "replace").strip()

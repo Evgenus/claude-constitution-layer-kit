@@ -104,16 +104,65 @@ def stand_in(folder: Path, shown: str) -> bool:
     return True
 
 
+def working_folder() -> Path:
+    """The process's working folder, asked of the system in this one place. Where the system will not say
+    where the process stands, as macOS does when a folder above it may not be searched, the shared C12.16
+    names the working folder: there is no path to name, since that path is what the system withheld."""
+    try:
+        return Path(os.getcwd())
+    except OSError as exc:
+        raise ConfigurationFailure(
+            messages.c12_unreachable("the working folder", exc.strerror or type(exc).__name__)
+        ) from exc
+
+
+def ask_git_entry(folder: Path) -> None:
+    """Asks the system of `.git` in `folder` and in each folder above it, until one is found, before git's
+    own discovery may go on upward past one it cannot read. A `.git` folder must let its `HEAD` be asked; a
+    gitfile, as a worktree's or a submodule's `.git` is, must be readable. Either refused is the shared
+    C12.16 naming that `.git`, on every Python: never the verdict of a repository above it. The walk stops
+    where git's would: at the first `.git`, or below a folder of GIT_CEILING_DIRECTORIES, and not at all
+    where GIT_DIR names the repository."""
+    if os.environ.get("GIT_DIR"):
+        return
+    ceilings = {
+        os.path.realpath(part)
+        for part in os.environ.get("GIT_CEILING_DIRECTORIES", "").split(os.pathsep)
+        if part
+    }
+    while True:
+        entry = folder / ".git"
+        found = reached(entry, str(entry))
+        if found is not None:
+            try:
+                if stat.S_ISDIR(found.st_mode):
+                    os.stat(entry / "HEAD")
+                else:
+                    with open(entry, "rb") as handle:
+                        handle.read(1)
+            except OSError as exc:
+                if exc.errno not in _ABSENT:  # a .git with no HEAD is git's to judge
+                    raise ConfigurationFailure(
+                        messages.c12_unreachable(str(entry), exc.strerror or type(exc).__name__)
+                    ) from exc
+            return
+        if folder.parent == folder or os.path.realpath(folder.parent) in ceilings:
+            return
+        folder = folder.parent
+
+
 def repo_root(path: Path) -> Path | None:
     """The real path of the repository containing `path` (which need not exist), or None. The walk goes up
     only past what is absent or no folder. A folder it cannot search, the path itself or one on the way
     up, is the shared C12.16 naming the path asked about, on every Python: the walk never passes it to stand
-    in a repository above, whose verdict is not this tree's."""
+    in a repository above, whose verdict is not this tree's. Nor does git's own discovery: the `.git` of
+    the folder found, and of each above it up to the first, is asked first (`ask_git_entry`)."""
     probe = path
     while not stand_in(probe, str(probe)):
         if probe.parent == probe:
             return None
         probe = probe.parent
+    ask_git_entry(probe)  # a .git nobody can read is said here: git's discovery would go on upward past it
     result = git(["rev-parse", "--show-toplevel"], cwd=probe)
     if result.returncode != 0:
         detail = result.stderr.decode("utf-8", "replace").strip()

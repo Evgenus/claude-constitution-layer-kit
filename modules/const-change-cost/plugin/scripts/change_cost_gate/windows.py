@@ -111,9 +111,13 @@ def transcripts_of(path: Path) -> list[Transcript]:
 
 
 def _plain_file(path: Path) -> bool:
-    """A file that stands, and no link; C12.16 where nobody can reach it."""
+    """A file that stands, and no link; C12.16 where nobody can reach it. The link is asked first, by
+    `os.path.islink`, which answers on every Python and never follows it: a link is left out wherever it
+    leads, a folder nobody may search included."""
+    if os.path.islink(path):
+        return False
     found = reached(path, str(path))
-    return found is not None and stat.S_ISREG(found.st_mode) and not os.path.islink(path)
+    return found is not None and stat.S_ISREG(found.st_mode)
 
 
 def _unlisted(exc: OSError) -> None:
