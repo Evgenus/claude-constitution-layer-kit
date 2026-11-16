@@ -130,7 +130,7 @@ def ask_passed_over(start: Path, found: Path, is_git_dir: bool = False) -> None:
     answer stands: nothing that `os.stat` does not call a regular file is ever opened.
 
     It asks only where the evidence says git searched up from `start` and ended at `found`: `found` is
-    `start` or a folder above it, and `found/.git` exists, or `found` is itself the git directory git named
+    `start` or a folder above it, and `found` holds a `.git`, or `found` is itself the git directory git named
     (`is_git_dir`). Where the kit cannot tell that git searched so, as where GIT_DIR names a repository whose
     work tree lies elsewhere, it asks nothing. It reads no environment variable and no device number."""
     begin = Path(os.path.realpath(start))
