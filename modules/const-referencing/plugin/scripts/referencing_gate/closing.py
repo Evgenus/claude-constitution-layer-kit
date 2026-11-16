@@ -74,8 +74,8 @@ class Closing:
         if (
             self.writing and self.root is not None
         ):  # perhaps opened, so emptied, and its text perhaps not written
-            here = from_here(self.root, self.writing)
-            lines.append(messages.v4_cut_short(self.writing, self._held(self.writing), here))
+            held, here = self._written(self.writing)
+            lines.append(messages.v4_cut_short(self.writing, held, here))
         if midway or self.rewrote:
             lines.append(messages.v4_stopped_midway())
         return "\n".join(lines) if lines else messages.v4_nothing_changed()
@@ -116,8 +116,21 @@ class Closing:
         assert self.root is not None
         return [folder.relative_to(self.root).as_posix() for folder in standing]
 
+    def _written(self, rel: str) -> tuple[bool | None, str]:
+        """The file the rewrite went into: the document, or the file it leads to where the document is a
+        link, since the mover writes through a link. It gives whether git's index holds that file, and that
+        file's path from the working folder, so the question asked of git and the restore the line teaches
+        name one path. A file outside the repository has no copy in git."""
+        assert self.root is not None
+        here = from_here(self.root, rel)  # through any link, so it names the file itself
+        top = Path(os.path.realpath(self.root))
+        target = Path(os.path.realpath(self.root / rel))
+        if top not in target.parents:
+            return False, here
+        return self._held(target.relative_to(top).as_posix()), here
+
     def _held(self, rel: str) -> bool | None:
-        """Whether git's index holds the document being written, so that git restore can bring its text back:
+        """Whether git's index holds the file being written, so that git restore can bring its text back:
         None where it cannot say."""
         if self.root is None:
             return None

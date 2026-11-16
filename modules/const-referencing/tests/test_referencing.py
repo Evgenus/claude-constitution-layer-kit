@@ -3297,6 +3297,7 @@ def taught_commands() -> list[str]:
         problems.append(f"a document being written, git unable to say: {line}")
     problems.extend(literal_paths())
     problems.extend(finish_precondition())
+    problems.extend(cut_line_through_a_link())
     return problems
 
 
@@ -3345,6 +3346,60 @@ def literal_paths() -> list[str]:
     consumer.git("mv", "--", "d/a?.md", "d/new.md")
     if where_it_stands(consumer.root, "d/a?.md", "d/new.md") != "d/new.md":
         problems.append("an old path a?.md beside a tracked a1.md: not at the new path")
+    return problems
+
+
+def cut_line_through_a_link() -> list[str]:
+    """A document that is a link: the mover writes through it, so the cut line asks git about the file the
+    link leads to and teaches the restore of that file, never of the link."""
+    problems: list[str] = []
+    head = (  # typed by hand
+        "BROKEN: d/l.md may have been opened for its rewrite when the act stopped, so it may be cut short or"
+        " empty:"
+    )
+    # a tracked link to an untracked file: git keeps the link, not the text, so no restore is taught
+    consumer = H.fresh_consumer((Write("d/a.md", "# A\n"),))
+    consumer.write("d/t.md", "# T\n")
+    os.symlink("t.md", consumer.root / "d/l.md")
+    consumer.git("add", "--", "d/l.md")
+    with contextlib.chdir(consumer.root):
+        line = Closing(root=consumer.root, writing="d/l.md").interrupted()
+    if line != f"{head} git keeps no copy of it, so its text may be lost":  # typed by hand
+        problems.append(f"a tracked link to an untracked file: {line}")
+    # an untracked link to a tracked file: the restore names the file, and run as printed brings its text back
+    for here in ("", "d"):
+        consumer = H.fresh_consumer((Write("d/t.md", "# kept\n"),))
+        os.symlink("t.md", consumer.root / "d/l.md")
+        (consumer.root / "d/t.md").write_text("", encoding="utf-8")  # emptied by the open, through the link
+        where = consumer.root / here
+        with contextlib.chdir(where):
+            line = Closing(root=consumer.root, writing="d/l.md").interrupted()
+        shown = "t.md" if here else "d/t.md"
+        wanted = f"{head} git --literal-pathspecs restore -- {shown} brings back the text git's index holds"
+        command = taught(line, "cut short or empty: ", " brings back the text git's index holds")
+        ran = subprocess.run(  # noqa: S602 — as above
+            command, shell=True, cwd=where, capture_output=True, text=True, check=False
+        )
+        text = (consumer.root / "d/t.md").read_text()
+        if (
+            line != wanted
+            or ran.returncode != 0
+            or text != "# kept\n"
+            or not (consumer.root / "d/l.md").is_symlink()
+        ):
+            problems.append(
+                f"an untracked link to a tracked file, from {here!r}: {line}: {ran.stderr}: {text!r}"
+            )
+    # a link that leads outside the repository: git keeps no copy of that file
+    consumer = H.fresh_consumer((Write("d/a.md", "# A\n"),))
+    outside = H.scratch_dir() / "outside.md"
+    outside.write_text("# O\n", encoding="utf-8")
+    os.symlink(outside, consumer.root / "d/l.md")
+    consumer.git("add", "--", "d/l.md")
+    with contextlib.chdir(consumer.root):
+        line = Closing(root=consumer.root, writing="d/l.md").interrupted()
+    if line != f"{head} git keeps no copy of it, so its text may be lost":
+        problems.append(f"a link that leads outside the repository: {line}")
     return problems
 
 
