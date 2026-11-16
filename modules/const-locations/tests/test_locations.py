@@ -1712,12 +1712,9 @@ def test_unexpected_failure_clauses() -> None:
             " there — fix: repair what the brackets name — the system's own reason, which may lie in a folder"
             " above the path, or above the target of a link on it — then run it again"
         )
-        if refused:
-            assert (done.code, done.stdout, done.stderr) == (
-                1,
-                "",
-                working + "\n" + messages.l4_nothing_written() + "\n",
-            ), done
+        if refused:  # the stated line, the closing line, then the traceback, which always stands
+            head = working + "\n" + messages.l4_nothing_written() + "\nTraceback (most recent call last):\n"
+            assert (done.code, done.stdout) == (1, "") and done.stderr.startswith(head), done
         else:
             assert "unexpected failure inside the checker" not in done.stderr, done.stderr
 

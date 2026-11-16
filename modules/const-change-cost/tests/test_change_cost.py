@@ -846,8 +846,17 @@ def test_unreachable_paths(clone: Clone, tmp_path: Path) -> None:
     """A folder nobody may search, on every Python. Path.is_file and Path.is_dir raise there before 3.14 and
     return False from 3.14 on, where the start hook logged nothing and said nothing, a run by hand lost its
     data folder, and the count left out a transcript. A folder os.walk cannot list was passed over on every
-    Python. Each is now C12.16 and its entry's closing line, exit 1, nothing logged or kept. As root a mode
-    bit denies nothing, and these cases are not exercised."""
+    Python. The cases, each C12.16 and its entry's closing line, exit 1, nothing logged or kept:
+    - the start hook in a folder nobody may search;
+    - the start hook in a repository whose .git nobody may read, inside another clone, never logged there;
+    - the start hook in a folder that can be read and not searched;
+    - a run by hand whose recorded data folder stands behind such a folder;
+    - a resumed start's transcript behind it;
+    - a .jsonl in the session's folder that can be listed and not searched;
+    - the agents' folder that os.walk cannot list.
+    The one case that is no failure: a .jsonl link in the agents' folder that leads behind such a folder is
+    left out as a link, and the count goes on and counts the commit. As root a mode bit denies nothing, and
+    these cases are not exercised."""
     if os.geteuid() == 0:
         return  # NOT EXERCISED: running as root, where a mode bit does not deny a search
     vault = tmp_path / "vault"
