@@ -2759,8 +2759,9 @@ def guard_beside_folder(it: SharedItems, unreached: Callable[[object], str]) -> 
     refusal of it, an OSError that names no file, with the error number the system gives now. Else the lines
     are those of any defect: C12.11 naming the exception. Either way the traceback stands after the closing
     line, and the log holds what stderr shows. The dials' reader is replaced (`GUARD_SHADOW`) by a division
-    by zero, a PermissionError that names a file, or an ask of the working folder; the scan is given the
-    absolute path of a healthy repository, a write its event cwd."""
+    by zero, a PermissionError that names a file, an OSError that names no file with another error number
+    (EIO), or an ask of the working folder; the scan is given the absolute path of a healthy repository, a
+    write its event cwd."""
     _, root = it.s.gate_on(it.s.valid, files={it.s.valid.target: it.s.valid.text})
     shadow = it.h.scratch_dir()
     (shadow / "sitecustomize.py").write_text(GUARD_SHADOW, encoding="utf-8")

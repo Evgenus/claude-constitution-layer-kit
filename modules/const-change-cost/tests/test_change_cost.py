@@ -849,6 +849,7 @@ def test_unreachable_paths(clone: Clone, tmp_path: Path) -> None:
     Python. The cases, each C12.16 and its entry's closing line, exit 1, nothing logged or kept:
     - the start hook in a folder nobody may search;
     - the start hook in a repository whose .git nobody may read, inside another clone, never logged there;
+    - the same start with the hook's cwd given through a link to that repository;
     - the start hook in a folder that can be read and not searched;
     - a run by hand whose recorded data folder stands behind such a folder;
     - a resumed start's transcript behind it;

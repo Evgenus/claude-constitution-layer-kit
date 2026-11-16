@@ -3350,7 +3350,7 @@ def literal_paths() -> list[str]:
 
 def finish_precondition() -> list[str]:
     """The either line, where a rewrite may have begun, teaches no git mv; the finish is taught only where the
-    system said the old path is gone."""
+    system said the old path is gone, and the undo not where the system refused that question."""
     problems: list[str] = []
     # where nobody can say where the file stands after a rewrite flag: the either line teaches no git mv
     consumer = moving_consumer()
@@ -3359,8 +3359,8 @@ def finish_precondition() -> list[str]:
         line = Closing(root=consumer.root, move=(OLD, NEW), rewrote=True).interrupted()
     if line != either_line() or "git mv" in line:
         problems.append(f"the either line after a rewrite flag: {line}")
-    # the old path's folder can be listed and not searched: the system does not say the old path is gone, so
-    # the finish is not taught; the undo is
+    # the old path's folder can be listed and not searched: the system will not say whether the old path is
+    # gone, so neither the finish nor the undo is taught: git mv could not put the file back there either
     if os.geteuid() != 0:
         shut = moving_consumer()
         shut.git("mv", "--", OLD, "docs/moved.md")
@@ -3372,9 +3372,8 @@ def finish_precondition() -> list[str]:
             (shut.root / "docs/notes").chmod(0o755)
         wanted = (  # typed by hand
             f"BROKEN: the act stopped after git moved {OLD} to docs/moved.md: the file stands at"
-            f" docs/moved.md; the system does not say that {OLD} is gone, and --moved needs it gone, so no"
-            f" command is given to finish the move; to undo it, run git mv -- docs/moved.md {OLD}\n"
-            + STOPPED_MIDWAY
+            f" docs/moved.md; the system will not say whether {OLD} is gone, so no command is given to finish"
+            " or undo the move\n" + STOPPED_MIDWAY
         )
         if line != wanted:
             problems.append(f"the old path's folder not searchable: {line}")

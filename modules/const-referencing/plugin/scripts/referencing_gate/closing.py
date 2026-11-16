@@ -23,8 +23,8 @@ class Closing:
     of the folders the move would make now stand. Whether a document was rewritten is the one thing it
     cannot observe; `rewrote` says it, set before the first write opens, and `writing` names the document
     whose open emptied it until its text is written. A failure adds what the act knows of its own move back
-    where the tree agrees with it: one git made, its folders gone, says the file was moved back; one git
-    refused gives git's words."""
+    where the tree agrees with it: one git made, its folders gone, says the file was moved back. One git
+    refused gives git's words, after a failure and after an interrupt alike."""
 
     moved_back: str = ""  # the path git moved the file back to, when it did
     stranded: str = ""  # the line giving git's words, when git refused the move back
@@ -182,13 +182,15 @@ def _on_disk(path: Path) -> bool:
     )
 
 
-def _gone(path: Path) -> bool:
-    """The system says no file stands at the path (`os.lstat`), as --moved needs of the old path. A name that
-    answers, in any case, and any other answer are not that."""
+def _gone(path: Path) -> bool | None:
+    """True where the system says no file stands at the path (`os.lstat`), as --moved needs of the old path.
+    False where a name answers, in any case: the old path of a rename in case alone on a disk that ignores
+    case. None where the system refuses the question, as below a folder nobody may search: then nobody can
+    say, and git could not put a file there either."""
     try:
         os.lstat(path)
     except OSError as exc:
-        return exc.errno in _GONE
+        return True if exc.errno in _GONE else None
     return False
 
 

@@ -414,14 +414,17 @@ def v4_move_back_failed(old: str, new: str, detail: str) -> str:
     )
 
 
-def v4_at_new(old: str, new: str, here: tuple[str, str, Sequence[str]] | None, gone: bool = True) -> str:
+def v4_at_new(
+    old: str, new: str, here: tuple[str, str, Sequence[str]] | None, gone: bool | None = True
+) -> str:
     """The file stands at `new`. `here`: the old path, the new path and the folders the move made that
     stand, as the user types them where they stand. Where it is given, no rewrite can have begun, and the
     line teaches the finish, --moved, and the undo, git mv back and rmdir of the folders; where it is None, a
     rewrite may have begun, and the line teaches neither, since --moved would rewrite the moved document's
     own links once more. `gone`: the system said, when the line was made, that no file stands at the old
-    path, which --moved needs; where it did not, no finish is taught. A command whose paths do not all print
-    as themselves is not printed (`_unprintable`)."""
+    path, which --moved needs; where a name answered there (False), no finish is taught; where the system
+    refused the question (None), neither the finish nor the undo is, since git could not put the file back
+    there either. A command whose paths do not all print as themselves is not printed (`_unprintable`)."""
     line = (
         f"BROKEN: the act stopped after git moved {escaped(old)} to {escaped(new)}: the file stands at"
         f" {escaped(new)}"
@@ -432,6 +435,11 @@ def v4_at_new(old: str, new: str, here: tuple[str, str, Sequence[str]] | None, g
     shown = _unprintable(here_old, here_new, *folders)  # a folder of the move is a folder of the new path
     if shown:
         return f"{line}; {_no_command(shown, 'to finish or undo the move')}"
+    if gone is None:
+        return (
+            f"{line}; the system will not say whether {escaped(old)} is gone, so no command is given to"
+            " finish or undo the move"
+        )
     if gone:
         finish = (
             f"to finish the move, run {mover_command('--moved', '--', _shell(here_old), _shell(here_new))}"
