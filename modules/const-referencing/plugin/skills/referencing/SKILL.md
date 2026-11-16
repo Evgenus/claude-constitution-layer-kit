@@ -93,8 +93,9 @@ it scans the whole tree and exits with the scan's verdict: 0 means no reference 
 3. If it refuses, nothing was changed. What can refuse without moving is asked first. After the
    move, a document it cannot read or rewrite makes it move the file back. So does a move that
    takes the root policy away. Its last line then says so. If instead its last line says the act stopped
-   midway, the file may be moved and some links rewritten. Where the move back failed, or a made
-   folder stays, a line before it says so and where. Look at `git status`, repair what the message names, and run
+   midway, the file may be moved and some links rewritten. Where git refused the move back, a line
+   before it says so and where the file is. A made folder that stays is named in a line of its own,
+   with no midway line after it. Look at `git status`, repair what the message names, and run
    the scan of section 6.
 4. Its rewrites are not staged. Look at `git diff` before committing, and say in the commit
    message that the commit is a move.
