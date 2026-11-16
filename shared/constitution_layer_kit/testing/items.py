@@ -2627,14 +2627,27 @@ def walk_beside_git(it: SharedItems, outer: Path, inner: Path, unreached: Callab
             there.stdout.replace(str(tree), "<top>"),
         )
         assert same, f"a worktree's {label} differs from its checkout's: {here}\n{there}"
-    # a worktree's gitfile that cannot be read: the stated failure naming it
+    # a worktree's gitfile that cannot be read: git's own answer stands, as on main, since no repository lies
+    # above it whose verdict could stand in: the shared C12.5 with git's first line, or "not inside a git
+    # repository" where git says so
     (tree / ".git").chmod(0o000)
     try:
         blocked = it.h.run_gate("", args=it.scan_args(tree))
+        asked = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"], cwd=tree, capture_output=True, text=True
+        )
     finally:
         (tree / ".git").chmod(0o644)
-    it.broken_as_typed(blocked, unreached(Path(os.path.realpath(tree)) / ".git"))
-    # a .git that cannot be read, with a repository above it and with none
+    gits = asked.stderr.strip().splitlines()
+    as_main = (
+        messages.c12_no_repo(str(tree))
+        if "not a git repository" in asked.stderr
+        else messages.c12_git_failed(gits[0] if gits else "no message")
+    )
+    it.broken(blocked, as_main)
+    # a .git that cannot be read with a repository above it: the stated failure naming it, never the outer
+    # repository's verdict. With none above, git's own answer stands, as on main: "not inside a git
+    # repository", since no other repository's verdict could stand in
     alone = it.h.scratch_dir() / "alone"
     shutil.copytree(main, alone, symlinks=True)  # a repository of its own, outside any other
     shutil.rmtree(tree)
@@ -2647,9 +2660,28 @@ def walk_beside_git(it: SharedItems, outer: Path, inner: Path, unreached: Callab
                 written = it.h.run_gate(it.payload(top, it.s.valid)) if hooked else None
             finally:
                 git_dir.chmod(0o755)
-            it.broken_as_typed(scanned, unreached(Path(os.path.realpath(top)) / ".git"))
-            if written is not None:  # the event's path is taken to its real path, as every write's is
-                it.broken_as_typed(written, unreached(Path(os.path.realpath(top)) / ".git"))
+            if top == inner:
+                it.broken_as_typed(scanned, unreached(Path(os.path.realpath(top)) / ".git"))
+                if written is not None:  # the event's path is taken to its real path, as every write's is
+                    it.broken_as_typed(written, unreached(Path(os.path.realpath(top)) / ".git"))
+            else:
+                it.broken(scanned, messages.c12_no_repo(str(top)))
+                if written is not None:  # the write skips, as on main: outside any repository
+                    assert written.code == 0 and "BROKEN" not in written.stderr, written
+    # GIT_DIR names a repository whose work tree is a folder that holds a shut .git: git searched nothing,
+    # so nothing it passed over is asked, and git's answer stands
+    work = it.h.scratch_dir() / "work"
+    (work / "sub" / ".git").mkdir(parents=True)
+    (work / "sub" / ".git").chmod(0o000)
+    try:
+        elsewhere = it.h.run_gate(
+            "",
+            args=it.scan_args(work / "sub"),
+            env={"GIT_DIR": str(inner / ".git"), "GIT_WORK_TREE": str(work)},
+        )
+    finally:
+        (work / "sub" / ".git").chmod(0o755)
+    assert "cannot be reached" not in elsewhere.stderr, elsewhere
     # the working folder below a folder nobody may search: the process stands there, then the folder above
     # it is shut. Where the system then will not say where the process stands, as macOS does, the stated
     # failure names the working folder; where it still says, as Linux does, the run is never the defect line

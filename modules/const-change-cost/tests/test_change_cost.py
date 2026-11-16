@@ -884,6 +884,14 @@ def test_unreachable_paths(clone: Clone, tmp_path: Path) -> None:
         [UNREACHED.format(path=inner_repo / ".git"), START_CLOSING],
     ), started.stderr
     assert not (outer / ".git" / "const-change-cost").exists(), "a start was logged in the outer clone"
+    # the hook's cwd through a link into a folder below that shut repository: git's search is from the real
+    # folder, so what git passed over is asked from there too
+    os.symlink(inner_repo, outer / "into")
+    started = shut_while(inner_repo / ".git", 0o000, lambda: start_hook(clone, payload(S1, outer / "into")))
+    assert (started.code, started.stderr.splitlines()) == (
+        1,
+        [UNREACHED.format(path=Path(os.path.realpath(inner_repo)) / ".git"), START_CLOSING],
+    ), started.stderr
     # a folder that can be read and not searched: it stands, and git cannot run in it
     half = tmp_path / "half"
     half.mkdir()
