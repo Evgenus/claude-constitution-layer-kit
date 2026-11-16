@@ -3101,6 +3101,26 @@ def lines_from_elsewhere() -> list[str]:
     )
     if done.code != KILLED or not restore_ok:
         problems.append(f"an interrupt from docs/ as a rewrite opens: exit {done.code}: {done.stderr}")
+    # the mover's own code asks for the working folder, where the system may not give it: the stated failure
+    # naming the working folder, then that nothing was changed; never the defect line
+    if os.geteuid() != 0:
+        stood = moving_consumer()
+        mover_harness = Harness(SCRIPTS, "move-document.sh", "move-document.py", start.GATE.namespace)
+        args = ["notes/one.md", "moved/deep/first.md"]
+        done, refused = mover_harness.run_below_shut(stood.root / "docs", stood.root, args)
+        working = (  # typed by hand
+            "BROKEN: the working folder cannot be reached (Permission denied), so nobody can say what stands"
+            " there — fix: repair what the brackets name — the system's own reason, which may lie in a folder"
+            " above the path, or above the target of a link on it — then run it again"
+        )
+        if refused and (done.code, done.stdout, done.stderr) != (
+            1,
+            "",
+            working + "\n" + STOPPED_NOTHING + "\n",
+        ):
+            problems.append(f"the mover where the working folder cannot be reached: {done}")
+        if not refused and "unexpected failure inside the checker" in done.stderr:
+            problems.append(f"the mover below a shut folder: {done}")
     # a second interrupt while the line is made, outside its look: the line says nobody can say
     second = moving_consumer()
     env = {

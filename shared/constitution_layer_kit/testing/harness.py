@@ -27,6 +27,7 @@ import shlex
 import shutil
 import signal
 import subprocess
+import sys
 import tempfile
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
@@ -356,6 +357,41 @@ class Harness:
             argv, input=stdin, text=True, capture_output=True, env=merged, check=False, cwd=cwd
         )
         return Result(done.returncode, done.stdout, done.stderr)
+
+    def run_below_shut(self, where: Path, shut: Path, args: Sequence[str]) -> tuple[Result, bool]:
+        """The entry run from `where` once `shut`, a folder above it, may not be searched: the process stands
+        there first, then the folder is shut, then the entry starts, and the folder is opened again after.
+        The wrapper's shell says its own line first where it starts there ("shell-init: … getcwd: …"); that
+        line is left out. The second value says whether the system then refused to say where the process
+        stands (os.getcwd), as macOS does and Linux does not."""
+        stand = 'd=$1; s=$2; shift 2; cd "$d" && chmod 000 "$s" && "$@"; c=$?; chmod 755 "$s"; exit $c'
+        try:
+            asked = subprocess.run(
+                [
+                    "sh",
+                    "-c",
+                    stand,
+                    "sh",
+                    str(where),
+                    str(shut),
+                    sys.executable,
+                    "-c",
+                    "import os; os.getcwd()",
+                ],
+                capture_output=True,
+                check=False,
+            )
+            done = self.run_gate(
+                "",
+                args=args,
+                command=["sh", "-c", stand, "sh", str(where), str(shut), self.sh, str(self.wrapper)],
+            )
+        finally:
+            shut.chmod(0o755)
+        own = "".join(
+            line for line in done.stderr.splitlines(keepends=True) if not line.startswith("shell-init: ")
+        )
+        return Result(done.code, done.stdout, own), asked.returncode != 0
 
     @contextmanager
     def bounded(self, seconds: float) -> Iterator[None]:
