@@ -132,8 +132,8 @@ platform on two fixed tags and on the change's branch, never the guide's own upd
 not run; that a marketplace declared at project scope moves to another ref when it is added again was seen
 on the pinned version, 2.1.282, and no documentation says so; it needs the network, as the marketplace block
 does; and it reads the tags from the source's repository, so a pull request from a fork, whose source is
-another repository, runs the probe only where that fork holds both tags: where it lacks one, the probe's
-first command fails and the run ends as a configuration failure. The kit's own runs exercise no fork. What
+another repository, runs the probe only where that fork holds both tags: where it lacks one, a command
+of the probe fails and the run ends as a configuration failure. The kit's own runs exercise no fork. What
 the probe does with a fetch that failed is exercised by the self-test's stand-in for `claude` alone: the
 platform's own reply to one, `refreshFailed` true beside `up_to_date`, was seen once by hand on the pinned
 version, on 2026-11-16, and no run of the check makes the platform give it.

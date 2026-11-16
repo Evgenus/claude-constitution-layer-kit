@@ -799,7 +799,7 @@ def requires_findings(entry: Entry, text: str, line: int, version: str) -> list[
         return [Finding(entry.path, line, 1, what, WHY_ABOVE, fix)]
     if needed[0] < have[0]:
         what = f"{shown}, of an earlier major than the package's version '{version}' ({PACKAGE_INIT})"
-        fix = f"bring the entry to major {have[0]} and write the release it was written for"
+        fix = f"bring the entry to major {have[0]} and write the release the module requires in it"
         return [Finding(entry.path, line, 1, what, WHY_MAJOR, fix)]
     return []
 
@@ -3163,7 +3163,7 @@ def self_test_releases(cases: Cases) -> None:
             " earlier major than the package's version '2.0.0' (shared/constitution_layer_kit/__init__.py)",
             "  why: an entry written for an earlier major than the package's is stopped at C17 by the release"
             " the kit's own sessions install",
-            "  fix: bring the entry to major 2 and write the release it was written for",
+            "  fix: bring the entry to major 2 and write the release the module requires in it",
             SUMMARY_BASE,
         ],
         "an earlier major than the package's is its literal report, exit 2",
