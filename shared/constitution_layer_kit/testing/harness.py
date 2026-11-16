@@ -285,6 +285,16 @@ def ask_reason(result: Result) -> str | None:
     return reason if isinstance(reason, str) else None
 
 
+def own(done: Result) -> Result:
+    """The run with the shell's own lines before the entry's left out: a shell started in a working folder
+    the system refuses says so first ("shell-init: … getcwd: …" in bash, "… getcwd() failed …" in dash), and
+    the entry's first line is a verdict, a BROKEN line or a traceback."""
+    lines = done.stderr.splitlines(keepends=True)
+    starts = ("BROKEN: ", "RED: ", "Traceback", "{")
+    first = next((n for n, line in enumerate(lines) if line.startswith(starts)), len(lines))
+    return Result(done.code, done.stdout, "".join(lines[first:]))
+
+
 class Harness:
     """One module's entry point under test."""
 
@@ -358,40 +368,51 @@ class Harness:
         )
         return Result(done.returncode, done.stdout, done.stderr)
 
-    def run_below_shut(self, where: Path, shut: Path, args: Sequence[str]) -> tuple[Result, bool]:
+    def run_below_shut(
+        self,
+        where: Path,
+        shut: Path,
+        args: Sequence[str],
+        env: Mapping[str, str] | None = None,
+        stdin: str = "",
+    ) -> tuple[Result, bool]:
         """The entry run from `where` once `shut`, a folder above it, may not be searched: the process stands
         there first, then the folder is shut, then the entry starts, and the folder is opened again after.
-        The wrapper's shell says its own line first where it starts there ("shell-init: … getcwd: …"); that
-        line is left out. The second value says whether the system then refused to say where the process
-        stands (os.getcwd), as macOS does and Linux does not."""
+        The second value says whether the system then refused to say where the process stands (os.getcwd),
+        as macOS does and Linux does not. The shell's own lines before the entry's are left out (`own`)."""
         stand = 'd=$1; s=$2; shift 2; cd "$d" && chmod 000 "$s" && "$@"; c=$?; chmod 755 "$s"; exit $c'
+        asking = [sys.executable, "-c", "import os; os.getcwd()"]
         try:
             asked = subprocess.run(
-                [
-                    "sh",
-                    "-c",
-                    stand,
-                    "sh",
-                    str(where),
-                    str(shut),
-                    sys.executable,
-                    "-c",
-                    "import os; os.getcwd()",
-                ],
-                capture_output=True,
-                check=False,
+                ["sh", "-c", stand, "sh", str(where), str(shut), *asking], capture_output=True, check=False
             )
             done = self.run_gate(
-                "",
+                stdin,
                 args=args,
+                env=env,
                 command=["sh", "-c", stand, "sh", str(where), str(shut), self.sh, str(self.wrapper)],
             )
         finally:
             shut.chmod(0o755)
-        own = "".join(
-            line for line in done.stderr.splitlines(keepends=True) if not line.startswith("shell-init: ")
+        return own(done), asked.returncode != 0
+
+    def run_in_gone(
+        self, where: Path, args: Sequence[str], env: Mapping[str, str] | None = None, stdin: str = ""
+    ) -> Result:
+        """The entry run from `where`, an empty folder removed once the process stands in it: a working
+        folder that is gone, which the system refuses on every OS it runs on. The folder is removed by a
+        Python launcher, never by the shell. The shell's own lines before the entry's are left out."""
+        launch = "; ".join(
+            (
+                "import os, sys",
+                "os.chdir(sys.argv[1])",
+                "os.rmdir(sys.argv[1])",
+                "os.execv(sys.argv[2], sys.argv[2:])",
+            )
         )
-        return Result(done.code, done.stdout, own), asked.returncode != 0
+        command = [sys.executable, "-c", launch, str(where), self.sh, str(self.wrapper)]
+        done = self.run_gate(stdin, args=args, env=env, command=command)
+        return own(done)
 
     @contextmanager
     def bounded(self, seconds: float) -> Iterator[None]:

@@ -34,7 +34,7 @@ class Closing:
     rewrote: bool = False  # set before the first rewrite opens: no look at the tree can tell it
     writing: str = ""  # the document being rewritten, from before its open until its text is written
     unmade: dict[Path, str] = field(default_factory=dict)  # a folder the move made that stayed: the reason
-    scanned: bool = False  # set once the closing scan has printed its verdict, which then stands
+    scanned: bool = False  # set just before the closing scan prints its verdict, which may then stand above
 
     def __call__(self) -> str:
         """The line that closes a failure, made as an interrupt's is. An interrupt while it is made goes on to

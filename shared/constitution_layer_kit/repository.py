@@ -105,9 +105,12 @@ def stand_in(folder: Path, shown: str) -> bool:
 
 
 def working_folder() -> Path:
-    """The process's working folder, asked of the system in this one place. Where the system will not say
-    where the process stands, as macOS does when a folder above it may not be searched, the shared C12.16
-    names the working folder: there is no path to name, since that path is what the system withheld."""
+    """The process's working folder, asked of the system. The shared code's own asks go through it; an ask
+    made elsewhere, in a module's own code, is covered by the shared guard, which says this same failure
+    where the exception it meets is the system's refusal of the working folder. Where the system will not
+    say where the process stands, as macOS does when a folder above it may not be searched, and as every OS
+    does when the folder is gone, the shared C12.16 names the working folder: there is no path to name,
+    since that path is what the system withheld."""
     try:
         return Path(os.getcwd())
     except OSError as exc:

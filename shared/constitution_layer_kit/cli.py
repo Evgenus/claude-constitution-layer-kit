@@ -30,7 +30,7 @@ from . import __version__ as __version__  # re-exported: the installed version `
 from . import identity, messages, preflight
 from .errors import ConfigurationFailure
 from .identity import Identity
-from .model import EXIT_BROKEN, EXIT_INTERRUPTED, Mode
+from .model import EXIT_BROKEN, EXIT_INTERRUPTED, Broken, Mode
 from .output import Output
 from .repository import working_folder
 
@@ -166,7 +166,12 @@ def guarded(
     then imports what needs the declared libraries; a session-start printer does the same, in hook
     mode, with no arguments to parse and a closing line saying the gate's state is not said.
     `could_not_run` is the line that closes a
-    failure: a gate's says that nothing was examined, a generator's that nothing was changed. An interrupt
+    failure: a gate's says that nothing was examined, a generator's that nothing was changed. An exception
+    nobody planned for is `C12.11` naming it, then the closing line, then its traceback, which always stands.
+    Only where the exception is the system's refusal of the working folder — an OSError that names no file,
+    while the system refuses the working folder now with the same error number — is the first line instead
+    the stated `C12.16` for the working folder, the traceback still after it. An interrupt raised while a
+    failure's closing line is made is handled as an interrupt. An interrupt
     is no failure of that kind, and the guard makes no claim of its own about what was done by then: it
     prints `C12.15` alone, then dies by the interrupt (`die_by_interrupt`). Only a closing callable that
     also carries `interrupted`, a method returning a line made for an interrupt from the entry's own state,
@@ -202,18 +207,17 @@ def guarded(
             output.err(failure.broken.render())
             closing()
         except Exception as exc:  # not fail-open: an unexpected failure exits 1, never 0
-            # a working folder the system will not give is the stated failure, wherever an entry's own code
-            # met it first: the cause, not a defect of the gate
-            try:
-                working_folder()
-            except ConfigurationFailure as failure:
-                output.err(failure.broken.render())
-                closing()
-            else:
-                # the BROKEN line first: in hook mode only the first stderr line reaches the user
-                output.err(messages.c12_unexpected(f"{type(exc).__name__}: {exc}").render())
-                closing()
-                output.err(traceback.format_exc().rstrip())
+            # the BROKEN line first: in hook mode only the first stderr line reaches the user. Where the
+            # exception is the system's refusal of the working folder, met first by an entry's own code, that
+            # line is the stated C12.16 for it; in every other case it is C12.11, naming the exception. The
+            # traceback stands after the closing line either way, so nothing of the exception is lost
+            refused = _working_folder_refused(exc)
+            first = (
+                refused if refused is not None else messages.c12_unexpected(f"{type(exc).__name__}: {exc}")
+            )
+            output.err(first.render())
+            closing()
+            output.err("".join(traceback.format_exception(exc)).rstrip())
         except KeyboardInterrupt:
             on_interrupt()
         finally:
@@ -221,6 +225,22 @@ def guarded(
         if interrupted:
             return die_by_interrupt()
         return EXIT_BROKEN
+
+
+def _working_folder_refused(exc: Exception) -> Broken | None:
+    """The stated failure for the working folder, where `exc` is the system's refusal of it: an OSError that
+    names no file, as os.getcwd raises it (also through Path.cwd, abspath, realpath, resolve and relpath),
+    and the system refuses the working folder now with the same error number. Else None. It asks the
+    exception and the system, never the traceback's frames."""
+    if not isinstance(exc, OSError) or exc.filename is not None or exc.filename2 is not None:
+        return None
+    try:
+        working_folder()
+    except ConfigurationFailure as failure:
+        cause = failure.__cause__
+        if isinstance(cause, OSError) and cause.errno == exc.errno:
+            return failure.broken
+    return None
 
 
 def die_by_interrupt() -> int:
