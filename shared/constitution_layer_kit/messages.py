@@ -427,8 +427,9 @@ def c12_invocation(detail: str, usage: str = USAGE) -> Broken:
 
 
 def reason_fix(then: str = "then run it again") -> str:
-    """The fix of a line that carries the system's reason in brackets: it points at that reason and names no
-    cause of its own, so it is true for every reason the system can give there."""
+    """The fix of a line that carries the system's reason in brackets: it points at that reason, and says only
+    where the reason may lie, in a folder above the path or above a link's target. So it is true for every
+    reason the system can give there."""
     return (
         "repair what the brackets name — the system's own reason, which may lie in a folder above the path,"
         f" or above the target of a link on it — {then}"
@@ -437,7 +438,7 @@ def reason_fix(then: str = "then run it again") -> str:
 
 def c12_unreadable(rel: str, reason: str = "") -> Broken:
     """A file git lists that cannot be read. With the system's `reason`, the line carries it in brackets.
-    Without one, as an older caller gives it, the fix asks for the reason by a command."""
+    Without one, as an older caller gives it, the fix asks the reader to read the file for the reason."""
     if reason:
         return Broken(
             SharedKey.C12,

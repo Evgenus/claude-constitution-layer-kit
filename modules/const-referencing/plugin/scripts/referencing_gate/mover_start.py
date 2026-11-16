@@ -56,5 +56,5 @@ def _body(argv: Sequence[str], output: Output, closing: Closing) -> int:
 
 
 def main(argv: Sequence[str]) -> int:
-    closing = Closing()  # knows, when a failure is closed, whether anything had been changed by then
+    closing = Closing()  # makes the closing line of a failure or an interrupt from what the tree shows then
     return cli.guarded(MOVER, Mode.ACT, lambda output: _body(argv, output, closing), closing)
