@@ -454,11 +454,13 @@ def v4_at_new(
 
 
 def v4_cut_short(rel: str, held: bool | None, here: str | None) -> str:
-    """`held`: whether git's index holds the document, as the line observed; None where it could not say.
-    `here`: its path as the user types it where they stand, for the command; None where the line asked
-    nothing of the system, and then no command is taught. The line says what may be: the open may not have
-    come, or the text may be whole. The command reads its path literally, as git's pathspecs otherwise would
-    not, and is not printed where the path does not print as itself (`_unprintable`)."""
+    """`rel`: the document as listed. `held`: whether git's index holds the file the rewrite went into, as
+    the line observed; None where it could not say. `here`: that file's path as the user types it where they
+    stand, for the command; None where the line asked nothing of the system, and then no command is taught.
+    The file is the document itself, or the file it leads to where the document is a link. The line says
+    what may be: the open may not have come, or the text may be whole. The command reads its path literally,
+    as git's pathspecs otherwise would not, and is not printed where the path does not print as itself
+    (`_unprintable`)."""
     head = (
         f"BROKEN: {escaped(rel)} may have been opened for its rewrite when the act stopped, so it may be cut"
         " short or empty:"
