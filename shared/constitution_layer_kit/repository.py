@@ -131,8 +131,12 @@ def ask_passed_over(start: Path, found: Path, is_git_dir: bool = False) -> None:
 
     It asks only where the evidence says git searched up from `start` and ended at `found`: `found` is
     `start` or a folder above it, and `found` holds a `.git`, or `found` is itself the git directory git named
-    (`is_git_dir`). Where the kit cannot tell that git searched so, as where GIT_DIR names a repository whose
-    work tree lies elsewhere, it asks nothing. It reads no environment variable and no device number."""
+    (`is_git_dir`). Where the kit cannot tell that git's search alone decided `found`, it asks nothing, and
+    git's answer stands as on main: that is wherever the environment names the repository or its work tree,
+    GIT_DIR or GIT_WORK_TREE, each by its presence alone. It reads no other environment variable and no
+    device number."""
+    if "GIT_DIR" in os.environ or "GIT_WORK_TREE" in os.environ:
+        return  # the environment, not git's search alone, decided the repository or its top
     begin = Path(os.path.realpath(start))
     top = Path(os.path.realpath(found))
     if begin != top and top not in begin.parents:

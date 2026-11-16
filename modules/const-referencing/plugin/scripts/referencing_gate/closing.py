@@ -23,8 +23,8 @@ class Closing:
     of the folders the move would make now stand. Whether a document was rewritten is the one thing it
     cannot observe; `rewrote` says it, set before the first write opens, and `writing` names the document
     whose open emptied it until its text is written. A failure adds what the act knows of its own move back
-    where the tree agrees with it: one git made, its folders gone, says the file was moved back; one git
-    refused gives git's words."""
+    where the tree agrees with it: one git made, its folders gone, says the file was moved back. One git
+    refused gives git's words, after a failure and after an interrupt alike."""
 
     moved_back: str = ""  # the path git moved the file back to, when it did
     stranded: str = ""  # the line giving git's words, when git refused the move back
@@ -74,8 +74,8 @@ class Closing:
         if (
             self.writing and self.root is not None
         ):  # perhaps opened, so emptied, and its text perhaps not written
-            here = from_here(self.root, self.writing)
-            lines.append(messages.v4_cut_short(self.writing, self._held(self.writing), here))
+            held, here = self._written(self.writing)
+            lines.append(messages.v4_cut_short(self.writing, held, here))
         if midway or self.rewrote:
             lines.append(messages.v4_stopped_midway())
         return "\n".join(lines) if lines else messages.v4_nothing_changed()
@@ -116,8 +116,21 @@ class Closing:
         assert self.root is not None
         return [folder.relative_to(self.root).as_posix() for folder in standing]
 
+    def _written(self, rel: str) -> tuple[bool | None, str]:
+        """The file the rewrite went into: the document, or the file it leads to where the document is a
+        link, since the mover writes through a link. It gives whether git's index holds that file, and that
+        file's path from the working folder, so the question asked of git and the restore the line teaches
+        name one path. A file outside the repository has no copy in git."""
+        assert self.root is not None
+        here = from_here(self.root, rel)  # through any link, so it names the file itself
+        top = Path(os.path.realpath(self.root))
+        target = Path(os.path.realpath(self.root / rel))
+        if top not in target.parents:
+            return False, here
+        return self._held(target.relative_to(top).as_posix()), here
+
     def _held(self, rel: str) -> bool | None:
-        """Whether git's index holds the document being written, so that git restore can bring its text back:
+        """Whether git's index holds the file being written, so that git restore can bring its text back:
         None where it cannot say."""
         if self.root is None:
             return None
@@ -182,13 +195,15 @@ def _on_disk(path: Path) -> bool:
     )
 
 
-def _gone(path: Path) -> bool:
-    """The system says no file stands at the path (`os.lstat`), as --moved needs of the old path. A name that
-    answers, in any case, and any other answer are not that."""
+def _gone(path: Path) -> bool | None:
+    """True where the system says no file stands at the path (`os.lstat`), as --moved needs of the old path.
+    False where a name answers, in any case: the old path of a rename in case alone on a disk that ignores
+    case. None where the system refuses the question, as below a folder nobody may search: then nobody can
+    say, and git could not put a file there either."""
     try:
         os.lstat(path)
     except OSError as exc:
-        return exc.errno in _GONE
+        return True if exc.errno in _GONE else None
     return False
 
 

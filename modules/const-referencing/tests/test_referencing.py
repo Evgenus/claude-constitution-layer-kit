@@ -3295,6 +3295,7 @@ def taught_commands() -> list[str]:
         problems.append(f"a document being written, git unable to say: {line}")
     problems.extend(literal_paths())
     problems.extend(finish_precondition())
+    problems.extend(cut_line_through_a_link())
     return problems
 
 
@@ -3346,9 +3347,63 @@ def literal_paths() -> list[str]:
     return problems
 
 
+def cut_line_through_a_link() -> list[str]:
+    """A document that is a link: the mover writes through it, so the cut line asks git about the file the
+    link leads to and teaches the restore of that file, never of the link."""
+    problems: list[str] = []
+    head = (  # typed by hand
+        "BROKEN: d/l.md may have been opened for its rewrite when the act stopped, so it may be cut short or"
+        " empty:"
+    )
+    # a tracked link to an untracked file: git keeps the link, not the text, so no restore is taught
+    consumer = H.fresh_consumer((Write("d/a.md", "# A\n"),))
+    consumer.write("d/t.md", "# T\n")
+    os.symlink("t.md", consumer.root / "d/l.md")
+    consumer.git("add", "--", "d/l.md")
+    with contextlib.chdir(consumer.root):
+        line = Closing(root=consumer.root, writing="d/l.md").interrupted()
+    if line != f"{head} git keeps no copy of it, so its text may be lost":  # typed by hand
+        problems.append(f"a tracked link to an untracked file: {line}")
+    # an untracked link to a tracked file: the restore names the file, and run as printed brings its text back
+    for here in ("", "d"):
+        consumer = H.fresh_consumer((Write("d/t.md", "# kept\n"),))
+        os.symlink("t.md", consumer.root / "d/l.md")
+        (consumer.root / "d/t.md").write_text("", encoding="utf-8")  # emptied by the open, through the link
+        where = consumer.root / here
+        with contextlib.chdir(where):
+            line = Closing(root=consumer.root, writing="d/l.md").interrupted()
+        shown = "t.md" if here else "d/t.md"
+        wanted = f"{head} git --literal-pathspecs restore -- {shown} brings back the text git's index holds"
+        command = taught(line, "cut short or empty: ", " brings back the text git's index holds")
+        ran = subprocess.run(  # noqa: S602 — as above
+            command, shell=True, cwd=where, capture_output=True, text=True, check=False
+        )
+        text = (consumer.root / "d/t.md").read_text()
+        if (
+            line != wanted
+            or ran.returncode != 0
+            or text != "# kept\n"
+            or not (consumer.root / "d/l.md").is_symlink()
+        ):
+            problems.append(
+                f"an untracked link to a tracked file, from {here!r}: {line}: {ran.stderr}: {text!r}"
+            )
+    # a link that leads outside the repository: git keeps no copy of that file
+    consumer = H.fresh_consumer((Write("d/a.md", "# A\n"),))
+    outside = H.scratch_dir() / "outside.md"
+    outside.write_text("# O\n", encoding="utf-8")
+    os.symlink(outside, consumer.root / "d/l.md")
+    consumer.git("add", "--", "d/l.md")
+    with contextlib.chdir(consumer.root):
+        line = Closing(root=consumer.root, writing="d/l.md").interrupted()
+    if line != f"{head} git keeps no copy of it, so its text may be lost":
+        problems.append(f"a link that leads outside the repository: {line}")
+    return problems
+
+
 def finish_precondition() -> list[str]:
     """The either line, where a rewrite may have begun, teaches no git mv; the finish is taught only where the
-    system said the old path is gone."""
+    system said the old path is gone, and the undo not where the system refused that question."""
     problems: list[str] = []
     # where nobody can say where the file stands after a rewrite flag: the either line teaches no git mv
     consumer = moving_consumer()
@@ -3357,8 +3412,8 @@ def finish_precondition() -> list[str]:
         line = Closing(root=consumer.root, move=(OLD, NEW), rewrote=True).interrupted()
     if line != either_line() or "git mv" in line:
         problems.append(f"the either line after a rewrite flag: {line}")
-    # the old path's folder can be listed and not searched: the system does not say the old path is gone, so
-    # the finish is not taught; the undo is
+    # the old path's folder can be listed and not searched: the system will not say whether the old path is
+    # gone, so neither the finish nor the undo is taught: git mv could not put the file back there either
     if os.geteuid() != 0:
         shut = moving_consumer()
         shut.git("mv", "--", OLD, "docs/moved.md")
@@ -3370,9 +3425,8 @@ def finish_precondition() -> list[str]:
             (shut.root / "docs/notes").chmod(0o755)
         wanted = (  # typed by hand
             f"BROKEN: the act stopped after git moved {OLD} to docs/moved.md: the file stands at"
-            f" docs/moved.md; the system does not say that {OLD} is gone, and --moved needs it gone, so no"
-            f" command is given to finish the move; to undo it, run git mv -- docs/moved.md {OLD}\n"
-            + STOPPED_MIDWAY
+            f" docs/moved.md; the system will not say whether {OLD} is gone, so no command is given to finish"
+            " or undo the move\n" + STOPPED_MIDWAY
         )
         if line != wanted:
             problems.append(f"the old path's folder not searchable: {line}")

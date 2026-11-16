@@ -167,11 +167,13 @@ def guarded(
     mode, with no arguments to parse and a closing line saying the gate's state is not said.
     `could_not_run` is the line that closes a
     failure: a gate's says that nothing was examined, a generator's that nothing was changed. An exception
-    nobody planned for is `C12.11` naming it, then the closing line, then its traceback, which always stands.
-    Only where the exception is the system's refusal of the working folder — an OSError that names no file,
-    while the system refuses the working folder now with the same error number — is the first line instead
-    the stated `C12.16` for the working folder, the traceback still after it. An interrupt raised while a
-    failure's closing line is made is handled as an interrupt. An interrupt
+    nobody planned for is `C12.11` naming it, then the closing line, then its traceback. The traceback is
+    printed wherever such an exception reached the guard: after the closing line, or after `C12.15` where an
+    interrupt cut the closing line short. The first line is instead the stated `C12.16` for the working
+    folder where the exception is an OSError that names no file while the system refuses the working folder
+    now with the same error number. The guard takes that for the system's refusal of the working folder. It
+    cannot know it, so another such OSError met there reads the same, and the traceback shows its place. An
+    interrupt raised while a failure's closing line is made is handled as an interrupt. An interrupt
     is no failure of that kind, and the guard makes no claim of its own about what was done by then: it
     prints `C12.15` alone, then dies by the interrupt (`die_by_interrupt`). Only a closing callable that
     also carries `interrupted`, a method returning a line made for an interrupt from the entry's own state,
@@ -208,9 +210,9 @@ def guarded(
             closing()
         except Exception as exc:  # not fail-open: an unexpected failure exits 1, never 0
             # the BROKEN line first: in hook mode only the first stderr line reaches the user. Where the
-            # exception is the system's refusal of the working folder, met first by an entry's own code, that
-            # line is the stated C12.16 for it; in every other case it is C12.11, naming the exception. The
-            # traceback stands after the closing line either way, so nothing of the exception is lost
+            # exception reads as the system's refusal of the working folder, met first by an entry's own code,
+            # that line is the stated C12.16 for it; in every other case it is C12.11, naming the exception.
+            # The traceback is printed either way, so nothing of the exception is lost
             refused = _working_folder_refused(exc)
             first = (
                 refused if refused is not None else messages.c12_unexpected(f"{type(exc).__name__}: {exc}")
@@ -228,10 +230,11 @@ def guarded(
 
 
 def _working_folder_refused(exc: Exception) -> Broken | None:
-    """The stated failure for the working folder, where `exc` is the system's refusal of it: an OSError that
-    names no file, as os.getcwd raises it (also through Path.cwd, abspath, realpath, resolve and relpath),
-    and the system refuses the working folder now with the same error number. Else None. It asks the
-    exception and the system, never the traceback's frames."""
+    """The stated failure for the working folder, where `exc` reads as the system's refusal of it: an OSError
+    that names no file, as os.getcwd raises it (also through Path.cwd, abspath, realpath, resolve and
+    relpath), and the system refuses the working folder now with the same error number. Else None. It asks
+    the exception and the system, never the traceback's frames; another OSError of that kind and number, met
+    while the working folder is refused, reads the same."""
     if not isinstance(exc, OSError) or exc.filename is not None or exc.filename2 is not None:
         return None
     try:

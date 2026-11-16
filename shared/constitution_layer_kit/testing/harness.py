@@ -287,11 +287,10 @@ def ask_reason(result: Result) -> str | None:
 
 def own(done: Result) -> Result:
     """The run with the shell's own lines before the entry's left out: a shell started in a working folder
-    the system refuses says so first ("shell-init: … getcwd: …" in bash, "… getcwd() failed …" in dash), and
-    the entry's first line is a verdict, a BROKEN line or a traceback."""
+    the system refuses says so first ("shell-init: … getcwd: …" in bash, "… getcwd() failed …" in dash).
+    Only leading lines that name `getcwd` are left out, so a stray line of the entry's own stays seen."""
     lines = done.stderr.splitlines(keepends=True)
-    starts = ("BROKEN: ", "RED: ", "Traceback", "{")
-    first = next((n for n, line in enumerate(lines) if line.startswith(starts)), len(lines))
+    first = next((n for n, line in enumerate(lines) if "getcwd" not in line), len(lines))
     return Result(done.code, done.stdout, "".join(lines[first:]))
 
 

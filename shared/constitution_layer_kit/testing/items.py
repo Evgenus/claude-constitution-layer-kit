@@ -2590,11 +2590,12 @@ def test_scan_outside_repository(subject: Subject) -> None:
 
 
 def walk_beside_git(it: SharedItems, outer: Path, inner: Path, unreached: Callable[[object], str]) -> None:
-    """The walk asks the system of `.git`, a folder or a gitfile, before git's own discovery may go on
-    upward. A worktree, whose `.git` is a file naming another folder, gives the verdicts of the checkout it
-    was made from, as before. A `.git` that cannot be read (mode 000 or 600) is the stated failure naming it,
-    for a scan and for a write alike, never the verdict of a repository above it and never "not inside a
-    repository"."""
+    """Git's own search answers first, and the kit then asks each `.git` git passed over on the way up to
+    the repository it found. A worktree, whose `.git` is a file naming another folder, gives the verdicts of
+    the checkout it was made from, as before. A `.git` that cannot be read (mode 000 or 600) with a
+    repository above it is the stated failure naming it, for a scan and for a write alike, never the verdict
+    of that repository. With no repository above it, git's own answer stands, as on main. Where the
+    environment names the repository or its work tree, nothing is asked."""
     hooked = it.s.event_driven and not it.s.scan_only and not it.no_file
     # a worktree: its verdicts are those of the checkout, the paths aside
     _, main = it.s.gate_on(it.s.valid, files={it.s.valid.target: it.s.valid.text})
@@ -2669,19 +2670,57 @@ def walk_beside_git(it: SharedItems, outer: Path, inner: Path, unreached: Callab
                 if written is not None:  # the write skips, as on main: outside any repository
                     assert written.code == 0 and "BROKEN" not in written.stderr, written
     # GIT_DIR names a repository whose work tree is a folder that holds a shut .git: git searched nothing,
-    # so nothing it passed over is asked, and git's answer stands
-    work = it.h.scratch_dir() / "work"
-    (work / "sub" / ".git").mkdir(parents=True)
-    (work / "sub" / ".git").chmod(0o000)
+    # so nothing it passed over is asked, and git's answer stands. That holds whether or not the work tree's
+    # top holds a `.git` of its own, and for a start below the shut one
+    for own_git in (False, True):
+        work = it.h.scratch_dir() / ("work-own" if own_git else "work")
+        (work / "sub" / "deeper").mkdir(parents=True)
+        if own_git:
+            subprocess.run(["git", "init", "-q", str(work)], check=True, capture_output=True)
+        (work / "sub" / ".git").mkdir()
+        (work / "sub" / ".git").chmod(0o000)
+        try:
+            for start in (work / "sub", work / "sub" / "deeper"):
+                elsewhere = it.h.run_gate(
+                    "",
+                    args=it.scan_args(start),
+                    env={"GIT_DIR": str(inner / ".git"), "GIT_WORK_TREE": str(work)},
+                )
+                assert "cannot be reached" not in elsewhere.stderr, (own_git, start, elsewhere)
+        finally:
+            (work / "sub" / ".git").chmod(0o755)
+    # GIT_WORK_TREE alone names a top two folders above the repository git's search found, with a shut .git
+    # between that git never looked at: the environment decided the top, so nothing is asked
+    wide = it.h.scratch_dir() / "wide"
+    (wide / "mid" / "repo" / "x").mkdir(parents=True)
+    subprocess.run(["git", "init", "-q", str(wide)], check=True, capture_output=True)
+    subprocess.run(["git", "init", "-q", str(wide / "mid" / "repo")], check=True, capture_output=True)
+    (wide / "mid" / ".git").mkdir()
+    (wide / "mid" / ".git").chmod(0o000)
     try:
-        elsewhere = it.h.run_gate(
-            "",
-            args=it.scan_args(work / "sub"),
-            env={"GIT_DIR": str(inner / ".git"), "GIT_WORK_TREE": str(work)},
+        widened = it.h.run_gate(
+            "", args=it.scan_args(wide / "mid" / "repo" / "x"), env={"GIT_WORK_TREE": str(wide)}
         )
     finally:
-        (work / "sub" / ".git").chmod(0o755)
-    assert "cannot be reached" not in elsewhere.stderr, elsewhere
+        (wide / "mid" / ".git").chmod(0o755)
+    assert "cannot be reached" not in widened.stderr, widened
+    # the repository's own configuration names a work tree above it that holds no `.git`: no evidence that
+    # git's search ended at that top, so nothing is asked there either
+    held = it.h.scratch_dir() / "held"
+    (held / "repo" / "deep" / ".git").mkdir(parents=True)
+    subprocess.run(["git", "init", "-q", str(held / "repo")], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "config", "core.worktree", os.path.realpath(held)],
+        cwd=held / "repo",
+        check=True,
+        capture_output=True,
+    )
+    (held / "repo" / "deep" / ".git").chmod(0o000)
+    try:
+        configured = it.h.run_gate("", args=it.scan_args(held / "repo" / "deep"))
+    finally:
+        (held / "repo" / "deep" / ".git").chmod(0o755)
+    assert "cannot be reached" not in configured.stderr, configured
     # the working folder below a folder nobody may search: the process stands there, then the folder above
     # it is shut. Where the system then will not say where the process stands, as macOS does, the stated
     # failure names the working folder; where it still says, as Linux does, the run is never the defect line
@@ -2720,8 +2759,9 @@ def guard_beside_folder(it: SharedItems, unreached: Callable[[object], str]) -> 
     refusal of it, an OSError that names no file, with the error number the system gives now. Else the lines
     are those of any defect: C12.11 naming the exception. Either way the traceback stands after the closing
     line, and the log holds what stderr shows. The dials' reader is replaced (`GUARD_SHADOW`) by a division
-    by zero, a PermissionError that names a file, or an ask of the working folder; the scan is given the
-    absolute path of a healthy repository, a write its event cwd."""
+    by zero, a PermissionError that names a file, an OSError that names no file with another error number
+    (EIO), or an ask of the working folder; the scan is given the absolute path of a healthy repository, a
+    write its event cwd."""
     _, root = it.s.gate_on(it.s.valid, files={it.s.valid.target: it.s.valid.text})
     shadow = it.h.scratch_dir()
     (shadow / "sitecustomize.py").write_text(GUARD_SHADOW, encoding="utf-8")
