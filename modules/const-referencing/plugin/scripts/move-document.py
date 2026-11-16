@@ -24,8 +24,9 @@ Exit:     0 the act was made and the whole tree is green; 2 the act was made and
           reports findings; 1 the act was refused — what can refuse without moving is asked first,
           and a refusal after the move moves the file back, so the closing line says that nothing
           was changed — or it stopped midway, and the closing line says that instead and names
-          what to do. Where the move back fails, or a made folder stays, a line before the midway
-          line says so and where.
+          what to do. Where git refuses the move back, a line before the midway line says so and
+          where the file is; a made folder that stays is named, with the system's reason where
+          its removal failed.
 Output:   MOVED, REWROTE and MENTION lines and the count on stdout, then the scan's lines;
           refusals (BROKEN) on stderr. Every print is also appended, as one record, to the
           output log.
