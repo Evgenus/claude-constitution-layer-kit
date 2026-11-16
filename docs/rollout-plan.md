@@ -27,12 +27,12 @@ status: active
 | [s6](#s6) | Decision record #1 | B | ✅ | 1 | 0 | 0 | 100% |
 | [s7](#s7) | Commit each step with honest messages | B | ✅ | 1 | 0 | 0 | 100% |
 | [s8](#s8) | [`const-locations`](requirements.md#const-locations) and [`const-task-close`](requirements.md#const-task-close) | C | ✅ | 2 | 0 | 0 | 100% |
-| [s9](#s9) | The other remaining modules, and the kit work logged beside them | C | 🔄 | 54 | 2 | 2 | 96% |
+| [s9](#s9) | The other remaining modules, and the kit work logged beside them | C | 🔄 | 55 | 1 | 2 | 98% |
 | [s10](#s10) | Publish: the remote, the marketplace and CI, then `0.1.0` | D | 🔄 | 11 | 2 | 0 | 84% |
 | [s10a](#s10a) | The first release of the shared package | D | ✅ | 1 | 0 | 0 | 100% |
 | [s10b](#s10b) | The release 2.0.0 of the shared package | D | ✅ | 1 | 0 | 0 | 100% |
 | [s11](#s11) | Switch the project from path load to marketplace install | D | ⏳ | 0 | 1 | 0 | 0% |
-| all | the whole plan | all | 🔄 | 88 | 5 | 6 | 94% |
+| all | the whole plan | all | 🔄 | 89 | 4 | 6 | 95% |
 
 <a id="phase-a"></a>
 ## Phase A — Kit as consumer zero: the document-shaped accumulating modules (~1 week)
@@ -142,7 +142,7 @@ status: active
    - <a id="s9-41"></a>**9.41** ✅ Found 2026-11-12 by the full carry audit and the sessions of item 9.38: ten older findings, each verified first. Done 2026-11-13, record [dec-0133-catalog-rows-cite-the-kernel](decisions/dec-0133-catalog-rows-cite-the-kernel.md), the yes given: the requirement rows on a catalog cite the kernel. Done 2026-11-13, a routine change apiece. The comment of the ceiling `guide-pages` names its record. [Item 8 of section 2 of kit-shared-gate-code](../shared/GATE.md#g2) states the verdict's runs and the runner's filter. [Requirement A14.4](requirements.md#a14-4) speaks of every module. [res-0005-const-locations](research/res-0005-const-locations.md) is inactive. Three entry docstrings and one platform fact of [`const-catalogs`](requirements.md#const-catalogs) name the fields read. Two effect rows give their code's text. Checked, with no change: two carry entries of an accepted record.
    - <a id="s9-42"></a>**9.42** ✅ Logged 2026-11-13: the mover of [`const-referencing`](requirements.md#const-referencing) met a document it could not write only after the move. Done 2026-11-14, record [dec-0135-mover-refuses-an-unwritable-document](decisions/dec-0135-mover-refuses-an-unwritable-document.md), the yes given. The mover checks a move on the tree git lists after it, and a refusal moves the file back.
    - <a id="s9-43"></a>**9.43** ✅ Logged 2026-11-13 by the sessions of items 9.40 and 9.41. Done 2026-11-14, record [dec-0136-flock-string-read-as-shell-text](decisions/dec-0136-flock-string-read-as-shell-text.md), the yes given: the string of `flock -c` is read as shell text. Done 2026-11-14, a routine change apiece: the skill of [`const-catalogs`](requirements.md#const-catalogs) names its tie-break, and [`const-task-close`](requirements.md#const-task-close) reads a trailer's value whole. Checked that day, with no change needed: [rule 3 of plc-0004-decision-records](policies/plc-0004-decision-records.md#r3), and four mutants of [`const-language`](requirements.md#const-language).
-   - <a id="s9-44"></a>**9.44** ⏳ Logged 2026-11-14 by the carry audit of items 9.42 and 9.43: two gaps of [kit-shared-gate-code](../shared/GATE.md). They close before the release, by the decider's pick of that day. After an interrupt, the shared entry prints no closing line. On Python releases 3.14 and later, the shared listing passes over a document in a folder nobody may read.
+   - <a id="s9-44"></a>**9.44** ✅ Logged 2026-11-14 by the carry audit of items 9.42 and 9.43: two gaps of [kit-shared-gate-code](../shared/GATE.md). Done 2026-11-16, record [dec-0137-reached-files-and-interrupts-said](decisions/dec-0137-reached-files-and-interrupts-said.md), the yes given. An interrupt prints a closing line, and a file the gate cannot reach is said on every interpreter. Two older gaps closed with them, by the decider's pick of 2026-11-16.
 
    A project that cannot run hooks carries a copy of the rules text of [`const-interaction`](requirements.md#const-interaction) in its `CLAUDE.md`, labeled manual and version-drifting. That is the fallback that module's install note names.
 
