@@ -34,7 +34,7 @@ class Closing:
     rewrote: bool = False  # set before the first rewrite opens: no look at the tree can tell it
     writing: str = ""  # the document being rewritten, from before its open until its text is written
     unmade: dict[Path, str] = field(default_factory=dict)  # a folder the move made that stayed: the reason
-    scanned: bool = False  # set once the closing scan has printed its verdict, which then stands
+    scanned: bool = False  # set just before the closing scan prints its verdict, which may then stand above
 
     def __call__(self) -> str:
         """The line that closes a failure, made as an interrupt's is. An interrupt while it is made goes on to
@@ -45,21 +45,26 @@ class Closing:
             return self._unknown(failure=True)
 
     def interrupted(self) -> str:
-        """The line the shared guard prints after an interrupt, made from what the tree shows now: where the
-        file stands, the folders the move made that stand, the document being written, if one was, and the
-        midway line wherever the file moved, its place is unknown, or a document was rewritten. A second
-        interrupt anywhere in the making of the line leaves it unable to say, and the line says the file may
-        stand at either path."""
+        """The line the shared guard prints after an interrupt, made from what the tree shows now. Once the
+        closing scan is about to print its verdict, it is that one sentence (`v4_verdict_may`) and nothing
+        else. Before, it is where the file stands, the folders the move made that stand, the document being
+        written, if one was, and the midway line wherever the file moved, its place is unknown, or a
+        document was rewritten. A second interrupt anywhere in the making of the line leaves it unable to
+        look (`_unknown`): the line says the file may stand at either path, and still names a document being
+        written."""
         try:
             return self._observed(failure=False)
         except (KeyboardInterrupt, Exception):
             return self._unknown(failure=False)
 
     def _unknown(self, failure: bool) -> str:
-        """The line where its making was cut short: nothing looked at, so nothing claimed but what may be."""
-        if self.move is None:
-            return messages.v4_stopped_midway()
-        return messages.v4_either(*self.move, interrupted=not failure) + "\n" + messages.v4_stopped_midway()
+        """The line where its making was cut short: nothing is asked of the system, so nothing is claimed but
+        what may be. A document being written is still named, by its path from the repository's top, with no
+        command, since a command's path would need the working folder."""
+        lines = [] if self.move is None else [messages.v4_either(*self.move, interrupted=not failure)]
+        if self.writing:
+            lines.append(messages.v4_cut_short(self.writing, None, None))
+        return "\n".join([*lines, messages.v4_stopped_midway()])
 
     def _observed(self, failure: bool) -> str:
         if self.scanned:  # the scan has begun to print its verdict, which may stand above
@@ -90,7 +95,7 @@ class Closing:
         if at is None:
             return messages.v4_either(old, new, interrupted=not failure), True
         if at == new:
-            if failure and self.stranded:
+            if self.stranded:  # git refused the move back: its words, and no undo, which git has just refused
                 return self.stranded, True
             # a rewrite may have begun: --moved would rewrite the moved document's own links once more
             if self.rewrote:

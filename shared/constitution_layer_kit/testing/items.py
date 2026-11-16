@@ -2627,14 +2627,27 @@ def walk_beside_git(it: SharedItems, outer: Path, inner: Path, unreached: Callab
             there.stdout.replace(str(tree), "<top>"),
         )
         assert same, f"a worktree's {label} differs from its checkout's: {here}\n{there}"
-    # a worktree's gitfile that cannot be read: the stated failure naming it
+    # a worktree's gitfile that cannot be read: git's own answer stands, as on main, since no repository lies
+    # above it whose verdict could stand in: the shared C12.5 with git's first line, or "not inside a git
+    # repository" where git says so
     (tree / ".git").chmod(0o000)
     try:
         blocked = it.h.run_gate("", args=it.scan_args(tree))
+        asked = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"], cwd=tree, capture_output=True, text=True
+        )
     finally:
         (tree / ".git").chmod(0o644)
-    it.broken_as_typed(blocked, unreached(Path(os.path.realpath(tree)) / ".git"))
-    # a .git that cannot be read, with a repository above it and with none
+    gits = asked.stderr.strip().splitlines()
+    as_main = (
+        messages.c12_no_repo(str(tree))
+        if "not a git repository" in asked.stderr
+        else messages.c12_git_failed(gits[0] if gits else "no message")
+    )
+    it.broken(blocked, as_main)
+    # a .git that cannot be read with a repository above it: the stated failure naming it, never the outer
+    # repository's verdict. With none above, git's own answer stands, as on main: "not inside a git
+    # repository", since no other repository's verdict could stand in
     alone = it.h.scratch_dir() / "alone"
     shutil.copytree(main, alone, symlinks=True)  # a repository of its own, outside any other
     shutil.rmtree(tree)
@@ -2647,9 +2660,28 @@ def walk_beside_git(it: SharedItems, outer: Path, inner: Path, unreached: Callab
                 written = it.h.run_gate(it.payload(top, it.s.valid)) if hooked else None
             finally:
                 git_dir.chmod(0o755)
-            it.broken_as_typed(scanned, unreached(Path(os.path.realpath(top)) / ".git"))
-            if written is not None:  # the event's path is taken to its real path, as every write's is
-                it.broken_as_typed(written, unreached(Path(os.path.realpath(top)) / ".git"))
+            if top == inner:
+                it.broken_as_typed(scanned, unreached(Path(os.path.realpath(top)) / ".git"))
+                if written is not None:  # the event's path is taken to its real path, as every write's is
+                    it.broken_as_typed(written, unreached(Path(os.path.realpath(top)) / ".git"))
+            else:
+                it.broken(scanned, messages.c12_no_repo(str(top)))
+                if written is not None:  # the write skips, as on main: outside any repository
+                    assert written.code == 0 and "BROKEN" not in written.stderr, written
+    # GIT_DIR names a repository whose work tree is a folder that holds a shut .git: git searched nothing,
+    # so nothing it passed over is asked, and git's answer stands
+    work = it.h.scratch_dir() / "work"
+    (work / "sub" / ".git").mkdir(parents=True)
+    (work / "sub" / ".git").chmod(0o000)
+    try:
+        elsewhere = it.h.run_gate(
+            "",
+            args=it.scan_args(work / "sub"),
+            env={"GIT_DIR": str(inner / ".git"), "GIT_WORK_TREE": str(work)},
+        )
+    finally:
+        (work / "sub" / ".git").chmod(0o755)
+    assert "cannot be reached" not in elsewhere.stderr, elsewhere
     # the working folder below a folder nobody may search: the process stands there, then the folder above
     # it is shut. Where the system then will not say where the process stands, as macOS does, the stated
     # failure names the working folder; where it still says, as Linux does, the run is never the defect line
@@ -2658,6 +2690,85 @@ def walk_beside_git(it: SharedItems, outer: Path, inner: Path, unreached: Callab
         it.broken_as_typed(stood, unreached("the working folder"))
     else:
         assert "unexpected failure inside the checker" not in stood.stderr, stood.stderr
+    guard_beside_folder(it, unreached)
+
+
+GUARD_SHADOW = """import os, pathlib
+import constitution_layer_kit.dials as _dials
+
+
+def _broken(root):
+    how = os.environ.get("GUARD_SHADOW", "")
+    if how == "zero":
+        return 1 / 0
+    if how == "denied":
+        raise PermissionError(13, "Permission denied", "/a/file")
+    if how == "eio":
+        raise OSError(5, "Input/output error")
+    if how == "cwd":
+        pathlib.Path.cwd()
+    return 1 / 0
+
+
+_dials.load_dials = _broken
+"""
+
+
+def guard_beside_folder(it: SharedItems, unreached: Callable[[object], str]) -> None:
+    """An unexpected exception while the working folder is refused, below a shut folder and in a folder
+    that is gone. The guard says C12.16 for the working folder only where the exception is the system's
+    refusal of it, an OSError that names no file, with the error number the system gives now. Else the lines
+    are those of any defect: C12.11 naming the exception. Either way the traceback stands after the closing
+    line, and the log holds what stderr shows. The dials' reader is replaced (`GUARD_SHADOW`) by a division
+    by zero, a PermissionError that names a file, or an ask of the working folder; the scan is given the
+    absolute path of a healthy repository, a write its event cwd."""
+    _, root = it.s.gate_on(it.s.valid, files={it.s.valid.target: it.s.valid.text})
+    shadow = it.h.scratch_dir()
+    (shadow / "sitecustomize.py").write_text(GUARD_SHADOW, encoding="utf-8")
+    hooked = it.s.event_driven and not it.s.scan_only and not it.no_file
+    trace = "Traceback (most recent call last):\n"
+    defects = {
+        "zero": messages.c12_unexpected("ZeroDivisionError: division by zero").render(),
+        "denied": messages.c12_unexpected(
+            "PermissionError: [Errno 13] Permission denied: '/a/file'"
+        ).render(),
+        # an OSError that names no file, but with another number than the system's refusal of the folder
+        "eio": messages.c12_unexpected("OSError: [Errno 5] Input/output error").render(),
+    }
+    problems: list[str] = []
+    for place in ("shut", "gone"):
+        for how in ("zero", "denied", "eio", "cwd"):
+            runs: list[tuple[str, list[str], str]] = [("scan", it.scan_args(root), "")]
+            if hooked:
+                runs.append(("write", [], it.payload(root, it.s.valid)))
+            for kind, args, stdin in runs:
+                data = it.h.scratch_dir()
+                env = {"PYTHONPATH": str(shadow), "GUARD_SHADOW": how, "CLAUDE_PLUGIN_DATA": str(data)}
+                if place == "shut":
+                    where = it.h.scratch_dir() / "above" / "here"
+                    where.mkdir(parents=True)
+                    done, refused = it.h.run_below_shut(where, where.parent, args, env=env, stdin=stdin)
+                    if not refused:  # the system still says where the process stands, as on Linux
+                        continue
+                else:
+                    where = it.h.scratch_dir() / "gone"
+                    where.mkdir()
+                    done = it.h.run_in_gone(where, args, env=env, stdin=stdin)
+                reason = "Permission denied" if place == "shut" else "No such file or directory"
+                said = unreached("the working folder").replace("(Permission denied)", f"({reason})")
+                first = said if how == "cwd" else defects[how]
+                head = f"{first}\n{it.s.closing}\n{trace}"
+                if done.code != 1 or not done.stderr.startswith(head):
+                    problems.append(
+                        f"{place}, {how}, {kind}: wanted {head!r}; got exit {done.code}: {done.stderr[:500]}"
+                    )
+                    continue
+                logged = "\n".join(
+                    r["text"] for r in it.log_lines(data / log_name()) if r["stream"] == "stderr"
+                )
+                if logged + "\n" != done.stderr:
+                    problems.append(f"{place}, {how}, {kind}: the log holds {logged!r}")
+    assert not problems, "\n".join(problems)
 
 
 @item(146, "--scan=DIR and a scan from a subdirectory examine the same repository")
