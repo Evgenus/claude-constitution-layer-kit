@@ -1,24 +1,24 @@
 {
   "extraKnownMarketplaces": {
-    "claude-constitution-layer-kit": {
+    "claude-constitution-layer-kit-dev": {
       "source": {
-        "source": "directory",
-        "path": "."
+        "source": "file",
+        "path": "./.claude-plugin/dev-marketplace.json"
       }
     }
   },
   "enabledPlugins": {
-    "const-catalogs@claude-constitution-layer-kit": true,
-    "const-change-cost@claude-constitution-layer-kit": true,
-    "const-decision-records@claude-constitution-layer-kit": true,
-    "const-doc-budgets@claude-constitution-layer-kit": true,
-    "const-interaction@claude-constitution-layer-kit": true,
-    "const-language@claude-constitution-layer-kit": true,
-    "const-locations@claude-constitution-layer-kit": true,
-    "const-meta-types@claude-constitution-layer-kit": true,
-    "const-questions@claude-constitution-layer-kit": true,
-    "const-referencing@claude-constitution-layer-kit": true,
-    "const-styling@claude-constitution-layer-kit": true,
-    "const-task-close@claude-constitution-layer-kit": true
+    "const-catalogs@claude-constitution-layer-kit-dev": true,
+    "const-change-cost@claude-constitution-layer-kit-dev": true,
+    "const-decision-records@claude-constitution-layer-kit-dev": true,
+    "const-doc-budgets@claude-constitution-layer-kit-dev": true,
+    "const-interaction@claude-constitution-layer-kit-dev": true,
+    "const-language@claude-constitution-layer-kit-dev": true,
+    "const-locations@claude-constitution-layer-kit-dev": true,
+    "const-meta-types@claude-constitution-layer-kit-dev": true,
+    "const-questions@claude-constitution-layer-kit-dev": true,
+    "const-referencing@claude-constitution-layer-kit-dev": true,
+    "const-styling@claude-constitution-layer-kit-dev": true,
+    "const-task-close@claude-constitution-layer-kit-dev": true
   }
 }
