@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Kit check: every scan a module declares stands in the kit's gate list, in its CI list and in its
 module's job, the list's modules are exactly the module folders, each module folder is named
-`const-<aspect>`, named so by its manifest, listed once in the marketplace and enabled in the kit's
-settings, which declare the marketplace, every kit check is run by an entry of the gate group, every
+`const-<aspect>`, named so by its manifest, listed once in the marketplace and alike in the development
+manifest, and enabled in the kit's settings under the development manifest's name, which they declare,
+never the published one, every kit check is run by an entry of the gate group, every
 top-level `const-<aspect>` key of the kit's dials file names a module folder, the `types` entry of
 the gate list puts on `MYPYPATH` the module folders the schema mirror imports from and `../shared`, the
 scan block of the install guide names every declared scan and nothing else, and each module folder has its
@@ -49,29 +50,42 @@ The list's modules, its `MODULES`, are read from its entries `install-<module>`,
 `lint-<module>` and `types-<module>` in `--names all`: each module folder has all four, and no
 module that has one lacks its folder (decisions dec-0056-portability-grep-and-gate-lists,
 dec-0058-ci-runs-each-check-in-parallel and dec-0061-ci-runs-one-job-per-module).
-Each of those folders is also held against the three files that name a module, one RED finding with
+Each of those folders is also held against the four files that name a module, one RED finding with
 why and fix for each copy that disagrees, listed by folder and then by file, the entries and keys that
 name no module folder by name:
   - its name matches `const-[a-z0-9]+(-[a-z0-9]+)*` in full, kernel §7;
   - `modules/<m>/plugin/.claude-plugin/plugin.json` is a JSON object, and its `name` is the string `<m>`;
-  - `.claude-plugin/marketplace.json` is a JSON object with a `name`, a non-empty string, the
-    marketplace's name, read there and typed nowhere in this check, and a list `plugins`: for each
+  - `.claude-plugin/marketplace.json`, the published manifest, is a JSON object with a `name`, a
+    non-empty string, the published marketplace's name, read there and typed nowhere in this check, and a
+    list `plugins`: for each
     folder exactly one entry, an object, whose `name` is `<m>`, whose `source` is the string
     `./modules/<m>/plugin`, the folder that installs, and whose `description` is the string the
     manifest's `description` is, character for character, a description missing or no string on either
     side being one finding, the manifest's named first, and a module with no entry or two being judged by
     those findings alone; no entry names anything that is no module folder, and an entry's other keys,
     the marketplace's other keys and its `owner` are the platform's and are never read;
-  - `.claude/settings.json` is a JSON object: under `enabledPlugins` the key `<m>@<marketplace name>`
+  - `.claude-plugin/dev-marketplace.json`, the development manifest the kit's own sessions load the
+    modules through, is read the same way, its `name` the development name, typed nowhere either. Its
+    name is not the published one: the platform keeps one entry per marketplace name for all of a user's
+    projects, so two declarations of one name, the kit's clone and a consumer's GitHub source, overwrite
+    each other on a machine (the decider's pick of 2026-11-17, "A: dev manifest file"); a manifest under
+    the published name is one finding, and the settings are then held under that name alone. Its entries
+    are the published manifest's as written, by name over the names of both: a published name it has
+    no entry for, two entries or more, an entry whose keys or values are not the published entry's (the
+    keys named, sorted), and a name the published manifest has no entry for are each a finding; a name
+    the published manifest has twice is judged by that manifest's finding alone, and the order of the
+    entries and the manifest's other keys are not read;
+  - `.claude/settings.json` is a JSON object: under `enabledPlugins` the key `<m>@<development name>`
     is `true`, the JSON boolean and nothing else, for each folder, a committed `false` included, the one
     switch-off being a clone's git-ignored `.claude/settings.local.json`, which this check never reads;
-    no other key ends `@<marketplace name>`, and keys of other marketplaces stand; under
-    `extraKnownMarketplaces` the key `<marketplace name>` has a `source` that is exactly
-    `{"source": "directory", "path": "."}`, the kit's own folder, other marketplaces and other keys of
-    the value standing.
+    no other key ends `@<development name>`, no key ends `@<published name>`, whatever its value, its fix
+    the key under the development name when the name before `@` is a module folder's, and keys of other
+    marketplaces stand; under `extraKnownMarketplaces` the key `<development name>` has a `source` that is
+    exactly `{"source": "file", "path": "./.claude-plugin/dev-marketplace.json"}`, and no key
+    `<published name>` stands there, other marketplaces and other keys of the value standing.
 A file that cannot be read is BROKEN, not RED: one that is missing, is no JSON or is no JSON object, a
-manifest included; a marketplace with no `name` that is a non-empty string, no list `plugins` or an
-entry that is no object with a string `name`, since it is then no marketplace the check can compare;
+manifest included; a marketplace manifest with no `name` that is a non-empty string, no list `plugins` or
+an entry that is no object with a string `name`, since it is then no marketplace the check can compare;
 `enabledPlugins` or `extraKnownMarketplaces` present and no object. A key the platform lets stand
 absent, `enabledPlugins` or `extraKnownMarketplaces` in the settings, is read as empty and is RED for
 what it leaves out. The green line counts the marketplace's entries and the enabled keys it read.
@@ -161,8 +175,13 @@ Modes:  no arguments   check the kit;
                        marketplace entry, its description included, its source the module's folder,
                        another's plugin folder or one below its own red, an enabled key and the
                        declaration each changed one at a time, the platform's other keys allowed,
-                       the marketplace renamed in all three places green and in each pair of them
-                       red or green as the rule says,
+                       the development marketplace renamed in all three places green and in each
+                       pair of them red or green as the rule says, the published one renamed green;
+                       the development manifest under the published name, a module it leaves out,
+                       an entry whose source, description or keys differ, two entries, a stray, and
+                       settings that declare the published name or enable a key under it, the kit's
+                       settings before the development manifest among them, each red with literal
+                       lines, its entries in another order green,
                        the name read and never typed; the findings of every kind as literal
                        lines with exit 2, whatever the order of the files' keys, of their lists
                        and of the folder listing, and each file the check cannot read as its
@@ -287,13 +306,19 @@ NAME = re.compile(
     r"const-[a-z0-9]+(?:-[a-z0-9]+)*"
 )  # kernel §7: `const-<aspect>`, kebab-case, the whole name
 MARKETPLACE_FILE = ".claude-plugin/marketplace.json"
+DEV_MARKETPLACE_FILE = (
+    ".claude-plugin/dev-marketplace.json"  # the kit's own sessions load the modules from it
+)
 SETTINGS_FILE = ".claude/settings.json"
 DIALS = "constitution.yaml"
 MIRROR = "scripts/check-schema-mirror.py"  # puts the kit-side module folders on its import path
 TYPES_ENTRY = "types"  # the entry of the list that type-checks the shared code and the kit's scripts
 MYPYPATH = re.compile(r"(?<![\w-])MYPYPATH=(\S*)")
 TYPES_SHARED = "../shared"  # where the module folders and the kit's scripts find the shared package
-DIRECTORY_SOURCE = {"source": "directory", "path": "."}  # the kit's own folder, as a settings source
+DEV_SOURCE = {
+    "source": "file",
+    "path": f"./{DEV_MARKETPLACE_FILE}",
+}  # the development manifest, as a settings source
 WHY_NAME = (
     "the kernel names every module `const-<aspect>`, lowercase kebab-case, and the CI gives a job"
     " Claude Code by that prefix"
@@ -340,7 +365,16 @@ WHY_KNOWN = (
     " keys name it"
 )
 WHY_KNOWN_SOURCE = (
-    "the kit loads its own modules from its own folder, so any other source loads another marketplace or none"
+    "the kit loads its own modules from its own folder through the development manifest, so any other source"
+    " loads another marketplace or none"
+)
+WHY_CLASH = (
+    "two declarations of one marketplace name overwrite each other on a machine, so the kit's sessions load"
+    " their clone under a name no consumer project declares"
+)
+WHY_DEV_ENTRY = (
+    "the kit's sessions load the modules through the development manifest, so an entry that is not the"
+    " published one as written loads a plugin other than the one a consumer installs"
 )
 GUIDE_FILE = "INSTALL.md"  # the install guide; its `bash check=scan` block runs every scan of a project
 FENCE = re.compile(r"^(\s*)(`{3,}|~{3,})(.*)$")  # as scripts/check-install-guide.py opens a block
@@ -424,12 +458,19 @@ class Where(StrEnum):
     MARKET_TWICE = "marketplace entries"
     MARKET_STRAY = "marketplace strays"
     MARKET_DESCRIPTION = "marketplace description"
+    DEV_NAME = "development name"
+    DEV_MISSING = "development entry"
+    DEV_TWICE = "development entries"
+    DEV_DIFFERS = "development entry's keys"
+    DEV_STRAY = "development strays"
     DIALS_KEY = "dials namespace"
     TYPES_PATH = "types entry"
     SETTINGS = "enabled plugin"
     SETTINGS_STRAY = "enabled strays"
+    SETTINGS_PUBLISHED = "enabled under the published name"
     KNOWN_MISSING = "declared marketplace"
     KNOWN_SOURCE = "marketplace source declared"
+    KNOWN_PUBLISHED = "published marketplace declared"
     GUIDE_ADD = "guide's scan block"
     GUIDE_DROP = "guide's listed paths"
     COVERAGE_MISSING = "coverage pair"
@@ -448,10 +489,17 @@ REGISTRY = frozenset(
         Where.MARKET_TWICE,
         Where.MARKET_STRAY,
         Where.MARKET_DESCRIPTION,
+        Where.DEV_NAME,
+        Where.DEV_MISSING,
+        Where.DEV_TWICE,
+        Where.DEV_DIFFERS,
+        Where.DEV_STRAY,
         Where.SETTINGS,
         Where.SETTINGS_STRAY,
+        Where.SETTINGS_PUBLISHED,
         Where.KNOWN_MISSING,
         Where.KNOWN_SOURCE,
+        Where.KNOWN_PUBLISHED,
     }
 )  # the findings about the files that name a module, in `Finding.registry`
 COVERAGE_WHERE = frozenset(
@@ -481,7 +529,8 @@ class Finding:
     line: int = 0  # a selection or a form: its line in the file, `module` holding the file's path
     fault: Fault = Fault.SPAN  # a form: what is wrong; `entry` then holds the first cell or the span
     said: str = ""  # a registry finding: what the file holds, as JSON text; empty: it holds nothing there
-    tag: str = ""  # a registry finding: the marketplace name, read from marketplace.json
+    tag: str = ""  # a registry finding: the development marketplace's name, read from dev-marketplace.json
+    published: str = ""  # a registry finding: the published marketplace's name, read from marketplace.json
     side: str = ""  # a description finding: which text is wrong, "manifest", "entry" or "differs"
     owner: str = ""  # a coverage finding: the dials key that holds the map; `said` the detail, `names` the
     # folders the module has when its pair is missing
@@ -686,9 +735,16 @@ class Finding:
             Where.MARKET_TWICE: self.market_twice_parts,
             Where.MARKET_STRAY: self.market_stray_parts,
             Where.MARKET_DESCRIPTION: self.description_parts,
+            Where.DEV_NAME: self.dev_name_parts,
+            Where.DEV_MISSING: self.dev_missing_parts,
+            Where.DEV_TWICE: self.dev_twice_parts,
+            Where.DEV_DIFFERS: self.dev_differs_parts,
+            Where.DEV_STRAY: self.dev_stray_parts,
             Where.SETTINGS: self.settings_parts,
             Where.SETTINGS_STRAY: self.settings_stray_parts,
+            Where.SETTINGS_PUBLISHED: self.settings_published_parts,
             Where.KNOWN_MISSING: self.known_missing_parts,
+            Where.KNOWN_PUBLISHED: self.known_published_parts,
         }
         return parts.get(self.where, self.known_source_parts)()
 
@@ -787,6 +843,48 @@ class Finding:
             )
         return what, WHY_DESCRIPTION, f"copy `description` of {manifest}, as written, into {entry}"
 
+    def dev_name_parts(self) -> tuple[str, str, str]:
+        """What, why and fix of a development manifest that bears the published marketplace's name."""
+        what = f"the development manifest {DEV_MARKETPLACE_FILE} bears the published marketplace's name"
+        fix = (
+            f'set "name" in {DEV_MARKETPLACE_FILE} to a name of its own, such as'
+            f" {json.dumps(f'{self.module}-dev')}, and enable the modules and declare the manifest under that"
+            f" name in {SETTINGS_FILE}"
+        )
+        return what, WHY_CLASH, fix
+
+    def copy_entry(self) -> str:
+        """The fix of a development entry that is missing or not the published one: copy that one."""
+        return (
+            f"copy the entry named {json.dumps(self.module)} of plugins in {MARKETPLACE_FILE}, as written,"
+            f" into plugins in {DEV_MARKETPLACE_FILE}"
+        )
+
+    def dev_missing_parts(self) -> tuple[str, str, str]:
+        """What, why and fix of a published entry the development manifest has no entry for."""
+        return "the development manifest has no entry for it", WHY_DEV_ENTRY, self.copy_entry()
+
+    def dev_twice_parts(self) -> tuple[str, str, str]:
+        """What, why and fix of a name the development manifest has more than one entry for."""
+        fix = (
+            f"remove all but one entry named {json.dumps(self.module)} from plugins in"
+            f" {DEV_MARKETPLACE_FILE}, the one that is the entry of {MARKETPLACE_FILE} as written"
+        )
+        return f"the development manifest has {self.said} entries for it", WHY_TWICE, fix
+
+    def dev_differs_parts(self) -> tuple[str, str, str]:
+        """What, why and fix of a development entry whose keys are not its published entry's; `said` lists
+        the keys whose values differ or that only one of the two has."""
+        what = f"its entry in the development manifest differs from its published entry in {self.said}"
+        fix = f"{self.copy_entry()}, in the place of the entry there"
+        return what, WHY_DEV_ENTRY, fix
+
+    def dev_stray_parts(self) -> tuple[str, str, str]:
+        """What, why and fix of a development entry whose name the published manifest has no entry for."""
+        what = "the development manifest has an entry for it, but the published manifest has none"
+        fix = f"remove the entry named {json.dumps(self.module)} from plugins in {DEV_MARKETPLACE_FILE}"
+        return what, WHY_DEV_ENTRY, fix
+
     def settings_parts(self) -> tuple[str, str, str]:
         """What, why and fix of a module the kit's settings do not enable with `true`."""
         m, tag = self.module, self.tag
@@ -807,23 +905,46 @@ class Finding:
         )
         return what, WHY_ENABLED_STRAY, fix
 
+    def settings_published_parts(self) -> tuple[str, str, str]:
+        """What, why and fix of an enabled key of the published marketplace; `said` is the key that enables
+        the same module under the development name, empty when the name before `@` is no module folder."""
+        what = "the kit's settings enable it under the published marketplace's name"
+        key = json.dumps(self.module)
+        fix = (
+            f"rename the key {key} to {self.said} under enabledPlugins in {SETTINGS_FILE}"
+            if self.said
+            else f"remove the key {key} from enabledPlugins in {SETTINGS_FILE}"
+        )
+        return what, WHY_CLASH, fix
+
     def known_missing_parts(self) -> tuple[str, str, str]:
-        """What, why and fix of a marketplace the kit's settings do not declare."""
-        declared = f'{json.dumps(self.module)}: {{"source": {json.dumps(DIRECTORY_SOURCE)}}}'
-        what = "the kit's settings do not declare the marketplace under extraKnownMarketplaces"
+        """What, why and fix of a development marketplace the kit's settings do not declare."""
+        declared = f'{json.dumps(self.module)}: {{"source": {json.dumps(DEV_SOURCE)}}}'
+        what = "the kit's settings do not declare the development marketplace under extraKnownMarketplaces"
         return what, WHY_KNOWN, f"add {declared} under extraKnownMarketplaces in {SETTINGS_FILE}"
 
     def known_source_parts(self) -> tuple[str, str, str]:
-        """What, why and fix of a declared marketplace whose source is not the directory at `.`."""
+        """What, why and fix of a declared development marketplace whose source is not the file source of
+        the development manifest."""
         what = (
-            f"the kit's settings declare the marketplace with {self.said},"
-            f" not source {json.dumps(DIRECTORY_SOURCE)}"
+            f"the kit's settings declare the development marketplace with {self.said},"
+            f" not source {json.dumps(DEV_SOURCE)}"
         )
         fix = (
             f"set the source of {json.dumps(self.module)} under extraKnownMarketplaces in {SETTINGS_FILE}"
-            f" to {json.dumps(DIRECTORY_SOURCE)}"
+            f" to {json.dumps(DEV_SOURCE)}"
         )
         return what, WHY_KNOWN_SOURCE, fix
+
+    def known_published_parts(self) -> tuple[str, str, str]:
+        """What, why and fix of settings that declare the published marketplace; `tag` is the development
+        marketplace's name."""
+        what = "the kit's settings declare the published marketplace under extraKnownMarketplaces"
+        fix = (
+            f"remove the key {json.dumps(self.module)} from extraKnownMarketplaces in {SETTINGS_FILE}; the"
+            f" kit's sessions load the modules through {json.dumps(self.tag)}"
+        )
+        return what, WHY_CLASH, fix
 
 
 def read(root: Path, path: str) -> str:
@@ -1052,28 +1173,35 @@ def shown(value: object) -> str:
     return json.dumps(value, sort_keys=True, ensure_ascii=False)
 
 
-def read_marketplace(root: Path) -> tuple[str, dict[str, list[dict[str, Any]]], int]:
-    """The marketplace's name, its entries by name, and how many entries it has. The name is read here,
-    never typed in the check. A file with no name, no list `plugins` or an entry that is no object with
-    a name is no marketplace the check can read."""
-    market = read_json(root, MARKETPLACE_FILE)
+NAME_ROLE = {  # what a manifest's name is for, in the fix of a manifest that has none
+    MARKETPLACE_FILE: "the name the kit publishes its plugins under",
+    DEV_MARKETPLACE_FILE: "the name the kit's settings enable plugins under",
+}
+
+
+def read_marketplace(
+    root: Path, path: str = MARKETPLACE_FILE
+) -> tuple[str, dict[str, list[dict[str, Any]]], int]:
+    """The name of the marketplace manifest at `path`, its entries by name, and how many entries it has.
+    The name is read here, never typed in the check. A file with no name, no list `plugins` or an entry
+    that is no object with a name is no marketplace the check can read."""
+    market = read_json(root, path)
     tag = market.get("name")
     if not isinstance(tag, str) or not tag:
         raise Broken(
-            f'{MARKETPLACE_FILE} has no marketplace name, "name" is no non-empty string'
-            " — fix: restore it, the name the kit's settings enable plugins under"
+            f'{path} has no marketplace name, "name" is no non-empty string'
+            f" — fix: restore it, {NAME_ROLE[path]}"
         )
     plugins = market.get("plugins")
     if not isinstance(plugins, list):
         raise Broken(
-            f'{MARKETPLACE_FILE} has no list "plugins" — fix: restore it as a list of entries'
-            ' {"name": …, "source": …}'
+            f'{path} has no list "plugins" — fix: restore it as a list of entries {{"name": …, "source": …}}'
         )
     entries: dict[str, list[dict[str, Any]]] = {}
     for position, entry in enumerate(plugins, start=1):
         if not isinstance(entry, dict) or not isinstance(entry.get("name"), str):
             raise Broken(
-                f"{MARKETPLACE_FILE}: entry {position} of plugins is no object with a string name"
+                f"{path}: entry {position} of plugins is no object with a string name"
                 ' — fix: write each entry as {"name": …, "source": …}'
             )
         entries.setdefault(entry["name"], []).append(entry)
@@ -1180,36 +1308,95 @@ def enabled_findings(
 
 
 def known_findings(tag: str, known: dict[str, Any]) -> list[Finding]:
-    """The finding about the settings' declaration of the marketplace `tag`: absent, or not a directory
-    source at `.`."""
+    """The finding about the settings' declaration of the development marketplace `tag`: absent, or not the
+    file source of the development manifest."""
     if tag not in known:
         return [Finding(tag, Where.KNOWN_MISSING)]
     entry = known[tag]
     source = entry.get("source") if isinstance(entry, dict) else None
-    if source == DIRECTORY_SOURCE:
+    if source == DEV_SOURCE:
         return []
     said = f"source {shown(source)}" if isinstance(entry, dict) and "source" in entry else "no source"
     return [Finding(tag, Where.KNOWN_SOURCE, said=said)]
 
 
+def dev_findings(
+    published: dict[str, list[dict[str, Any]]], dev: dict[str, list[dict[str, Any]]]
+) -> list[Finding]:
+    """The findings about the development manifest's entries against the published manifest's, by name over
+    the names of both: a published name it has no entry for, two entries or more, one whose keys or values
+    are not the published entry's, and a name the published manifest has no entry for. A name the
+    published manifest has twice is judged by that manifest's finding alone."""
+    findings: list[Finding] = []
+    for name in sorted(set(published) | set(dev)):
+        ours, theirs = dev.get(name, []), published.get(name, [])
+        if len(theirs) > 1:
+            continue
+        if not theirs:
+            findings.append(Finding(name, Where.DEV_STRAY))
+        elif not ours:
+            findings.append(Finding(name, Where.DEV_MISSING))
+        elif len(ours) > 1:
+            findings.append(Finding(name, Where.DEV_TWICE, said=str(len(ours))))
+        elif ours[0] != theirs[0]:
+            keys = sorted(
+                key
+                for key in set(ours[0]) | set(theirs[0])
+                if key not in ours[0] or key not in theirs[0] or ours[0][key] != theirs[0][key]
+            )
+            findings.append(Finding(name, Where.DEV_DIFFERS, said=", ".join(json.dumps(k) for k in keys)))
+    return findings
+
+
+def published_findings(
+    modules: list[str], tag: str, published: str, enabled: dict[str, Any], known: dict[str, Any]
+) -> tuple[list[Finding], list[Finding]]:
+    """The findings about the settings' use of the published marketplace's name `published`: each enabled
+    key of it, sorted, its fix the key under the development name `tag` when it names a module folder; and
+    its declaration."""
+    keys = [
+        Finding(
+            key,
+            Where.SETTINGS_PUBLISHED,
+            said=json.dumps(f"{name}@{tag}")
+            if (name := key.removesuffix(f"@{published}")) in modules
+            else "",
+            tag=tag,
+            published=published,
+        )
+        for key in sorted(key for key in enabled if key.endswith(f"@{published}"))
+    ]
+    declared = [Finding(published, Where.KNOWN_PUBLISHED, tag=tag)] if published in known else []
+    return keys, declared
+
+
 def check_registries(root: Path, modules: list[str]) -> tuple[list[Finding], int, int]:
     """Each module folder is named `const-<aspect>` (kernel §7), is named so by its manifest, in its plugin
     folder, stands once in the marketplace with `./modules/<folder>/plugin` as its source, and is enabled,
-    `true`, in the kit's settings, which declare the marketplace by a `directory` source at `.`; neither
-    file names anything else of the marketplace. The marketplace's name is read from marketplace.json. The
-    findings come in a fixed order, whatever the files' key order: by folder, name then manifest; the
-    marketplace entries by folder, each one's source then its description, then the strays by name; the
-    enabled keys the same; the declaration last. Returns them, the entry count of the marketplace and the
-    count of its keys in `enabledPlugins`."""
+    `true`, in the kit's settings under the name of the development manifest, which holds the published
+    manifest's entries as written under a name of its own; the settings declare it by its file source and
+    never name the published marketplace. Both names are read from their manifests. The findings come in a
+    fixed order, whatever the files' key order: by folder, name then manifest; the marketplace entries by
+    folder, each one's source then its description, then the strays by name; the development manifest's
+    name, then its entries by name; the enabled keys by folder, then the strays by name, then the keys of
+    the published name; the declaration, then the published one's. Returns them, the entry count of the
+    marketplace and the count of the development name's keys in `enabledPlugins`."""
     findings, manifests = manifest_findings(root, modules)
-    tag, entries, plugins = read_marketplace(root)
+    published, entries, plugins = read_marketplace(root)
     findings += marketplace_findings(modules, entries, manifests)
+    tag, dev_entries, _ = read_marketplace(root, DEV_MARKETPLACE_FILE)
+    if tag == published:
+        findings.append(Finding(tag, Where.DEV_NAME))
+    findings += dev_findings(entries, dev_entries)
     settings = read_json(root, SETTINGS_FILE)
     enabled = settings_object(settings, "enabledPlugins")
     known = settings_object(settings, "extraKnownMarketplaces")
     told, ours = enabled_findings(modules, tag, enabled)
-    findings += told
-    findings += known_findings(tag, known)
+    keys, declared = (
+        published_findings(modules, tag, published, enabled, known) if tag != published else ([], [])
+    )
+    findings += told + keys
+    findings += known_findings(tag, known) + declared
     return findings, plugins, len(ours)
 
 
@@ -1481,7 +1668,8 @@ def report(findings: list[Finding], modules: int, scans: int, checks: int, plugi
         "GREEN: every declared scan stands in the gate list, the CI list and its module's job and runs with "
         "the kit's shared/ first on PYTHONPATH, the list's "
         "modules are the module folders, each named const-<aspect> and by its manifest, listed once in the "
-        "marketplace and enabled in the kit's settings, which declare the marketplace, neither list, "
+        "marketplace and alike in the development manifest under a name of its own, and enabled under that "
+        "name in the kit's settings, which declare that manifest and never the published name, neither list, "
         "comments aside, names pytest save in an exact pin, passes --item or names PYTEST_ADDOPTS, no pytest "
         "configuration file of the kit's folders a module's run reads sets addopts, every kit check is run "
         "by an entry of the gate group, the install guide's scan block names exactly the declared scans, and "
@@ -1534,7 +1722,7 @@ class Case:
     types: str | None = TYPES_COMMAND  # the commands of the list's `types` entry
     comment: str = ""  # a comment line at the head of the list script
     repo: bool = True  # the tree is a git repository
-    tag: str = "kit-test"  # the marketplace name of the default registry files
+    tag: str = "kit-test"  # the development marketplace's name in the default registry files
     files: dict[str, object] = field(default_factory=dict)
     # the registry files, by path, when the case writes its own: an object or list is written as JSON, a
     # text as it is, None leaves the file out; empty: `registry_tree(folders, tag)`
@@ -1568,9 +1756,13 @@ def full_pair(module: str, folders: tuple[str, ...] = COVERAGE_FOLDERS) -> dict[
     }
 
 
+PUBLISHED_TAG = "kit-test-published"  # the published marketplace's name in the self-test's registry files
+
+
 def registry_tree(folders: tuple[str, ...], tag: str) -> dict[str, Any]:
-    """The files that name the modules, matching `folders`: a manifest each, the marketplace `tag` with one
-    entry each, the settings that enable each and declare the marketplace, the dials file with a namespace
+    """The files that name the modules, matching `folders`: a manifest each, the published marketplace with
+    one entry each, the development manifest `tag` with the same entries, the settings that enable each
+    under `tag` and declare the development manifest, the dials file with a namespace
     each and the coverage map, a pair for each, and a schema mirror whose folders agree with the `types`
     entry. Extra keys the platform allows stand in each, which the check never reads."""
     files: dict[str, Any] = {
@@ -1588,15 +1780,24 @@ def registry_tree(folders: tuple[str, ...], tag: str) -> dict[str, Any]:
     }
     files[MIRROR] = mirror_text(MIRROR_FOLDERS)
     files[MARKETPLACE_FILE] = {
-        "name": tag,
+        "name": PUBLISHED_TAG,
         "owner": {"name": "Someone"},
         "plugins": [
             {"name": m, "source": plugin_source(m), "description": f"The module {m}."} for m in folders
         ],
     }
+    # the development manifest shares the published one's list itself, so that a case that edits an entry
+    # or the list in place edits both, and judges the published entry alone; a case that changes the
+    # development manifest's entries gives it a list of its own first (`dev_plugins`)
+    files[DEV_MARKETPLACE_FILE] = {
+        "name": tag,
+        "owner": {"name": "Someone"},
+        "description": "The development manifest.",
+        "plugins": files[MARKETPLACE_FILE]["plugins"],
+    }
     files[SETTINGS_FILE] = {
         "permissions": {"allow": []},
-        "extraKnownMarketplaces": {tag: {"source": dict(DIRECTORY_SOURCE)}},
+        "extraKnownMarketplaces": {tag: {"source": dict(DEV_SOURCE)}},
         "enabledPlugins": {f"{m}@{tag}": True for m in folders},
     }
     return files
@@ -2001,6 +2202,14 @@ def registry_known(f: dict[str, Any]) -> dict[str, Any]:
     return declared
 
 
+def dev_plugins(f: dict[str, Any]) -> list[dict[str, Any]]:
+    """The development manifest's entries among the registry files `f`, made a list of their own, each
+    entry a copy, so that a change to them leaves the published manifest's entries as they are."""
+    own = [dict(entry) for entry in f[DEV_MARKETPLACE_FILE]["plugins"]]
+    f[DEV_MARKETPLACE_FILE]["plugins"] = own
+    return own
+
+
 def with_dials(content: object) -> Callable[[dict[str, Any]], object]:
     """The dials file replaced by `content`, the coverage map of the tree's two folders kept beside it;
     an object is written as JSON, which YAML reads."""
@@ -2053,6 +2262,7 @@ def registry_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
     `types` entry against the schema mirror are rows of the same table: the dials file and the mirror
     are two files of the registry, and the entry's commands a parameter of the case."""
     market, settings, tag = MARKETPLACE_FILE, SETTINGS_FILE, REGISTRY_TAG
+    dev, pub = DEV_MARKETPLACE_FILE, PUBLISHED_TAG
 
     def edit(
         change: Callable[[dict[str, Any]], object], wanted: list[Where], types: str | None = TYPES_COMMAND
@@ -2082,26 +2292,99 @@ def registry_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
             ),
             [],
         ),
-        "the marketplace renamed in all three places": (Case({"x": scan}, tag="kit-b"), []),
-        "the marketplace renamed in its own file only": edit(
-            lambda f: f[market].update({"name": "kit-b"}),
+        "the development marketplace renamed in all three places": (Case({"x": scan}, tag="kit-b"), []),
+        "the development marketplace renamed in its own file only": edit(
+            lambda f: f[dev].update({"name": "kit-b"}),
             [Where.SETTINGS, Where.SETTINGS, Where.KNOWN_MISSING],
         ),
-        "the marketplace renamed in its file and the declaration, the enabled keys left": edit(
+        "the development marketplace renamed in its file and the declaration, the enabled keys left": edit(
             lambda f: (
-                f[market].update({"name": "kit-b"}),
-                f[settings].update({"extraKnownMarketplaces": {"kit-b": {"source": dict(DIRECTORY_SOURCE)}}}),
+                f[dev].update({"name": "kit-b"}),
+                f[settings].update({"extraKnownMarketplaces": {"kit-b": {"source": dict(DEV_SOURCE)}}}),
             ),
             [Where.SETTINGS, Where.SETTINGS],
         ),
-        "the marketplace renamed in its file and the enabled keys, the declaration left": edit(
+        "the development marketplace renamed in its file and the enabled keys, the declaration left": edit(
             lambda f: (
-                f[market].update({"name": "kit-b"}),
+                f[dev].update({"name": "kit-b"}),
                 f[settings].update(
                     {"enabledPlugins": {f"{m}@kit-b": True for m in ("const-x", "const-quiet")}}
                 ),
             ),
             [Where.KNOWN_MISSING],
+        ),
+        "the published marketplace renamed: the settings never name it": edit(
+            lambda f: f[market].update({"name": "kit-c"}), []
+        ),
+        "the development manifest's own keys beside its entries are not read": edit(
+            lambda f: f[dev].update({"owner": {"name": "Another"}, "description": "Another.", "x": 1}), []
+        ),
+        "the development entries in another order": edit(lambda f: dev_plugins(f).reverse(), []),
+        "the two manifests under one name": (Case({"x": scan}, tag=pub), [Where.DEV_NAME]),
+        "the two manifests under one name, and the settings naming another": edit(
+            lambda f: f[dev].update({"name": pub}),
+            [Where.DEV_NAME, Where.SETTINGS, Where.SETTINGS, Where.KNOWN_MISSING],
+        ),
+        "a module the development manifest leaves out": edit(
+            lambda f: dev_plugins(f).pop(0), [Where.DEV_MISSING]
+        ),
+        "a development manifest with no entry at all": edit(
+            lambda f: f[dev].update({"plugins": []}), [Where.DEV_MISSING, Where.DEV_MISSING]
+        ),
+        "a development entry whose source differs": edit(
+            lambda f: dev_plugins(f)[0].update({"source": "./modules/const-x"}), [Where.DEV_DIFFERS]
+        ),
+        "a development entry whose source climbs out of the kit": edit(
+            lambda f: dev_plugins(f)[0].update({"source": "../modules/const-x/plugin"}), [Where.DEV_DIFFERS]
+        ),
+        "a development entry whose description differs": edit(
+            lambda f: dev_plugins(f)[0].update({"description": "Another."}), [Where.DEV_DIFFERS]
+        ),
+        "a development entry with a key the published one lacks": edit(
+            lambda f: dev_plugins(f)[0].update({"version": "9"}), [Where.DEV_DIFFERS]
+        ),
+        "a development entry that lacks a key of the published one": edit(
+            lambda f: dev_plugins(f)[0].pop("description"), [Where.DEV_DIFFERS]
+        ),
+        "a development entry the published manifest lacks": edit(
+            lambda f: dev_plugins(f).append({"name": "const-gone", "source": plugin_source("const-gone")}),
+            [Where.DEV_STRAY],
+        ),
+        "two development entries for one module": edit(
+            lambda f: dev_plugins(f).append(dict(registry_entry(f))), [Where.DEV_TWICE]
+        ),
+        "a published entry twice is judged by the published finding alone": edit(
+            lambda f: f[market].update({"plugins": [*f[market]["plugins"], dict(registry_entry(f))]}),
+            [Where.MARKET_TWICE],
+        ),
+        "settings that still declare the published name": edit(
+            lambda f: registry_known(f).update({pub: {"source": {"source": "directory", "path": "."}}}),
+            [Where.KNOWN_PUBLISHED],
+        ),
+        "settings that enable a module under the published name": edit(
+            lambda f: registry_enabled(f).update({f"const-x@{pub}": True}), [Where.SETTINGS_PUBLISHED]
+        ),
+        "settings that switch a module off under the published name": edit(
+            lambda f: registry_enabled(f).update({f"const-x@{pub}": False}), [Where.SETTINGS_PUBLISHED]
+        ),
+        "settings that enable a name with no folder under the published name": edit(
+            lambda f: registry_enabled(f).update({f"const-gone@{pub}": True}), [Where.SETTINGS_PUBLISHED]
+        ),
+        "the settings of the kit before the development manifest": edit(
+            lambda f: f[settings].update(
+                {
+                    "extraKnownMarketplaces": {pub: {"source": {"source": "directory", "path": "."}}},
+                    "enabledPlugins": {f"{m}@{pub}": True for m in ("const-x", "const-quiet")},
+                }
+            ),
+            [
+                Where.SETTINGS,
+                Where.SETTINGS,
+                Where.SETTINGS_PUBLISHED,
+                Where.SETTINGS_PUBLISHED,
+                Where.KNOWN_MISSING,
+                Where.KNOWN_PUBLISHED,
+            ],
         ),
         "a manifest that names another plugin": edit(
             lambda f: f[MANIFEST_X].update({"name": "const-y"}), [Where.MANIFEST]
@@ -2117,7 +2400,7 @@ def registry_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
             lambda f: f[market]["plugins"].pop(0), [Where.MARKETPLACE]
         ),
         "a marketplace with no entry at all": edit(
-            lambda f: f[market].update({"plugins": []}), [Where.MARKETPLACE, Where.MARKETPLACE]
+            lambda f: f[market]["plugins"].clear(), [Where.MARKETPLACE, Where.MARKETPLACE]
         ),
         "an entry whose source is another folder": edit(
             lambda f: registry_entry(f).update({"source": "./modules/other"}), [Where.MARKET_SOURCE]
@@ -2255,7 +2538,7 @@ def registry_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
         "a declaration the settings lack": edit(lambda f: registry_known(f).pop(tag), [Where.KNOWN_MISSING]),
         "a declaration of another marketplace only": edit(
             lambda f: f[settings].update(
-                {"extraKnownMarketplaces": {"elsewhere": {"source": dict(DIRECTORY_SOURCE)}}}
+                {"extraKnownMarketplaces": {"elsewhere": {"source": dict(DEV_SOURCE)}}}
             ),
             [Where.KNOWN_MISSING],
         ),
@@ -2345,12 +2628,14 @@ def registry_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
         ),
         "an empty MYPYPATH": edit(with_mirror(p, q), one, types_with("MYPYPATH= ")),
     }
-    for what, source in {  # the declaration's source must be exactly a directory at `.`
-        "a path ./x": {"source": "directory", "path": "./x"},
-        "a path ./": {"source": "directory", "path": "./"},
-        "no path": {"source": "directory"},
+    for what, source in {  # the declaration's source must be exactly the development manifest's file
+        "a path ./x": {"source": "file", "path": "./x"},
+        "the published manifest's file": {"source": "file", "path": f"./{MARKETPLACE_FILE}"},
+        "its file without ./": {"source": "file", "path": DEV_MARKETPLACE_FILE},
+        "the kit's folder as a directory": {"source": "directory", "path": "."},
+        "no path": {"source": "file"},
         "a github source": {"source": "github", "repo": "a/b"},
-        "a key beside the two": {"source": "directory", "path": ".", "extra": 1},
+        "a key beside the two": {**DEV_SOURCE, "extra": 1},
         "an empty object": {},
         "a string": ".",
         "null": None,
@@ -2868,7 +3153,7 @@ def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
 
     name_line = (
         f'{m} has no marketplace name, "name" is no non-empty string'
-        " — fix: restore it, the name the kit's settings enable plugins under"
+        " — fix: restore it, the name the kit publishes its plugins under"
     )
     plugins_line = f'{m} has no list "plugins" — fix: restore it as a list of entries {entry_fix}'
     one_line = (
@@ -2938,6 +3223,25 @@ def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
         "a marketplace with an entry whose name is no string": (
             market(lambda d: d["plugins"][1].update({"name": 7})),
             one_line,
+        ),
+        "a development manifest that is missing": (
+            put(DEV_MARKETPLACE_FILE, None),
+            broken_no_file(DEV_MARKETPLACE_FILE),
+        ),
+        "a development manifest with no name": (
+            spoil(lambda f: f[DEV_MARKETPLACE_FILE].pop("name")),
+            f'{DEV_MARKETPLACE_FILE} has no marketplace name, "name" is no non-empty string'
+            " — fix: restore it, the name the kit's settings enable plugins under",
+        ),
+        "a development manifest whose plugins are null": (
+            spoil(lambda f: f[DEV_MARKETPLACE_FILE].update({"plugins": None})),
+            f'{DEV_MARKETPLACE_FILE} has no list "plugins" — fix: restore it as a list of entries'
+            f" {entry_fix}",
+        ),
+        "a development manifest with an entry that has no name": (
+            spoil(lambda f: dev_plugins(f)[1].pop("name")),
+            f"{DEV_MARKETPLACE_FILE}: entry 2 of plugins is no object with a string name — fix: write each"
+            f" entry as {entry_fix}",
         ),
         "settings that are missing": (put(s, None), broken_no_file(s)),
         "settings that are no JSON": (put(s, "{ not json\n"), broken_no_json(s)),
@@ -3258,6 +3562,23 @@ MAKE_FIX = ", or make modules/{} a module folder holding its MODULE.md"  # a str
 
 MARKET = ".claude-plugin/marketplace.json"
 
+DEV = ".claude-plugin/dev-marketplace.json"
+
+SOURCE_DECLARED_WHY = (
+    "  why: the kit loads its own modules from its own folder through the development manifest, so any"
+    " other source loads another marketplace or none"
+)
+
+CLASH_WHY = (
+    "  why: two declarations of one marketplace name overwrite each other on a machine, so the kit's"
+    " sessions load their clone under a name no consumer project declares"
+)
+
+DEV_ENTRY_WHY = (
+    "  why: the kit's sessions load the modules through the development manifest, so an entry that is not"
+    " the published one as written loads a plugin other than the one a consumer installs"
+)
+
 SETTINGS = ".claude/settings.json"
 
 RENAMED = "and name its manifest, marketplace entry, settings key and entry in MODULES the same"
@@ -3332,12 +3653,12 @@ MESSY_LINES = [
     KEY_WHY,
     f'  fix: remove the key "const-gone@kit-test" from enabledPlugins in {SETTINGS}'
     + MAKE_FIX.format("const-gone"),
-    "RED: kit-test: the kit's settings declare the marketplace with source"
-    ' {"path": "./x", "source": "directory"}, not source {"source": "directory", "path": "."}',
-    "  why: the kit loads its own modules from its own folder, so any other source loads another"
-    " marketplace or none",
+    "RED: kit-test: the kit's settings declare the development marketplace with source"
+    ' {"path": "./x", "source": "file"}, not source'
+    ' {"source": "file", "path": "./.claude-plugin/dev-marketplace.json"}',
+    SOURCE_DECLARED_WHY,
     f'  fix: set the source of "kit-test" under extraKnownMarketplaces in {SETTINGS} to'
-    ' {"source": "directory", "path": "."}',
+    ' {"source": "file", "path": "./.claude-plugin/dev-marketplace.json"}',
     "RED: 22 finding(s) — 6 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
 ]
 
@@ -3368,20 +3689,20 @@ ABSENT_LINES = [
     "RED: const-x: the kit's settings do not enable it",
     ENABLED_WHY,
     f'  fix: set "const-x@kit-test": true under enabledPlugins in {SETTINGS}',
-    "RED: kit-test: the kit's settings do not declare the marketplace under extraKnownMarketplaces",
+    "RED: kit-test: the kit's settings do not declare the development marketplace under"
+    " extraKnownMarketplaces",
     KNOWN_WHY,
-    '  fix: add "kit-test": {"source": {"source": "directory", "path": "."}} under'
-    f" extraKnownMarketplaces in {SETTINGS}",
+    '  fix: add "kit-test": {"source": {"source": "file", "path": "./.claude-plugin/dev-marketplace.json"}}'
+    f" under extraKnownMarketplaces in {SETTINGS}",
     "RED: 6 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
 ]
 
 DECLARED_SOURCE_LINES = [
-    "RED: kit-test: the kit's settings declare the marketplace with no source, not source"
-    ' {"source": "directory", "path": "."}',
-    "  why: the kit loads its own modules from its own folder, so any other source loads another"
-    " marketplace or none",
+    "RED: kit-test: the kit's settings declare the development marketplace with no source, not source"
+    ' {"source": "file", "path": "./.claude-plugin/dev-marketplace.json"}',
+    SOURCE_DECLARED_WHY,
     f'  fix: set the source of "kit-test" under extraKnownMarketplaces in {SETTINGS} to'
-    ' {"source": "directory", "path": "."}',
+    ' {"source": "file", "path": "./.claude-plugin/dev-marketplace.json"}',
 ]
 
 
@@ -4175,7 +4496,8 @@ def report_of_a_green_kit(tally: Tally) -> None:
         "GREEN: every declared scan stands in the gate list, the CI list and its module's job and runs with "
         "the kit's shared/ first on PYTHONPATH, the list's "
         "modules are the module folders, each named const-<aspect> and by its manifest, listed once in the "
-        "marketplace and enabled in the kit's settings, which declare the marketplace, neither list, "
+        "marketplace and alike in the development manifest under a name of its own, and enabled under that "
+        "name in the kit's settings, which declare that manifest and never the published name, neither list, "
         "comments aside, names pytest save in an exact pin, passes --item or names PYTEST_ADDOPTS, no pytest "
         "configuration file of the kit's folders a module's run reads sets addopts, every kit check is run "
         "by an entry of the gate group, the install guide's scan block names exactly the declared scans, and "
@@ -4374,11 +4696,74 @@ def reports_in_order(tally: Tally) -> None:
         f' named "const-x" of plugins in {MARKET}',
         "RED: 2 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
     ]
+    published = PUBLISHED_TAG
+    dev_tree = registry_tree(("const-x", "const-quiet"), REGISTRY_TAG)
+    own = dev_plugins(dev_tree)
+    own[:] = [{**own[0], "source": "../modules/const-x/plugin"}, {"name": "const-gone", "source": "./x"}]
+    dev_tree[SETTINGS_FILE]["extraKnownMarketplaces"][published] = {
+        "source": {"source": "directory", "path": "."}
+    }
+    dev_tree[SETTINGS_FILE]["enabledPlugins"].update(
+        {f"const-x@{published}": True, f"const-gone@{published}": True}
+    )
+    dev_lines = [  # typed by hand: the development manifest's entries by name, then the published name's uses
+        "RED: const-gone: the development manifest has an entry for it, but the published manifest has none",
+        DEV_ENTRY_WHY,
+        f'  fix: remove the entry named "const-gone" from plugins in {DEV}',
+        "RED: const-quiet: the development manifest has no entry for it",
+        DEV_ENTRY_WHY,
+        f'  fix: copy the entry named "const-quiet" of plugins in {MARKET}, as written, into plugins in'
+        f" {DEV}",
+        'RED: const-x: its entry in the development manifest differs from its published entry in "source"',
+        DEV_ENTRY_WHY,
+        f'  fix: copy the entry named "const-x" of plugins in {MARKET}, as written, into plugins in {DEV}, in'
+        " the place of the entry there",
+        "RED: const-gone@kit-test-published: the kit's settings enable it under the published marketplace's"
+        " name",
+        CLASH_WHY,
+        f'  fix: remove the key "const-gone@kit-test-published" from enabledPlugins in {SETTINGS}',
+        "RED: const-x@kit-test-published: the kit's settings enable it under the published marketplace's"
+        " name",
+        CLASH_WHY,
+        '  fix: rename the key "const-x@kit-test-published" to "const-x@kit-test" under enabledPlugins in'
+        f" {SETTINGS}",
+        "RED: kit-test-published: the kit's settings declare the published marketplace under"
+        " extraKnownMarketplaces",
+        CLASH_WHY,
+        f'  fix: remove the key "kit-test-published" from extraKnownMarketplaces in {SETTINGS}; the kit\'s'
+        ' sessions load the modules through "kit-test"',
+        "RED: 6 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
+    ]
+    one_name = registry_tree(("const-x", "const-quiet"), published)
+    dev_plugins(one_name).append(dict(one_name[MARKETPLACE_FILE]["plugins"][0]))
+    one_name_lines = [  # typed by hand: under one name, the published name's uses are the settings' own
+        f"RED: kit-test-published: the development manifest {DEV} bears the published marketplace's name",
+        CLASH_WHY,
+        f'  fix: set "name" in {DEV} to a name of its own, such as "kit-test-published-dev", and enable the'
+        f" modules and declare the manifest under that name in {SETTINGS}",
+        "RED: const-x: the development manifest has 2 entries for it",
+        "  why: a plugin's name must lead to one source, and with two entries it is open which one an install"
+        " reads",
+        f'  fix: remove all but one entry named "const-x" from plugins in {DEV}, the one that is the entry of'
+        f" {MARKET} as written",
+        "RED: 2 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
+    ]
     no_path = (
         "cd shared && python3 -m mypy --strict constitution_layer_kit\n"
         "cd scripts && python3 -m mypy --strict *.py"
     )
     for name, case, lines in (
+        (
+            "a development manifest that leaves a module out, holds a stray and another source, and settings"
+            " that declare the published name and enable two keys under it",
+            Case({"x": SCAN}, files=dev_tree),
+            dev_lines,
+        ),
+        (
+            "a development manifest under the published name with two entries for a module",
+            Case({"x": SCAN}, files=one_name),
+            one_name_lines,
+        ),
         (
             "a description that continues its manifest's and one that is cut short of it",
             Case({"x": SCAN}, files=prefix),
