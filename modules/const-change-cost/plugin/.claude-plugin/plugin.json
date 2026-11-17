@@ -1,6 +1,6 @@
 {
   "name": "const-change-cost",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Tokens per commit: for every commit a Claude Code session makes, the tokens that session spent on it. They are input, output, cache write and cache read, with their total and list cost. A pinned ccusage counts them from the session's own transcripts. They are kept in the clone, and shared by merge trailer, pull request and git notes.",
   "author": { "name": "Eugene Chernyshov" },
   "license": "Apache-2.0"

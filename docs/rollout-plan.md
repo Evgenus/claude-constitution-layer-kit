@@ -28,11 +28,11 @@ status: active
 | [s7](#s7) | Commit each step with honest messages | B | ✅ | 1 | 0 | 0 | 100% |
 | [s8](#s8) | [`const-locations`](requirements.md#const-locations) and [`const-task-close`](requirements.md#const-task-close) | C | ✅ | 2 | 0 | 0 | 100% |
 | [s9](#s9) | The other remaining modules, and the kit work logged beside them | C | 🔄 | 55 | 1 | 3 | 98% |
-| [s10](#s10) | Publish: the remote, the marketplace and CI, then `0.1.0` | D | 🔄 | 11 | 2 | 0 | 84% |
+| [s10](#s10) | Publish: the remote, the marketplace and CI, then `0.1.0` | D | ✅ | 13 | 0 | 0 | 100% |
 | [s10a](#s10a) | The first release of the shared package | D | ✅ | 1 | 0 | 0 | 100% |
 | [s10b](#s10b) | The release 2.0.0 of the shared package | D | ✅ | 1 | 0 | 0 | 100% |
 | [s11](#s11) | Switch the project from path load to marketplace install | D | ⏳ | 0 | 1 | 0 | 0% |
-| all | the whole plan | all | 🔄 | 89 | 4 | 7 | 95% |
+| all | the whole plan | all | 🔄 | 91 | 2 | 7 | 97% |
 
 <a id="phase-a"></a>
 ## Phase A — Kit as consumer zero: the document-shaped accumulating modules (~1 week)
@@ -162,8 +162,8 @@ status: active
     - <a id="s10-13"></a>**10.13** ✅ Then one carry audit in full before the modules go to `0.1.0`. Done 2026-11-12, record [dec-0127-one-pass-to-the-language-defaults](decisions/dec-0127-one-pass-to-the-language-defaults.md), the yes given. The audit closed the change of items 9.6, 9.38 and 9.24b together. It ran 64 readers over nine rounds and read 130 records.
     - <a id="s10-14"></a>**10.14** ✅ The kit's own sessions load its modules through the marketplace file. Done 2026-09-26, decision [dec-0043-kit-plugins-through-project-settings](decisions/dec-0043-kit-plugins-through-project-settings.md), the yes given. Renamed on 2026-10-16, decision [dec-0092-rename-to-claude-constitution-layer-kit](decisions/dec-0092-rename-to-claude-constitution-layer-kit.md).
     - <a id="s10-15"></a>**10.15** ✅ The session-conduct block of [CLAUDE.md](../CLAUDE.md) is trimmed to what no module carries. Done 2026-09-26, the routine edit [dec-0041-questions-module-rulings](decisions/dec-0041-questions-module-rulings.md#r2) R2 names, no yes asked.
-    - <a id="s10-16"></a>**10.16** ⏳ Modules go to `0.1.0`.
-    - <a id="s10-17"></a>**10.17** ⏳ In the same step `scripts/check-install-guide.py` again holds by a run what a plugin update takes. Today [§4 of the install guide](../INSTALL.md#s4) states that an update leaves a draft's change untaken. It states this as a fact seen on Claude Code 2.1.286 on 2026-10-07. No check runs it (R5 of [dec-0071-projects-install-from-github](decisions/dec-0071-projects-install-from-github.md#r5)).
+    - <a id="s10-16"></a>**10.16** ✅ Modules go to `0.1.0`. Done 2026-11-17, record [dec-0138-modules-published-at-0-1-0](decisions/dec-0138-modules-published-at-0-1-0.md), the yes given.
+    - <a id="s10-17"></a>**10.17** ✅ In the same step `scripts/check-install-guide.py` again holds by a run what a plugin update takes. Done 2026-11-17, record [dec-0138-modules-published-at-0-1-0](decisions/dec-0138-modules-published-at-0-1-0.md), the yes given. It runs an update probe on two fixed tags and the change.
 
 10a. <a id="s10a"></a>✅ The first release of the shared package — done 2026-10-23. On the decider's go-ahead, the tag `constitution-layer-kit-v1.0.0` was made on 8eccb06 (R23 of [dec-0099-shared-code-installed-as-a-pip-package](decisions/dec-0099-shared-code-installed-as-a-pip-package.md#r23)). That is the merge commit of the change that introduced the package. The tag was pushed, and that release was installed for the `python3` of the kit's own sessions. The sentences about the time before the tag left the install guide and each module's install note. They left [kit-shared-gate-code](../shared/GATE.md#g1) and [CLAUDE.md](../CLAUDE.md) too, all in the change that closed the step.
 

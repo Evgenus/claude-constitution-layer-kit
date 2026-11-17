@@ -89,17 +89,54 @@ Beside every block's exit 0, the check holds at each name:
   commit       the project's working tree is clean, `main` is checked out, and its last commit is a merge
                whose second parent is the tip of the branch the new-repo block left checked out.
   update       every module is listed as the install claim has it, at its manifest version, its
-               `installPath` the cached copy, a folder, and enabled. That an update leaves a draft's
-               change at an unchanged version untaken is not run: the platform fetches a GitHub
-               marketplace from GitHub alone, so the run cannot put a change where it looks; the guide
-               states it as an observed platform fact.
+               `installPath` the cached copy, a folder, and enabled. What an update takes and what it
+               leaves is held by the update probe below.
   reinstall    every module is listed as the install claim has it, and its cached copy holds the
                same files as the module's `plugin/` folder in the marketplace's `installLocation`, read
-               through its links, byte for byte: the install copied what the marketplace holds.
+               through its links, byte for byte, the platform's empty `.in_use` folder set aside
+               (`IN_USE`): the install copied what the marketplace holds.
   uninstall    no module is enabled in the project's settings or listed by `claude plugin list --json`
                with the project as its `projectPath`, at any scope.
 The first finding of the run ends it, since every later block builds on the one before. A finding
 is red; a failure to run is a configuration failure, and each prints its own fix.
+After the last block, once every claim holds, the update probe (`update_probe`) holds by a run the two
+sentences of the guide's §4 on what an update takes: it takes a module whose manifest version rose, and it
+leaves a change at an unchanged version untaken and calls the module current. It runs in a configuration
+folder and a plain folder of its own, under the run's throwaway folder and removed with it, in the run's
+environment with CLAUDE_CONFIG_DIR set to its own folder, and it declares the marketplace at project scope.
+<repository> is the source's, the part before `#`; <name> the marketplace's. In this order:
+  1. `claude plugin marketplace add <repository>#constitution-layer-kit-v2.5.0 --scope project`, then
+     `claude plugin install <module>@<name> --scope project` for const-catalogs and const-meta-types.
+  2. `claude plugin marketplace add <repository>#constitution-layer-kit-v2.6.0 --scope project`, then
+     `claude plugin update const-catalogs@<name> --scope project --json`. Held: its `updateOutcome` is
+     `up_to_date`; the module's folder in the plugin cache holds the same files, byte for byte, as before
+     the update; and its copy at the reply's `oldVersion` differs from the module's `plugin/` folder in
+     the platform's clone of the marketplace, the `installLocation` of `claude plugin marketplace list
+     --json`, now at the second tag: there was a change to take, and the update did not take it.
+  3. `claude plugin marketplace add <source> --scope project`, the source the marketplace block is given,
+     then `claude plugin update const-meta-types@<name> --scope project --json`. Held: its
+     `updateOutcome` is `updated`; its `newVersion` is the module's manifest version in the kit's clone,
+     and its `oldVersion` another; and the module's copy in the plugin cache at that version
+     (`Run.cached`) holds the same files as the module's `plugin/` folder in the kit's clone, read as the
+     reinstall claim reads them.
+The tags and the modules are the constant `PROBE`, fixed since a tag never moves: from the first tag to the
+second const-catalogs changed at one manifest version, and const-meta-types is at a higher version in every
+later change than at the first. A wrong outcome, a wrong version or a wrong copy is a finding at the line of
+the block named check=update, with a why of its own, `PROBE_WHY`, and a fix that names what to correct. These
+are each a configuration failure: a probe command that exits other than 0 or times out, its fix the
+command's own (`kit_module_doc.command_fix`) run after the probe's commands before it; a reply with no JSON
+line, or whose `updateOutcome`, `oldVersion` or `newVersion` is no string or is empty, its fix the reader
+`probe_update` (`kit_module_doc.platform_fix`); and a reply whose `refreshFailed` is there and not false,
+whose outcome says nothing of the change, its fix the fetch from GitHub. The probe's limits: it tests the
+platform on two fixed tags and on the change's branch, never the guide's own update block, which it does
+not run; that a marketplace declared at project scope moves to another ref when it is added again was seen
+on the pinned version, 2.1.282, and no documentation says so; it needs the network, as the marketplace block
+does; and it reads the tags from the source's repository, so a pull request from a fork, whose source is
+another repository, runs the probe only where that fork holds both tags: where it lacks one, a command
+of the probe fails and the run ends as a configuration failure. The kit's own runs exercise no fork. What
+the probe does with a fetch that failed is exercised by the self-test's stand-in for `claude` alone: the
+platform's own reply to one, `refreshFailed` true beside `up_to_date`, was seen once by hand on the pinned
+version, on 2026-11-16, and no run of the check makes the platform give it.
 A missing `git`, met first when the guide is read, "install it and put it on PATH"; a `git`, `bash` or
 `claude` not on PATH when the run starts, "install it; the check runs the guide's commands with it".
 A guide that cannot be read: a folder that is no clone with a commit, "run the check from a clone of the
@@ -183,10 +220,12 @@ cache's path, `cache/<marketplace>/<plugin>/<version>/` under the plugins root (
 loading page), a path the check builds and compares with the `installPath` of the list; the root is
 `~/.claude/plugins` unless CLAUDE_CODE_PLUGIN_CACHE_DIR names it, a variable the check removes from the
 environment it runs `claude` in, with three more (`kit_module_doc.claude_env`), so the root under
-CLAUDE_CONFIG_DIR, `plugins` in it, is that default read from CLAUDE_CONFIG_DIR's own meaning. From an
-undocumented place: none, since the record files of Claude Code are not read, and the plugin cache is read
-only through the documented path of a module's copy; the files under an `installLocation` and under that
-copy are read as plain files.
+CLAUDE_CONFIG_DIR, `plugins` in it, is that default read from CLAUDE_CONFIG_DIR's own meaning. From a reply
+whose help alone names it: the one JSON line of `claude plugin update --json`, "one machine-readable result
+line" in the command's `--help`, its `updateOutcome`, `oldVersion`, `newVersion` and `refreshFailed` as
+2.1.282 writes them, for the update probe. From an undocumented place: none, since the record files of Claude
+Code are not read, and the plugin cache is read only through the documented path of a module's copy and of
+its module folder; the files under an `installLocation` and under that copy are read as plain files.
 
 Modes:  no arguments   check the kit's guide;
         --self-test    prove the check with a toy kit, a toy guide and a fake `claude` that logs to a
@@ -233,6 +272,14 @@ Modes:  no arguments   check the kit's guide;
                        The shared code's environment: a block that imports the toy kit's shared package, the
                        toy clone holding no link to it, green; the same guide run with the environment
                        dropped, the PATH the person's, red, the block exiting 1.
+                       The update probe, over the toy kit's history of `TOY_PROBE`, two tags and a HEAD: a
+                       green probe, its eight commands in order; the fake's update saying updated where
+                       up_to_date was due, up_to_date where updated was due, and a newVersion not the
+                       module's, each the literal finding; one that calls a copy current and changes it,
+                       and one that reports an update it did not copy, each the finding naming the copy;
+                       two tags with no change between them the literal finding; a reply whose
+                       refreshFailed is true, a reply with no JSON line and a probe command that exits 4,
+                       each the literal BROKEN line.
                        The report of one finding as literal lines with exit 2.
                        The kit's modules, the folders of `kit_module_doc.module_folders` with their
                        manifest versions: a folder `.x` or `_x` and a plain file skipped, a name without
@@ -313,6 +360,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import dataclasses
 import errno
 import io
 import itertools
@@ -395,6 +443,40 @@ WHY = "a command nobody runs drifts from the platform unseen (rule 4 of plc-0011
 TIMEOUT = 900
 
 
+@dataclass(frozen=True)
+class Probe:
+    """What the update probe runs on: two tags of the kit's repository and two modules of the kit."""
+
+    before: str  # the tag the probe installs from
+    after: str  # the tag it moves the marketplace to
+    same: str  # a module whose files changed from `before` to `after` while its manifest version did not
+    risen: str  # a module whose manifest version at `before` is below its version in every later change
+
+
+# Fixed, never read from the kit: a tag never moves. From the first tag to the second the files of
+# const-catalogs changed while its manifest version stayed 0.0.1. const-meta-types stood at 0.0.2 at the
+# first tag, and every module rose to 0.1.0 after the second, so a change holds it at a higher version.
+PROBE = Probe(
+    "constitution-layer-kit-v2.5.0", "constitution-layer-kit-v2.6.0", "const-catalogs", "const-meta-types"
+)
+PROBE_WHY = (
+    "§4 of the guide tells a project what an update takes, and a release of the platform can change that"
+    " unseen (rule 4 of plc-0011-install-guide)"
+)
+PROBE_WHERE = (  # where a probe command that failed is run again, after the probe's commands before it
+    "a folder of your own, CLAUDE_CONFIG_DIR set to an empty folder, after the update probe's commands"
+    " before it, as the docstring of scripts/check-install-guide.py lists them"
+)
+PROBE_MOVED = (  # the fix of a change the update did not take as the guide says
+    "run the update probe's commands by hand, as the docstring of scripts/check-install-guide.py lists them:"
+    " if `claude plugin marketplace list --json` there still gives the ref of the second tag, the platform no"
+    " longer moves a marketplace declared at project scope when it is added again, so correct `update_probe`"
+    " to move it another way; else correct the paragraph of §4 after the block named check=update to what an"
+    " update takes, and `update_probe` with it"
+)
+IN_USE = ".in_use"  # the empty folder the platform keeps in a cached copy, no file of the module
+
+
 class Broken(Exception):
     """The check could not run; the message says why and how to fix it. `note` is the note of a run on
     another Claude Code than the pin, set once the version is known, which ends each BROKEN line. `ran` is
@@ -429,11 +511,12 @@ class Finding:
     line: int
     what: str
     fix: str
+    why: str = WHY  # the update probe's findings give PROBE_WHY
 
     def render(self, note: str = "") -> str:
         """The finding as lines, the note of a run off the pin at the end of its headline."""
         where = f"{GUIDE}:{self.line}" if self.line else GUIDE
-        return f"RED: {where}: {self.what}{note}\n  why: {WHY}\n  fix: {self.fix}"
+        return f"RED: {where}: {self.what}{note}\n  why: {self.why}\n  fix: {self.fix}"
 
 
 @dataclass(frozen=True)
@@ -1017,12 +1100,12 @@ def walked(folder: Path, through_links: bool) -> Iterator[tuple[Path, list[str],
 
 
 def files_through_links(folder: Path) -> dict[str, Path]:
-    """Every file under a folder by its relative path, links to folders followed, caches left out; a
-    folder below it that cannot be listed, or a file that cannot be looked up, is a Broken (`walked`,
-    `looked`)."""
+    """Every file under a folder by its relative path, links to folders followed, caches and the platform's
+    `IN_USE` folder left out; a folder below it that cannot be listed, or a file that cannot be looked up,
+    is a Broken (`walked`, `looked`)."""
     found: dict[str, Path] = {}
     for where, folders, files in walked(folder, through_links=True):
-        folders[:] = [f for f in folders if f != "__pycache__"]
+        folders[:] = [f for f in folders if f not in ("__pycache__", IN_USE)]
         for name in files:
             path = where / name
             if file_at(path):
@@ -1473,6 +1556,164 @@ def after_block(block: Block, state: Run, code: int, said: str) -> Finding | Non
     return Finding(block.line, f"after check={block.name}: {failed}", fix) if failed else None
 
 
+def probe_ran(probe: Run, argv: list[str]) -> str:
+    """The standard output of one `claude` command of the update probe, run in the probe's folder and
+    configuration. A command that exits other than 0, or times out (124), wrote nothing to read: a Broken
+    whose fix is the command's own, `kit_module_doc.command_fix`, run again after the probe's commands
+    before it."""
+    code, out, err = run_apart(["claude", *argv], probe.cwd, probe.env)
+    if code != 0:
+        command = f"claude {' '.join(argv)}"
+        said = command_fix(probe.note, command, PROBE_WHERE, timed_out=code == 124)
+        raise Broken(f"the update probe: `{command}` exited {code} ({last_line((err or out).strip())}){said}")
+    return out
+
+
+@dataclass(frozen=True)
+class Updated:
+    """What `claude plugin update --json` says of one plugin: its `updateOutcome`, `oldVersion` and
+    `newVersion`."""
+
+    outcome: str
+    old: str
+    new: str
+
+
+def probe_update(probe: Run, module: str) -> Updated:
+    """The update of one module at project scope in the probe's configuration, by the one JSON line that
+    `claude plugin update <module>@<marketplace> --scope project --json` prints on Claude Code 2.1.282, an
+    object. A reply with no such line, or whose `updateOutcome`, `oldVersion` or `newVersion` is no string or
+    is empty, is a Broken for this reader (`platform_fix`). A reply whose `refreshFailed` is there and not
+    false is a Broken too: the platform could not fetch the marketplace, so the outcome says nothing of the
+    change, and its fix is the fetch."""
+    argv = ["plugin", "update", probe.key(module), "--scope", "project", "--json"]
+    out, command = probe_ran(probe, argv), command_of(argv)
+    replies = []
+    for line in out.splitlines():
+        try:
+            replies.append(json.loads(line))
+        except ValueError:
+            continue
+    reply = next((r for r in replies if isinstance(r, dict)), None)
+    if reply is None:
+        raise Broken(
+            f"the update probe: {command} printed no JSON line ({shown(out)})"
+            + platform_fix(probe.note, SCRIPT, "probe_update", "a reply")
+        )
+    if reply.get("refreshFailed", False) is not False:
+        raise Broken(
+            f"the update probe: {command} could not refresh the marketplace (refreshFailed is"
+            f" {shown(reply['refreshFailed'])}), so its outcome says nothing of the change — fix: let git"
+            f" fetch {probe.source.split('#')[0]} from GitHub, the network up and a credential for github.com"
+            " where the repository is private, then run the check again"
+        )
+
+    def field(name: str) -> str:
+        return text_of(reply, name, module, f"the update probe: {command}", probe.note, "probe_update")
+
+    return Updated(field("updateOutcome"), field("oldVersion"), field("newVersion"))
+
+
+def cached_files(folder: Path) -> dict[str, bytes]:
+    """Every file under a folder of the plugin cache by its relative path, with its bytes."""
+    return {name: path.read_bytes() for name, path in files_through_links(folder).items()}
+
+
+def probe_same(probe: Run, repo: str, line: int) -> Finding | None:
+    """Steps 1 and 2 of the update probe: install `PROBE.same` and `PROBE.risen` from the first tag, move
+    the marketplace to the second, update `PROBE.same`. Held: the update says `up_to_date`, and leaves the
+    module's copies in the cache byte for byte as they were, though the copy differs from the module in the
+    platform's clone at the second tag."""
+    same, add = PROBE.same, ["plugin", "marketplace", "add"]
+    probe_ran(probe, [*add, f"{repo}#{PROBE.before}", "--scope", "project"])
+    for module in (same, PROBE.risen):
+        probe_ran(probe, ["plugin", "install", probe.key(module), "--scope", "project"])
+    held = probe.config / "plugins" / "cache" / probe.marketplace / same
+    before = cached_files(held)
+    probe_ran(probe, [*add, f"{repo}#{PROBE.after}", "--scope", "project"])
+    updated = probe_update(probe, same)
+    if updated.outcome != "up_to_date":
+        return Finding(
+            line,
+            f"the update probe: an update of {same}, whose files changed from {PROBE.before} to {PROBE.after}"
+            f" at one manifest version, says {updated.outcome}, not up_to_date",
+            "the platform now takes a change at an unchanged version: correct the paragraph of §4 after the"
+            " block named check=update to say so, and `update_probe` with it",
+            PROBE_WHY,
+        )
+    if cached_files(held) != before:
+        return Finding(
+            line,
+            f"the update probe: an update says {same} is up to date but changed its copy under {held}",
+            "the platform now changes a copy it calls current: find what it wrote there, then correct the"
+            " paragraph of §4 after the block named check=update, and `update_probe` with it",
+            PROBE_WHY,
+        )
+    clone = platform_clone(probe)
+    if not differing(held / updated.old, clone / "modules" / same / "plugin"):
+        return Finding(
+            line,
+            f"the update probe: {same}'s copy from {PROBE.before} is alike in the marketplace at"
+            f" {PROBE.after}, so the update had no change to leave untaken",
+            f"point `PROBE` of {SCRIPT} at two tags of the kit's repository between which the module's files"
+            " changed and its manifest version did not",
+            PROBE_WHY,
+        )
+    return None
+
+
+def update_probe(state: Run, scratch: Path, line: int) -> Finding | None:
+    """The update probe, run after the guide's blocks in a configuration and a plain folder of its own,
+    under `scratch`, with the run's environment: `probe_same`, then step 3, the marketplace moved to the
+    change's source and `PROBE.risen` updated. Held: the update says `updated` from a version to the
+    module's manifest version at HEAD, and the module's copy in the cache at that version holds the same
+    files as the module's `plugin/` folder in the kit's clone. Its finding stands at `line`, the block named
+    check=update."""
+    root = scratch / "update-probe"
+    config, folder = root / "config", root / "folder"
+    config.mkdir(parents=True)
+    folder.mkdir()
+    env = state.env | {"CLAUDE_CONFIG_DIR": str(config)}
+    probe = dataclasses.replace(state, config=config, env=env, cwd=folder, project=folder, clone=None)
+    try:
+        found = probe_same(probe, state.source.split("#")[0], line)
+        if found:
+            return found
+        risen, wanted = PROBE.risen, state.modules[PROBE.risen]
+        probe_ran(probe, ["plugin", "marketplace", "add", state.source, "--scope", "project"])
+        updated = probe_update(probe, risen)
+    except Misfit as misfit:
+        return Finding(line, f"the update probe: {misfit.what}", misfit.fix, PROBE_WHY)
+    if updated.outcome != "updated":
+        return Finding(
+            line,
+            f"the update probe: an update of {risen}, whose manifest version is {wanted} in the change, says"
+            f" {updated.outcome}, not updated",
+            PROBE_MOVED,
+            PROBE_WHY,
+        )
+    if updated.new != wanted or updated.old == wanted:
+        return Finding(
+            line,
+            f"the update probe: an update took {risen} from {updated.old} to {updated.new}, not from a lower"
+            f" version to {wanted}, its manifest version in the change",
+            PROBE_MOVED,
+            PROBE_WHY,
+        )
+    copy = probe.cached(risen)
+    odd = differing(copy, state.kit / "modules" / risen / "plugin")
+    if odd:
+        return Finding(
+            line,
+            f"the update probe: an update says {risen} is updated to {wanted}, but its copy at {copy} does"
+            f" not hold the change's {odd}",
+            "the platform now reports an update it does not copy: correct the paragraph of §4 after the block"
+            " named check=update to what an update takes, and `update_probe` with it",
+            PROBE_WHY,
+        )
+    return None
+
+
 def run_blocks(
     named: list[Block], kit: Path, base_env: dict[str, str], source: str, note: Note
 ) -> tuple[list[Finding], str]:
@@ -1494,6 +1735,10 @@ def run_blocks(
                 found = after_block(block, state, code, said)
                 if found:
                     return [found], f"{ran} block(s) run"
+            update = next(b.line for b in named if b.name == "update")
+            found = update_probe(state, Path(scratch), update)
+            if found:
+                return [found], f"{ran} block(s) run and the update probe"
         except Broken as bad:  # a failure of the loop or of a claim: the count is what ran before it
             bad.ran = ran
             raise
@@ -1501,7 +1746,7 @@ def run_blocks(
             unreadable = Broken(unreadable_said(bad))
             unreadable.ran = ran
             raise unreadable from bad
-        return [], f"{ran} block(s) run, {len(state.modules)} module(s), from {source}"
+        return [], f"{ran} block(s) run and the update probe, {len(state.modules)} module(s), from {source}"
 
 
 def committed_guide(kit: Path, env: dict[str, str]) -> str:
@@ -1611,6 +1856,10 @@ def listing(which):
         print(os.environ["FAKE_STDERR"], file=sys.stderr)
 args = sys.argv[1:]
 if args[:3] == ["plugin", "marketplace", "add"]:
+    origin, _, ref = args[3].partition("#")
+    tagged = origin == os.environ["CONSTITUTION_KIT_INSTALL_FROM"].split("#")[0] and ref in subprocess.run(
+        ["git", "-C", os.environ["FAKE_SOURCE"], "tag", "--list"], capture_output=True, text=True,
+    ).stdout.split()
     if Path(os.path.expanduser(args[3])).exists() or mutant == "marketplace-directory":
         source = {"source": "directory", "path": args[3]}
     elif os.environ.get("FAKE_NEEDS_HELPER") and "!gh auth git-credential" not in subprocess.run(
@@ -1619,13 +1868,15 @@ if args[:3] == ["plugin", "marketplace", "add"]:
     ).stdout:
         print("fatal: unable to get password from user", file=sys.stderr)
         sys.exit(1)
-    elif args[3] != os.environ["CONSTITUTION_KIT_INSTALL_FROM"]:
+    elif args[3] != os.environ["CONSTITUTION_KIT_INSTALL_FROM"] and not tagged:
         print("fake claude: no such repository " + args[3], file=sys.stderr)
         sys.exit(4)
     else:
         repo = "other/kit" if mutant == "marketplace-other-repo" else args[3].split("#")[0]
         source = {"source": "github", "repo": repo}
-    subprocess.run(["git", "clone", "--quiet", os.environ["FAKE_SOURCE"], str(clone)], check=True)
+    shutil.rmtree(clone, ignore_errors=True)  # added again, the marketplace's clone is replaced
+    at = ["--branch", args[3].split("#")[1]] if tagged else []
+    subprocess.run(["git", "clone", "--quiet", *at, os.environ["FAKE_SOURCE"], str(clone)], check=True)
     if mutant == "marketplace-fewer-modules":
         shutil.rmtree(clone / "modules" / "const-beta")
     if mutant == "marketplace-unreadable":
@@ -1710,7 +1961,34 @@ elif args[:2] == ["plugin", "install"] or args[:2] == ["plugin", "update"]:
             shutil.rmtree(cache_of(module), ignore_errors=True)
         if mutant == "settings-corrupt-on-update":
             settings.write_text("not json")
-        print("already at the latest version")
+        data = state()
+        mine = [e for e in data["plugins"] if e["id"] == args[2]]
+        old, new = (mine[0]["version"] if mine else ""), cache_of(module).name
+        wrong = mutant if "--json" in args else ""  # the probe's mutants, never the guide's own update
+        risen = {"update-never": False, "update-always": True}.get(wrong, new != old)
+        if risen and wrong != "update-says-only":
+            shutil.rmtree(cache_of(module), ignore_errors=True)
+            shutil.copytree(clone / "modules" / module / "plugin", cache_of(module))
+            for entry in mine:
+                entry.update(version=new, installPath=str(cache_of(module)))
+            save(store, data)
+        if wrong == "update-copies-quietly" and mine:
+            stale = Path(mine[0]["installPath"])
+            shutil.rmtree(stale)
+            shutil.copytree(clone / "modules" / module / "plugin", stale)
+        said = {
+            "command": "update", "outcome": "ok", "plugin": args[2], "scope": "project",
+            "updateOutcome": "updated" if risen else "up_to_date",
+            "oldVersion": old, "newVersion": new if risen else old,
+        }
+        if wrong == "update-refresh-failed":
+            said["refreshFailed"] = True
+        if wrong == "update-wrong-version":
+            said["newVersion"] = "9.9.9"
+        if "--json" in args and wrong != "update-no-json":
+            print(json.dumps(said))
+        else:
+            print("already at the latest version" if not risen else "updated from " + old + " to " + new)
         sys.exit(0)
     cache = cache_of(module)
     if cache.exists():
@@ -1827,6 +2105,7 @@ else:
 TOY_MARK = "toy-shared"  # what the toy kit's shared package says, so that no other copy passes for it
 TOY_MP = "toy-mp"  # the toy kit's marketplace name, which its marketplace.json gives and the fake follows
 TOY_PIN = "2.1.282"  # the toy kit's pin of the Claude Code version, which the fake answers `--version` with
+TOY_PROBE = Probe("toy-v1", "toy-v2", "const-alpha", "const-beta")  # the tags and modules of `toy_kit`
 TOY_DIALS = (
     "root_policy: docs/policies/root-policy.md\nmodule_prefix: const-\n"
     'root-policy:\n  territory: ["docs/policies/**"]\n'
@@ -1900,19 +2179,34 @@ def toy_kit(root: Path, market: dict[str, object] | None = None) -> Path:
     for module in ("const-alpha", "const-beta"):
         (kit / "modules" / module / "plugin" / "scripts").mkdir(parents=True)
         (kit / "modules" / module / "plugin" / "scripts" / "gate").symlink_to("../../../../shared/gate")
-        manifest = kit / "modules" / module / "plugin" / ".claude-plugin"
-        manifest.mkdir(parents=True)
+        (kit / "modules" / module / "plugin" / ".claude-plugin").mkdir(parents=True)
         (kit / "modules" / module / "MODULE.md").write_text("A module.\n", encoding="utf-8")
-        (manifest / "plugin.json").write_text(
-            json.dumps({"name": module, "version": "0.0.1"}), encoding="utf-8"
-        )
     env = os.environ | {"GIT_CONFIG_GLOBAL": os.devnull}
-    for argv in (
-        ["git", "init", "--quiet"],
-        ["git", "add", "-A"],
-        ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "--quiet", "-m", "toy"],
-    ):
-        run(argv, kit, env)
+    run(["git", "init", "--quiet"], kit, env)
+    # the history `TOY_PROBE` reads: at toy-v1 const-alpha is described and const-beta is at 0.0.0; at toy-v2
+    # const-alpha's manifest has changed at the same version; at HEAD const-beta has risen to 0.0.1
+    history: list[tuple[str, dict[str, str], str]] = [
+        ("toy-v1", {"description": "v1"}, "0.0.0"),
+        ("toy-v2", {}, "0.0.0"),
+        ("", {}, "0.0.1"),
+    ]
+    for tag, alpha, beta in history:
+        manifests: list[tuple[str, dict[str, str], str]] = [
+            ("const-alpha", alpha, "0.0.1"),
+            ("const-beta", {}, beta),
+        ]
+        for module, extra, version in manifests:
+            (kit / "modules" / module / "plugin" / ".claude-plugin" / "plugin.json").write_text(
+                json.dumps({"name": module, "version": version} | extra), encoding="utf-8"
+            )
+        run(["git", "add", "-A"], kit, env)
+        run(
+            ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "--quiet", "-m", tag or "toy"],
+            kit,
+            env,
+        )
+        if tag:
+            run(["git", "tag", tag], kit, env)
     return kit
 
 
@@ -2462,7 +2756,10 @@ class SelfTestRun:
 
     def guide_run_cases(self, texts: Texts) -> None:
         """The cases that run the guide against the fake claude in a temporary folder."""
-        with tempfile.TemporaryDirectory(prefix="install-guide-self-test-") as scratch:
+        with (
+            tempfile.TemporaryDirectory(prefix="install-guide-self-test-") as scratch,
+            mock.patch.dict(globals(), {"PROBE": TOY_PROBE}),
+        ):
             toy = toy_run(Path(scratch))
             green_examined = self.green_run_cases(toy)
             unit = unit_of(toy, texts.pin_note)
@@ -2482,6 +2779,7 @@ class SelfTestRun:
             versions = Versions(toy, toy.root / "version.log")
             self.claude_version_cases(toy, texts, person, versions)
             self.whole_run_cases(toy, texts, versions)
+            self.update_probe_cases(toy, versions)
             self.run_finding_cases(toy, texts, versions)
             self.clone_and_source_cases(toy)
 
@@ -4187,12 +4485,16 @@ class SelfTestRun:
             toy.base | {"FAKE_CWD": str(run_cwd)},
         )
         listed_in = [line.split("|", 1) for line in run_cwd.read_text(encoding="utf-8").splitlines()]
-        market_in = {where for which, where in listed_in if which == "marketplace"}
-        plugins_in = {where for which, where in listed_in if which == "plugins"}
+        probed_in = {where for which, where in listed_in if where.endswith("/update-probe/folder")}
+        guide_in = [(which, where) for which, where in listed_in if where not in probed_in]
+        market_in = {where for which, where in guide_in if which == "marketplace"}
+        plugins_in = {where for which, where in guide_in if which == "plugins"}
         self.case(
             "a run whose marketplace block ends outside the project: green, the marketplace list run where "
-            "the block ended, the plugin list in the project",
+            "the block ended, the plugin list in the project, the update probe's marketplace list in its own"
+            " folder",
             not away_run
+            and len(probed_in) == 1
             and len(market_in) == 1
             and next(iter(market_in)).endswith("/elsewhere")
             and len(plugins_in) == 1
@@ -4782,7 +5084,7 @@ class SelfTestRun:
         )
         green_line = (
             "GREEN: the install guide runs and does what it says"
-            " — 9 block(s) run, 2 module(s), from toy/kit#main"
+            " — 9 block(s) run and the update probe, 2 module(s), from toy/kit#main"
         )
         for name, env, note_wanted in (
             ("off the pin", versions.says_env(texts.too_old, 0, "1"), texts.noted.format("2.1.286")),
@@ -4792,6 +5094,155 @@ class SelfTestRun:
             self.case(
                 f"a whole green run {name} prints one GREEN line, the note at the end of it",
                 ended == EXIT_GREEN and lines == [green_line + note_wanted],
+                f"{ended} {lines}",
+            )
+
+    def update_probe_cases(self, toy: Toy, versions: Versions) -> None:
+        """The update probe over the toy kit's tags: its commands in order, then each way the fake's update
+        can get §4 wrong, as the literal lines of a whole run, and each way the probe cannot run."""
+        probe_log = toy.root / "probe.log"
+        probe_log.unlink(missing_ok=True)
+        green, examined, _ = run_guide(toy_guide(), toy.kit, toy.base | {"FAKE_LOG": str(probe_log)})
+        ran = probe_log.read_text(encoding="utf-8").splitlines() if probe_log.exists() else []
+        self.case(
+            "a green probe: green, its commands the last eight the run starts, in order, in its own folder",
+            not green
+            and examined == "9 block(s) run and the update probe, 2 module(s), from toy/kit#main"
+            and ran[-8:]
+            == [  # typed by hand
+                "plugin marketplace add toy/kit#toy-v1 --scope project",
+                "plugin install const-alpha@toy-mp --scope project",
+                "plugin install const-beta@toy-mp --scope project",
+                "plugin marketplace add toy/kit#toy-v2 --scope project",
+                "plugin update const-alpha@toy-mp --scope project --json",
+                "plugin marketplace list --json",
+                "plugin marketplace add toy/kit#main --scope project",
+                "plugin update const-beta@toy-mp --scope project --json",
+            ],
+            f"{whats(green)} ({examined}) {ran[-8:]}",
+        )
+        line = toy_guide().splitlines().index("```bash check=update") + 1
+        why = (  # typed by hand
+            "  why: §4 of the guide tells a project what an update takes, and a release of the platform can"
+            " change that unseen (rule 4 of plc-0011-install-guide)"
+        )
+        moved = (  # typed by hand
+            "  fix: run the update probe's commands by hand, as the docstring of"
+            " scripts/check-install-guide.py lists them: if `claude plugin marketplace list --json` there"
+            " still gives the ref of the second tag, the platform no longer moves a marketplace declared at"
+            " project scope when it is added again, so correct `update_probe` to move it another way; else"
+            " correct the paragraph of §4 after the block named check=update to what an update takes, and"
+            " `update_probe` with it"
+        )
+        closing = "RED: 1 finding(s) — 9 block(s) run and the update probe"
+        cache = "/update-probe/config/plugins/cache/toy-mp"
+        for mutant, headline, fix in (
+            (
+                "update-always",
+                "an update of const-alpha, whose files changed from toy-v1 to toy-v2 at one manifest version,"
+                " says updated, not up_to_date",
+                "  fix: the platform now takes a change at an unchanged version: correct the paragraph of §4"
+                " after the block named check=update to say so, and `update_probe` with it",
+            ),
+            (
+                "update-never",
+                "an update of const-beta, whose manifest version is 0.0.1 in the change, says up_to_date, not"
+                " updated",
+                moved,
+            ),
+            (
+                "update-wrong-version",
+                "an update took const-beta from 0.0.0 to 9.9.9, not from a lower version to 0.0.1, its"
+                " manifest version in the change",
+                moved,
+            ),
+        ):
+            ended, lines = versions.whole_run(toy.base | {"FAKE_MUTANT": mutant})
+            self.case(
+                f"the probe over a fake that does {mutant}: the literal finding at the update block, exit 2",
+                ended == EXIT_RED
+                and lines == [f"RED: INSTALL.md:{line}: the update probe: {headline}", why, fix, closing],
+                f"{ended} {lines}",
+            )
+        for mutant, head, tail, fix in (
+            (
+                "update-copies-quietly",
+                "an update says const-alpha is up to date but changed its copy under ",
+                f"{cache}/const-alpha",
+                "  fix: the platform now changes a copy it calls current: find what it wrote there, then"
+                " correct the paragraph of §4 after the block named check=update, and `update_probe` with it",
+            ),
+            (
+                "update-says-only",
+                "an update says const-beta is updated to 0.0.1, but its copy at ",
+                f"{cache}/const-beta/0.0.1 does not hold the change's .claude-plugin/plugin.json",
+                "  fix: the platform now reports an update it does not copy: correct the paragraph of §4"
+                " after the block named check=update to what an update takes, and `update_probe` with it",
+            ),
+        ):
+            ended, lines = versions.whole_run(toy.base | {"FAKE_MUTANT": mutant})
+            self.case(
+                f"the probe over a fake that does {mutant}: the finding at the update block, naming the copy,"
+                " exit 2",
+                ended == EXIT_RED
+                and len(lines) == 4
+                and lines[0].startswith(f"RED: INSTALL.md:{line}: the update probe: {head}/")
+                and lines[0].endswith(tail)
+                and lines[1:] == [why, fix, closing],
+                f"{ended} {lines}",
+            )
+        with mock.patch.dict(globals(), {"PROBE": dataclasses.replace(TOY_PROBE, before="toy-v2")}):
+            ended, lines = versions.whole_run(toy.base)
+        self.case(
+            "the probe over two tags with no change between them: the literal finding, exit 2",
+            ended == EXIT_RED
+            and lines
+            == [
+                f"RED: INSTALL.md:{line}: the update probe: const-alpha's copy from toy-v2 is alike in the"
+                " marketplace at toy-v2, so the update had no change to leave untaken",
+                why,
+                "  fix: point `PROBE` of scripts/check-install-guide.py at two tags of the kit's repository"
+                " between which the module's files changed and its manifest version did not",
+                closing,
+            ],
+            f"{ended} {lines}",
+        )
+        command = "`claude plugin update const-alpha@toy-mp --scope project --json`"
+        added = "claude plugin marketplace add toy/kit#toy-v9 --scope project"
+        unrun: list[tuple[str, dict[str, str], Probe, str]] = [
+            (
+                "a reply whose refreshFailed is true",
+                {"FAKE_MUTANT": "update-refresh-failed"},
+                TOY_PROBE,
+                f"the update probe: {command} could not refresh the marketplace (refreshFailed is True), so"
+                " its outcome says nothing of the change — fix: let git fetch toy/kit from GitHub, the"
+                " network up and a credential for github.com where the repository is private, then run the"
+                " check again",
+            ),
+            (
+                "a reply with no JSON line",
+                {"FAKE_MUTANT": "update-no-json"},
+                TOY_PROBE,
+                f"the update probe: {command} printed no JSON line ('already at the latest version\\n')"
+                + fix_of("probe_update"),
+            ),
+            (
+                "a probe command that exits 4, a tag the repository lacks",
+                {},
+                dataclasses.replace(TOY_PROBE, before="toy-v9"),
+                f"the update probe: `{added}` exited 4 (fake claude: no such repository toy/kit#toy-v9) —"
+                f" fix: run `{added}` in a folder of your own, CLAUDE_CONFIG_DIR set to an empty folder,"
+                " after the update probe's commands before it, as the docstring of"
+                " scripts/check-install-guide.py lists them, read why it fails, then run the check again",
+            ),
+        ]
+        for name, env, probe, said in unrun:
+            with mock.patch.dict(globals(), {"PROBE": probe}):
+                ended, lines = versions.whole_run(toy.base | env)
+            self.case(
+                f"the probe over {name}: the literal BROKEN line, after the nine blocks, exit 1",
+                ended == EXIT_BROKEN
+                and lines == [f"BROKEN: {said}", "BROKEN: the check could not run — 9 block(s) run"],
                 f"{ended} {lines}",
             )
 

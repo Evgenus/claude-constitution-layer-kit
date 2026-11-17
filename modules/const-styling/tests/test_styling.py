@@ -993,7 +993,7 @@ def test_t18() -> None:
     describes the twelve keys."""
     texts = {"INSTALL.md": (PLUGIN_ROOT / "INSTALL.md").read_text(encoding="utf-8")}
     manifest = json.loads((PLUGIN_ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
-    manifest_ok = manifest["name"] == NAMESPACE and manifest["version"].startswith("0.0.")
+    manifest_ok = manifest["name"] == NAMESPACE and not manifest["version"].startswith("0.0.")
     example = re.search(r"```yaml\n((?:.*\n)*?)[ ]*```", texts["INSTALL.md"])
     example_ok = False
     keys_ok = all(s.value in texts["INSTALL.md"] for s in Signature)
@@ -1001,7 +1001,7 @@ def test_t18() -> None:
         patch = yaml.safe_load(textwrap.dedent(example.group(1)))
         result = scan({"docs/notes/a.md": MERMAID, ".gitignore": ""}, patch)
         example_ok = result.code == 0
-    assert manifest_ok, "manifest names the plugin, a draft version"
+    assert manifest_ok, "manifest names the plugin, a published version"
     assert example_ok, "the example is refused or missing"
     assert keys_ok, "the twelve keys named in the install note"
 
@@ -1060,7 +1060,7 @@ def test_t20() -> None:
         H.run_gate(  # the harness's shared folder left out, and no site-packages
             "", args, env={"PYTHONPATH": ""}, command=[sys.executable, "-S", str(H.entry)], shared=False
         ),
-        "BROKEN: const-styling needs the Python package constitution-layer-kit 2.1.0 or a later 2.x release,"
+        "BROKEN: const-styling needs the Python package constitution-layer-kit 2.6.0 or a later 2.x release,"
         " and python3 cannot import it — fix: install it for python3 as"
         f" {PLUGIN_ROOT / 'INSTALL.md'} says — {CLOSING}",
     )

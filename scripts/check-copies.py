@@ -792,13 +792,14 @@ def requires_findings(entry: Entry, text: str, line: int, version: str) -> list[
     if needed > have:
         what = f"{shown}, above the package's version '{version}' ({PACKAGE_INIT})"
         fix = (
-            "write the version of the release that carries the names the entry uses, or raise __version__ in"
+            "write the release the module requires, at least the newest whose change also changed"
+            " shared/GATE.md or shared/MESSAGES.md and at most the package's version, or raise __version__ in"
             f" {PACKAGE_INIT} in the same change"
         )
         return [Finding(entry.path, line, 1, what, WHY_ABOVE, fix)]
     if needed[0] < have[0]:
         what = f"{shown}, of an earlier major than the package's version '{version}' ({PACKAGE_INIT})"
-        fix = f"bring the entry to major {have[0]} and write the release it was written for"
+        fix = f"bring the entry to major {have[0]} and write the release the module requires in it"
         return [Finding(entry.path, line, 1, what, WHY_MAJOR, fix)]
     return []
 
@@ -3139,8 +3140,9 @@ def self_test_releases(cases: Cases) -> None:
             f" the package's version '{PACKAGE_VERSION}' (shared/constitution_layer_kit/__init__.py)",
             "  why: no release carries a version the package's source has not reached, so an entry that"
             " requires one stops every run of the kit's own sessions at C16 until the source is raised",
-            "  fix: write the version of the release that carries the names the entry uses, or raise"
-            " __version__ in shared/constitution_layer_kit/__init__.py in the same change",
+            "  fix: write the release the module requires, at least the newest whose change also changed"
+            " shared/GATE.md or shared/MESSAGES.md and at most the package's version, or raise __version__ in"
+            " shared/constitution_layer_kit/__init__.py in the same change",
             SUMMARY_BASE,
         ],
         "a release above the package is its literal report, exit 2",
@@ -3161,7 +3163,7 @@ def self_test_releases(cases: Cases) -> None:
             " earlier major than the package's version '2.0.0' (shared/constitution_layer_kit/__init__.py)",
             "  why: an entry written for an earlier major than the package's is stopped at C17 by the release"
             " the kit's own sessions install",
-            "  fix: bring the entry to major 2 and write the release it was written for",
+            "  fix: bring the entry to major 2 and write the release the module requires in it",
             SUMMARY_BASE,
         ],
         "an earlier major than the package's is its literal report, exit 2",

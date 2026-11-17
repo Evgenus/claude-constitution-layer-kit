@@ -62,7 +62,7 @@ The session reads the fix, makes it, and writes again; nobody has to explain the
 
 ## Status
 
-The modules ship as drafts, each at version `0.0.x` until Phase D of the [rollout plan](docs/rollout-plan.md#phase-d) publishes it. The kit is its own first consumer: its own documents, code territories and session conduct run under its modules. No other project has adopted it yet, so the first one's bootstrap is each module's consumer-live proof. CI runs every gate, each module's install on a bare repository, and the install guide's own commands, on every pull request.
+The modules are published, each at version `0.1.0` or later. The kit is its own first consumer: its own documents, code territories and session conduct run under its modules. A first project has adopted it too, and its bootstrap was the modules' consumer-live proof. CI runs every gate, each module's install on a bare repository, and the install guide's own commands, on every pull request.
 
 ## Get started
 

@@ -1386,7 +1386,7 @@ def test_t16() -> None:
     integer timeout; the version probe, the one git call that reads the last commit's copy, under the
     shared cap, and then the run, the two waits read from the module's own code, fit the
     hook's budget the gate declares (`GATE.hook_seconds`), which the handler's timeout holds with
-    `LEFT_FOR_THE_REST` (the shared item S165); the manifest names the plugin at a draft version; the
+    `LEFT_FOR_THE_REST` (the shared item S165); the manifest names the plugin at a published version; the
     install note's calibration example is accepted."""
     texts = {p.name: p.read_text(encoding="utf-8") for p in (SKILL, INSTALL, MANIFEST)}
     front = yaml.safe_load(texts["SKILL.md"].split("---")[1])
@@ -1424,7 +1424,7 @@ def test_t16() -> None:
         f" commit and the run's {vale.HOOK_SECONDS} s, {needed} s in all, are over the hook's budget of"
         f" {budget:g} s"
     )
-    assert manifest["name"] == NAMESPACE and manifest["version"].startswith("0.0."), (
+    assert manifest["name"] == NAMESPACE and not manifest["version"].startswith("0.0."), (
         f"manifest {manifest['version']}"
     )
     expect(accepted, 0, green_hook(), "stdout")

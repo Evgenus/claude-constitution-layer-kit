@@ -7,7 +7,7 @@ status: active
 
 # MODULE.md — `const-questions`
 
-*Draft at manifest version `0.0.2`, no open slots. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
+*Published at manifest version `0.1.0`. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
 
 <a id="t1"></a>
 ## 1. Purpose
@@ -87,7 +87,7 @@ The advisory rules beside it, each `advisory` in its own text and carried by the
 | script (sh) | `plugin/scripts/check-open-questions.sh` | POSIX entry point: finds `python3`, exits 1 with the fix when it is missing, otherwise hands stdin and arguments on. Reads no YAML. |
 | script (py) | `plugin/scripts/check-open-questions.py` | Thin entry point, parseable by any Python 3: the interpreter floor, the shared package, then the module's `start`. Hook mode and `--scan [DIR]`. Its docstring is the contract. |
 | script (sh) | `plugin/scripts/effect-report.sh` | POSIX entry point of the effect report ([§13](#t13)): finds `python3`, exits 1 with the fix when it is missing, otherwise hands the arguments on. Reads no YAML. |
-| script (py) | `plugin/scripts/effect-report.py` | Thin entry point, parseable by any Python 3: the interpreter floor, the shared package at release `2.1.0` or later, then the shared runner. It is called with the module's identity and the rules of `effect_rules`. Modes `--transcripts`, `--since`, `--reader`; exit 0, or 1 when it could not run; never red. |
+| script (py) | `plugin/scripts/effect-report.py` | Thin entry point, parseable by any Python 3: the interpreter floor, the shared package at release `2.6.0` or later, then the shared runner. It is called with the module's identity and the rules of `effect_rules`. Modes `--transcripts`, `--since`, `--reader`; exit 0, or 1 when it could not run; never red. |
 | package | `plugin/scripts/questions_gate/` | The module's own code: `model` (the dials, a hit, the key Q1), `messages` (every text below). The package also has `dials` (the six keys, two of them the skill's, refused by name only). It also has `checks` (fences, spans, boundaries, one hit per line), `modes` (the hook and the scan over the shared pipeline). Last come `start` (the identity) and `effect_rules` (the eight rules of [§13](#t13)). |
 | shared code | none in the plugin | The installed Python package `constitution-layer-kit`, described in [kit-shared-gate-code](../../shared/GATE.md). It is at or above the release the entry file requires, which `INSTALL.md` installs. The plugin carries no link to it. The tests reach it through their links (the tests row). Their harness puts the kit's `shared/` on the `PYTHONPATH` of every gate it runs. So a gate under test imports the shared code of its own commit. This gate resolves no policy: it matches its own territories with the shared matcher and builds no index. |
 | dependencies | `plugin/requirements.txt` | PyYAML. |
@@ -290,4 +290,4 @@ Limits of the pattern: W2 shares a limit of `switch_off`, for the commit that wr
 
 **Ways** *(template rule)*. The ways B1 to B6 as [template §13](../../module-template/MODULE.md#t13) defines them.
 
-**Code** *(template rule)*. As [template §13](../../module-template/MODULE.md#t13) says: the rules in `questions_gate/effect_rules.py` are built by the helpers of `constitution_layer_kit.ways` with this module's territory, loosened dials and scan. W5 is built by a `find` of its own. The entry is E5 of [§9](#t9), `REQUIRES` `2.1.0`.
+**Code** *(template rule)*. As [template §13](../../module-template/MODULE.md#t13) says: the rules in `questions_gate/effect_rules.py` are built by the helpers of `constitution_layer_kit.ways` with this module's territory, loosened dials and scan. W5 is built by a `find` of its own. The entry is E5 of [§9](#t9), `REQUIRES` `2.6.0`.
