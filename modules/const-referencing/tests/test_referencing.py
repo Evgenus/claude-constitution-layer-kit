@@ -3911,7 +3911,7 @@ def test_mover_entry_absences() -> None:
     assert (
         no_shared.returncode == 1
         and no_shared.stderr.splitlines()[0]
-        == "BROKEN: const-referencing needs the Python package constitution-layer-kit 2.6.0 or a later 2.x"
+        == "BROKEN: const-referencing needs the Python package constitution-layer-kit 2.6.1 or a later 2.x"
         " release, and python3 cannot import it — fix: install it for python3 as"
         f" {PLUGIN / 'INSTALL.md'} says"
         and closing in no_shared.stderr

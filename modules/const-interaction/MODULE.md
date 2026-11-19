@@ -7,7 +7,7 @@ status: active
 
 # MODULE.md — `const-interaction`
 
-*Published at manifest version `0.1.1`. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
+*Published at manifest version `0.1.2`. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
 
 <a id="t1"></a>
 ## 1. Purpose
@@ -92,12 +92,12 @@ The advisory rules stand beside it, each `advisory` in its own text and carried 
 | agent | none | a reply's shape is the reply's own, not a delegation. |
 | script (sh) | `plugin/scripts/session-start.sh`, `plugin/scripts/check-destructive.sh`, `plugin/scripts/check-list-handles.sh`, `plugin/scripts/rules.txt` | POSIX entry points that find `python3` (exit 1 with the fix when missing) and hand stdin and arguments on. The first prints `rules.txt` whole before the Python printer, so a missing `python3` leaves the rules printed. `rules.txt` holds the advisory rules a–i in the plugin's own words, saying "the stakes triage of the project's constitution" where they need the kernel's definitions. Read no YAML. |
 | script (py) | `plugin/scripts/check-destructive.py`, `plugin/scripts/check-list-handles.py`, `plugin/scripts/session-start.py` | Thin entry points; each docstring is its contract. The first: hook mode and `--scan [DIR] --command <text>`. The second: `--scan [DIR]` only, and as a hook its own C12. The third: the `SessionStart` event. |
-| effect entry | `plugin/scripts/effect-report.sh` + `plugin/scripts/effect-report.py`, and the rules in `plugin/scripts/interaction_gate/effect_rules.py` | The report of [§13](#t13), handed to the shared runner. The shell wrapper finds `python3` and execs the Python entry file. That file has the floor, `REQUIRES = "2.6.0"` and the C14, C15 and C16 lines of a generator's entry, with no closing clause. The identity `REPORT` in `start` declares it. The module's `effect_rules` holds the four rules, the predicate of a loosened dial and the moments of W2 and W4. It reads the rules text of W4 from `rules.txt`, the one copy. The shared `ways` helpers build W1, W3 and the reader rule W4. Advisory ([§9](#t9), E6). |
+| effect entry | `plugin/scripts/effect-report.sh` + `plugin/scripts/effect-report.py`, and the rules in `plugin/scripts/interaction_gate/effect_rules.py` | The report of [§13](#t13), handed to the shared runner. The shell wrapper finds `python3` and execs the Python entry file. That file has the floor, `REQUIRES = "2.6.1"` and the C14, C15 and C16 lines of a generator's entry, with no closing clause. The identity `REPORT` in `start` declares it. The module's `effect_rules` holds the four rules, the predicate of a loosened dial and the moments of W2 and W4. It reads the rules text of W4 from `rules.txt`, the one copy. The shared `ways` helpers build W1, W3 and the reader rule W4. Advisory ([§9](#t9), E6). |
 | package | `plugin/scripts/interaction_gate/` | The module's own code: `model`, `messages` (every text below), `dials`, `tokens`, `checks`, `modes`, `lists`, `session`, `start`, `effect_rules`. |
 | shared code | none in the plugin | The installed Python package `constitution-layer-kit` ([kit-shared-gate-code](../../shared/GATE.md)). The tests' harness puts the kit's `shared/` on the `PYTHONPATH` of every gate it runs. This module resolves no policy and builds no index. It widened the shared code for a shell event carrying its command and for the `ask` verdict, each defaulting to what other modules pass. |
 | dependencies | `plugin/requirements.txt` | PyYAML, for the dials file. |
 | configuration | none | no third-party tool runs. |
-| manifest | `plugin/.claude-plugin/plugin.json` | the name `const-interaction`, version `0.1.1`. |
+| manifest | `plugin/.claude-plugin/plugin.json` | the name `const-interaction`, version `0.1.2`. |
 | tests | `tests/test_interaction.py`, `conftest.py`, `test_shared_items.py`, which brings in the shared items, and the packages linked beside them, the shared one holding the shared test files in `testing/` | The fixtures of [§10](#t10). |
 | install note | `plugin/INSTALL.md` | The install command of the shared package at the tag the module requires; the copy-into-CLAUDE.md fallback labelled manual and version-drifting; `CLAUDE.md line: none`. It also gives the effect report, in a step of its own after the output log. |
 
