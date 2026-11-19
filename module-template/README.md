@@ -20,7 +20,7 @@ What a session does differently with the module loaded. What is refused and what
 <a id="a4"></a>
 ## How it works
 
-One paragraph per tool the module ships, each opening with a bold label. Each hook by its event: before a write, after a write, at session start, at turn end, before a shell command. Then the scan, each skill, each command or second entry point. Each paragraph says what the tool reads, what it decides, what it cannot see, and that the defaults work with no configuration. Last, one paragraph opening **Settings.**: what can be tuned and what the defaults do, the dials named in words, never as a table. No file paths, no row numbers, no error-code handles, no decision numbers.
+One paragraph per tool the module ships, each opening with a bold label. Each hook by its event: before a write, after a write, at session start, at turn end, before a shell command. Then the scan, each skill, each command or second entry point, and last the effect report, when the module ships one. Each paragraph says what the tool reads, what it decides, what it cannot see, and that the defaults work with no configuration. Last, one paragraph opening **Settings.**: what can be tuned and what the defaults do, the dials named in words, never as a table. No file paths, no row numbers, no error-code handles, no decision numbers.
 
 <a id="a5"></a>
 ## Get it

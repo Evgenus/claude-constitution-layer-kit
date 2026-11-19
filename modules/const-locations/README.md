@@ -39,6 +39,8 @@ Outside plan mode, no session needs a permission rule for the skills or the comm
 
 **The skill `new-kind`.** A procedure in prose, loaded when a document is asked for that no policy covers, or when a repository has no `constitution.yaml` yet. It has the session price the new kind and create its policy through the command. The session adds the territory line to the dials file by hand, and only then creates the first document. It never edits the dials file for the session.
 
+**The effect report.** A command you run by hand from the project's root, `sh <plugin root>/scripts/effect-report.sh --since <YYYY-MM-DD>`. It counts three rules. Documents are born through the command, and the skill `new-document` is loaded before a new document. The plugin stays on. It reads the session transcripts the module's log names, the log itself and the git history. At each moment a rule applies, it counts whether the rule was followed, bypassed or missed. `--since` limits it to a date, and `--transcripts` adds a folder of sessions the log does not name. It blocks nothing, sets no threshold and is never red. It needs no configuration.
+
 **Settings.** The module works with no configuration. Every kind whose territory has one of the three shapes gets its documents created with the envelope alone. One dial names the kinds that have a template, as pairs of a policy id and a path. The other names where the log goes. There is no loudness dial, since the module blocks nothing. A line that would mean nothing here is refused rather than kept in silence.
 
 <a id="a5"></a>
