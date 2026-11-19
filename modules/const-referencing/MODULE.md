@@ -7,7 +7,7 @@ status: active
 
 # MODULE.md — `const-referencing`
 
-*Published at manifest version `0.1.0`. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
+*Published at manifest version `0.1.1`. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
 
 <a id="t1"></a>
 ## 1. Purpose
@@ -88,7 +88,7 @@ The advisory rules beside it:
 | configuration | `plugin/scripts/lychee.toml` | The module's own, empty but for comments. It is handed to `--config`, with `lychee` started in an empty scratch directory and its inputs on standard input. So neither a configuration file nor a `.lycheeignore` in the consumer's tree is ever loaded. |
 | manifest | `plugin/.claude-plugin/plugin.json` | The plugin's name, version and description — the only file inside `.claude-plugin/`; `0.0.x` marks a draft. |
 | tests | `tests/`: `test_referencing.py`, `conftest.py`, `test_shared_items.py`, which brings in the shared items, `constitution_layer_kit` linked from `shared/constitution_layer_kit`, which holds the shared test files in `testing/`, `referencing_gate` from this module's `plugin/scripts/` | The fixtures of [§10](#t10). |
-| install note | `plugin/INSTALL.md` | Requirements with the install address for `lychee`, and the install command of the shared package at the tag the module requires. Zero-configuration behaviour, and a negated pattern that takes a tree out (`!dir/**`, not `!dir/` — tried). Then `lanes` with a worked example and the rule to write a pattern in single quotes. In double quotes YAML reads `\b` as a backspace — tried; the gate refuses such a pattern. Then `mentions`, and adoption through `severity: warn` and `heading_anchors: allow`. The scan command for CI, and what the module does not check. `CLAUDE.md line: none`: the chat rule arrives through the session-start hook and the skill through its pointer line. |
+| install note | `plugin/INSTALL.md` | Requirements with the install address for `lychee`, and the install command of the shared package at the tag the module requires. Zero-configuration behaviour, and a negated pattern that takes a tree out (`!dir/**`, not `!dir/` — tried). Then `lanes` with a worked example and the rule to write a pattern in single quotes. In double quotes YAML reads `\b` as a backspace — tried; the gate refuses such a pattern. Then `mentions`, and adoption through `severity: warn` and `heading_anchors: allow`. The scan command for CI, and what the module does not check. `CLAUDE.md line: none`: the chat rule arrives through the session-start hook and the skill through its pointer line. It also gives the effect report, in a step of its own after the output log. |
 
 - **Always-on content:** every line holds fixed text only, no placeholder. The sizes are in characters, and a session pays 1,445 at its start and each subagent 209 more.
   1. `SessionStart`, handler `print-chat-rule.sh`, 297 characters: `const-referencing (advisory): in chat, write every reference to a file, a section or a document as a markdown link wherever the file exists. A number, letter or key is a handle local to its message, decision or session: when a cite crosses that boundary, name the message or decision it came from.` The hook has no matcher, so the rule is printed again after a compaction or a clear. At those times the earlier print is gone from context.

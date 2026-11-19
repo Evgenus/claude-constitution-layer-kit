@@ -7,7 +7,7 @@ status: active
 
 # MODULE.md — `const-doc-budgets`
 
-*Published at manifest version `0.1.0`. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
+*Published at manifest version `0.1.1`. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
 
 <a id="t1"></a>
 ## 1. Purpose
@@ -83,7 +83,7 @@ The advisory rules beside it, each `advisory` in its own text, stated in the ski
 | configuration | none | no third-party tool: the count and the history read are the module's own code and git. |
 | manifest | `plugin/.claude-plugin/plugin.json` | The plugin's name, version and description; `0.0.x` marks a draft. |
 | tests | `tests/`: `test_doc_budgets.py`, `conftest.py`, `test_shared_items.py`, which brings in the shared items, `constitution_layer_kit` linked from `shared/constitution_layer_kit`, which holds the shared test files in `testing/`, `budgets_gate` from this module's `plugin/scripts/` | The fixtures of [§10](#t10). |
-| install note | `plugin/INSTALL.md` | It gives the requirements and the install command of the shared package at the tag the module requires. It gives the hook and the scan, zero-configuration behaviour, the four dials with a worked example and the report. It also gives the scan in CI, adoption and the output log. `CLAUDE.md line: none`: the rules ride on the check and the skill. |
+| install note | `plugin/INSTALL.md` | It gives the requirements and the install command of the shared package at the tag the module requires. It gives the hook and the scan, zero-configuration behaviour, the four dials with a worked example and the report. It also gives the scan in CI, adoption and the output log. `CLAUDE.md line: none`: the rules ride on the check and the skill. It also gives the effect report, in a step of its own after the output log. |
 
 - **Always-on content:** the module's whole always-on budget is these lines, each sized in characters.
   1. `SessionStart`, while the dial `ceilings` is empty or absent — the default — one line of 111 characters saying that no document is measured: `const-doc-budgets: no document is measured — const-doc-budgets.ceilings is empty or absent in constitution.yaml`. While a ceiling is set it prints nothing.

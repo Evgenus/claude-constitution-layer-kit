@@ -7,7 +7,7 @@ status: active
 
 # MODULE.md — `const-meta-types`
 
-*Published at manifest version `0.1.0`. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
+*Published at manifest version `0.1.1`. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
 
 <a id="t1"></a>
 ## 1. Purpose
@@ -77,7 +77,7 @@ Two advisory rules stand beside it, under the handles `R-a` and `R-b`, the lette
 | configuration | none | the module runs no third-party tool and ships no configuration of one. |
 | manifest | `plugin/.claude-plugin/plugin.json` | The plugin's name, version and description — the only file inside `.claude-plugin/`; `0.0.x` marks a draft. |
 | tests | `tests/`: `test_meta_types.py`, `conftest.py`, `test_shared_items.py`, which brings in the shared items, `constitution_layer_kit` linked from `shared/constitution_layer_kit`, which holds the shared test files in `testing/`, `meta_types_gate` from this module's `plugin/scripts/` | The fixtures of [§10](#t10). They are this module's numbered case records and assertions, and the shared acceptance items, all driving the real entry point with real hook events. |
-| install note | `plugin/INSTALL.md` | Requirements, and the install command of the shared package at the tag the module requires. The two dials, the scan command for CI, where the output log goes, and no CLAUDE.md line. |
+| install note | `plugin/INSTALL.md` | Requirements, and the install command of the shared package at the tag the module requires. The two dials, the scan command for CI, where the output log goes, and no CLAUDE.md line. It also gives the effect report, in a step of its own after the output log. |
 
 - **Always-on content:**
   - the skill's `description`, 527 characters as YAML loads it, with no `when_to_use`, in the skill listing;

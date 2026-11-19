@@ -7,7 +7,7 @@ status: active
 
 # MODULE.md — `const-interaction`
 
-*Published at manifest version `0.1.0`. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
+*Published at manifest version `0.1.1`. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
 
 <a id="t1"></a>
 ## 1. Purpose
@@ -99,7 +99,7 @@ The advisory rules stand beside it, each `advisory` in its own text and carried 
 | configuration | none | no third-party tool runs. |
 | manifest | `plugin/.claude-plugin/plugin.json` | the name `const-interaction`, version `0.1.0`. |
 | tests | `tests/test_interaction.py`, `conftest.py`, `test_shared_items.py`, which brings in the shared items, and the packages linked beside them, the shared one holding the shared test files in `testing/` | The fixtures of [§10](#t10). |
-| install note | `plugin/INSTALL.md` | The install command of the shared package at the tag the module requires; the copy-into-CLAUDE.md fallback labelled manual and version-drifting; `CLAUDE.md line: none`. |
+| install note | `plugin/INSTALL.md` | The install command of the shared package at the tag the module requires; the copy-into-CLAUDE.md fallback labelled manual and version-drifting; `CLAUDE.md line: none`. It also gives the effect report, in a step of its own after the output log. |
 
 - **Always-on content:** the module ships no skill, so no description is listed, and no `SubagentStart` hook, so a subagent receives none of these lines. The `SessionStart` hook, with no matcher, prints the texts of row Z1 below in this order. Each is sized as its fixed text without its placeholder, its spaces kept:
   1. the rules text, `plugin/scripts/rules.txt` whole, the nine rules I-a to I-i of [§5](#t5) in the plugin's own words, lettered a–i. The hook prints the rules text of 2,245 characters;

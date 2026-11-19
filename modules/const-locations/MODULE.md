@@ -7,7 +7,7 @@ status: active
 
 # MODULE.md — `const-locations`
 
-*Published at manifest version `0.1.0`. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
+*Published at manifest version `0.1.1`. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
 
 <a id="t1"></a>
 ## 1. Purpose
@@ -84,7 +84,7 @@ None: an advisory module claims no invariant. In its place, the rules, each `adv
 | configuration | none | no third-party tool runs, so no tool configuration is read. |
 | manifest | `plugin/.claude-plugin/plugin.json` | The plugin's name, version and description — the only file inside `.claude-plugin/`; `0.0.x` marks a draft. |
 | tests | `tests/`: `test_locations.py`, `conftest.py`, `test_shared_items.py`, which brings in the shared items, `constitution_layer_kit` linked from `shared/constitution_layer_kit`, which holds the shared test files in `testing/`, `locations_gate` from this module's `plugin/scripts/` | The fixtures of [§10](#t10). |
-| install note | `plugin/INSTALL.md` | It gives the requirements and the install command of the shared package at the tag the module requires. It gives zero-configuration behaviour and the `templates` dial with a worked example. It gives the command line, the dry run and the grant, and says no allow rule is needed outside plan mode. It gives the log and verification. `CLAUDE.md line: none`. |
+| install note | `plugin/INSTALL.md` | It gives the requirements and the install command of the shared package at the tag the module requires. It gives zero-configuration behaviour and the `templates` dial with a worked example. It gives the command line, the dry run and the grant, and says no allow rule is needed outside plan mode. It gives the log and verification. `CLAUDE.md line: none`. It also gives the effect report, in a step of its own after the output log. |
 
 - **Always-on content.** No `SessionStart` or `SubagentStart` line: the module's one hook is the grant on `PreToolUse`, which prints nothing at a session's start. The skill listing carries two descriptions, neither with a `when_to_use`, measured as YAML loads them. They are `new-document`, 619 characters, and `new-kind`, 551 — 1,170 characters in all, the module's whole always-on budget. Pointer line: none — the comparison's live runs ([E5](../../docs/research/res-0005-const-locations.md)) show the model loading the skill from the listing before it writes.
 - **Platform facts relied on.** The handles `a3`, `p2` and the like are those of the module's research comparison, [res-0005-const-locations](../../docs/research/res-0005-const-locations.md). Each fact carries its source, its date and what breaks if it changes:

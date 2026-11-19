@@ -110,7 +110,7 @@ A grant matches by an allowlist alone, never by a list of forms to refuse. This 
 
 The text of the row "install note" of the table of [section 6](MODULE.md#t6) of the template. It stands in its "carries" cell, after the sentence on the `CLAUDE.md` line.
 
-Its steps follow the order of the template's install note. A step the module does not need is deleted, and the steps after it are numbered on. A step the module needs beyond them stands where its subject belongs. A step an accepted record cites keeps its number and its place, and the order yields there ([§10](MODULE.md#t10), the handles). Always-on rules ship via a `SessionStart` hook (see hook row), never via a pointer or a plugin-root `CLAUDE.md` (not loaded). A copy-into-CLAUDE.md fallback may be offered, labeled as manual and version-drifting
+Its steps follow the order of the template's install note. A step the module does not need is deleted, and the steps after it are numbered on. A step the module needs beyond them stands where its subject belongs. A step an accepted record cites keeps its number and its place, and the order yields there ([§10](MODULE.md#t10), the handles). A module that ships an effect report gives it a step of its own, after the output log. The step gives its command and its flags. It also says what a run by hand needs to find a session. Always-on rules ship via a `SessionStart` hook (see hook row), never via a pointer or a plugin-root `CLAUDE.md` (not loaded). A copy-into-CLAUDE.md fallback may be offered, labeled as manual and version-drifting
 
 <a id="s11"></a>
 ## The rule on references from installed components

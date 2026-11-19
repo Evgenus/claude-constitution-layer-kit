@@ -7,7 +7,7 @@ status: active
 
 # MODULE.md — `const-decision-records`
 
-*Published at manifest version `0.1.0`. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
+*Published at manifest version `0.1.1`. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
 
 <a id="t1"></a>
 ## 1. Purpose
@@ -85,7 +85,7 @@ The advisory rules beside it, as a numbered list under the handles `R-a` to `R-f
 | configuration | none | the module runs no third-party tool of its own, so it has no tool configuration to ship. |
 | manifest | `plugin/.claude-plugin/plugin.json` | The plugin's name, version and description — the only file inside `.claude-plugin/`; `0.0.x` marks a draft. |
 | tests | `tests/`: `test_decision_records.py`, `conftest.py`, `test_shared_items.py`, which brings in the shared items, `constitution_layer_kit` linked from `shared/constitution_layer_kit`, which holds the shared test files in `testing/`, `decision_records_gate` from this module's `plugin/scripts/` | The fixtures of [§10](#t10): this module's numbered case records and assertions, and the shared acceptance items. All drive the real entry point with real hook events. |
-| install note | `plugin/INSTALL.md` | It gives the requirements and the install command of the shared package at the tag of the highest `REQUIRES` among the entry files. It names the one dial that switches the check on, and the skill-read dials. It also gives `severity: warn` for adoption, the scan command for CI, where the output log goes, what the module does not check; `CLAUDE.md line: none`. |
+| install note | `plugin/INSTALL.md` | It gives the requirements and the install command of the shared package at the tag of the highest `REQUIRES` among the entry files. It names the one dial that switches the check on, and the skill-read dials. It also gives `severity: warn` for adoption, the scan command for CI, where the output log goes, what the module does not check; `CLAUDE.md line: none`. It also gives the effect report, in a step of its own after the output log. |
 
 - **Always-on content:**
   1. While the `record_policies` dial is an empty list or absent, one line of 126 characters saying that no document is examined, printed by the `SessionStart` hook: `const-decision-records: no document is examined — const-decision-records.record_policies is an empty list in constitution.yaml`.
