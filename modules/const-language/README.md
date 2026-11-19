@@ -40,7 +40,7 @@ The skill `plain-language` is for loading before prose is written in a covered d
 
 **The hook at a subagent's start.** It gives the same line to each subagent as context, since a subagent starts without what the session was told.
 
-**The effect report.** A command you run by hand, `effect-report.sh`. It counts seven rules. Covered documents are changed where the check sees them, and the check stays on at its numbers. A finding is fixed, not walked around. The skill is loaded after a red and before prose is written. The main branch has no red document. And each turn's last reply is plain English. It reads the session transcripts the module's log names, the log itself and the git history. At each moment a rule applies, it counts whether the rule was followed, bypassed or missed. `--since` limits it to a date, and `--transcripts` adds a folder of sessions the log does not name. The last rule needs judgment, so a language model judges it, only when you add `--reader`. Its counts stand on lines of their own. It blocks nothing, sets no threshold and is never red. It needs no configuration.
+**The effect report.** A command you run by hand from the project's root, `sh <plugin root>/scripts/effect-report.sh --since <YYYY-MM-DD>`. It counts seven rules. Covered documents are changed where the check sees them, and the check stays on at its numbers. A finding is fixed, not walked around. The skill is loaded after a red and before prose is written. The main branch has no red document. And each turn's last reply is plain English. It reads the session transcripts the module's log names, the log itself and the git history. At each moment a rule applies, it counts whether the rule was followed, bypassed or missed. `--since` limits it to a date, and `--transcripts` adds a folder of sessions the log does not name. The last rule needs judgment, so a language model judges it, only when you add `--reader`. Its counts stand on lines of their own. It blocks nothing, sets no threshold and is never red. It needs no configuration.
 
 **Settings.** The module works with no configuration. Every Markdown file git lists is covered, the ceiling is grade 10, the limit 25 words, the four rules red and the passive a note. Dials name the documents covered, the two numbers, and the level of each rule. Further dials add the project's own forbidden phrases and its own pairs of a formal word and its plain one. Another names the phrases of either list the project keeps on purpose. The departures are entries of paths, the rules allowed there, and a one-line reason. A repository with many findings adopts the module by setting the numbers to what its pages bear today, and lowering them in steps. Two dials are every gate's: whether a finding reaches the session as a block or as context, and where the log goes.
 
@@ -60,7 +60,5 @@ Or install it from the marketplace the kit's install guide names: `claude plugin
 ```bash
 sh <plugin root>/scripts/check-language.sh --scan
 ```
-
-To see how often the module's rules were followed in your sessions: `sh <plugin root>/scripts/effect-report.sh --since <YYYY-MM-DD>`.
 
 The full install procedure and every dial are in [INSTALL.md](plugin/INSTALL.md). The complete description of the module, with its rules, its messages and its limits, is [MODULE.md](MODULE.md).

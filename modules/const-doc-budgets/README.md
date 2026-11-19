@@ -40,7 +40,7 @@ The skill `set-ceilings` loads on its own when a ceiling is set, raised or lower
 
 **The skill `set-ceilings`.** The procedure for setting a ceiling and reading a finding, loaded when the activity occurs. It is advice: it shapes the numbers and the cuts, and the checks above hold the count.
 
-**The effect report.** A command you run by hand, `effect-report.sh`. It counts four rules. Held documents are written where the hook measures them. No ceiling is loosened and no departure is added. The main branch has no document over a ceiling at level error. The skill `set-ceilings` is loaded before the ceilings are edited. It reads the session transcripts the module's log names, the log itself and the git history. At each moment a rule applies, it counts whether the rule was followed, bypassed or missed. `--since` limits it to a date, and `--transcripts` adds a folder of sessions the log does not name. It blocks nothing, sets no threshold and is never red. It needs no configuration.
+**The effect report.** A command you run by hand from the project's root, `sh <plugin root>/scripts/effect-report.sh --since <YYYY-MM-DD>`. It counts four rules. Held documents are written where the hook measures them. No ceiling is loosened and no departure is added. The main branch has no document over a ceiling at level error. The skill `set-ceilings` is loaded before the ceilings are edited. It reads the session transcripts the module's log names, the log itself and the git history. At each moment a rule applies, it counts whether the rule was followed, bypassed or missed. `--since` limits it to a date, and `--transcripts` adds a folder of sessions the log does not name. It blocks nothing, sets no threshold and is never red. It needs no configuration.
 
 **Settings.** The module ships no number: with no ceiling set, nothing is measured. One dial holds the ceilings, each with its name, paths, maximum, level and window. A document two ceilings hold is refused. Another holds the departures, each an entry of paths, the ceilings it lifts there, and a one-line reason. Two dials are every gate's: whether a finding reaches the session as a block or as context, and where the log goes.
 
@@ -60,7 +60,5 @@ Or install it from the kit's marketplace: `claude plugin install const-doc-budge
 ```bash
 sh <plugin root>/scripts/check-budgets.sh --scan
 ```
-
-To see how often the module's rules were followed in your sessions: `sh <plugin root>/scripts/effect-report.sh --since <YYYY-MM-DD>`.
 
 The full install procedure and every dial are in [INSTALL.md](plugin/INSTALL.md). The complete description of the module, with its rules, its messages and its limits, is [MODULE.md](MODULE.md).
