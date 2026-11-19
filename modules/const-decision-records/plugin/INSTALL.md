@@ -25,6 +25,8 @@ A line that starts `BROKEN: const-decision-records needs the Python package cons
    until `record_policies` names one, every run prints `0 documents examined` and says why.
    In the project's `constitution.yaml`:
    ```yaml
+   module_prefix: const-
+   root_policy: <path of the policy for policies>
    <id of your decision-record policy>:      # the policy's own namespace: where records live
      territory: ["<pattern>"]
    const-decision-records:
@@ -33,7 +35,8 @@ A line that starts `BROKEN: const-decision-records needs the Python package cons
      # log_dir: .gate-logs   # optional, and the directory must be git-ignored; see step 6
    ```
    With no `constitution.yaml`, or no `root_policy` in it, nothing is claimed and nothing is
-   checked.
+   checked. The policy itself is a document with that id, inside the root policy's territory. Until it
+   exists, the gate prints a note and claims nothing.
 3. Optional calibration read by the skills, not by the gate — the agent reads these keys as
    written, and nothing validates their shape:
    ```yaml
@@ -57,13 +60,24 @@ A line that starts `BROKEN: const-decision-records needs the Python package cons
    ```
    Exit 0 green, 2 findings, 1 the checker could not run. The scan ignores `severity`.
 6. Output log: everything the gate prints is also appended to `const-decision-records.jsonl`,
-   one JSON line per print (timestamp, module, gate, mode, session, path, transcript, stream, text). Blocked
+   one JSON line per print (ts, module, gate, mode, session, path, transcript, stream, text). Blocked
    writes, warnings and configuration failures leave no trace in git, so this is where they
    survive. By default it lives in the platform's per-plugin data directory, outside the
-   repository. Set `log_dir` to keep it inside the repository instead; the directory must
+   repository. That directory exists only in hooks, so a scan run by hand logs nothing without `log_dir`. Set `log_dir` to keep it inside the repository instead; the directory must
    be git-ignored, and the gate refuses to run otherwise. The log rotates at 1 MiB.
-7. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-decision-records/tests -p no:cacheprovider` — all green.
-8. CLAUDE.md line: none. The skills `/const-decision-records:record-decision` and
+7. Optional, the effect report: how often each rule of this module was followed, bypassed or missed.
+   Run it from the repository:
+   ```bash
+   sh <plugin root>/scripts/effect-report.sh --transcripts <dir> --since <YYYY-MM-DD>
+   ```
+   `<dir>` is the folder where Claude Code keeps this project's session transcripts. Without it, a
+   run by hand finds sessions only through the log of step 6, where `log_dir` is set. `--since` keeps what
+   happened on or after that date. One rule needs judgment: whether a ruling made in chat at
+   recorded stakes became a record. `--reader` lets a language model judge it, on your own
+   subscription login. It blocks nothing and is never red: exit 0 once printed, 1 when it could not
+   run.
+8. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-decision-records/tests -p no:cacheprovider` — all green.
+9. CLAUDE.md line: none. The skills `/const-decision-records:record-decision` and
    `/const-decision-records:promote-recurring-notes` load on their own when a ruling is
    being made or commit notes are being reviewed.
 

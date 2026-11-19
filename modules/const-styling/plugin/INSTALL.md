@@ -5,7 +5,7 @@ Requires: git, Python 3.12 or newer as `python3`, and the libraries in `requirem
 reported by the scan with the fix on its first line. Nothing is silently skipped.
 
 The shared code is the Python package `constitution-layer-kit`, which brings PyYAML with it. A project
-installs it once, for the `python3` its hooks run, at the tag of the highest `REQUIRES` among the entry files:
+installs it once, for the `python3` that runs the scan and the effect report, at the tag of the highest `REQUIRES` among the entry files:
 ```bash
 python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v2.6.0#subdirectory=shared"
 ```
@@ -79,11 +79,21 @@ A line that starts `BROKEN: const-styling needs the Python package constitution-
    many findings, fix them, or declare the departures for the kinds that keep their form. Each
    departure is one entry with its reason. There is no warn mode, since the scan blocks no write.
 6. Output log: the scan also appends everything it prints to `const-styling.jsonl`, one JSON line
-   per print (timestamp, module, gate, mode, session, path, transcript, stream, text). By default it lives in
-   the platform's per-plugin data directory. Set `log_dir` to keep it inside the repository. The
+   per print (ts, module, gate, mode, session, path, transcript, stream, text). By default it would live in
+   the platform's per-plugin data directory. That directory is set only for hooks, and the scan runs
+   no hook. So without `log_dir` no log is written. Set `log_dir` to keep it inside the repository. The
    directory must be git-ignored, and the scan refuses to run otherwise.
-7. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`). The command `python3 -m pytest <kit clone>/modules/const-styling/tests -p no:cacheprovider` runs them, all green.
-8. CLAUDE.md line: none. The skill is named by a pointer line of 196 characters, advisory, that the
+7. Optional, the effect report: how often each rule of this module was followed, bypassed or missed.
+   Run it from the repository:
+   ```bash
+   sh <plugin root>/scripts/effect-report.sh --transcripts <dir> --since <YYYY-MM-DD>
+   ```
+   `<dir>` is the folder where Claude Code keeps this project's session transcripts. No hook writes
+   the log of step 6, so the report sees sessions only through that folder. `--since` keeps what
+   happened on or after that date. It blocks nothing and is never red: exit 0 once printed, 1 when
+   it could not run.
+8. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`). The command `python3 -m pytest <kit clone>/modules/const-styling/tests -p no:cacheprovider` runs them, all green.
+9. CLAUDE.md line: none. The skill is named by a pointer line of 196 characters, advisory, that the
    plugin prints at session start. The plugin also gives that line to every subagent at its start.
    The last line of every red of the scan names the skill too. The defaults ride on the skill and
    the traces on the scan. The scan itself

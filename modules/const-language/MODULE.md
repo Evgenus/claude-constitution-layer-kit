@@ -7,7 +7,7 @@ status: active
 
 # MODULE.md — `const-language`
 
-*Published at manifest version `0.1.0`. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
+*Published at manifest version `0.1.1`. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
 
 <a id="t1"></a>
 ## 1. Purpose
@@ -88,7 +88,7 @@ The advisory rules beside it, each `advisory` in its own text, stated in the ski
 | configuration | none | Vale's configuration is generated from the dials into a temporary directory on each run; the module ships no configuration file. |
 | manifest | `plugin/.claude-plugin/plugin.json` | The plugin's name, version and description — the only file inside `.claude-plugin/`; `0.0.x` marks a draft. |
 | tests | `tests/`: `test_language.py`, `conftest.py`, `test_shared_items.py`, which brings in the shared items, `constitution_layer_kit` linked from `shared/constitution_layer_kit`, which holds the shared test files in `testing/`, `language_gate` from this module's `plugin/scripts/` | The fixtures of [§10](#t10). |
-| install note | `plugin/INSTALL.md` | The install command of the shared package at the tag the module requires, and the binary's install routes. Then the hook and the scan, what is checked, and the dials with a worked example. Then adoption, the scan in CI, the output log, and what the module does not check. `CLAUDE.md line: none`: the pointer line, the hooks and the line after every red name the skill. |
+| install note | `plugin/INSTALL.md` | The install command of the shared package at the tag the module requires, and the binary's install routes. Then the hook and the scan, what is checked, and the dials with a worked example. Then adoption, the scan in CI, the output log, and what the module does not check. `CLAUDE.md line: none`: the pointer line, the hooks and the line after every red name the skill. It also gives the effect report, in a step of its own after the output log. |
 
 - **Always-on content:** the lines the hooks print and the skill's listing entry. They are 923 characters at a session's start (items 1 and 3) and 183 at each subagent's start (item 2):
   1. `SessionStart`, `print-skill-pointer.sh`: the pointer line, 183 characters, printed whole.

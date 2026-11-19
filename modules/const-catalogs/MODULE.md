@@ -7,7 +7,7 @@ status: active
 
 # MODULE.md — `const-catalogs`
 
-*Published at manifest version `0.1.0`. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
+*Published at manifest version `0.1.1`. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
 
 <a id="t1"></a>
 ## 1. Purpose
@@ -87,7 +87,7 @@ The advisory rules beside it, under the handles `C-a` to `C-f`:
 | configuration | none | the module runs no third-party tool, so no tool configuration ships. |
 | manifest | `plugin/.claude-plugin/plugin.json` | The plugin's name, version and description — the only file inside `.claude-plugin/`; `0.0.x` marks a draft. |
 | tests | `tests/`: `test_catalogs.py`, `conftest.py`, `test_shared_items.py`, `constitution_layer_kit` linked from `shared/constitution_layer_kit`, `catalogs_gate` from this module's `plugin/scripts/` | The fixtures of [§10](#t10): this module's items and the shared acceptance items that apply to a gate resolving no policy. All of them drive the real entry point with real hook events. |
-| install note | `plugin/INSTALL.md` | It gives the requirements and the install command of the shared package at the required tag. It gives the dial that switches the check on, the YAML alias and the negated pattern. It also gives adoption through `severity: warn`, the scan command for CI, the output log, what the module does not check; `CLAUDE.md line: none`. |
+| install note | `plugin/INSTALL.md` | It gives the requirements and the install command of the shared package at the required tag. It gives the dial that switches the check on, the YAML alias and the negated pattern. It also gives adoption through `severity: warn`, the scan command for CI, the output log, what the module does not check; `CLAUDE.md line: none`. It also gives the effect report, in a step of its own after the output log. |
 
 - **Always-on content:** the whole always-on budget, in characters, counted as YAML loads each text.
   - The skill listing carries the description of `catalog-item`, 722 characters, its final line break included; the skill has no `when_to_use`.

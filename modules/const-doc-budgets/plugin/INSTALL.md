@@ -38,7 +38,8 @@ A line that starts `BROKEN: const-doc-budgets needs the Python package constitut
    Put the rule of thumb in `max`
    and the window's first and last day in `window`. A shallow clone is refused: fetch the whole
    history first (`git fetch --unshallow`, or `fetch-depth: 0` in CI).
-5. Calibration, in the project's `constitution.yaml`:
+5. Calibration, in the project's `constitution.yaml`. The file must also name `module_prefix`, as every
+   module's dials file does:
    ```yaml
    const-doc-budgets:
      severity: block                  # block: a finding reaches the model as a block after the write; warn: as context
@@ -49,7 +50,7 @@ A line that starts `BROKEN: const-doc-budgets needs the Python package constitut
          level: warning               # warning: a note, never red; error: a finding
          window:                      # the days of data the number was set from
            from: 2026-01-01
-           to: 2026-01-15             # level error needs to 30 days or more after from
+           to: 2026-01-15             # level error needs `to` at least 30 days after `from`
        - name: guide
          paths: ["/CLAUDE.md"]
          max: 24000
@@ -87,12 +88,21 @@ A line that starts `BROKEN: const-doc-budgets needs the Python package constitut
    Exit 0 green, 2 findings, 1 the checker could not run. The scan is red on any finding whatever
    `severity` says; a ceiling at `warning` prints notes and never turns it red. Every scan prints
    one note per ceiling: what it holds, the longest document and the margin left.
-10. Output log: everything the check prints is also appended, one JSON line per print (timestamp,
+10. Output log: everything the check prints is also appended, one JSON line per print (ts,
     module, gate, mode, session, path, transcript, stream, text), to `const-doc-budgets.jsonl`. By default it lives
-    in the platform's per-plugin data directory. Set `log_dir` to keep it inside the repository;
+    in the platform's per-plugin data directory. That directory exists only in hooks, so a scan run by hand logs nothing without `log_dir`. Set `log_dir` to keep it inside the repository;
     the directory must be git-ignored, and the check refuses to run otherwise.
-11. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-doc-budgets/tests -p no:cacheprovider` — all green.
-12. CLAUDE.md line: none. The rules ride on the check and the skill.
+11. Optional, the effect report: how often each rule of this module was followed, bypassed or
+    missed. It is not the history report of step 4. Run it from the repository:
+    ```bash
+    sh <plugin root>/scripts/effect-report.sh --transcripts <dir> --since <YYYY-MM-DD>
+    ```
+    `<dir>` is the folder where Claude Code keeps this project's session transcripts. Without it, a
+    run by hand finds sessions only through the log of step 10, where `log_dir` is set. `--since` keeps what
+    happened on or after that date. It blocks nothing and is never red: exit 0 once printed, 1 when
+    it could not run.
+12. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-doc-budgets/tests -p no:cacheprovider` — all green.
+13. CLAUDE.md line: none. The rules ride on the check and the skill.
 
 What this module does not check: whether a long document says what it needs to. It does not check
 whether the window a ceiling declares is the data its number came from. Nor does it check how much

@@ -7,7 +7,7 @@ status: active
 
 # MODULE.md — `const-styling`
 
-*Published at manifest version `0.1.0`. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
+*Published at manifest version `0.1.1`. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
 
 <a id="t1"></a>
 ## 1. Purpose
@@ -92,7 +92,7 @@ The advisory rules beside it stand under the handles `Y-a` to `Y-g`, each `advis
 | configuration | none | the scan reads Markdown by its own code and runs no third-party tool, so no tool configuration ships. |
 | manifest | `plugin/.claude-plugin/plugin.json` | The plugin's name, version and description — the only file inside `.claude-plugin/`; `0.0.x` marks a draft. |
 | tests | `tests/`: `test_styling.py`, `conftest.py`, `test_shared_items.py`, which brings in the shared items, `constitution_layer_kit` linked from `shared/constitution_layer_kit`, which holds the shared test files in `testing/`, `styling_gate` from this module's `plugin/scripts/` | The fixtures of [§10](#t10). |
-| install note | `plugin/INSTALL.md` | The requirements, and the install command of the shared package at the tag the module requires. The guide's creation, zero-configuration behaviour, and the four dials with a worked example and the twelve keys. The scan, the departure rule, the output log, the fixtures from a clone, and what the module does not check. `CLAUDE.md line: none`, since the pointer line and the last line of every red name the skill. |
+| install note | `plugin/INSTALL.md` | The requirements, and the install command of the shared package at the tag the module requires. The guide's creation, zero-configuration behaviour, and the four dials with a worked example and the twelve keys. The scan, the departure rule, the output log, the fixtures from a clone, and what the module does not check. `CLAUDE.md line: none`, since the pointer line and the last line of every red name the skill. It also gives the effect report, in a step of its own after the output log. |
 
 - **Always-on content**, sizes in characters, each line as the platform loads it:
   1. The `SessionStart` hook prints the pointer line, 196 characters, `advisory`, with a line feed: `const-styling (advisory): before writing a table, a diagram, a list, a formula, a heading below level three, a callout or a fenced block in a document, load the skill const-styling:style-defaults.` The line holds no value, so no placeholder stands in it.

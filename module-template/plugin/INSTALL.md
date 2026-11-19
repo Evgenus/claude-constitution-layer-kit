@@ -27,13 +27,23 @@ A line that starts `BROKEN: const-<aspect-name> needs the Python package constit
    `sh <plugin root>/scripts/<entry>.sh --scan`. Exit 0 green, 2 findings, 1 the checker could not
    run. Delete this step for a module with no scan.
 5. Output log: everything the check prints is also appended, one JSON line per print, to
-   `const-<aspect-name>.jsonl`, by default in the platform's per-plugin data directory. Set
-   `log_dir` to keep it inside the repository; the directory must be git-ignored, and the check
-   refuses to run otherwise. Delete this step for a module with no gate.
-6. Optional, the fixtures: the install holds no tests. Run them from a clone of the kit at the
+   `const-<aspect-name>.jsonl`, by default in the platform's per-plugin data directory. That
+   directory is set only for hooks: a scan run by hand or in CI writes no log unless `log_dir` is
+   set. Set `log_dir` to keep it inside the repository; the directory must be git-ignored, and the
+   check refuses to run otherwise. Delete this step for a module with no gate.
+6. Optional, the effect report. It counts how often each rule of this module was followed,
+   bypassed or missed. Run it from the repository:
+   `sh <plugin root>/scripts/effect-report.sh --transcripts <dir> --since <YYYY-MM-DD>`.
+   `--transcripts` names the folder where Claude Code keeps this project's session transcripts.
+   Without it, a run by hand finds sessions only through the output log, where `log_dir` is set. `--since`
+   keeps what happened on or after that date. Where a rule needs judgment, name
+   it and say that a language model judges it only with `--reader`, on the person's own
+   subscription login. It blocks nothing and is never red: exit 0 once printed, 1 when it could
+   not run. Delete this step for a module with no effect report.
+7. Optional, the fixtures: the install holds no tests. Run them from a clone of the kit at the
    commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`),
    `python3 -m pytest <kit clone>/modules/const-<aspect-name>/tests -p no:cacheprovider`.
-7. CLAUDE.md line, at most one, only where MODULE.md declares one: `<the line>`, or
+8. CLAUDE.md line, at most one, only where MODULE.md declares one: `<the line>`, or
    "CLAUDE.md line: none" with its reason.
 
 What this module does not check: the paths its gate does not see, in plain words.

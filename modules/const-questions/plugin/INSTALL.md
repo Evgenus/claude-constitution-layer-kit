@@ -20,7 +20,9 @@ A line that starts `BROKEN: const-questions needs the Python package constitutio
    characters, advisory. It holds lettered options with **Pros:** and **Cons:** sub-bullets, one
    recommendation and the decider named. It also holds the instruction to load the skill before any
    choice is put. Before every `Write` and `Edit` of a Markdown file the document as it will be after
-   the write is checked for open-question markers. A finding blocks the write.
+   the write is checked for open-question markers. A finding blocks the write. The skill
+   `ask-or-decide` decides whether a choice is the user's, and how to put it. The scan, step 4, checks
+   the whole tree for markers.
 2. Calibration, all optional, in the project's `constitution.yaml`. **Zero configuration works** in a
    repository whose `constitution.yaml` has `module_prefix` and no key of this namespace. There every
    Markdown file git lists is covered. There the markers looked for are `[decide:`, `TODO`, `TBD` and
@@ -55,12 +57,22 @@ A line that starts `BROKEN: const-questions needs the Python package constitutio
    Exit 0 green, 2 findings, 1 the checker could not run. The scan ignores `severity` and always
    reports.
 5. Output log: the hook and the scan append everything they print to `const-questions.jsonl` too.
-   Each print is one JSON line (timestamp, module, gate, mode, session, path, transcript, stream, text). Blocked writes
-   leave no trace in git. By default the log lives in the platform's per-plugin data directory. Set
+   Each print is one JSON line (ts, module, gate, mode, session, path, transcript, stream, text). Blocked writes
+   leave no trace in git. By default the log lives in the platform's per-plugin data directory. That directory exists only in hooks, so a scan run by hand logs nothing without `log_dir`. Set
    `log_dir` to keep it inside the repository. The directory must be git-ignored, and the gate
    refuses to run otherwise.
-6. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), with `python3 -m pytest <kit clone>/modules/const-questions/tests -p no:cacheprovider` — all green.
-7. CLAUDE.md line: none. The session-start text carries the shape of a decision message in
+6. Optional, the effect report: how often each rule of this module was followed, bypassed or missed.
+   Run it from the repository:
+   ```bash
+   sh <plugin root>/scripts/effect-report.sh --transcripts <dir> --since <YYYY-MM-DD>
+   ```
+   `<dir>` is the folder where Claude Code keeps this project's session transcripts. Without it, a
+   run by hand finds sessions only through the log of step 5, where `log_dir` is set. `--since` keeps what
+   happened on or after that date. One rule needs judgment: whether a question was asked only where
+   it should be. `--reader` lets a language model judge it, on your own subscription login. It
+   blocks nothing and is never red: exit 0 once printed, 1 when it could not run.
+7. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), with `python3 -m pytest <kit clone>/modules/const-questions/tests -p no:cacheprovider` — all green.
+8. CLAUDE.md line: none. The session-start text carries the shape of a decision message in
    every session. The skill `/const-questions:ask-or-decide` carries the rest. Its description asks
    for it to be loaded before any message that puts a choice to the user. The rest is whether to
    ask at all, the tool or the letter, and the project's preferences. The rest also covers the open slots a
