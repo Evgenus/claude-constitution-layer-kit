@@ -79,7 +79,7 @@ A line that starts `BROKEN: const-catalogs needs the Python package constitution
    sh <plugin root>/scripts/effect-report.sh --transcripts <dir> --since <YYYY-MM-DD>
    ```
    `<dir>` is the folder where Claude Code keeps this project's session transcripts. Without it, a
-   run by hand reads only the sessions the log of step 5 names, where `log_dir` is set. `--since` keeps what
+   run by hand finds sessions only through the log of step 5, where `log_dir` is set. `--since` keeps what
    happened on or after that date. It blocks nothing and is never red: exit 0 once printed, 1 when
    it could not run.
 7. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-catalogs/tests -p no:cacheprovider` — all green.

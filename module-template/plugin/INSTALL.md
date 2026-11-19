@@ -35,7 +35,7 @@ A line that starts `BROKEN: const-<aspect-name> needs the Python package constit
    bypassed or missed. Run it from the repository:
    `sh <plugin root>/scripts/effect-report.sh --transcripts <dir> --since <YYYY-MM-DD>`.
    `--transcripts` names the folder where Claude Code keeps this project's session transcripts.
-   Without it, a run by hand reads only the sessions the output log names, where `log_dir` is set. `--since`
+   Without it, a run by hand finds sessions only through the output log, where `log_dir` is set. `--since`
    keeps what happened on or after that date. Where a rule needs judgment, name
    it and say that a language model judges it only with `--reader`, on the person's own
    subscription login. It blocks nothing and is never red: exit 0 once printed, 1 when it could

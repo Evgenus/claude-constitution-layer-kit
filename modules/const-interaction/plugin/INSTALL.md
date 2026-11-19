@@ -30,8 +30,7 @@ A line that starts `BROKEN: const-interaction needs the Python package constitut
    `git clean -f`, `git branch -D` and `-f`, `git stash drop` and `clear`, `git rebase`, `git filter-branch`,
    `git filter-repo`, `git reflog expire`, `git gc --prune=now` and a recursive `rm`. The list scan
    covers every Markdown file git lists with the default handle forms. Without that file every run
-   is a visible skip naming it, and the session-start line says so. `module_prefix: const-` alone
-   is enough. The command is read as the platform reads it for its own rules. It is split on `&&`, `||`,
+   is a visible skip naming it, and the session-start line says so. The command is read as the platform reads it for its own rules. It is split on `&&`, `||`,
    `;`, `|`, `&` and newlines outside quotes. The contents of `$(…)` and backticks and the string
    after the `-c` of a shell are examined too. The wrappers of the dial `wrappers` are stripped with their own
    options, and a shell keyword is stripped. A program path is reduced to its name, and the options between a
@@ -100,9 +99,9 @@ A line that starts `BROKEN: const-interaction needs the Python package constitut
    sh <plugin root>/scripts/effect-report.sh --transcripts <dir> --since <YYYY-MM-DD>
    ```
    `<dir>` is the folder where Claude Code keeps this project's session transcripts. Without it, a
-   run by hand reads only the sessions the log of step 7 names, where `log_dir` is set. `--since` keeps what
-   happened on or after that date. One rule needs judgment: that each reply keeps the nine
-   rules. `--reader` lets a language model judge it, on your own subscription login. It blocks
+   run by hand finds sessions only through the log of step 7, where `log_dir` is set. `--since` keeps what
+   happened on or after that date. One rule needs judgment: that each turn's last reply keeps
+   the rules of step 1. `--reader` lets a language model judge it, on your own subscription login. It blocks
    nothing and is never red: exit 0 once printed, 1 when it could not run.
 9. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the commit the install records (`gitCommitSha` in `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-interaction/tests -p no:cacheprovider` — all green.
 

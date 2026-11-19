@@ -71,7 +71,7 @@ A line that starts `BROKEN: const-decision-records needs the Python package cons
    sh <plugin root>/scripts/effect-report.sh --transcripts <dir> --since <YYYY-MM-DD>
    ```
    `<dir>` is the folder where Claude Code keeps this project's session transcripts. Without it, a
-   run by hand reads only the sessions the log of step 6 names, where `log_dir` is set. `--since` keeps what
+   run by hand finds sessions only through the log of step 6, where `log_dir` is set. `--since` keeps what
    happened on or after that date. One rule needs judgment: whether a ruling made in chat at
    recorded stakes became a record. `--reader` lets a language model judge it, on your own
    subscription login. It blocks nothing and is never red: exit 0 once printed, 1 when it could not

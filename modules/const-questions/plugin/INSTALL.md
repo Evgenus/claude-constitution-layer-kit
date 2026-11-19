@@ -67,7 +67,7 @@ A line that starts `BROKEN: const-questions needs the Python package constitutio
    sh <plugin root>/scripts/effect-report.sh --transcripts <dir> --since <YYYY-MM-DD>
    ```
    `<dir>` is the folder where Claude Code keeps this project's session transcripts. Without it, a
-   run by hand reads only the sessions the log of step 5 names, where `log_dir` is set. `--since` keeps what
+   run by hand finds sessions only through the log of step 5, where `log_dir` is set. `--since` keeps what
    happened on or after that date. One rule needs judgment: whether a question was asked only where
    it should be. `--reader` lets a language model judge it, on your own subscription login. It
    blocks nothing and is never red: exit 0 once printed, 1 when it could not run.
