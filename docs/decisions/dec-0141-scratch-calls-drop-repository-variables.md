@@ -2,7 +2,7 @@
 id: dec-0141-scratch-calls-drop-repository-variables
 type: task-record
 title: The shared code's scratch git calls drop the caller's repository variables, and its pages say so
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
@@ -50,7 +50,7 @@ The decider picked B in the audit session's chat on 2026-11-19.
 
 ## Applied
 
-The commits of this record's branch apply every item. The record is `active` until the last of them, which sets it `inactive`.
+The commits of this record's branch apply every item. The record was born `active`, and the commit that applied the last item set it `inactive`.
 
 ## Carry list
 
