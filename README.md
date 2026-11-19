@@ -26,19 +26,19 @@ flowchart TB
 
 1. **Claude Code is the mechanical layer.** The kit never wraps or mirrors the platform's plugins, skills, hooks and agents ([intent §3](INTENT.md#i3)).
 2. **The kernel is the semantic layer.** A project copies it into `docs/constitution/`, and it is the first document its own rules govern.
-3. **Each module is one plugin.** It guards one invariant, depends on the kernel and nothing else, and reads only its own namespace of the project's `constitution.yaml`. It works on an empty repository with its defaults alone.
+3. **Each module is one plugin.** It guards one invariant and depends on the kernel and nothing else. From the project's `constitution.yaml` it reads its own namespace, plus the kernel's shared keys that say where the policies and their territories are. It reads no other module's namespace. It works on an empty repository with its defaults alone.
 4. **The project holds the binding.** Its policies, territories, thresholds, deciders and every governed document are its own; the kit ships none of them.
 
 ## The modules
 
-Every gate's error message says what failed, why the rule exists, and the exact fix. A gate is deterministic, and red means fix; a skill shapes judgment and checks nothing. The Module column links each module's own page. That page says in plain language what it gives you, why, how a session behaves with it, how it works and how to get it.
+Every gate's error message says what failed, why the rule exists, and the exact fix. A gate is deterministic, and red means fix. A skill shapes judgment and checks nothing. A grant is a hook that lets the module's own command run without a prompt. It judges nothing and blocks nothing. The Module column links each module's own page. That page says in plain language what it gives you, why, how a session behaves with it, how it works and how to get it.
 
 | No. | Module | What it holds | Gate | Advisory |
 |---|---|---|---|---|
 | 1 | [`const-meta-types`](modules/const-meta-types/README.md) | every document in claimed territory carries the envelope and has exactly one governing policy | at write time and in a scan | choosing a meta-type |
 | 2 | [`const-decision-records`](modules/const-decision-records/README.md) | a decision record carries its type, stakes and decider | at write time and in a scan | pricing and recording a decision |
 | 3 | [`const-catalogs`](modules/const-catalogs/README.md) | a numbered document's file name, id and number agree, and no number repeats | at write time and in a scan | taking a number, renumbering |
-| 4 | [`const-locations`](modules/const-locations/README.md) | a document is born in its canonical home, from its kind's template | none | creating documents, introducing a kind |
+| 4 | [`const-locations`](modules/const-locations/README.md) | a document is born in its canonical home, from its kind's template | none; a grant for its own command | creating documents, introducing a kind |
 | 5 | [`const-referencing`](modules/const-referencing/README.md) | references a machine can follow and a move can repair | at write time and in a scan | citing, anchoring, moving |
 | 6 | [`const-task-close`](modules/const-task-close/README.md) | a change to described code updates its documents or declares no impact | a range check; a dirty tree at turn end | closing a task, committing |
 | 7 | [`const-questions`](modules/const-questions/README.md) | no open question inside a delivered document | at write time and in a scan | when to ask, and the shape of a question |
@@ -53,9 +53,9 @@ Every gate's error message says what failed, why the rule exists, and the exact 
 A write that cites a document by its id in backticks, where a link is required, is refused with this message, from [`const-referencing`](docs/requirements.md#const-referencing):
 
 ```text
-RED: INSTALL.md:50: document id 'constitution-kernel' stands in backticks and is no link
+RED: docs/notes/refs.md:3: document id 'plc-notes' stands in backticks and is no link
   why: an id names a document that can move: only a link lets a reader reach it and lets a move repair it
-  fix: write [constitution-kernel](docs/constitution/CONVENTIONS.md) — the path from this document to docs/constitution/CONVENTIONS.md
+  fix: write [plc-notes](../policies/plc-notes.md) — the path from this document to docs/policies/plc-notes.md
 ```
 
 The session reads the fix, makes it, and writes again; nobody has to explain the rule.
@@ -66,7 +66,7 @@ The modules are published, each at version `0.1.0` or later. The kit is its own 
 
 ## Get started
 
-The [install guide](INSTALL.md) bootstraps a new project step by step. It starts with the prerequisites, the modules loaded first and two questions for you. Then come the dials file, the first policies, the kernel copied and the first record. A scan of every module follows, then a merge that names your yes. It also covers installing one module, updating and uninstalling. CI runs its commands on every change to the kit.
+The [install guide](INSTALL.md) bootstraps a new project step by step. It starts with the prerequisites, the modules loaded first and two questions for you. Then come the dials file, the kernel copied, the first policies and the first record. A scan of every module follows, then a merge that names your yes. It also covers installing one module, updating and uninstalling. CI runs its commands on every change to the kit.
 
 ## Repository map
 
@@ -75,11 +75,12 @@ The [install guide](INSTALL.md) bootstraps a new project step by step. It starts
 | 1 | `docs/constitution/` | the semantic kernel, `CONVENTIONS.md`, and its schemas |
 | 2 | `modules/` | the modules, one plugin each, each with a `README.md` that is its landing page |
 | 3 | `module-template/` | the fixed shape every module fills |
-| 4 | `shared/` | the code every gate shares, a Python package that each module imports and pip installs ([shared/GATE.md](shared/GATE.md)) |
+| 4 | `shared/` | the code every gate shares, a Python package that you install once with pip and every module imports ([shared/GATE.md](shared/GATE.md)) |
 | 5 | `docs/` | the requirements matrix, the rollout plan, the kit's policies, decision records, research and style guide |
 | 6 | `templates/` | the templates of the kit's own document kinds |
 | 7 | `scripts/` | the kit's own checks and hooks, never shipped in a module |
 | 8 | `profiles/` | prewritten dials files, which a project takes at its bootstrap ([install guide](INSTALL.md#s2)) |
+| 9 | `.claude-plugin/` | the marketplace manifests: `marketplace.json`, which projects install from, and `dev-marketplace.json`, which the kit's own sessions load |
 
 ## License
 
