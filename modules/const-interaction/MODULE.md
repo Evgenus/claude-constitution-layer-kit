@@ -97,7 +97,7 @@ The advisory rules stand beside it, each `advisory` in its own text and carried 
 | shared code | none in the plugin | The installed Python package `constitution-layer-kit` ([kit-shared-gate-code](../../shared/GATE.md)). The tests' harness puts the kit's `shared/` on the `PYTHONPATH` of every gate it runs. This module resolves no policy and builds no index. It widened the shared code for a shell event carrying its command and for the `ask` verdict, each defaulting to what other modules pass. |
 | dependencies | `plugin/requirements.txt` | PyYAML, for the dials file. |
 | configuration | none | no third-party tool runs. |
-| manifest | `plugin/.claude-plugin/plugin.json` | the name `const-interaction`, version `0.1.0`. |
+| manifest | `plugin/.claude-plugin/plugin.json` | the name `const-interaction`, version `0.1.1`. |
 | tests | `tests/test_interaction.py`, `conftest.py`, `test_shared_items.py`, which brings in the shared items, and the packages linked beside them, the shared one holding the shared test files in `testing/` | The fixtures of [§10](#t10). |
 | install note | `plugin/INSTALL.md` | The install command of the shared package at the tag the module requires; the copy-into-CLAUDE.md fallback labelled manual and version-drifting; `CLAUDE.md line: none`. It also gives the effect report, in a step of its own after the output log. |
 

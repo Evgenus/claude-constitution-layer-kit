@@ -49,11 +49,11 @@ The decider picked A in chat on 2026-11-19, with the word "A".
 
 ## Applied
 
-The commits of this record's branch apply every ruling. The template's install note has the step, and its guidance in `slot-guidance.md` asks for it. All twelve module notes have it, after their output log, and every row names it. Each module is at manifest version `0.1.1`. The record is born `inactive`.
+The commits of this record's branch apply every ruling. The template's install note has the step, and the template's install-note row asks for it. All twelve module notes have it, after their output log, and every row names it. Each module is at manifest version `0.1.1`. The record is born `inactive`.
 
 ## Carry list
 
-1. R1 — [the template's install note](../../module-template/plugin/INSTALL.md), step 6; [the slot guidance](../../module-template/slot-guidance.md#s10), the install note row.
+1. R1 — [the template's install note](../../module-template/plugin/INSTALL.md), step 6; [the module template](../../module-template/MODULE.md#t6), its install-note row.
 2. R2 — [the template's install note](../../module-template/plugin/INSTALL.md), steps 5 and 6.
-3. R3 — [the slot guidance](../../module-template/slot-guidance.md#s10), the install note row; each module's `plugin/INSTALL.md` and the install-note row of section 6 of its `MODULE.md`.
+3. R3 — [the module template](../../module-template/MODULE.md#t6), its install-note row. A cited step's number: [the slot guidance](../../module-template/slot-guidance.md#s10), the install note row. Each module's `plugin/INSTALL.md`, and the install-note row of section 6 of its `MODULE.md`.
 4. R4 — history only: which words of an accepted ruling this record replaces. That record stays as it was accepted.

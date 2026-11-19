@@ -41,7 +41,7 @@ These steps are written for a repository with no documents of its own. For one t
    ```bash check=marketplace
    claude plugin marketplace add Evgenus/claude-constitution-layer-kit
    ```
-3. **Install the modules at project scope.** Each install takes the module at its manifest version and enables it in the project's `.claude/settings.json`. A later edit in the kit reaches the project only as [§4](#s4) says. All the modules at once, then commit `.claude/settings.json`:
+3. **Install the modules at project scope.** Each install takes the module at its manifest version and enables it in the project's `.claude/settings.json`. A later edit in the kit reaches the project only as [§4](#s4) says. A project in live mode installs under the development name, not with the block below, and runs the clone instead ([§3](#s3)). All the modules at once, then commit `.claude/settings.json`:
    ```bash check=install
    for m in ~/dev/claude-constitution-layer-kit/modules/const-*; do claude plugin install "$(basename "$m")@claude-constitution-layer-kit" --scope project; done
    ```
