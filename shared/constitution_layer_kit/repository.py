@@ -19,6 +19,27 @@ from .model import Mode
 # the call takes the smaller of it and what is left of the hook's one deadline (`identity.remaining`).
 GIT_SECONDS: float = 3
 _TAKES_A_VALUE = frozenset({"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env"})
+# The variables that name a repository, its parts or its configuration to git: what `git rev-parse
+# --local-env-vars` answers, as git 2.56 gives it. A scratch call drops them all. Git sets GIT_DIR for a
+# commit hook and for `git rebase -x` in a linked worktree; kept, it would point `git init` of the scratch
+# repository at the caller's repository and make that one bare.
+_REPOSITORY_VARIABLES = (
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_CONFIG",
+    "GIT_CONFIG_PARAMETERS",
+    "GIT_CONFIG_COUNT",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_IMPLICIT_WORK_TREE",
+    "GIT_GRAFT_FILE",
+    "GIT_INDEX_FILE",
+    "GIT_NO_REPLACE_OBJECTS",
+    "GIT_REPLACE_REF_BASE",
+    "GIT_PREFIX",
+    "GIT_SHALLOW_FILE",
+    "GIT_COMMON_DIR",
+)
 
 
 def budget(before: str = "a git call") -> float | None:
@@ -51,6 +72,17 @@ def by_hand(args: list[str], stdin: bytes | None = None) -> str:
     return shown + (" < /dev/null" if stdin is not None else "")
 
 
+def _environment(scratch: bool) -> dict[str, str]:
+    """The environment of one git call: the caller's, in the C locale. A scratch call drops every variable of
+    `_REPOSITORY_VARIABLES`, so that it acts on the scratch repository it names alone. Any other call keeps
+    them: GIT_DIR and GIT_WORK_TREE name the consumer's repository, as `ask_passed_over` reads them."""
+    env = {**os.environ, "LC_ALL": "C"}
+    if scratch:
+        for name in _REPOSITORY_VARIABLES:
+            env.pop(name, None)
+    return env
+
+
 def git(
     args: list[str], cwd: Path, stdin: bytes | None = None, scratch: bool = False
 ) -> subprocess.CompletedProcess[bytes]:
@@ -61,7 +93,8 @@ def git(
     clock.
     `scratch`: the call runs in a null repository the caller made in the system's temporary directory,
     which a person cannot run it in by hand; the failure then names that directory and the git
-    configuration outside any repository, not `cwd` and the call."""
+    configuration outside any repository, not `cwd` and the call. It runs with none of the caller's
+    repository variables (`_environment`)."""
     asked = f"git {subcommand(args)} answered"
     timeout = budget(asked)
     try:
@@ -71,7 +104,7 @@ def git(
             input=stdin,
             capture_output=True,
             check=False,
-            env={**os.environ, "LC_ALL": "C"},
+            env=_environment(scratch),
             timeout=timeout,
         )
     except FileNotFoundError as exc:

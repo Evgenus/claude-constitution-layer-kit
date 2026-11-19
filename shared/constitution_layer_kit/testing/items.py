@@ -1594,8 +1594,9 @@ class SharedItems:
             " what git names in the message, then check by hand: git -C <that directory> ls-files",
             "C12.2": f"BROKEN: git init of the scratch repository failed: w\\\\{'w' * 118} — fix: repair what"
             " git names in the message; the scratch repository lives in the system's temporary directory",
-            "C12.3": f"BROKEN: git check-ignore failed: w\\\\{'w' * 118} — fix: territory patterns must be"
-            f" gitignore syntax; check {self.file}",
+            "C12.3": f"BROKEN: git check-ignore failed: w\\\\{'w' * 118} — fix: repair what git names in"
+            f" the message, a territory pattern in {self.file} or git's own setup; the scratch repository"
+            " lives in the system's temporary directory",
             "C12.5": f"BROKEN: git could not answer where the repository is: g\\\\{'g' * 118} — fix: repair"
             " the git setup named in the message (configuration, ownership, installation)",
             "C12.6": f"BROKEN: {esc} does not exist — fix: pass --scan an existing directory, or none for"
@@ -1761,6 +1762,7 @@ about_events = {
     "negated_pattern",
     "document_unreadable",
     "file_named_md",
+    "scratch_repository_under_git_dir",
 }
 # A gate wired to Stop examines a repository, never a written file: these items are a tool gate's.
 about_files = {
@@ -1777,7 +1779,13 @@ about_files = {
 }
 # A gate wired to Stop never reaches git's file list, the territory's scratch repository or its
 # check-ignore, nor reads a document the scan lists: these items are a tool gate's.
-about_listing = {"ls_files_fails", "init_fails", "check_ignore_fails", "document_unreadable"}
+about_listing = {
+    "ls_files_fails",
+    "init_fails",
+    "check_ignore_fails",
+    "document_unreadable",
+    "scratch_repository_under_git_dir",
+}
 # A gate without a hook mode never reads hook input, a written file or the warn channel, and
 # takes a file out of its territory with a count, not a skip: these items are a hook gate's.
 about_hooks = {
@@ -2926,8 +2934,9 @@ def test_check_ignore_fails(subject: Subject) -> None:
         SCRATCH_CHECK_IGNORE,
         128,
         lambda _: (
-            "BROKEN: git check-ignore failed: fatal: simulated --no-index failure — fix: territory"
-            " patterns must be gitignore syntax; check constitution.yaml"
+            "BROKEN: git check-ignore failed: fatal: simulated --no-index failure — fix: repair what git"
+            " names in the message, a territory pattern in constitution.yaml or git's own setup; the scratch"
+            " repository lives in the system's temporary directory"
         ),
         then="hint: a second line of git's message",
     )
@@ -3970,8 +3979,9 @@ def test_dials_file_name_is_the_declared_one(subject: Subject) -> None:
         " point root_policy at the policy for policies",
         "C8": "BROKEN: root policy 'pol' claims no territory in team.yaml — fix: write pol: {territory:"
         " [<where policies live, including the root itself>]} — nothing is governed until then",
-        "C12.3": "BROKEN: git check-ignore failed: boom — fix: territory patterns must be gitignore syntax;"
-        " check team.yaml",
+        "C12.3": "BROKEN: git check-ignore failed: boom — fix: repair what git names in the message, a"
+        " territory pattern in team.yaml or git's own setup; the scratch repository lives in the system's"
+        " temporary directory",
         "C12.7": "BROKEN: team.yaml cannot be read (Permission denied) — fix: repair what the brackets name —"
         " the system's own reason, which may lie in a folder above the path, or above the target of a link"
         " on it — then run it again",
@@ -5236,3 +5246,53 @@ def test_effect_library_absent(subject: Subject) -> None:
         and lines[1] == "BROKEN: the report could not run — no rule counted"
     )
     assert ok, f"exit {result.code}; stdout {result.stdout!r}; stderr {result.stderr.strip()[-600:]!r}"
+
+
+@item(205, "a scan run with GIT_DIR naming a linked worktree's git folder leaves the repository as it was")
+def test_scratch_repository_under_git_dir(subject: Subject) -> None:
+    """Git sets GIT_DIR for a commit hook and for `git rebase -x` in a linked worktree. A scan run so, from
+    the worktree, leaves `core.bare` of the repository as it was, and `git status` there still answers. It
+    gives the verdict the same scan gives without GIT_DIR. The scratch repository of the territory is made
+    and asked with none of the variables git names as a repository's own (`git rev-parse
+    --local-env-vars`), so `git init` never makes the repository GIT_DIR names bare. The list in the code
+    holds every name the running git gives. Release 2.6.0 fails it: there the scan set `core.bare` to true
+    and ended in C12.3."""
+    it = shared(subject, "scratch_repository_under_git_dir")
+    _, main = it.s.gate_on(it.s.valid, files={it.s.valid.target: it.s.valid.text})
+    who = ["-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid"]
+    subprocess.run(["git", "add", "-A"], cwd=main, check=True, capture_output=True)
+    # a commit for the worktree to start from; the subject's own may already hold every file
+    subprocess.run(
+        ["git", *who, "commit", "-q", "--allow-empty", "-m", "main"],
+        cwd=main,
+        check=True,
+        capture_output=True,
+    )
+    tree = it.h.scratch_dir() / "tree"
+    subprocess.run(["git", "worktree", "add", "-q", str(tree)], cwd=main, check=True, capture_output=True)
+    git_dir = subprocess.run(
+        ["git", "rev-parse", "--absolute-git-dir"], cwd=tree, check=True, capture_output=True, text=True
+    ).stdout.strip()
+    assert Path(git_dir).parent.name == "worktrees", f"a linked worktree's git folder: {git_dir}"
+
+    def bare() -> tuple[int, str]:
+        done = subprocess.run(
+            ["git", "config", "--get", "core.bare"], cwd=main, capture_output=True, text=True
+        )
+        return done.returncode, done.stdout.strip()
+
+    before = bare()
+    plain = it.h.run_gate("", args=it.scan_args(tree), cwd=tree)
+    hooked = it.h.run_gate("", args=it.scan_args(tree), env={"GIT_DIR": git_dir}, cwd=tree)
+    after = bare()
+    status = subprocess.run(["git", "status", "--porcelain"], cwd=main, capture_output=True, text=True)
+    assert after == before, f"core.bare was {before}, is {after} after the scan: {hooked}"
+    assert status.returncode == 0, f"git status in the repository: {status.stderr.strip()}"
+    assert (hooked.code, hooked.stdout, hooked.stderr) == (plain.code, plain.stdout, plain.stderr), (
+        f"the scan under GIT_DIR differs from the plain one: {hooked}\n{plain}"
+    )
+    named = subprocess.run(
+        ["git", "rev-parse", "--local-env-vars"], check=True, capture_output=True, text=True
+    )
+    missing = sorted(set(named.stdout.split()) - set(repository._REPOSITORY_VARIABLES))
+    assert not missing, f"the running git names repository variables the code does not drop: {missing}"

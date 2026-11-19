@@ -59,7 +59,7 @@ A module's own message table takes the keys `G1`, `F9`, `F10`, `C1`, `C2`, `C5`,
 | C11 | count: `BROKEN: the check could not run — 0 documents examined` |
 | C12.1 | `BROKEN: git could not list the files of {root}: {git's first line} — fix: repair what git names in the message, then check by hand: git -C <that directory> ls-files` — git's own first line, so the cause is named |
 | C12.2 | `BROKEN: git init of the scratch repository failed: {git's first line} — fix: repair what git names in the message; the scratch repository lives in the system's temporary directory` — git's own first line, so the cause is named |
-| C12.3 | `BROKEN: git check-ignore failed: {git's first line} — fix: territory patterns must be gitignore syntax; check constitution.yaml` |
+| C12.3 | `BROKEN: git check-ignore failed: {git's first line} — fix: repair what git names in the message, a territory pattern in constitution.yaml or git's own setup; the scratch repository lives in the system's temporary directory` — git's own first line, so the cause is named |
 | C12.4 | `BROKEN: hook input cannot be used ({detail}) — fix: as a hook this script reads one tool event, a JSON object, on stdin; to check a repository by hand run it with --scan [<dir>]` — detail one of `it is not JSON: {the parser's message}`, `it is JSON, but the top level is not an object`, `a {tool} event must carry a string tool_input.{field}` |
 | C12.5 | `BROKEN: git could not answer where the repository is: {git's first line} — fix: repair the git setup named in the message (configuration, ownership, installation)` |
 | C12.6 | `BROKEN: {path} does not exist — fix: pass --scan an existing directory, or none for the current one` |
