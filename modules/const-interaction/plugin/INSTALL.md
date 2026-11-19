@@ -100,8 +100,8 @@ A line that starts `BROKEN: const-interaction needs the Python package constitut
    sh <plugin root>/scripts/effect-report.sh --transcripts <dir> --since <YYYY-MM-DD>
    ```
    `<dir>` is the folder where Claude Code keeps this project's session transcripts. Without it, a
-   run by hand reads only the log of step 7, and only where `log_dir` is set. `--since` keeps what
-   happened on or after that date. One rule needs judgment: whether each reply follows the nine
+   run by hand reads only the sessions the log of step 7 names, where `log_dir` is set. `--since` keeps what
+   happened on or after that date. One rule needs judgment: that each reply keeps the nine
    rules. `--reader` lets a language model judge it, on your own subscription login. It blocks
    nothing and is never red: exit 0 once printed, 1 when it could not run.
 9. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the commit the install records (`gitCommitSha` in `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-interaction/tests -p no:cacheprovider` — all green.
