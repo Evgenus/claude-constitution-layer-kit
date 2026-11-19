@@ -54,8 +54,8 @@ The commits of this record's branch apply every item. The record is `active` unt
 
 ## Carry list
 
-1. R1 — [the shared code's parts](../../shared/GATE.md#g1), row `repository`, `territory`; [the git call in the code](../../shared/constitution_layer_kit/repository.py), `git`, `scratch_environment` and `_REPOSITORY_VARIABLES`.
-2. R2 — [the shared code's parts](../../shared/GATE.md#g1), row `repository`, `territory`; [the git call in the code](../../shared/constitution_layer_kit/repository.py), `git` and `scratch_environment`.
+1. R1 — [the shared code's parts](../../shared/GATE.md#g1), row `repository`, `territory`; [the git call in the code](../../shared/constitution_layer_kit/repository.py), `git`, `_environment` and `_REPOSITORY_VARIABLES`.
+2. R2 — [the shared code's parts](../../shared/GATE.md#g1), row `repository`, `territory`; [the git call in the code](../../shared/constitution_layer_kit/repository.py), `git` and `_environment`.
 3. R3 — [the shared messages](../../shared/MESSAGES.md#g3), row C12.3; [the message in the code](../../shared/constitution_layer_kit/messages.py), `c12_check_ignore`.
 4. R4 — [the shared items](../../shared/ITEMS.md#g5), row S205; [the item in the code](../../shared/constitution_layer_kit/testing/items.py), `test_scratch_repository_under_git_dir`.
 5. R5 — history only: the raise and the bumps of this change, which rules 7 and 11 of plc-0009-shared-code ask for.
