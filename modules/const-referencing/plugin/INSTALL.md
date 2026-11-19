@@ -20,10 +20,12 @@ A line that starts `BROKEN: const-referencing needs the Python package constitut
 `BROKEN: const-referencing was written for constitution-layer-kit` points here.
 
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
-   session). It has three hooks. Before every `Write` and `Edit` of a Markdown file the forms of its
+   session). It has five hooks. Before every `Write` and `Edit` of a Markdown file the forms of its
    references are checked, and a finding blocks the write. After it the whole tree is checked
    and what the write broke is reported. This cannot block, since the write has happened. At
-   session start two sentences about references in chat are added to the session's context.
+   session start two sentences about references in chat are added to the session's context. A
+   pointer line that names the skill `referencing` is added at session start and at each subagent's
+   start.
 2. **Zero configuration works** in a repository whose `constitution.yaml` has `module_prefix`,
    whatever else it says: every Markdown file git lists is covered. Without that file every run is a visible
    skip naming it; `module_prefix: const-` alone is enough. Covered documents are checked for three forms. The first is a
@@ -90,13 +92,26 @@ A line that starts `BROKEN: const-referencing needs the Python package constitut
    not change, what names the old path elsewhere in any text file git lists, covered or not.
    It ends with the scan. After a move made by hand: `--moved <old> <new>`. To point every
    link whose text is a document's id at that document: `--ids`. The skill `/const-referencing:referencing` carries the procedure.
+   Give the paths from the folder where you run the command. Exit 0: the move was made and the tree
+   is green. Exit 2: the move was made and the scan reports findings. Exit 1: the move was refused,
+   or it stopped midway, and the last line says which.
 7. Output log: everything the gate and the mover print is also appended to `const-referencing.jsonl`,
-   one JSON line per print. The fields of a line are timestamp, module, gate, mode, session, path, transcript, stream and text. The log is kept because
+   one JSON line per print. The fields of a line are ts, module, gate, mode, session, path, transcript, stream and text. The log is kept because
    blocked writes and reports after a write leave no trace in git. By default it lives
-   in the platform's per-plugin data directory. Set `log_dir` to keep it inside the repository.
+   in the platform's per-plugin data directory. That directory is set only for hooks: a scan or a
+   move run by hand writes no log unless `log_dir` is set. Set `log_dir` to keep it inside the repository.
    The directory must be git-ignored, and the gate refuses to run otherwise.
-8. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`). The command is `python3 -m pytest <kit clone>/modules/const-referencing/tests -p no:cacheprovider`, and all are green.
-9. CLAUDE.md line: none. The rule about chat arrives through the session-start hook. The skill
+8. Optional, the effect report: how often each rule of this module was followed, bypassed or missed.
+   Run it from the repository, with `lychee` installed:
+   ```bash
+   sh <plugin root>/scripts/effect-report.sh --transcripts <dir> --since <YYYY-MM-DD>
+   ```
+   `<dir>` is the folder where Claude Code keeps this project's session transcripts. Without it, a
+   run by hand reads only the log of step 7, and only where `log_dir` is set. `--since` keeps what
+   happened on or after that date. It blocks nothing and is never red: exit 0 once printed, 1 when
+   it could not run.
+9. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`). The command is `python3 -m pytest <kit clone>/modules/const-referencing/tests -p no:cacheprovider`, and all are green.
+10. CLAUDE.md line: none. The rule about chat arrives through the session-start hook. The skill
    is named by a pointer line of 209 characters printed at session start. The same line names it at the
    start of every subagent. The line after the count line of every red of the gate names it too.
 

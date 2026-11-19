@@ -89,15 +89,25 @@ A line that starts `BROKEN: const-language needs the Python package constitution
    ```
    Exit 0 green, 2 findings, 1 the checker could not run. The scan is red on any finding whatever
    `severity` says; a rule at `warning` prints notes and never turns it red.
-5. Output log: everything the check prints is also appended, one JSON line per print (timestamp,
+5. Output log: everything the check prints is also appended, one JSON line per print (ts,
    module, gate, mode, session, path, transcript, stream, text), to `const-language.jsonl`. By default it lives in
-   the platform's per-plugin data directory. Set `log_dir` to keep it inside the repository; the
+   the platform's per-plugin data directory. That directory exists only in hooks, so a scan run by hand logs nothing without `log_dir`. Set `log_dir` to keep it inside the repository; the
    directory must be git-ignored, and the check refuses to run otherwise.
-6. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the
+6. Optional, the effect report: how often each rule of this module was followed, bypassed or missed.
+   Run it from the repository, with `vale` installed:
+   ```bash
+   sh <plugin root>/scripts/effect-report.sh --transcripts <dir> --since <YYYY-MM-DD>
+   ```
+   `<dir>` is the folder where Claude Code keeps this project's session transcripts. Without it, a
+   run by hand reads only the log of step 5, and only where `log_dir` is set. `--since` keeps what
+   happened on or after that date. One rule needs judgment: whether each turn's last reply is plain
+   English. `--reader` lets a language model judge it, on your own subscription login. It blocks
+   nothing and is never red: exit 0 once printed, 1 when it could not run.
+7. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the
    commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`). The
    command is `python3 -m pytest <kit clone>/modules/const-language/tests -p no:cacheprovider` —
    all green. The tests need `vale` on PATH like the check.
-7. CLAUDE.md line: none. The skill is named by the pointer line at session start and by the same
+8. CLAUDE.md line: none. The skill is named by the pointer line at session start and by the same
    line at every subagent's start. The line after the count line of every red of the check names
    it too. So no line in CLAUDE.md is needed to reach it. The rules ride on the check and the skill.
 

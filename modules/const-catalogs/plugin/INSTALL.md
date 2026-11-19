@@ -19,7 +19,7 @@ A line that starts `BROKEN: const-catalogs needs the Python package constitution
    session). Four hooks. At every session start — startup, resume, clear, compaction, fork — the
    plugin prints one line into the model's context while `catalogs` lists nothing. The line says
    so (the transcript does not show it). It prints no such line once a catalog is listed. It also prints, at every
-   session start and at every subagent's start, one line naming the skill (step 7). The write-time hook fires on
+   session start and at every subagent's start, one line naming the skill (step 8). The write-time hook fires on
    every `Write` and `Edit`. It examines Markdown files in a listed catalog's territory and nothing else.
 2. **Switch the check on: list the catalogs.** A kind is numbered because an entry here says
    so. The module guesses none: until `catalogs` lists one, every run prints
@@ -33,7 +33,7 @@ A line that starts `BROKEN: const-catalogs needs the Python package constitution
      severity: block      # block (default) | warn — warn reports the finding and lets the write through
      # log_dir: .gate-logs   # optional, and the directory must be git-ignored; see step 5
    ```
-   Nothing else is read but the file's `module_prefix`: no policy, no `root_policy`. Where the kind also has a policy with
+   The module reads no policy and needs no `root_policy`. The file must still name `module_prefix`. The whole file is still checked, so a malformed entry anywhere in it stops this check too. Where the kind also has a policy with
    the same territory, write the patterns once and use YAML's own alias. Then the two cannot
    drift apart:
    ```yaml
@@ -66,14 +66,24 @@ A line that starts `BROKEN: const-catalogs needs the Python package constitution
    line names each catalog's highest number, and the highest in history where a deleted item
    went further. Where history is incomplete — a shallow checkout — or could not be read, the
    line says so.
-5. Output log: everything the gate prints is also appended, one JSON line per print (timestamp,
+5. Output log: everything the gate prints is also appended, one JSON line per print (ts,
    module, gate, mode, session, path, transcript, stream, text), to `const-catalogs.jsonl`. Blocked writes,
    warnings and configuration failures leave no trace in git, so this is where they survive.
    By default it lives in the platform's per-plugin data directory, outside the repository.
+   That directory exists only in hooks, so a scan run by hand logs nothing without `log_dir`.
    Set `log_dir` to keep it inside the repository instead. The directory must be git-ignored,
    and the gate refuses to run otherwise. The log rotates at 1 MiB.
-6. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-catalogs/tests -p no:cacheprovider` — all green.
-7. CLAUDE.md line: none. The skill `/const-catalogs:catalog-item` is named at the moments it
+6. Optional, the effect report: how often each rule of this module was followed, bypassed or missed.
+   Run it from the repository:
+   ```bash
+   sh <plugin root>/scripts/effect-report.sh --transcripts <dir> --since <YYYY-MM-DD>
+   ```
+   `<dir>` is the folder where Claude Code keeps this project's session transcripts. Without it, a
+   run by hand reads only the log of step 5, and only where `log_dir` is set. `--since` keeps what
+   happened on or after that date. It blocks nothing and is never red: exit 0 once printed, 1 when
+   it could not run.
+7. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-catalogs/tests -p no:cacheprovider` — all green.
+8. CLAUDE.md line: none. The skill `/const-catalogs:catalog-item` is named at the moments it
    applies. A pointer line names it at every session start and at every subagent's start (226
    characters, advisory). A line after every red of the gate names it too.
 

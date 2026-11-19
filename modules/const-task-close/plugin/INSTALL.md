@@ -22,7 +22,8 @@ A line that starts `BROKEN: const-task-close needs the Python package constituti
    and the model sees nothing. The second stop of a turn always lets it end. While a subagent,
    a teammate or a workflow of the session still runs, the report waits, since the tree may hold
    that agent's files. The first turn end with none running reports the tree. The scan, step 5,
-   examines a change before a merge.
+   examines a change before a merge. The skill `commit-before-edit` teaches when to commit, and the
+   skill `close-task` how to close a task.
 2. **Zero configuration works** in a repository whose `constitution.yaml` has `module_prefix`,
    whatever else it says. The turn-end hook judges the tree, and the range check examines zero pairs and says so.
    Without that file every run is a visible skip naming it; `module_prefix: const-` alone is enough.
@@ -89,14 +90,23 @@ A line that starts `BROKEN: const-task-close needs the Python package constituti
    its description. A shallow clone whose history stops before the base cannot see the range, and
    the check relays git's refusal with the fix.
 7. Output log: everything the hook and the scan print is also appended to `const-task-close.jsonl`,
-   one JSON line per print. The fields of a line are timestamp, module, gate, mode, session, path, transcript, stream and text. Blocked
+   one JSON line per print. The fields of a line are ts, module, gate, mode, session, path, transcript, stream and text. Blocked
    turn ends and warnings leave no trace in git. By default it lives in the platform's
-   per-plugin data directory. Set `log_dir` to keep it inside the repository. The directory must
+   per-plugin data directory. That directory exists only in hooks, so a scan run by hand logs nothing without `log_dir`. Set `log_dir` to keep it inside the repository. The directory must
    be git-ignored, and the gate refuses to run otherwise.
-8. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-task-close/tests -p no:cacheprovider` — all green. The fixtures need
+8. Optional, the effect report: how often each rule of this module was followed, bypassed or missed.
+   Run it from the repository:
+   ```bash
+   sh <plugin root>/scripts/effect-report.sh --transcripts <dir> --since <YYYY-MM-DD>
+   ```
+   `<dir>` is the folder where Claude Code keeps this project's session transcripts. Without it, a
+   run by hand reads only the log of step 7, and only where `log_dir` is set. `--since` keeps what
+   happened on or after that date. It blocks nothing and is never red: exit 0 once printed, 1 when
+   it could not run.
+9. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-task-close/tests -p no:cacheprovider` — all green. The fixtures need
    git 2.45 or newer, since one of them builds a repository in each ref store. On an older git that fixture
    is red and the rest run.
-9. CLAUDE.md line: none. The skills `/const-task-close:close-task` and
+10. CLAUDE.md line: none. The skills `/const-task-close:close-task` and
    `/const-task-close:commit-before-edit` are named at their moment. The pointer line printed at
    session start and at each subagent's start names them (326 characters, advisory). So does the line after the count line of every red of the turn-end hook the model reads, and of the scan.
 

@@ -63,21 +63,32 @@ A line that starts `BROKEN: const-locations needs the Python package constitutio
    asked for as any other. Such a call is a second command chained to it, a
    redirection, a value in double quotes, another path. A deny or ask rule you write for the command still wins over the hook.
    The hook runs on each shell call that starts a command with `sh `, and on each call whose
-   parts Claude Code cannot tell apart. Each run costs about 0.1 s, a Python start.
+   parts Claude Code cannot tell apart. Each run costs about 0.1 s, a Python start. If the hook
+   cannot run, it grants nothing and exits 1. Claude Code then asks for the command as for any other.
 4. Introducing a kind: the skill `/const-locations:new-kind` — the policy first, its territory
    line by hand at the end of `constitution.yaml`, then the first document. The command creates
    the policy itself when given the root policy's id as the kind.
-5. Output log: everything the command prints is also appended to `const-locations.jsonl`, one JSON line per print (timestamp,
+5. Output log: everything the command prints is also appended to `const-locations.jsonl`, one JSON line per print (ts,
    module, gate, mode, session, path, transcript, stream, text). Refusals leave no
-   trace in git. By default it lives in the platform's per-plugin data directory. Set `log_dir`
+   trace in git. By default it lives in the platform's per-plugin data directory. That directory is
+   set only for hooks, so the command writes no log there. Set `log_dir`
    to keep it inside the repository; the directory must be git-ignored, and the command refuses
    to run otherwise. The hook's records — its answers, and its failures once the shared package is
    found and serves the module — always go to the data directory. They go nowhere when the platform
    names none: the hook reads no `constitution.yaml`.
-6. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the
+6. Optional, the effect report: how often each rule of this module was followed, bypassed or missed.
+   Run it from the repository:
+   ```bash
+   sh <plugin root>/scripts/effect-report.sh --transcripts <dir> --since <YYYY-MM-DD>
+   ```
+   `<dir>` is the folder where Claude Code keeps this project's session transcripts. The hook's
+   records stay in the platform's data directory, which a run by hand cannot read. So name the
+   transcripts folder even with `log_dir` set. `--since` keeps what happened on or after that date.
+   It blocks nothing and is never red: exit 0 once printed, 1 when it could not run.
+7. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the
    commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`),
    `python3 -m pytest <kit clone>/modules/const-locations/tests -p no:cacheprovider` — all green.
-7. CLAUDE.md line: none. The skill's description is in the session's skill listing. The
+8. CLAUDE.md line: none. The skill's description is in the session's skill listing. The
    skill loads on its own when a document is about to be created, and its command needs no
    allow rule (step 3).
 

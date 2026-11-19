@@ -5,7 +5,8 @@ which run the pinned ccusage that counts the tokens. It needs Python 3.12 or new
 the libraries in `requirements.txt` (`python3 -m pip install -r <plugin root>/requirements.txt`). The GitHub command
 line `gh` is optional, for `cost-report.sh --pr` alone. A missing `python3`, library, Node or npm is
 reported with the fix on the first line; nothing is silently skipped. With a git older than 2.54 the
-sessions' starts are logged, the setup refuses, and no commit is logged.
+sessions' starts are logged, the setup refuses, and no commit is logged. The first count needs the
+network once: it downloads the pinned ccusage from the npm registry into the plugin's data folder.
 
 The shared code is the Python package `constitution-layer-kit`, which brings PyYAML with it. A project
 installs it once, for the `python3` its hooks run, at the tag of the highest `REQUIRES` among the entry files:
@@ -19,9 +20,9 @@ A line that starts `BROKEN: const-change-cost needs the Python package constitut
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). Three hooks and one skill come with it. At every session start, a hook appends the
    session's id, its start time, its source and its transcript's path to the start log. At each start
-   it also prints a line, below, while this clone logs no commit. A second `SessionStart` hook and a
-   `Stop` hook run in the background and count every commit whose window is complete: after each turn,
-   and at each start. The skill `share-costs` tells a session how to put the counts into a pull
+   it also prints a line, below, while this clone logs no commit. A second `SessionStart` hook runs in
+   the background and counts every complete window of every session in the clone. A `Stop` hook does
+   the same after each turn, for its own session only. The skill `share-costs` tells a session how to put the counts into a pull
    request and a merge commit. It tells the session to share them only when a person starts it. A person starts
    it by a command, or by asking the session to open a pull request or make a merge. A hook never
    starts it. The pinned ccusage comes with the plugin as a manifest and a lockfile in its folder
@@ -66,18 +67,27 @@ A line that starts `BROKEN: const-change-cost needs the Python package constitut
    clone's git common directory. Every worktree of the clone shares them: the start log, the commit log
    and the file of counts. They are never committed or pushed, and the module writes no file in the working tree.
    Where the platform's per-plugin data directory is set, everything the hooks and commands print is
-   also appended there. It goes to `const-change-cost.jsonl`, one JSON line per print.
-6. Optional, the fixtures: the install holds no tests. So run
+   also appended there. It goes to `const-change-cost.jsonl`, one JSON line per print. That directory
+   is set only for hooks, so a command run by hand appends nothing there.
+6. Optional, the effect report: how often each rule of this module was followed, bypassed or missed.
+   Run it from the repository:
+   ```bash
+   sh <plugin root>/scripts/effect-report.sh --transcripts <dir> --since <YYYY-MM-DD>
+   ```
+   `<dir>` is the folder where Claude Code keeps this project's session transcripts. A run by hand
+   reads sessions only through that folder. This module has no dials of its own, and the report is
+   its only part that reads `constitution.yaml`. It takes the kernel keys, the namespaces'
+   territories and, under `const-change-cost`, the keys `severity` and `log_dir`. Leave `log_dir`
+   unset: no other part writes to that folder, so the report would find no session there. `--since`
+   keeps what happened on or after that date. It blocks nothing and is never red: exit 0 once
+   printed, 1 when it could not run.
+7. Optional, the fixtures: the install holds no tests. So run
    `python3 -m pytest <kit clone>/modules/const-change-cost/tests -p no:cacheprovider` from a clone of
    the kit, at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`). They need git
    2.54 or newer, Node, npm and the network once, to install the pinned ccusage into a scratch folder.
-7. CLAUDE.md line: none. The skill `/const-change-cost:share-costs` is named by the start line. That
+8. CLAUDE.md line: none. The skill `/const-change-cost:share-costs` is named by the start line. That
    line is printed while a hook of the commit log is missing. No session has been found to skip the
-   skill at a merge. This module has no dials of its own. Only the effect report reads the project's
-   `constitution.yaml`.
-   Its reader takes the kernel keys, the namespaces' territories and, under `const-change-cost`, the keys
-   `severity` and `log_dir`; leave `log_dir` unset, since no other entry writes to that folder. No other
-   entry reads the file.
+   skill at a merge.
 
 What this module does not check: it blocks nothing and no check holds its numbers. It does not count
 a commit made before the setup, or one made by a tool that runs no git hook. Nor does it count one

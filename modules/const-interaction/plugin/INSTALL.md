@@ -18,8 +18,9 @@ A line that starts `BROKEN: const-interaction needs the Python package constitut
    session). Two hooks. At every session start — startup, resume, clear, compaction, fork — the plugin
    prints its rules for every reply into the model's context. They are about 2,400 characters with the verbosity line, and the
    transcript does not show them. The value of `verbosity` follows them. Then comes one line when the
-   destructive-command gate examines nothing in the session's repository. Last comes one line for each
-   default wrapper or shell your dials drop or replace. Before every `Bash` command the gate reads the command.
+   destructive-command gate examines nothing in the session's repository. Then comes one line for each
+   default wrapper or shell your dials drop or replace. Last come any `boundary_examples`
+   pairs. Before every `Bash` command the gate reads the command.
    Where a subcommand matches a listed destructive pattern, it asks the platform to prompt you with the
    reason, labelled with the plugin's name. The reason says what matched, why the act is hard to reverse
    and the reversible alternative. You confirm at the prompt, once per command. Where no prompt can be shown, in a
@@ -34,12 +35,11 @@ A line that starts `BROKEN: const-interaction needs the Python package constitut
    `;`, `|`, `&` and newlines outside quotes. The contents of `$(…)` and backticks and the string
    after the `-c` of a shell are examined too. The wrappers of the dial `wrappers` are stripped with their own
    options, and a shell keyword is stripped. A program path is reduced to its name, and the options between a
-   program and its verb are stepped over. So `git -C . push --force` is a forced push, and so is
-   `sudo -k /usr/bin/env git push -f`. The defaults of `wrappers` are `time`, `nohup`, `command`,
+   program and its verb are stepped over. The defaults of `wrappers` are `time`, `nohup`, `command`,
    `builtin`, `noglob`, `exec`, `xargs`, `sudo`, `doas`, `env`, `nice`, `stdbuf`, `timeout`,
    `busybox`, `setsid`, `ionice`, `taskset`, `caffeinate`, `flock` and `chrt`. Those of `shells` are
    `bash`, `sh`, `zsh`, `dash`, `ksh`, `fish`, `ash`, `mksh`, `yash`, `posh`, `csh` and `tcsh`, each
-   with its options, which the module document lists. A command built from a variable, an `eval`, a
+   read with its own options. A command built from a variable, an `eval`, a
    here-string or an interpreter's `-c` string hides its verb. So does a wrapper or a shell no
    dial names, such as `uv run`. The explain (step 5) shows any reading. A flag matches anywhere after the words and before a `--`: a short one
    inside a cluster (`rm -rf`), a long one as the whole token (`--force`, never
@@ -91,10 +91,20 @@ A line that starts `BROKEN: const-interaction needs the Python package constitut
    consumer that cannot run hooks may copy `scripts/rules.txt` into the project's own `CLAUDE.md`
    by hand, as a fallback. The copy drifts on every version bump and the gate does not run — say so in the copy.
 7. Output log: everything the hooks and the scans print is also appended to `const-interaction.jsonl`,
-   one JSON line per print. The fields of a line are timestamp, module, gate, mode, session, path, transcript, stream and text. A prompt's reason and a denied command leave no trace in git. By default it lives in the
-   platform's per-plugin data directory. Set `log_dir` to keep it inside the repository. The
+   one JSON line per print. The fields of a line are ts, module, gate, mode, session, path, transcript, stream and text. A prompt's reason and a denied command leave no trace in git. By default it lives in the
+   platform's per-plugin data directory. That directory exists only in hooks, so a scan run by hand logs nothing without `log_dir`. Set `log_dir` to keep it inside the repository. The
    directory must be git-ignored, and the gate refuses to run otherwise.
-8. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the commit the install records (`gitCommitSha` in `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-interaction/tests -p no:cacheprovider` — all green.
+8. Optional, the effect report: how often each rule of this module was followed, bypassed or missed.
+   Run it from the repository:
+   ```bash
+   sh <plugin root>/scripts/effect-report.sh --transcripts <dir> --since <YYYY-MM-DD>
+   ```
+   `<dir>` is the folder where Claude Code keeps this project's session transcripts. Without it, a
+   run by hand reads only the log of step 7, and only where `log_dir` is set. `--since` keeps what
+   happened on or after that date. One rule needs judgment: whether each reply follows the nine
+   rules. `--reader` lets a language model judge it, on your own subscription login. It blocks
+   nothing and is never red: exit 0 once printed, 1 when it could not run.
+9. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the commit the install records (`gitCommitSha` in `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-interaction/tests -p no:cacheprovider` — all green.
 
 What this module does not check: a command given to the `PowerShell` tool, since the gate is wired
 to `Bash` alone. It does not check a destructive act the list does not name. Such an act is an interpreter
@@ -104,4 +114,5 @@ value. It does not check whether a reply matched its question's shape, listed it
 finding. Nor does it check an item keyed by prose alone, or by a form the `handles` dial does not name, or a document
 outside `territories`.
 
-Uninstall: remove the plugin; remove the `const-interaction:` namespace from `constitution.yaml`.
+Uninstall: remove the plugin; remove the `const-interaction:` namespace from `constitution.yaml`. Remove
+any copy of `rules.txt` from `CLAUDE.md` too.

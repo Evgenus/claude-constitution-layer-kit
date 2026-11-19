@@ -47,17 +47,26 @@ A line that starts `BROKEN: const-meta-types needs the Python package constituti
    ```
    Exit 0 green, 2 findings, 1 the checker could not run. The scan ignores `severity`.
 5. Output log: everything the gate prints is also appended to `const-meta-types.jsonl`, one JSON
-   line per print (timestamp, module, gate, mode, session, path, transcript, stream, text). Blocked writes,
+   line per print (ts, module, gate, mode, session, path, transcript, stream, text). Blocked writes,
    warnings and configuration failures leave no trace in git, so this is where they
    survive. By default it lives in the platform's per-plugin data directory, outside the
-   repository. Set `log_dir` to keep it inside the repository instead; the directory must
+   repository. That directory exists only in hooks, so a scan run by hand logs nothing without `log_dir`. Set `log_dir` to keep it inside the repository instead; the directory must
    be git-ignored, and the gate refuses to run otherwise. The log rotates at 1 MiB.
    Beside the log lives `const-meta-types.pointed`, the memo of the pointers above. It holds one line
    per pointer: the session, the repository and the policy. Its last 200 lines are kept.
-6. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the
+6. Optional, the effect report: how often each rule of this module was followed, bypassed or missed.
+   Run it from the repository:
+   ```bash
+   sh <plugin root>/scripts/effect-report.sh --transcripts <dir> --since <YYYY-MM-DD>
+   ```
+   `<dir>` is the folder where Claude Code keeps this project's session transcripts. Without it, a
+   run by hand reads only the log of step 5, and only where `log_dir` is set. `--since` keeps what
+   happened on or after that date. It blocks nothing and is never red: exit 0 once printed, 1 when
+   it could not run.
+7. Optional, the fixtures: the install holds no tests. So run them from a clone of the kit at the
    commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`),
    `python3 -m pytest <kit clone>/modules/const-meta-types/tests -p no:cacheprovider` — all green.
-7. CLAUDE.md line: none. The session-start hook already names the skill in every session and
+8. CLAUDE.md line: none. The session-start hook already names the skill in every session and
    every subagent, so no line in the project's `CLAUDE.md` is needed.
 
 What this module does not check: a Markdown file written by a shell command, a script or
