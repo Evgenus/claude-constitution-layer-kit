@@ -40,6 +40,8 @@ RED: docs/notes/style.md:3: a fenced block that names no language
 
 **The shipped guide.** A Markdown file inside the skill, with the ten defaults and their example pairs. The project copies it, gives it an envelope and keeps it as its own document. A project whose documents are governed by policies gives the guide a policy, and has each kind's policy bind its documents to the guide.
 
+**The effect report.** A command you run by hand, `effect-report.sh`. It counts three rules. The module stays on with no departure added. The main branch has no style trace that no departure allows. The skill is loaded before a table, a fenced block, a deep heading or a list is written. It reads the session transcripts the module's log names, the log itself and the git history. At each moment a rule applies, it counts whether the rule was followed, bypassed or missed. `--since` limits it to a date, and `--transcripts` adds a folder of sessions the log does not name. It blocks nothing, sets no threshold and is never red. It needs no configuration.
+
 **Settings.** The module works with no configuration. In that state every Markdown file git lists is scanned, and no departure is allowed. The skill then uses the shipped text. One dial names the documents scanned, one the project's style guides for the skill. One holds the departures. Each is an entry of paths, the signatures it allows there, and a one-line reason, which is required. There is no loudness dial, since the scan blocks no write. The last dial sets only where the log goes.
 
 <a id="a5"></a>
@@ -58,5 +60,7 @@ Or install it from the kit's marketplace: `claude plugin install const-styling@c
 ```bash
 sh <plugin root>/scripts/check-style.sh --scan
 ```
+
+To see how often the module's rules were followed in your sessions: `sh <plugin root>/scripts/effect-report.sh --since <YYYY-MM-DD>`.
 
 The full install procedure and every dial are in [INSTALL.md](plugin/INSTALL.md). The complete description of the module, with its rules, its messages and its limits, is [MODULE.md](MODULE.md).

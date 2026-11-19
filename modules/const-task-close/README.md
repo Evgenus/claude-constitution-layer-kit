@@ -42,6 +42,8 @@ Two skills load on their own. `close-task` loads when a task, a branch or a pull
 
 **The skill `commit-before-edit`.** A procedure in prose for committing first. Commit a dirty tree before the first edit of any change, and commit again after each coherent change. Never end a turn dirty, and roll back through git. It checks nothing. The module names it in the same places and after every red of the turn-end hook.
 
+**The effect report.** A command you run by hand, `effect-report.sh`. It counts five rules. The module stays on and its coverage map stays as wide. A dirty tree is committed before the next turn. Every landed change passed the range check. The two skills are loaded before the first edit and before a merge. It reads the session transcripts the module's log names, the log itself and the git history. At each moment a rule applies, it counts whether the rule was followed, bypassed or missed. `--since` limits it to a date, and `--transcripts` adds a folder of sessions the log does not name. It blocks nothing, sets no threshold and is never red. It needs no configuration.
+
 **Settings.** The module works with no configuration in a repository that has a `constitution.yaml` naming `module_prefix: const-` at least. The turn-end hook then judges the tree, and the range check examines zero pairs and says so. With no such file, the hook and the scan skip, and each says so. The coverage map switches the range check on. Other dials name the trunk branch and the remote whose copy of it is read. Two more name the key of the declaration line, and patterns of a task's working files. The scan lists such files while they are still tracked. Two dials are every gate's: how loud the turn-end finding is, and where the log goes.
 
 <a id="a5"></a>
@@ -60,5 +62,7 @@ Or install it from the kit's marketplace: `claude plugin install const-task-clos
 ```bash
 sh <plugin root>/scripts/check-task-close.sh --scan
 ```
+
+To see how often the module's rules were followed in your sessions: `sh <plugin root>/scripts/effect-report.sh --since <YYYY-MM-DD>`.
 
 The full install procedure and every dial are in [INSTALL.md](plugin/INSTALL.md). The complete description of the module, with its rules, its messages and its limits, is [MODULE.md](MODULE.md).

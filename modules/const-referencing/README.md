@@ -44,6 +44,8 @@ At every session start, two sentences are added to the session's context. In cha
 
 **The mover.** A command that moves or renames a document with `git mv`. It repairs every link to the document and every link inside it. It lists the places that still name the old path in prose, without changing them, and ends with the scan. After a move made by hand, the same command repairs what the move broke.
 
+**The effect report.** A command you run by hand, `effect-report.sh`. It counts seven rules. Documents are written where the check sees them, and no dial that judges a reference is loosened. A red is fixed, not walked around. The skill is loaded after a red and before a link is added. Every file reference in chat is a link, and the main branch has no broken reference. It reads the session transcripts the module's log names, the log itself and the git history. At each moment a rule applies, it counts whether the rule was followed, bypassed or missed. `--since` limits it to a date, and `--transcripts` adds a folder of sessions the log does not name. It blocks nothing, sets no threshold and is never red. It needs no configuration.
+
 **Settings.** The module works with no configuration: every Markdown file git lists is covered. Dials narrow coverage to governed documents, and allow links through headings, ids in backticks or local paths while a repository adopts the rule. Further dials add the project's own lanes, and the places outside Markdown where ids are named. Two dials are every gate's: how loud a finding is, and where the log goes.
 
 <a id="a5"></a>
@@ -62,5 +64,7 @@ Or install it from the kit's marketplace: `claude plugin install const-referenci
 ```bash
 sh <plugin root>/scripts/check-references.sh --scan
 ```
+
+To see how often the module's rules were followed in your sessions: `sh <plugin root>/scripts/effect-report.sh --since <YYYY-MM-DD>`.
 
 The full install procedure and every dial are in [INSTALL.md](plugin/INSTALL.md). The complete description of the module, with its rules, its messages and its limits, is [MODULE.md](MODULE.md).

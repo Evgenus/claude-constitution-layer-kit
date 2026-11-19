@@ -39,6 +39,8 @@ total, 2 counted commit(s): input 2,000, output 550, cache write 5,000, cache re
 
 **The skill `share-costs`.** A procedure in prose: set up the commit log only when asked. It also says to share the block and the trailers at the pull request and the merge. It says to write notes only on your word, and to read each figure as what it is. It checks nothing. The start line names it where it applies.
 
+**The effect report.** A command you run by hand, `effect-report.sh`. It counts four rules. Every commit is logged, and the skill `share-costs` is loaded before a pull request is opened or merged. Each merge commit carries the cost trailer, and the module stays on. It reads the session transcripts the module's log names, the log itself and the git history. At each moment a rule applies, it counts whether the rule was followed, bypassed or missed. `--since` limits it to a date, and `--transcripts` adds a folder of sessions the log does not name. It blocks nothing, sets no threshold and is never red. It needs no configuration.
+
 **Settings.** The module has no dials of its own and works with no configuration. Only its effect report reads the project's settings file: the kernel keys, every namespace's territory and, for this module, the keys `severity` and `log_dir`. Leave `log_dir` unset for this module. The ccusage version is pinned, so two clones count alike, and every cost is the list price at that version.
 
 <a id="a5"></a>
@@ -58,5 +60,7 @@ Or install it from the kit's marketplace: `claude plugin install const-change-co
 sh <plugin root>/scripts/setup-commit-log.sh
 sh <plugin root>/scripts/cost-report.sh main..HEAD
 ```
+
+To see how often the module's rules were followed in your sessions: `sh <plugin root>/scripts/effect-report.sh --since <YYYY-MM-DD>`.
 
 The full install procedure is in [INSTALL.md](plugin/INSTALL.md). The complete description of the module, with its rules, its messages and its limits, is [MODULE.md](MODULE.md).

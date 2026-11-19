@@ -40,6 +40,8 @@ Two skills load on their own. `record-decision` loads when a ruling is being mad
 
 **The skill `promote-recurring-notes`.** A procedure in prose, loaded when recent history is reviewed. It reads the commit messages and groups the routine calls by the question they answer. It proposes a record or a written procedure for a theme that keeps coming back. Where the project uses a commit trailer for these notes, it counts them with one git command. Nothing in it blocks a write.
 
+**The effect report.** A command you run by hand, `effect-report.sh`. It counts seven rules. Records are written where the hook sees them, and the module stays on. A refusal is fixed, not walked around. The skill `record-decision` is loaded after a refusal and before a record. The main branch has no invalid record. And a ruling made in chat at recorded stakes becomes a record. It reads the session transcripts the module's log names, the log itself and the git history. At each moment a rule applies, it counts whether the rule was followed, bypassed or missed. `--since` limits it to a date, and `--transcripts` adds a folder of sessions the log does not name. The last rule needs judgment, so a language model judges it, only when you add `--reader`. Its counts stand on lines of their own. It blocks nothing, sets no threshold and is never red. It needs no configuration.
+
 **Settings.** The module works with no configuration beyond the one dial that switches it on: the list of record policies. Three more dials are read by the skills alone, as written. They hold the project's own examples of a routine call beside a recorded one. They name who may decide at each stakes level, and the commit trailer under which routine notes carry a theme. Two dials are every gate's: how loud a finding is, and where the log goes. The quieter setting reports the finding and lets the write through.
 
 <a id="a5"></a>
@@ -58,5 +60,7 @@ Or install it from the kit's marketplace: `claude plugin install const-decision-
 ```bash
 sh <plugin root>/scripts/check-decision-record.sh --scan
 ```
+
+To see how often the module's rules were followed in your sessions: `sh <plugin root>/scripts/effect-report.sh --since <YYYY-MM-DD>`.
 
 The full install procedure and every dial are in [INSTALL.md](plugin/INSTALL.md). The complete description of the module, with its rules, its messages and its limits, is [MODULE.md](MODULE.md).
