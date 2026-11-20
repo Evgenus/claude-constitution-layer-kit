@@ -52,7 +52,7 @@ The commits of this record's branch apply every item. The record was born `activ
 
 ## Carry list
 
-1. R1 — [the shared code's parts](../../shared/GATE.md#g1), row `repository`, `territory`; [the shared code's limits](../../shared/GATE.md#g2), item 11, `escape`; [the effect report's git runner](../../shared/constitution_layer_kit/ways.py), `_run_git`, `_escape_moments` and `_scan_at`.
-2. R2 — history only: the probe of this session, and the signal that would reopen it.
+1. R1 — [the shared code's parts](../../shared/GATE.md#g1), row `repository`, `territory`; [the effect report's git runner](../../shared/constitution_layer_kit/ways.py), `_run_git`, `_escape_moments` and `_scan_at`.
+2. R2 — [the shared code's parts](../../shared/GATE.md#g1), row `repository`, `territory`; [the effect report's git runner](../../shared/constitution_layer_kit/ways.py), the comment in `_scan_commits`. [The shared items](../../shared/ITEMS.md#g5), row S206, turn red on a verdict that differs under `GIT_DIR`. The probe itself is history.
 3. R3 — [the shared items](../../shared/ITEMS.md#g5), row S206; [the item in the code](../../shared/constitution_layer_kit/testing/items.py), `test_effect_escape_clone_under_git_dir`.
 4. R4 — history only: the raise and the bumps of this change, which rules 7 and 11 of plc-0009-shared-code ask for.

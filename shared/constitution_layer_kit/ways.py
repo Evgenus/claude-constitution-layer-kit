@@ -626,6 +626,8 @@ def _scan_commits(
 ) -> list[Moment]:
     found: list[Moment] = []
     failed: list[tuple[str, str]] = []
+    # The scan keeps the caller's environment, GIT_DIR included: only the clone, its checkout and its clean
+    # are scratch calls. Under GIT_DIR its verdict equalled the plain run's, since it reads the clone's files.
     env = {**os.environ, "CLAUDE_PLUGIN_DATA": str(data), "CLAUDE_PROJECT_DIR": str(clone)}
     for commit, at in commits:
         code = _scan_at(clone, wrapper, commit, scan_argv(commit), env)
