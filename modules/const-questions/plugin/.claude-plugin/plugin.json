@@ -1,6 +1,6 @@
 {
   "name": "const-questions",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Ask only at recorded stakes or at a genuine blocker; else decide and note. One decision per message, in a fixed shape printed at every session start: lettered options with pros and cons, one recommendation, the decider named. Questions come from open slots, closed vocabularies are the options, defaults take an override, and vague input is restated. No open question inside a deliverable, with a gate on open-question markers in delivered documents.",
   "author": { "name": "Eugene Chernyshov" },
   "license": "Apache-2.0"

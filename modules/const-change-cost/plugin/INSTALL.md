@@ -11,7 +11,7 @@ network once: it downloads the pinned ccusage from the npm registry into the plu
 The shared code is the Python package `constitution-layer-kit`, which brings PyYAML with it. A project
 installs it once, for the `python3` its hooks run, at the tag of the highest `REQUIRES` among the entry files:
 ```bash
-python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v2.6.1#subdirectory=shared"
+python3 -m pip install "git+https://github.com/Evgenus/claude-constitution-layer-kit@constitution-layer-kit-v2.6.2#subdirectory=shared"
 ```
 A line that starts `BROKEN: const-change-cost needs the Python package constitution-layer-kit`,
 `BROKEN: const-change-cost needs constitution-layer-kit` or

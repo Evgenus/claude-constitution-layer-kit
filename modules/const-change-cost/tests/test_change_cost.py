@@ -1496,7 +1496,7 @@ class Entry:
     clause: str
     closing: str
     c2_clause: str  # the identity's clause, which closes the shared C2 alone for a generator
-    requires: str = "2.6.1"  # the release of the shared package the entry file states
+    requires: str = "2.6.2"  # the release of the shared package the entry file states
 
     def tail(self) -> str:
         return f" — {self.clause}" if self.clause else ""

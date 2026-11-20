@@ -1,6 +1,6 @@
 {
   "name": "const-interaction",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Answer in the shape the question has, the answer first. List every assumption, and make every list item addressable. Put honesty over agreement. Stop before a hard-to-reverse act and wait for a yes, with a gate on listed destructive commands.",
   "author": { "name": "Eugene Chernyshov" },
   "license": "Apache-2.0"
