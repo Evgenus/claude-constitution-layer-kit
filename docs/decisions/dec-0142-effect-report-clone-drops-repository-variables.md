@@ -2,7 +2,7 @@
 id: dec-0142-effect-report-clone-drops-repository-variables
 type: task-record
 title: The effect report clone drops the caller repository variables, and the shared pages say so
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
