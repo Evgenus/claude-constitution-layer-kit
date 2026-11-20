@@ -5296,3 +5296,51 @@ def test_scratch_repository_under_git_dir(subject: Subject) -> None:
     )
     missing = sorted(set(named.stdout.split()) - set(repository._REPOSITORY_VARIABLES))
     assert not missing, f"the running git names repository variables the code does not drop: {missing}"
+
+
+@item(
+    206,
+    "effect report: run with GIT_DIR naming a linked worktree's git folder, it leaves the worktree as it was",
+)
+def test_effect_escape_clone_under_git_dir(subject: Subject) -> None:
+    """Git sets GIT_DIR for a commit hook and for `git rebase -x` in a linked worktree. The effect report
+    run so, from the worktree, leaves the worktree's branch, its index and its files as they were, and
+    `core.bare` of the repository too. It prints what the same report prints without GIT_DIR. The escape
+    rule's clone is made, checked out and cleaned with none of the variables git names as a repository's
+    own, so its `checkout -f --detach` and its `clean` act on the clone alone. Release 2.6.1 fails it:
+    there the report detached the worktree's branch and reset its index. A module with no escape rule
+    makes no clone, and passes."""
+    it = shared(subject, "effect_escape_clone_under_git_dir")
+    main = it.h.fresh_consumer().root
+    tree = it.h.scratch_dir() / "tree"
+    subprocess.run(
+        ["git", "worktree", "add", "-q", "-b", "side", str(tree)], cwd=main, check=True, capture_output=True
+    )
+    git_dir = subprocess.run(
+        ["git", "rev-parse", "--absolute-git-dir"], cwd=tree, check=True, capture_output=True, text=True
+    ).stdout.strip()
+    assert Path(git_dir).parent.name == "worktrees", f"a linked worktree's git folder: {git_dir}"
+    (tree / "staged.txt").write_text("staged\n", encoding="utf-8")
+    (tree / "loose.txt").write_text("untracked\n", encoding="utf-8")
+    subprocess.run(["git", "add", "staged.txt"], cwd=tree, check=True, capture_output=True)
+
+    def state() -> list[str]:
+        asked = (
+            (tree, ["symbolic-ref", "-q", "HEAD"]),
+            (tree, ["status", "--porcelain"]),
+            (main, ["config", "--get", "core.bare"]),
+        )
+        return [
+            subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True).stdout.strip()
+            for cwd, args in asked
+        ]
+
+    before = state()
+    plain = effect_run(it, tree)
+    hooked = effect_run(it, tree, env={"GIT_DIR": git_dir})
+    after = state()
+    assert before == ["refs/heads/side", "A  staged.txt\n?? loose.txt", "false"], f"the setup: {before}"
+    assert after == before, f"the worktree was {before}, is {after} after the report under GIT_DIR: {hooked}"
+    assert (hooked.code, hooked.stdout, hooked.stderr) == (plain.code, plain.stdout, plain.stderr), (
+        f"the report under GIT_DIR differs from the plain one: {hooked}\n{plain}"
+    )

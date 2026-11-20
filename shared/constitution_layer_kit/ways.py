@@ -27,7 +27,7 @@ from pathlib import Path
 
 import yaml
 
-from . import judge, messages
+from . import judge, messages, repository
 from .effect import History, Judge, Moment, Outcome, Rule, Way
 from .history import AssistantText, HookRun, HumanTurn, Session, ToolCall
 
@@ -117,8 +117,13 @@ def _under(top: str, full: str) -> str | None:
     return full[len(top) + 1 :] if full.startswith(top + os.sep) else None
 
 
-def _run_git(args: Sequence[str], cwd: str | Path, seconds: float = GIT_SECONDS) -> str | None:
-    """The standard output of one git call, or None when git failed, was not found or ran out of time."""
+def _run_git(
+    args: Sequence[str], cwd: str | Path, seconds: float = GIT_SECONDS, scratch: bool = False
+) -> str | None:
+    """The standard output of one git call, or None when git failed, was not found or ran out of time. Its
+    environment is the shared `git`'s (`repository._environment`): a `scratch` call, one in the escape
+    rule's throwaway clone, runs with none of the caller's repository variables, so that a GIT_DIR a commit
+    hook sets never turns it on the caller's repository; any other call keeps them."""
     try:
         done = subprocess.run(
             ["git", *args],
@@ -128,7 +133,7 @@ def _run_git(args: Sequence[str], cwd: str | Path, seconds: float = GIT_SECONDS)
             errors="replace",
             timeout=seconds,
             check=False,
-            env={**os.environ, "LC_ALL": "C"},
+            env=repository._environment(scratch),
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
@@ -602,6 +607,7 @@ def _escape_moments(
             ["clone", "--shared", "--no-checkout", "--quiet", str(history.root), str(clone)],
             folder,
             CLONE_SECONDS,
+            scratch=True,
         )
         if cloned is None:
             history.note(messages.u7_no_scan(key, "git clone failed"))
@@ -637,7 +643,7 @@ def _scan_commits(
 def _scan_at(clone: Path, wrapper: Path, commit: str, argv: list[str], env: Mapping[str, str]) -> int | None:
     """The exit code of the scan on the clone at a commit; None where the checkout or the scan did not run."""
     checkout = ["-c", "core.hooksPath=/dev/null", "checkout", "-q", "-f", "--detach", commit]
-    if _run_git(checkout, clone) is None:
+    if _run_git(checkout, clone, scratch=True) is None:
         return None
     try:
         done = subprocess.run(
@@ -653,7 +659,7 @@ def _scan_at(clone: Path, wrapper: Path, commit: str, argv: list[str], env: Mapp
     except (OSError, subprocess.TimeoutExpired):
         return None
     finally:
-        _run_git(["clean", "-fdxq"], clone)
+        _run_git(["clean", "-fdxq"], clone, scratch=True)
     return done.returncode
 
 
