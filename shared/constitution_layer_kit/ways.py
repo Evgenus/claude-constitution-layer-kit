@@ -628,7 +628,8 @@ def _scan_commits(
     failed: list[tuple[str, str]] = []
     # The scan keeps the caller's environment, GIT_DIR included: only the clone, its checkout and its clean
     # are scratch calls. Under GIT_DIR its verdict equalled the plain run's: a scan reads the clone's files,
-    # and the clone shares the caller's objects. A verdict that differs under GIT_DIR would make it drop them.
+    # and the clone shares the caller's objects. A scan verdict that differs under GIT_DIR would reopen this
+    # choice.
     env = {**os.environ, "CLAUDE_PLUGIN_DATA": str(data), "CLAUDE_PROJECT_DIR": str(clone)}
     for commit, at in commits:
         code = _scan_at(clone, wrapper, commit, scan_argv(commit), env)
