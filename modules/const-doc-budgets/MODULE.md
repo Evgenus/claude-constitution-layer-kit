@@ -262,4 +262,4 @@ This section says what the module counts of its own effect in a project that ins
 
 **Ways** *(template rule)*. The ways B1 to B6 as [template §13](../../module-template/MODULE.md#t13) defines them; the ones this module's rules cannot fail by are left out in [§12](#t12), item 5.
 
-**Code** *(template rule)*. As [template §13](../../module-template/MODULE.md#t13) says: the rules in `budgets_gate/effect_rules.py`, built by the helpers of `constitution_layer_kit.ways` with this module's territory. That territory is the paths of its ceilings, read by its own dials reader. The helpers also take loosened dials, scan wrapper and skill moment. The entry is E6 of [§9](#t9), `REQUIRES` `2.6.0`.
+**Code** *(template rule)*. As [template §13](../../module-template/MODULE.md#t13) says: the rules in `budgets_gate/effect_rules.py`, built by the helpers of `constitution_layer_kit.ways` with this module's territory. That territory is the paths of its ceilings, read by its own dials reader. The helpers also take loosened dials, scan wrapper and skill moment. The entry is E6 of [§9](#t9), `REQUIRES` `2.6.1`.

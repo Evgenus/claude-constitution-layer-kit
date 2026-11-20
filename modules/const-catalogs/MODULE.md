@@ -318,4 +318,4 @@ This section is what the module counts of its own effect in a project that insta
 
 **Ways** *(template rule)*. The ways B1 to B6 as [template §13](../../module-template/MODULE.md#t13) defines them.
 
-**Code** *(template rule)*. As [template §13](../../module-template/MODULE.md#t13) says: the rules in `catalogs_gate/effect_rules.py`, built by the helpers of `constitution_layer_kit.ways` with this module's territories, loosened dials and scan. W5 is built by a helper called on the history it is asked about. The entry is E7 of [§9](#t9), `REQUIRES` `2.6.0`.
+**Code** *(template rule)*. As [template §13](../../module-template/MODULE.md#t13) says: the rules in `catalogs_gate/effect_rules.py`, built by the helpers of `constitution_layer_kit.ways` with this module's territories, loosened dials and scan. W5 is built by a helper called on the history it is asked about. The entry is E7 of [§9](#t9), `REQUIRES` `2.6.1`.

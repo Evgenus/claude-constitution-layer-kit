@@ -290,4 +290,4 @@ Limits of the pattern: W2 shares a limit of `switch_off`, for the commit that wr
 
 **Ways** *(template rule)*. The ways B1 to B6 as [template §13](../../module-template/MODULE.md#t13) defines them.
 
-**Code** *(template rule)*. As [template §13](../../module-template/MODULE.md#t13) says: the rules in `questions_gate/effect_rules.py` are built by the helpers of `constitution_layer_kit.ways` with this module's territory, loosened dials and scan. W5 is built by a `find` of its own. The entry is E5 of [§9](#t9), `REQUIRES` `2.6.0`.
+**Code** *(template rule)*. As [template §13](../../module-template/MODULE.md#t13) says: the rules in `questions_gate/effect_rules.py` are built by the helpers of `constitution_layer_kit.ways` with this module's territory, loosened dials and scan. W5 is built by a `find` of its own. The entry is E5 of [§9](#t9), `REQUIRES` `2.6.1`.

@@ -303,4 +303,4 @@ This section says what the module counts of its own effect in a project that ins
 
 **Ways** *(template rule)*. The ways B1 to B6 as [template §13](../../module-template/MODULE.md#t13) defines them.
 
-**Code** *(template rule)*. As [template §13](../../module-template/MODULE.md#t13) says: the rules in `decision_records_gate/effect_rules.py`, built by the helpers of `constitution_layer_kit.ways` with this module's record territory, loosened dials, scan and skill. The entry is E6 of [§9](#t9), `REQUIRES` `2.6.0`.
+**Code** *(template rule)*. As [template §13](../../module-template/MODULE.md#t13) says: the rules in `decision_records_gate/effect_rules.py`, built by the helpers of `constitution_layer_kit.ways` with this module's record territory, loosened dials, scan and skill. The entry is E6 of [§9](#t9), `REQUIRES` `2.6.1`.

@@ -293,4 +293,4 @@ What the module counts of its own effect in a project that installs it, [aspect 
 
 **Ways** *(template rule)*. The ways B2, B4 and B5 as [template §13](../../module-template/MODULE.md#t13) defines them; the others are left out in [§12](#t12), item 8.
 
-**Code** *(template rule)*. As [template §13](../../module-template/MODULE.md#t13) says: the rules in `styling_gate/effect_rules.py`, built by the helpers of `constitution_layer_kit.ways` with this module's loosened dials. The helpers also take the module's scan and the moment of its skill. The entry is E5 of [§9](#t9), `REQUIRES` `2.6.0`.
+**Code** *(template rule)*. As [template §13](../../module-template/MODULE.md#t13) says: the rules in `styling_gate/effect_rules.py`, built by the helpers of `constitution_layer_kit.ways` with this module's loosened dials. The helpers also take the module's scan and the moment of its skill. The entry is E5 of [§9](#t9), `REQUIRES` `2.6.1`.

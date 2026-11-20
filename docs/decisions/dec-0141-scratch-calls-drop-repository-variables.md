@@ -44,7 +44,7 @@ The decider picked B in the audit session's chat on 2026-11-19.
 
 <a id="r3"></a>**R3.** The fix text of `C12.3` no longer blames the territory patterns for every failure of `git check-ignore`. It sends the reader to git's own line. The message keeps its key and its parameter.
 
-<a id="r4"></a>**R4.** Shared item 205 holds R1 and R2. A scan in a linked worktree, run with `GIT_DIR` naming that worktree's git folder, leaves `core.bare` of the repository as it was. It gives the verdict the same scan gives without `GIT_DIR`. The list in the code holds every variable the running git names. The item is red on release 2.6.0.
+<a id="r4"></a>**R4.** Shared item 205 holds R1. A scan in a linked worktree, run with `GIT_DIR` naming that worktree's git folder, leaves `core.bare` of the repository as it was. It gives the verdict the same scan gives without `GIT_DIR`. The list in the code holds every variable the running git names. The item is red on release 2.6.0.
 
 <a id="r5"></a>**R5.** The change raises `__version__` to 2.6.1 and the release every module requires to 2.6.1. It bumps each published module to `0.1.2`, and the install pages name the new tag. Rules 7 and 11 of plc-0009-shared-code ask for both.
 
