@@ -398,7 +398,8 @@ def c12_check_ignore(detail: str) -> Broken:
     return Broken(
         SharedKey.C12,
         f"git check-ignore failed: {escaped(detail)}",
-        f"territory patterns must be gitignore syntax; check {_file()}",
+        f"repair what git names in the message, a territory pattern in {_file()} or git's own setup; the"
+        " scratch repository lives in the system's temporary directory",
     )
 
 

@@ -1342,7 +1342,7 @@ def test_t20() -> None:
     )
     broken_first_line(
         no_shared,
-        "BROKEN: const-doc-budgets needs the Python package constitution-layer-kit 2.6.0 or a later 2.x"
+        "BROKEN: const-doc-budgets needs the Python package constitution-layer-kit 2.6.1 or a later 2.x"
         " release, and python3 cannot import it — fix: install it for python3 as"
         f" {PLUGIN_ROOT / 'INSTALL.md'} says — until then the gate's state is not said at session start",
     )
